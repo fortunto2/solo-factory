@@ -1,5 +1,10 @@
 ---
+name: solo-research
 description: Scout the market — competitors, SEO, naming, domains, market sizing
+license: MIT
+metadata:
+  author: fortunto2
+  version: "1.3.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, WebSearch, WebFetch, AskUserQuestion, mcp__codegraph__kb_search, mcp__codegraph__web_search, mcp__codegraph__session_search, mcp__codegraph__project_info
 argument-hint: "[idea name or description]"
 ---

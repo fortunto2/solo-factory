@@ -1,5 +1,10 @@
 ---
+name: solo-audit
 description: Health check your knowledge base — find broken links, missing metadata, gaps
+license: MIT
+metadata:
+  author: fortunto2
+  version: "1.3.0"
 allowed-tools: Read, Grep, Bash, Glob, mcp__codegraph__kb_search
 argument-hint: "[optional: focus area like 'tags' or 'frontmatter']"
 ---

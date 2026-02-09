@@ -1,5 +1,10 @@
 ---
+name: solo-plan
 description: Explore codebase, write spec + battle plan — zero questions, pure code research
+license: MIT
+metadata:
+  author: fortunto2
+  version: "1.3.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__codegraph__session_search, mcp__codegraph__project_code_search, mcp__codegraph__codegraph_query, mcp__codegraph__kb_search
 argument-hint: "<task description>"
 ---

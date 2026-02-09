@@ -1,5 +1,10 @@
 ---
+name: solo-build
 description: Ship it — execute plan tasks with TDD, auto-commit, phase gates
+license: MIT
+metadata:
+  author: fortunto2
+  version: "1.3.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__codegraph__session_search, mcp__codegraph__project_code_search, mcp__codegraph__codegraph_query
 argument-hint: "[track-id] [--task X.Y] [--phase N]"
 ---

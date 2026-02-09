@@ -1,5 +1,10 @@
 ---
+name: solo-swarm
 description: Launch 3 research agents in parallel — market, users, tech — fast answers
+license: MIT
+metadata:
+  author: fortunto2
+  version: "1.3.0"
 allowed-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Write, mcp__codegraph__web_search, mcp__codegraph__kb_search, mcp__codegraph__project_info, mcp__codegraph__codegraph_query
 argument-hint: "[idea name or description]"
 ---

@@ -1,5 +1,10 @@
 ---
+name: solo-setup
 description: Wire up dev workflow from PRD + CLAUDE.md — zero questions asked
+license: MIT
+metadata:
+  author: fortunto2
+  version: "1.3.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__codegraph__project_info, mcp__codegraph__codegraph_query, mcp__codegraph__kb_search
 argument-hint: "[project-name]"
 ---
