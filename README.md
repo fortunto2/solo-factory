@@ -29,7 +29,11 @@ The plugin auto-starts [solograph](https://github.com/fortunto2/solograph) MCP s
 
 ### Option 3: MCP only (no skills)
 
-Add to `.mcp.json`:
+```bash
+claude mcp add -s project solograph -- uvx solograph
+```
+
+Or add manually to `.mcp.json`:
 ```json
 {
   "mcpServers": {
