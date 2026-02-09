@@ -5,7 +5,7 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.3.0"
-allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__codegraph__kb_search
+allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__kb_search
 argument-hint: "[decision or dilemma to analyze]"
 ---
 

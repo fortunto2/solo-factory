@@ -11,7 +11,7 @@
   "license": "MIT",
   "keywords": ["startup", "solopreneur", "research", "validation", "scaffold", "tdd"],
   "mcpServers": {
-    "codegraph": {
+    "solograph": {
       "command": "uvx",
       "args": ["solograph"],
       "env": {

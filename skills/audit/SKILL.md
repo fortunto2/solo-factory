@@ -5,7 +5,7 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.3.0"
-allowed-tools: Read, Grep, Bash, Glob, mcp__codegraph__kb_search
+allowed-tools: Read, Grep, Bash, Glob, mcp__solograph__kb_search
 argument-hint: "[optional: focus area like 'tags' or 'frontmatter']"
 ---
 
