@@ -13,7 +13,7 @@
   "mcpServers": {
     "codegraph": {
       "command": "uvx",
-      "args": ["codegraph-mcp"],
+      "args": ["solograph"],
       "env": {
         "CODEGRAPH_DB_PATH": "~/.codegraph/codegraph.db",
         "CODEGRAPH_REGISTRY": "~/.codegraph/registry.yaml"

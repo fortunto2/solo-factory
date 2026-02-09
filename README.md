@@ -13,9 +13,9 @@ claude plugin marketplace add https://github.com/fortunto2/solo-factory
 claude plugin install solo@solo --scope user
 ```
 
-That's it. The plugin auto-starts [codegraph-mcp](https://github.com/fortunto2/codegraph-mcp) server via `uvx` — 11 MCP tools available instantly.
+That's it. The plugin auto-starts [solograph](https://github.com/fortunto2/solograph) server via `uvx` — 11 MCP tools available instantly.
 
-**Prerequisite:** [uv](https://docs.astral.sh/uv/) (for `uvx codegraph-mcp`).
+**Prerequisite:** [uv](https://docs.astral.sh/uv/) (for `uvx solograph`).
 
 Verify:
 ```bash
@@ -106,7 +106,7 @@ Installed components:
 
 ## MCP Integration
 
-Skills auto-detect and use [codegraph-mcp](https://github.com/fortunto2/codegraph-mcp) tools when available:
+Skills auto-detect and use [solograph](https://github.com/fortunto2/solograph) tools when available:
 
 | Tool | What it does |
 |------|-------------|
@@ -164,7 +164,7 @@ solo-factory/
 
 ## Works well with
 
-- [codegraph-mcp](https://github.com/fortunto2/codegraph-mcp) — MCP server for code intelligence, KB, sessions, web search
+- [solograph](https://github.com/fortunto2/solograph) — MCP server for code intelligence, KB, sessions, web search
 - [Agent Teams](https://github.com/anthropics/agents) — parallel feature dev, code review, debugging
 - [Context7](https://github.com/upstash/context7) — latest library docs for scaffolding
 
