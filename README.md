@@ -102,19 +102,40 @@ Installed components:
 | `kotlin-android` | Jetpack Compose, Room, Koin |
 | `astro-static` | Astro 5, Cloudflare Pages |
 | `python-api` | FastAPI, Pydantic, SQLAlchemy, Alembic |
-| `python-ml` | uv, Pydantic, ChromaDB, MLX |
+| `python-ml` | uv, Pydantic, FalkorDB, MLX |
 
 ## MCP Integration
 
 Skills auto-detect and use [codegraph-mcp](https://github.com/fortunto2/codegraph-mcp) tools when available:
 
-- `kb_search` — semantic search over knowledge base
-- `session_search` — search past Claude Code sessions
-- `codegraph_query` — code intelligence graph queries
-- `project_code_search` — semantic code search across projects
-- `web_search` — web search via SearXNG
+| Tool | What it does |
+|------|-------------|
+| `kb_search` | Semantic search over knowledge base (FalkorDB vectors, RU+EN) |
+| `session_search` | Search past Claude Code sessions ("how did I solve X?") |
+| `codegraph_query` | Cypher queries against code intelligence graph |
+| `codegraph_stats` | Graph statistics (projects, files, symbols, packages) |
+| `codegraph_explain` | Architecture overview of any project |
+| `codegraph_shared` | Shared packages across projects |
+| `project_code_search` | Semantic code search (auto-indexes on first call) |
+| `project_code_reindex` | Reindex project code after changes |
+| `project_info` | Project registry (stacks, status, last commit) |
+| `web_search` | Web search via [SearXNG](https://github.com/fortunto2/searxng-docker-tavily-adapter) or [Tavily](https://tavily.com) |
 
 Without MCP, skills fall back to Glob, Grep, Read, WebSearch/WebFetch.
+
+### Web Search Setup (optional)
+
+The `web_search` tool connects to any Tavily-compatible API:
+
+**Self-hosted (recommended, private, free):**
+```bash
+git clone https://github.com/fortunto2/searxng-docker-tavily-adapter.git
+cd searxng-docker-tavily-adapter && cp config.example.yaml config.yaml
+docker compose up -d
+# → localhost:8013 (API) + localhost:8999 (UI)
+```
+
+**Or Tavily cloud:** set `TAVILY_API_URL=https://api.tavily.com` and `TAVILY_API_KEY` in plugin env.
 
 ## Structure
 
