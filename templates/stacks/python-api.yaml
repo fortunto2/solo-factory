@@ -1,0 +1,43 @@
+name: Python API
+platform: server
+language: python3.13
+package_manager: uv
+framework: fastapi
+database: postgresql
+orm: sqlalchemy
+validation: pydantic
+i18n: gettext or simple dict/json
+auth: "shared-auth (Supabase Auth backend, or JWT for API-only)"
+payments: "stripe (server-side, webhooks)"
+linter: ruff (replaces flake8, isort, pyflakes)
+formatter: ruff format (replaces black)
+testing: pytest + httpx (TestClient) + pytest-asyncio
+pre_commit: pre-commit (ruff + ruff-format hooks)
+key_packages:
+  - fastapi (API framework)
+  - pydantic (schemas, validation — always first)
+  - sqlalchemy (ORM, async)
+  - alembic (migrations)
+  - asyncpg (PostgreSQL async driver)
+  - uvicorn (ASGI server)
+  - httpx (HTTP client)
+  - ruff (linter + formatter)
+  - pytest + pytest-asyncio (testing)
+deploy: docker | fly.io | hetzner
+infra: pulumi (Python, infra/__main__.py) — Tier 2, or fly.io for MVP (Tier 4)
+ci_cd: github_actions
+monitoring: posthog (analytics + errors, EU hosting)
+architecture: layered (routers → services → repositories → models)
+notes: |
+  - uv for all dependency management (not pip/poetry)
+  - Pydantic-first: models and validation before logic
+  - FastAPI for HTTP API (not Flask/Django)
+  - SQLAlchemy 2.0 style (mapped_column, async session)
+  - Alembic for all schema migrations (never raw DDL)
+  - PostgreSQL as default database
+  - asyncpg for async, psycopg for sync fallback
+  - ruff for linting AND formatting (replaces black + isort + flake8)
+  - pytest + httpx TestClient for API tests, pytest-asyncio for async
+  - pre-commit with ruff hooks
+  - English first for API responses, i18n via gettext if needed
+  - Project structure: src/<name>/{routers,services,models,schemas,db}/

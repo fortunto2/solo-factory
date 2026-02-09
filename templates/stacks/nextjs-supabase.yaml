@@ -1,0 +1,99 @@
+name: Next.js Full-Stack
+platform: web
+language: typescript
+framework: nextjs@16.1
+ui_framework: react@19.2
+styling: tailwindcss@4.1
+component_library: shadcn-ui
+database: supabase (PostgreSQL)
+orm: drizzle-orm
+auth: shared-auth (@shared/auth + Supabase Auth)
+realtime: supabase_realtime
+payments: stripe + @stripe/stripe-js + @stripe/react-stripe-js
+validation: zod@4
+i18n: next-intl
+package_manager: pnpm
+linter: eslint (flat config v9, typescript-eslint, eslint-plugin-react, @next/eslint-plugin-next)
+formatter: prettier
+testing: vitest + @testing-library/react + @testing-library/jest-dom
+pre_commit: husky + lint-staged
+key_packages:
+  - next
+  - react
+  - "@supabase/ssr"
+  - "@shared/auth (shared auth)"
+  - "zod (validation — import from zod/v4)"
+  - "next-intl (i18n)"
+  - "stripe + @stripe/stripe-js (payments)"
+  - "drizzle-orm + drizzle-kit (ORM, migrations)"
+  - react-hook-form
+  - "shadcn (CLI) + radix-ui"
+  - react-email + resend (email)
+  - recharts (charts)
+  - tailwindcss
+  - eslint + typescript-eslint + prettier (code quality)
+deploy: vercel | cloudflare_pages (git push → auto-deploy)
+deploy_cli:
+  - "vercel (local preview, env vars, promote)"
+  - "supabase (migrations, db reset, edge functions, secrets)"
+infra: sst (sst.config.ts) — Tier 1
+ci_cd: github_actions
+monitoring: posthog (analytics + errors, EU hosting)
+architecture: app_router_rsc
+monorepo:
+  tool: turborepo
+  when_to_use: |
+    Use Turborepo monorepo when PRD has 2+ apps with DIFFERENT auth/layout/audience:
+    YES — turborepo:
+    - landing (public) + app (auth) + admin (staff-only) — 3 different layouts, audiences, deploy cycles
+    - SaaS app + separate admin/backoffice for operators
+    - web + mobile (Expo) in one repo — shared validators, types, API client
+    - platform with multiple products sharing DB and UI-kit
+    NO — single Next.js with route groups:
+    - landing + app (same repo, same deploy) — use (marketing)/ and (app)/ route groups
+    - app + user dashboard/profile — it's one app, just different pages
+    - MVP / prototype — turborepo adds friction, delays launch
+    RULE OF THUMB: if apps share the same auth and could be routes in one Next.js — don't split.
+    If they have different auth (public vs user vs admin) and deploy independently — turborepo.
+  workspace_structure: |
+    apps/
+      web/          — main app (port 3000)
+      admin/        — backoffice (port 3001)
+      docs/         — documentation (port 3002)
+      api/          — API server (Hono or Route Handlers)
+    packages/
+      @repo/ui      — shared shadcn components
+      @repo/db      — Drizzle schema, migrations, client
+      @repo/auth    — auth middleware, hooks
+      @repo/config  — shared ESLint, Prettier, tsconfig
+      @repo/email   — react-email templates
+      @repo/validators — shared Zod schemas
+  config_files:
+    - "turbo.json (tasks: build, dev, lint, check-types)"
+    - "pnpm-workspace.yaml (packages: apps/*, packages/*)"
+  key_packages:
+    - turbo
+  reference_template: "next-forge (vercel/next-forge)"
+  notes: |
+    - turbo.json: build dependsOn ^build, dev persistent+no cache
+    - pnpm --filter @repo/web dev — run single app
+    - turbo run build — parallel builds with caching
+    - Remote caching: npx turbo login && npx turbo link (free on Vercel)
+    - Internal packages: use "exports" field, no build step for TS
+    - Vercel: set Root Directory per app in project settings
+    - Shared configs in @repo/config (ESLint flat, Prettier, tsconfig)
+notes: |
+  - Drizzle ORM for database queries and migrations (not raw SQL)
+  - Use Server Components by default
+  - Zod 4 for all validation (forms, API) — import from "zod/v4"
+  - Supabase SSR for auth, shared-auth for shared login
+  - next-intl for i18n: messages/en.json + messages/ru.json
+  - Stripe Checkout + Customer Portal for subscriptions
+  - pnpm as package manager (not npm/yarn)
+  - ESLint flat config (eslint.config.mjs) + Prettier
+  - Husky + lint-staged for pre-commit checks
+  - Vitest for unit/integration tests, @testing-library/react for components
+  - Deploy via git push (main → production, PR → preview)
+  - Local CLI: `vercel` for preview/promote, `supabase` for migrations/edge-functions
+  - supabase db push for migrations, supabase functions deploy for edge functions
+  - English first, then localize

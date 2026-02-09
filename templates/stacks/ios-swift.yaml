@@ -1,0 +1,39 @@
+name: iOS Swift
+platform: ios
+language: swift6
+ui_framework: swiftui
+build: xcode
+package_manager: spm
+auth: shared-auth (SharedAuth Swift Package)
+payments: storekit2
+validation: "Codable + custom validation (protocol-based)"
+i18n: string_catalog (.xcstrings, Xcode 16 native)
+linter: swiftlint (SPM plugin or Homebrew)
+formatter: swift-format (Apple, SPM plugin)
+testing: XCTest + Swift Testing
+pre_commit: none (Xcode build phases for SwiftLint)
+key_packages:
+  - SwiftUI
+  - Combine
+  - CoreML
+  - Vision (face detection)
+  - StoreKit 2 (IAP)
+  - CloudKit (sync)
+  - SharedAuth (shared auth)
+  - SwiftLint (linter)
+deploy: app_store
+infra: none (native store distribution)
+ci_cd: github_actions (xcodebuild + fastlane)
+monitoring: posthog (analytics + errors, posthog-ios SPM)
+architecture: MVVM
+notes: |
+  - Prefer SwiftUI over UIKit for new views
+  - Use async/await (Swift 6 concurrency)
+  - Local-first: SQLite/SwiftData, no Firebase
+  - SharedAuth for Google Sign-In via Supabase
+  - String Catalog for i18n (Xcode 16 native, .xcstrings)
+  - SwiftLint for linting (add as SPM plugin or Xcode build phase)
+  - swift-format for consistent formatting
+  - XCTest for existing tests, Swift Testing (@Test) for new tests
+  - English first, then localize
+  - StoreKit 2 for in-app purchases and subscriptions

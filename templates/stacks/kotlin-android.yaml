@@ -1,0 +1,37 @@
+name: Android Kotlin
+platform: android
+language: kotlin
+ui_framework: jetpack_compose
+build: gradle_kotlin_dsl
+auth: shared-auth (shared.auth Kotlin module)
+payments: google_play_billing
+validation: "kotlinx.serialization + custom validation"
+i18n: android_resources (res/values/strings.xml, res/values-ru/strings.xml)
+linter: detekt (static analysis) + ktlint (style)
+formatter: ktfmt (Google style)
+testing: junit + espresso + compose_testing
+pre_commit: none (Gradle tasks for detekt/ktlint)
+key_packages:
+  - Jetpack Compose
+  - Material3
+  - Room (local DB)
+  - Ktor (networking)
+  - Koin (DI)
+  - CameraX (camera)
+  - shared.auth (shared auth)
+  - kotlinx.serialization (validation, JSON)
+  - detekt + ktlint (code quality)
+deploy: play_store
+infra: none (native store distribution)
+ci_cd: github_actions (gradle + self-hosted runner)
+monitoring: posthog (analytics + errors, posthog-android)
+architecture: MVVM + clean_architecture
+notes: |
+  - SharedAuth for Google Sign-In via Supabase
+  - Android Resources for i18n (strings.xml, values-ru/)
+  - detekt for static analysis (add Gradle plugin: io.gitlab.arturbosch.detekt)
+  - ktlint for Kotlin style (via org.jlleitschuh.gradle.ktlint plugin)
+  - ktfmt for formatting (Google style)
+  - JUnit 4 + Espresso + Compose Testing for tests
+  - English first, then localize
+  - Google Play Billing for subscriptions

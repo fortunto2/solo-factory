@@ -1,0 +1,81 @@
+name: Python Scraper (Browser Emulation)
+platform: local | server
+language: python3.13
+package_manager: uv
+framework: "scrapy (optional, for crawl pipelines)"
+database: "sqlite | postgresql (for results storage)"
+validation: pydantic
+i18n: none
+auth: none
+linter: ruff (replaces flake8, isort, pyflakes)
+formatter: ruff format (replaces black)
+testing: pytest + respx (mock HTTP)
+pre_commit: pre-commit (ruff + ruff-format hooks)
+key_packages:
+  # --- Anti-detection (уровни от лёгкого к тяжёлому) ---
+  - curl_cffi (TLS fingerprint impersonation — Chrome/Firefox/Safari, обход Cloudflare)
+  - httpx (async HTTP, для сайтов без anti-bot)
+  - playwright (headless Chromium/Firefox, для JS-rendered + Cloudflare Turnstile)
+  # --- Парсинг ---
+  - beautifulsoup4 + lxml (HTML parsing)
+  - selectolax (fast CSS selectors, Modest/Lexbor backend)
+  - parsel (XPath + CSS, как в Scrapy)
+  # --- Данные ---
+  - pydantic (schemas, validation — always first)
+  - sqlite-utils (quick SQLite storage)
+  # --- Инфра ---
+  - ruff (linter + formatter)
+  - pytest + respx (testing, mock responses)
+  - tenacity (retry logic with backoff)
+  - fake-useragent (random User-Agent rotation)
+deploy: local | docker | hetzner
+infra: docker-compose (for proxies, or local-only)
+ci_cd: github_actions
+monitoring: posthog (analytics, EU hosting) | none
+architecture: pipeline (fetch → parse → validate → store)
+notes: |
+  ## TLS Fingerprint Insight
+
+  Сайты с Cloudflare определяют ботов по TLS fingerprint (JA3/JA4):
+  - requests/httpx — Python/urllib3 fingerprint → 403 / challenge page
+  - curl_cffi с impersonate="chrome" — TLS fingerprint идентичен Chrome → проходит
+
+  curl_cffi — обёртка над curl-impersonate (форк curl), воспроизводит
+  TLS handshake реальных браузеров: cipher suites, ALPN, расширения.
+
+  ## Стратегия выбора (от лёгкого к тяжёлому)
+
+  1. httpx — сайты без защиты, API. Быстро, async, минимум ресурсов
+  2. curl_cffi + impersonate="chrome" — Cloudflare, anti-bot по TLS.
+     Один HTTP-запрос, ~2сек, минимум RAM. Не нужен браузер
+  3. playwright — JS-rendered страницы, Turnstile CAPTCHA, SPA.
+     ~500MB RAM, 5-10сек запуск. Последний resort
+
+  ## Когда что использовать
+
+  - GET с куками достаточно → curl_cffi (не Playwright)
+  - Нужен JS рендеринг → Playwright
+  - Простой API/RSS → httpx
+  - Массовый crawl → Scrapy + curl_cffi backend
+
+  ## Пример curl_cffi
+
+  ```python
+  from curl_cffi.requests import Session
+
+  with Session(impersonate="chrome") as s:
+      r = s.get("https://example.com", cookies={"session": "abc"})
+      # TLS fingerprint = Chrome, проходит Cloudflare
+  ```
+
+  ## Общие правила
+
+  - uv for all dependency management (not pip/poetry)
+  - Pydantic-first: схемы данных до парсинга
+  - ruff for linting AND formatting
+  - pytest + respx для тестов (mock HTTP responses, не бить реальные сайты)
+  - pre-commit with ruff hooks
+  - Retry with exponential backoff (tenacity)
+  - Respect robots.txt и rate limits
+  - Rotate User-Agent (fake-useragent)
+  - Store raw HTML before parsing (debug/re-parse)

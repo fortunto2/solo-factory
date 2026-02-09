@@ -1,0 +1,33 @@
+name: Python ML/AI
+platform: local
+language: python3.13
+package_manager: uv
+framework: "fastapi (optional, for API layer)"
+auth: "none (local-first, or shared-auth for API)"
+validation: pydantic
+i18n: gettext or simple dict/json
+linter: ruff (replaces flake8, isort, pyflakes)
+formatter: ruff format (replaces black)
+testing: pytest
+pre_commit: pre-commit (ruff + ruff-format hooks)
+key_packages:
+  - pydantic (schemas, validation — always first)
+  - fastapi (API)
+  - chromadb (vector store)
+  - sentence-transformers (embeddings)
+  - mlx (Apple Silicon ML)
+  - ruff (linter + formatter)
+  - pytest (testing)
+deploy: local | docker | hetzner
+infra: pulumi (Python) — Tier 2, or local-only
+ci_cd: github_actions
+monitoring: posthog (analytics + errors, EU hosting)
+architecture: cli_first + api
+notes: |
+  - uv for all dependency management (not pip/poetry)
+  - Pydantic-first: models and validation before logic
+  - FastAPI for any HTTP API (not Flask/Django)
+  - ruff for linting AND formatting (replaces black + isort + flake8)
+  - pytest for all tests
+  - pre-commit with ruff hooks
+  - English first for CLI/API, i18n via gettext if needed

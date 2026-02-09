@@ -1,0 +1,40 @@
+name: Cloudflare Workers
+platform: edge
+language: typescript
+framework: "hono | vanilla"
+auth: "shared-auth (@shared/auth + Supabase Auth, or JWT)"
+architecture: edge_functions
+build: wrangler
+package_manager: pnpm
+validation: zod@4
+i18n: json (simple key-value, or @formatjs/intl)
+linter: eslint (flat config v9, typescript-eslint)
+formatter: prettier
+testing: vitest + miniflare (@cloudflare/vitest-pool-workers)
+pre_commit: husky + lint-staged
+key_packages:
+  - wrangler
+  - hono (routing)
+  - "@cloudflare/workers-types"
+  - drizzle-orm (D1 database)
+  - "zod (validation — import from zod/v4)"
+  - eslint + typescript-eslint + prettier (code quality)
+deploy: cloudflare_workers
+infra: sst (sst.config.ts) — Tier 1, wrangler for dev
+ci_cd: github_actions
+monitoring: posthog (analytics + errors) + cloudflare_analytics
+storage:
+  - D1 (SQLite at edge)
+  - R2 (S3-compatible storage)
+  - KV (key-value)
+  - Durable Objects (stateful)
+notes: |
+  - Edge-first: no Node.js APIs
+  - Use Durable Objects for realtime
+  - R2 for media storage
+  - Zod 4 for all input validation (import from "zod/v4")
+  - pnpm as package manager
+  - ESLint flat config + Prettier for code quality
+  - Vitest + @cloudflare/vitest-pool-workers for Workers testing
+  - Husky + lint-staged for pre-commit
+  - English first for API responses, i18n via JSON if needed

@@ -1,0 +1,35 @@
+name: Astro Static Site
+platform: web
+language: typescript
+framework: astro@5
+styling: tailwindcss@4.1
+package_manager: pnpm
+auth: "none (static site, auth via external service if needed)"
+architecture: islands_architecture
+i18n: "@astrojs/i18n or paraglide-js"
+linter: eslint (flat config v9, eslint-plugin-astro, typescript-eslint)
+formatter: prettier (prettier-plugin-astro)
+testing: vitest
+pre_commit: husky + lint-staged
+key_packages:
+  - astro
+  - "@astrojs/cloudflare"
+  - tailwindcss
+  - eslint + eslint-plugin-astro + prettier (code quality)
+deploy: cloudflare_pages
+infra: sst (sst.config.ts) — Tier 1
+ci_cd: github_actions
+monitoring: posthog (analytics + errors) + cloudflare_analytics
+features:
+  - content_collections
+  - static_generation
+  - islands_architecture
+notes: |
+  - pnpm as package manager
+  - ESLint flat config + eslint-plugin-astro for .astro files
+  - Prettier with prettier-plugin-astro for formatting
+  - Vitest for unit tests
+  - Husky + lint-staged for pre-commit
+  - i18n via @astrojs/i18n or paraglide-js
+  - English first, then localize
+  - Content collections for structured content
