@@ -8,32 +8,44 @@ Ship startups faster with Claude Code. 9 skills, 3 agents, privacy-first.
 
 ## Install
 
+### Option 1: Skills (any AI agent)
+
+```bash
+npx skills add fortunto2/solo-factory --all
+```
+
+Installs 9 skills for all detected agents (Claude Code, Cursor, Copilot, Gemini CLI, Codex, etc.).
+
+### Option 2: Claude Code Plugin (skills + agents + MCP)
+
 ```bash
 claude plugin marketplace add https://github.com/fortunto2/solo-factory
 claude plugin install solo@solo --scope user
 ```
 
-That's it. The plugin auto-starts [solograph](https://github.com/fortunto2/solograph) server via `uvx` — 11 MCP tools available instantly.
+The plugin auto-starts [solograph](https://github.com/fortunto2/solograph) MCP server via `uvx` — 11 tools available instantly.
 
 **Prerequisite:** [uv](https://docs.astral.sh/uv/) (for `uvx solograph`).
 
-Verify:
+### Option 3: MCP only (no skills)
+
+Add to `.mcp.json`:
+```json
+{
+  "mcpServers": {
+    "solograph": {
+      "command": "uvx",
+      "args": ["solograph"]
+    }
+  }
+}
+```
+
+### Verify
+
 ```bash
-claude plugin list
-```
-
-```
-solo @ solo
-Scope: user
-Version: 1.3.0
-Status: Enabled
-
-Installed components:
-  Agents: code-analyst, researcher, idea-validator
-  Skills: research, validate, scaffold, setup, plan, build,
-          swarm, potok, audit
-  MCP Servers: codegraph
-  Hooks: SessionStart
+npx skills list              # skills.sh
+claude plugin list            # Claude Code plugin
 ```
 
 ## Skills
