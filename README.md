@@ -9,14 +9,13 @@ Ship startups faster with Claude Code. 9 skills, 3 agents, privacy-first.
 ## Install
 
 ```bash
-# From GitHub
 claude plugin marketplace add https://github.com/fortunto2/solo-factory
 claude plugin install solo@solo --scope user
-
-# From local directory
-claude plugin marketplace add /path/to/solo-factory
-claude plugin install solo@solo --scope user
 ```
+
+That's it. The plugin auto-starts [codegraph-mcp](https://github.com/fortunto2/codegraph-mcp) server via `uvx` — 11 MCP tools available instantly.
+
+**Prerequisite:** [uv](https://docs.astral.sh/uv/) (for `uvx codegraph-mcp`).
 
 Verify:
 ```bash
@@ -26,13 +25,14 @@ claude plugin list
 ```
 solo @ solo
 Scope: user
-Version: 1.2.0
+Version: 1.3.0
 Status: Enabled
 
 Installed components:
   Agents: code-analyst, researcher, idea-validator
   Skills: research, validate, scaffold, setup, plan, build,
           swarm, potok, audit
+  MCP Servers: codegraph
   Hooks: SessionStart
 ```
 

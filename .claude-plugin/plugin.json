@@ -1,12 +1,23 @@
 {
   "name": "solo",
   "description": "Ship startups faster — 9 skills, 3 agents for idea validation, deep research, project scaffolding, and TDD execution. Privacy-first.",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "author": {
     "name": "Rustam Salavatov",
     "url": "https://github.com/fortunto2"
   },
   "repository": "https://github.com/fortunto2/solo-factory",
   "homepage": "https://github.com/fortunto2/solo-factory",
-  "license": "MIT"
+  "license": "MIT",
+  "keywords": ["startup", "solopreneur", "research", "validation", "scaffold", "tdd"],
+  "mcpServers": {
+    "codegraph": {
+      "command": "uvx",
+      "args": ["codegraph-mcp"],
+      "env": {
+        "CODEGRAPH_DB_PATH": "~/.codegraph/codegraph.db",
+        "CODEGRAPH_REGISTRY": "~/.codegraph/registry.yaml"
+      }
+    }
+  }
 }
