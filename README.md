@@ -1,6 +1,10 @@
 # Solo Factory
 
-Ship startups faster with Claude Code. 9 skills, 3 agents, privacy-first.
+Your own path. Multiple stacks. Ship everything.
+
+You're a solopreneur juggling iOS, Next.js, Python, Kotlin — and you want to validate, scaffold, and ship them all without slowing down. Solo Factory gives you 9 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
+
+From "shower thought" to deployed product in one pipeline:
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build
