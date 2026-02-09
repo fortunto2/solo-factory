@@ -1,0 +1,12 @@
+{
+  "name": "solo",
+  "description": "Ship startups faster — 9 skills, 3 agents for idea validation, deep research, project scaffolding, and TDD execution. Privacy-first.",
+  "version": "1.2.0",
+  "author": {
+    "name": "Rustam Salavatov",
+    "url": "https://github.com/fortunto2"
+  },
+  "repository": "https://github.com/fortunto2/solo-factory",
+  "homepage": "https://github.com/fortunto2/solo-factory",
+  "license": "MIT"
+}

@@ -1,0 +1,166 @@
+# Solo Factory
+
+Ship startups faster with Claude Code. 9 skills, 3 agents, privacy-first.
+
+```
+/solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build
+```
+
+## Install
+
+```bash
+# From GitHub
+claude plugin marketplace add https://github.com/fortunto2/solo-factory
+claude plugin install solo@solo --scope user
+
+# From local directory
+claude plugin marketplace add /path/to/solo-factory
+claude plugin install solo@solo --scope user
+```
+
+Verify:
+```bash
+claude plugin list
+```
+
+```
+solo @ solo
+Scope: user
+Version: 1.2.0
+Status: Enabled
+
+Installed components:
+  Agents: code-analyst, researcher, idea-validator
+  Skills: research, validate, scaffold, setup, plan, build,
+          swarm, potok, audit
+  Hooks: SessionStart
+```
+
+## Skills
+
+| # | Command | What it does |
+|---|---------|-------------|
+| 1 | `/solo:research <idea>` | Scout the market — competitors, SEO, naming, domains, sizing |
+| 2 | `/solo:validate <idea>` | Score + stack + PRD (go or kill in 5 min) |
+| 3 | `/solo:scaffold <name> <stack>` | PRD to running project in 2 min |
+| 4 | `/solo:setup [name]` | Wire dev workflow (0 questions) |
+| 5 | `/solo:plan <description>` | Explore code, write battle plan |
+| 6 | `/solo:build [track-id]` | Ship it — TDD, auto-commit, phase gates |
+| - | `/solo:swarm <idea>` | 3 parallel research agents (market + users + tech) |
+| - | `/solo:potok <decision>` | 6-layer decision filter |
+| - | `/solo:audit [focus]` | KB health check — links, metadata, gaps |
+
+## Agents
+
+| Agent | Model | Specialization |
+|-------|-------|----------------|
+| `researcher` | Sonnet | Market research, competitors, pain points |
+| `code-analyst` | Haiku | Codebase exploration, dependency analysis |
+| `idea-validator` | Sonnet | Idea validation, scoring, PRD pipeline |
+
+## Workflows
+
+### Quick check (5 min)
+
+```
+/solo:validate "Parent dashboard for tracking kid's homework"
+```
+
+### Deep dive (15-20 min)
+
+```
+/solo:research "receipt scanning app"
+/solo:validate "receipt scanning app"
+```
+
+### Swarm mode (10-15 min, 3 agents)
+
+```
+/solo:swarm "AI-powered habit tracker"
+/solo:validate "AI-powered habit tracker"
+```
+
+### Full pipeline: idea to shipped product
+
+```bash
+/solo:research "my-app"              # Scout the market
+/solo:validate "my-app"              # Score + generate PRD
+/solo:scaffold my-app nextjs-supabase # Create project
+/solo:setup                          # Wire dev workflow
+/solo:plan "User auth with OAuth"    # Write battle plan
+/solo:build                          # Ship it
+```
+
+## Available Stacks
+
+| Stack | Tech |
+|-------|------|
+| `ios-swift` | SwiftUI, CoreML, StoreKit 2 |
+| `nextjs-supabase` | Next.js 16, React 19, Tailwind 4, shadcn-ui, Supabase |
+| `nextjs-ai-agents` | extends nextjs-supabase + Vercel AI SDK, MCP |
+| `cloudflare-workers` | Hono, D1, R2, Durable Objects |
+| `kotlin-android` | Jetpack Compose, Room, Koin |
+| `astro-static` | Astro 5, Cloudflare Pages |
+| `python-api` | FastAPI, Pydantic, SQLAlchemy, Alembic |
+| `python-ml` | uv, Pydantic, ChromaDB, MLX |
+
+## MCP Integration
+
+Skills auto-detect and use [codegraph-mcp](https://github.com/fortunto2/codegraph-mcp) tools when available:
+
+- `kb_search` — semantic search over knowledge base
+- `session_search` — search past Claude Code sessions
+- `codegraph_query` — code intelligence graph queries
+- `project_code_search` — semantic code search across projects
+- `web_search` — web search via SearXNG
+
+Without MCP, skills fall back to Glob, Grep, Read, WebSearch/WebFetch.
+
+## Structure
+
+```
+solo-factory/
+├── .claude-plugin/
+│   ├── plugin.json          # Plugin manifest
+│   └── marketplace.json     # Marketplace manifest
+├── skills/
+│   ├── research/            # Scout the market
+│   ├── validate/            # Score → PRD
+│   ├── scaffold/            # PRD → project
+│   ├── setup/               # Wire dev workflow
+│   ├── plan/                # Code research → battle plan
+│   ├── build/               # TDD execution
+│   ├── swarm/               # 3 parallel research agents
+│   ├── potok/               # Decision framework
+│   └── audit/               # KB health check
+├── agents/
+│   ├── researcher.md        # Deep research (sonnet)
+│   ├── code-analyst.md      # Code intelligence (haiku)
+│   └── idea-validator.md    # Idea validation (sonnet)
+└── hooks/
+    └── hooks.json           # SessionStart info
+```
+
+## Works well with
+
+- [codegraph-mcp](https://github.com/fortunto2/codegraph-mcp) — MCP server for code intelligence, KB, sessions, web search
+- [Agent Teams](https://github.com/anthropics/agents) — parallel feature dev, code review, debugging
+- [Context7](https://github.com/upstash/context7) — latest library docs for scaffolding
+
+## Manage
+
+```bash
+claude plugin update solo@solo       # Update
+claude plugin disable solo@solo      # Disable
+claude plugin enable solo@solo       # Re-enable
+claude plugin uninstall solo@solo    # Uninstall
+claude plugin marketplace remove solo # Remove marketplace
+```
+
+## License
+
+MIT
+
+## Author
+
+Rustam Salavatov ([@fortunto2](https://github.com/fortunto2))

@@ -1,0 +1,22 @@
+{
+  "name": "solo",
+  "description": "Ship startups faster — 9 skills, 3 agents for solo founders. Privacy-first.",
+  "owner": {
+    "name": "Rustam Salavatov",
+    "url": "https://github.com/fortunto2"
+  },
+  "plugins": [
+    {
+      "name": "solo",
+      "source": "./",
+      "description": "9 skills, 3 agents for AI-driven startup creation",
+      "version": "1.2.0",
+      "author": {
+        "name": "Rustam Salavatov",
+        "url": "https://github.com/fortunto2"
+      },
+      "license": "MIT",
+      "category": "productivity"
+    }
+  ]
+}

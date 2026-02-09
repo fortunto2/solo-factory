@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"solopreneur-toolkit\": \"loaded\", \"skills\": [\"validate-idea\", \"deep-research\", \"apply-potok\", \"research-team\"], \"agents\": [\"researcher\", \"code-analyst\", \"idea-validator\"]}'"
+          }
+        ]
+      }
+    ]
+  }
+}
