@@ -86,9 +86,15 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - Makefile must include `archive` target: `xcodegen generate && xcodebuild archive -scheme <Name> ...`
 
    **kotlin-android:**
-   - `build.gradle.kts`, `gradle/libs.versions.toml`
-   - `app/src/main/kotlin/<package>/` with `ui/`, `data/`, `domain/`
-   - `detekt.yml`
+   - `build.gradle.kts` — **MUST include** Play Store requirements:
+     - `applicationId = "co.superduperai.<name>"`, `namespace = "co.superduperai.<name>"`
+     - `compileSdk = 35`, `targetSdk = 35`, `minSdk = 26`
+     - `versionCode = 1`, `versionName = "1.0.0"`
+     - `signingConfigs` block loading from `keystore.properties` (gitignored)
+   - `gradle/libs.versions.toml`
+   - `app/src/main/kotlin/co/superduperai/<name>/` with `ui/`, `data/`, `domain/`
+   - `detekt.yml`, `keystore.properties.example`
+   - Makefile must include `release` target: `./gradlew bundleRelease`
 
    **cloudflare-workers:**
    - `package.json`, `wrangler.toml`, `tsconfig.json`

@@ -35,3 +35,20 @@ notes: |
   - JUnit 4 + Espresso + Compose Testing for tests
   - English first, then localize
   - Google Play Billing for subscriptions
+gradle_required:
+  application_id: "co.superduperai.<name>"
+  android_config:
+    namespace: "co.superduperai.<name>"
+    compileSdk: 35
+    targetSdk: 35
+    minSdk: 26
+    versionCode: 1
+    versionName: "1.0.0"
+  signing:
+    # keystore.properties (gitignored) — path, alias, passwords
+    # build.gradle.kts loads from keystore.properties for release
+    storeFile: "keystore.jks"
+    keyAlias: "release"
+  release_command: |
+    ./gradlew bundleRelease  # → app/build/outputs/bundle/release/app-release.aab
+    # Upload .aab to Google Play Console
