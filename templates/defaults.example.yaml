@@ -19,3 +19,7 @@ github_org: ""
 
 # Default projects directory
 projects_dir: "~/startups/active"
+
+# Solopreneur knowledge base repo (for /scaffold PRD lookup, /validate manifesto, etc.)
+# Leave empty if not using solopreneur KB
+solopreneur_repo: ""
