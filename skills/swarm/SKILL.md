@@ -66,6 +66,6 @@ curl -sf http://localhost:8013/health && echo "searxng_ok" || echo "searxng_down
 
 After team completes, the lead should:
 1. Synthesize findings from all 3 teammates
-2. Write `research.md` to `3-opportunities/<project-name>/` (solopreneur KB) or `docs/` (any project)
+2. Write `research.md` to `4-opportunities/<project-name>/` (solopreneur KB) or `docs/` (any project)
 3. Provide GO / NO-GO / PIVOT recommendation
 4. Suggest next step: `/validate <idea>`

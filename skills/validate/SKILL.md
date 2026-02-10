@@ -32,7 +32,7 @@ If MCP tools are not available, fall back to Grep/Glob or CLI commands.
    - Grep for idea keywords in `.md` files across the project and knowledge base
    Summarize any related documents found (existing ideas, frameworks, opportunities).
 
-3. **Deep research (optional):** Check if `research.md` exists for this idea (look in `3-opportunities/<project-name>/` or `docs/`).
+3. **Deep research (optional):** Check if `research.md` exists for this idea (look in `4-opportunities/<project-name>/` or `docs/`).
    - If it exists: read it and use findings to inform ПОТОК analysis and PRD filling (competitors, pain points, market size).
    - If it does not exist: ask the user if they want to run deep research first. If yes, tell them to run `/research <idea>` and come back. If no, continue without it.
 
@@ -62,7 +62,7 @@ If MCP tools are not available, fall back to Grep/Glob or CLI commands.
    - `astro-static` — Astro, Cloudflare Pages
    - `python-ml` — uv, Pydantic, ChromaDB, MLX
 
-7. **Generate PRD:** Create a PRD document at `3-opportunities/<project-name>/prd.md` (or `docs/prd.md` if not in solopreneur KB). Use a kebab-case project name derived from the idea. Include:
+7. **Generate PRD:** Create a PRD document at `4-opportunities/<project-name>/prd.md` (or `docs/prd.md` if not in solopreneur KB). Use a kebab-case project name derived from the idea. Include:
    - **Problem:** Based on the idea and ПОТОК analysis
    - **Solution:** Core feature set (keep it minimal — one pain, one feature)
    - **Target Market:** Who has this pain? (use research.md pain points if available)

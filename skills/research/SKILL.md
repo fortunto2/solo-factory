@@ -134,7 +134,7 @@ curl -s -X POST 'http://localhost:8013/transcript' \
    - `"<market> growth rate CAGR billion"` — growth projections
    - Extrapolation: TAM → SAM → SOM (Year 1)
 
-9. **Write `research.md`** — write to `3-opportunities/<project-name>/research.md` if in solopreneur KB, otherwise to `docs/research.md` in the current project. Create the directory if needed.
+9. **Write `research.md`** — write to `4-opportunities/<project-name>/research.md` if in solopreneur KB, otherwise to `docs/research.md` in the current project. Create the directory if needed.
 
 10. **Output summary:**
     - Key findings (3-5 bullets)

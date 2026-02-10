@@ -34,7 +34,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
 2. **Load stack + PRD + principles:**
    - Look for stack YAML: search for `stacks/<stack>.yaml` in solopreneur KB (via `kb_search` or Glob).
    - If stack YAML not found, use built-in knowledge of the stack (packages, structure, deploy).
-   - Check if PRD exists: `3-opportunities/<project>/prd.md` or `docs/prd.md`
+   - Check if PRD exists: `4-opportunities/<project>/prd.md` or `docs/prd.md`
      - If not: generate a basic PRD template
    - Look for dev principles: search for `dev-principles.md` or use built-in SOLID/DRY/KISS/TDD principles.
 

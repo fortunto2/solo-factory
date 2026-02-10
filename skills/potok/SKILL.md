@@ -67,7 +67,7 @@ Interactive wizard that walks any decision through the ПОТОК 6-layer framew
    - Recommended first action
 
 5. **Capture the decision** (optional): Offer to save the decision record. If user wants to save:
-   - Write to `3-opportunities/inbox/` (if in solopreneur KB) or `docs/decisions/` (any project)
+   - Write to `3-inbox/` (if in solopreneur KB) or `docs/decisions/` (any project)
    - Format: date + decision summary + verdict
 
 6. **Output structured decision journal:**
