@@ -5,7 +5,7 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.3.0"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__solograph__kb_search, mcp__solograph__project_info
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__project_code_reindex
 argument-hint: "[project-name] [stack-name]"
 ---
 
@@ -136,9 +136,20 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
     gh repo create <name> --private --source=. --push
     ```
 
-14. **Update KB registry + index code** (if in solopreneur ecosystem):
-    - If `make scan` available: run it to update project registry
-    - If MCP `project_code_reindex` available: index the new project
+14. **Register project + index code** (if in solopreneur ecosystem):
+    - Append project to `~/.codegraph/registry.yaml`:
+      ```bash
+      cat >> ~/.codegraph/registry.yaml << 'EOF'
+
+      - name: <name>
+        path: ~/startups/active/<name>
+        active: true
+      EOF
+      ```
+    - Index the new project for code search:
+      ```
+      mcp__solograph__project_code_reindex(project="<name>")
+      ```
 
 15. **Output summary:**
     ```

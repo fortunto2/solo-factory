@@ -5,7 +5,7 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.3.0"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__kb_search
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__kb_search
 argument-hint: "<task description>"
 ---
 
@@ -22,6 +22,7 @@ After `/setup` has created `conductor/` artifacts. Creates a track for any featu
 - `session_search(query)` — find similar past work in Claude Code chat history
 - `project_code_search(query, project)` — find reusable code across projects
 - `codegraph_query(query)` — check dependencies of affected files
+- `codegraph_explain(project)` — architecture overview: stack, languages, directory layers, key patterns, top dependencies, hub files
 - `kb_search(query)` — search knowledge base for relevant methodology
 
 If MCP tools are not available, fall back to Glob + Grep + Read.
@@ -53,31 +54,37 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 
 5. **Research phase** — explore the codebase to understand what needs to change:
 
-   a. **Find relevant files** — Glob + Grep for patterns related to the task:
+   a. **Get architecture overview** (if MCP available — do this FIRST):
+      ```
+      codegraph_explain(project="{project name from CLAUDE.md or directory name}")
+      ```
+      Gives you: stack, languages, directory layers, key patterns (base classes, mixins, CRUD schemas), top dependencies, and hub files. Use this to orient before any file search.
+
+   b. **Find relevant files** — Glob + Grep for patterns related to the task:
       - Search for keywords from the task description
       - Look at directory structure to understand architecture
       - Identify files that will need modification
 
-   b. **Search past sessions** (if MCP available):
+   c. **Search past sessions** (if MCP available):
       ```
       session_search(query="{task description keywords}")
       ```
       Look for: similar features, relevant decisions, patterns used.
 
-   c. **Search code across projects** (if MCP available):
+   d. **Search code across projects** (if MCP available):
       ```
       project_code_search(query="{relevant pattern}")
       ```
       Look for: existing implementations to reuse or adapt.
 
-   d. **Check dependencies** of affected files (if MCP available):
+   e. **Check dependencies** of affected files (if MCP available):
       ```
       codegraph_query(query="MATCH (f:File {path: '{file}'})-[:IMPORTS]->(dep) RETURN dep.path")
       ```
 
-   e. **Read existing tests** in the affected area — understand testing patterns used.
+   f. **Read existing tests** in the affected area — understand testing patterns used.
 
-   f. **Read CLAUDE.md** architecture constraints — understand boundaries and conventions.
+   g. **Read CLAUDE.md** architecture constraints — understand boundaries and conventions.
 
 6. **Generate track ID:**
    - Extract a short name (2-3 words, kebab-case) from task description.
