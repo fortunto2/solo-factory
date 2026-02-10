@@ -31,32 +31,41 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
 
    Project name should be kebab-case.
 
-2. **Load stack + PRD + principles:**
+2. **Load org defaults** from `~/.solo-factory/defaults.yaml`:
+   - Read `org_domain` (e.g. `co.superduperai`), `apple_dev_team`, `github_org`, `projects_dir`
+   - If file doesn't exist, ask via AskUserQuestion:
+     - "What is your reverse-domain prefix for bundle IDs?" (e.g. `com.mycompany`)
+     - "Apple Developer Team ID?" (optional, leave empty if no iOS)
+   - Create `~/.solo-factory/defaults.yaml` with answers for future runs
+   - Replace `<org_domain>`, `<apple_dev_team>`, `<github_org>` placeholders in all generated files
+
+3. **Load stack + PRD + principles:**
+
    - Look for stack YAML: search for `stacks/<stack>.yaml` in solopreneur KB (via `kb_search` or Glob).
    - If stack YAML not found, use built-in knowledge of the stack (packages, structure, deploy).
    - Check if PRD exists: `4-opportunities/<project>/prd.md` or `docs/prd.md`
      - If not: generate a basic PRD template
    - Look for dev principles: search for `dev-principles.md` or use built-in SOLID/DRY/KISS/TDD principles.
 
-3. **Context7 research** (key step — determines exact versions and patterns):
+4. **Context7 research** (key step — determines exact versions and patterns):
    - For each key package from the stack:
      - `mcp__context7__resolve-library-id` — find the Context7 library ID
      - `mcp__context7__query-docs` — query "latest version, project setup, recommended file structure, best practices"
    - Collect: current versions, recommended directory structure, configuration patterns, setup commands
    - Limit to the 3-4 most important packages to keep research focused
 
-4. **Show plan + get confirmation** via AskUserQuestion:
+5. **Show plan + get confirmation** via AskUserQuestion:
    - Project path: `~/startups/active/<name>`
    - Stack name and key packages with versions from Context7
    - Proposed directory structure
    - Confirm or adjust before creating files
 
-5. **Create project directory:**
+6. **Create project directory:**
    ```bash
    mkdir -p ~/startups/active/<name>
    ```
 
-6. **Create file structure** based on the stack. **SGR-first: always start with domain schemas/models before any logic or views.** Every project gets these common files:
+7. **Create file structure** based on the stack. **SGR-first: always start with domain schemas/models before any logic or views.** Every project gets these common files:
    ```
    ~/startups/active/<name>/
    ├── CLAUDE.md          # AI-friendly project docs
@@ -80,19 +89,19 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    **ios-swift:**
    - `project.yml` (XcodeGen) — **MUST include** App Store requirements:
      - `info.properties`: `UISupportedInterfaceOrientations` (all 4), `UILaunchScreen`, `UIApplicationSceneManifest`
-     - `settings.base`: `PRODUCT_BUNDLE_IDENTIFIER: co.superduperai.<name>`, `MARKETING_VERSION: "1.0.0"`, `CURRENT_PROJECT_VERSION: "1"`, `DEVELOPMENT_TEAM: J6JLR9Y684`, `CODE_SIGN_STYLE: Automatic`
+     - `settings.base`: `PRODUCT_BUNDLE_IDENTIFIER: <org_domain>.<name>`, `MARKETING_VERSION: "1.0.0"`, `CURRENT_PROJECT_VERSION: "1"`, `DEVELOPMENT_TEAM: <apple_dev_team>`, `CODE_SIGN_STYLE: Automatic`
    - `<Name>/` with MVVM: `Models/`, `Views/`, `ViewModels/`, `Services/`
    - `<Name>Tests/`, `Package.swift`, `.swiftlint.yml`
    - Makefile must include `archive` target: `xcodegen generate && xcodebuild archive -scheme <Name> ...`
 
    **kotlin-android:**
    - `build.gradle.kts` — **MUST include** Play Store requirements:
-     - `applicationId = "co.superduperai.<name>"`, `namespace = "co.superduperai.<name>"`
+     - `applicationId = "<org_domain>.<name>"`, `namespace = "<org_domain>.<name>"`
      - `compileSdk = 35`, `targetSdk = 35`, `minSdk = 26`
      - `versionCode = 1`, `versionName = "1.0.0"`
      - `signingConfigs` block loading from `keystore.properties` (gitignored)
    - `gradle/libs.versions.toml`
-   - `app/src/main/kotlin/co/superduperai/<name>/` with `ui/`, `data/`, `domain/`
+   - `app/src/main/kotlin/<org_domain_path>/<name>/` with `ui/`, `data/`, `domain/`
    - `detekt.yml`, `keystore.properties.example`
    - Makefile must include `release` target: `./gradlew bundleRelease`
 
@@ -112,10 +121,10 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - `pyproject.toml`, `src/<name>/main.py`, `src/<name>/models.py`
    - `tests/test_main.py`
 
-7. **Generate Makefile** — stack-adapted with: `help`, `dev`, `test`, `lint`, `format`, `build`, `clean` targets.
+8. **Generate Makefile** — stack-adapted with: `help`, `dev`, `test`, `lint`, `format`, `build`, `clean` targets.
    - **ios-swift** must also include: `generate` (xcodegen), `archive` (xcodebuild archive), `open` (open .xcarchive for Distribute)
 
-8. **Generate CLAUDE.md** for the new project:
+9. **Generate CLAUDE.md** for the new project:
    - Project overview (problem/solution from PRD)
    - Tech stack (packages + versions from Context7)
    - Directory structure
@@ -126,13 +135,13 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - **Solopreneur Integration section** (if MCP tools available):
      Lists available MCP tools: `project_code_search`, `kb_search`, `session_search`, `codegraph_query`, `project_info`, `web_search`
 
-9. **Generate README.md** — project name, description, prerequisites, setup, run/test/deploy.
+10. **Generate README.md** — project name, description, prerequisites, setup, run/test/deploy.
 
-10. **Generate .gitignore** — stack-specific patterns.
+11. **Generate .gitignore** — stack-specific patterns.
 
-11. **Copy PRD to docs/:** Copy from solopreneur KB or generate in place.
+12. **Copy PRD to docs/:** Copy from solopreneur KB or generate in place.
 
-12. **Git init + first commit:**
+13. **Git init + first commit:**
     ```bash
     cd ~/startups/active/<name>
     git init && git add . && git commit -m "Initial project scaffold
@@ -141,13 +150,13 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
     Generated by /scaffold"
     ```
 
-13. **Create GitHub private repo + push:**
+14. **Create GitHub private repo + push:**
     ```bash
     cd ~/startups/active/<name>
     gh repo create <name> --private --source=. --push
     ```
 
-14. **Register project + index code** (if in solopreneur ecosystem):
+15. **Register project + index code** (if in solopreneur ecosystem):
     - Append project to `~/.codegraph/registry.yaml`:
       ```bash
       cat >> ~/.codegraph/registry.yaml << 'EOF'
@@ -162,7 +171,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
       mcp__solograph__project_code_reindex(project="<name>")
       ```
 
-15. **Output summary:**
+16. **Output summary:**
     ```
     Project scaffolded!
 

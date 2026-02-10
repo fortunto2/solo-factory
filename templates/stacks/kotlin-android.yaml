@@ -36,9 +36,9 @@ notes: |
   - English first, then localize
   - Google Play Billing for subscriptions
 gradle_required:
-  application_id: "co.superduperai.<name>"
+  application_id: "<org_domain>.<name>"
   android_config:
-    namespace: "co.superduperai.<name>"
+    namespace: "<org_domain>.<name>"
     compileSdk: 35
     targetSdk: 35
     minSdk: 26

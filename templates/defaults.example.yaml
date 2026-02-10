@@ -1,0 +1,21 @@
+# Solo Factory — org defaults
+# Copy to ~/.solo-factory/defaults.yaml and fill in your values.
+#
+# These values are used by /scaffold when generating projects.
+# Placeholders in stack templates (<org_domain>, <dev_team>, etc.)
+# get replaced with values from this file.
+
+# Organization reverse-domain (used for bundle IDs / application IDs)
+# iOS: co.superduperai.<name> → PRODUCT_BUNDLE_IDENTIFIER
+# Android: co.superduperai.<name> → applicationId + namespace
+org_domain: "com.example"
+
+# Apple Developer Team ID (Xcode → Signing & Capabilities → Team)
+# Find at: https://developer.apple.com/account → Membership Details
+apple_dev_team: ""
+
+# GitHub org/user for repo creation (gh repo create <github_org>/<name>)
+github_org: ""
+
+# Default projects directory
+projects_dir: "~/startups/active"
