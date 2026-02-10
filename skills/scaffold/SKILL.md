@@ -80,7 +80,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    **ios-swift:**
    - `project.yml` (XcodeGen) — **MUST include** App Store requirements:
      - `info.properties`: `UISupportedInterfaceOrientations` (all 4), `UILaunchScreen`, `UIApplicationSceneManifest`
-     - `settings.base`: `MARKETING_VERSION: "1.0.0"`, `CURRENT_PROJECT_VERSION: "1"`, `CODE_SIGN_STYLE: Automatic`
+     - `settings.base`: `PRODUCT_BUNDLE_IDENTIFIER: co.superduperai.<name>`, `MARKETING_VERSION: "1.0.0"`, `CURRENT_PROJECT_VERSION: "1"`, `DEVELOPMENT_TEAM: J6JLR9Y684`, `CODE_SIGN_STYLE: Automatic`
    - `<Name>/` with MVVM: `Models/`, `Views/`, `ViewModels/`, `Services/`
    - `<Name>Tests/`, `Package.swift`, `.swiftlint.yml`
    - Makefile must include `archive` target: `xcodegen generate && xcodebuild archive -scheme <Name> ...`

@@ -48,9 +48,12 @@ xcodegen_required:
     UILaunchScreen: {}
     UIApplicationSceneManifest:
       UIApplicationSupportsMultipleScenes: true
+  bundle_id: "co.superduperai.<name>"
   build_settings:
+    PRODUCT_BUNDLE_IDENTIFIER: "co.superduperai.<name>"
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: J6JLR9Y684
     CODE_SIGN_STYLE: Automatic
   archive_command: |
     xcodegen generate
