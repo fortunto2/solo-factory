@@ -92,7 +92,7 @@ Question 5: "Where is your solopreneur knowledge base repo?"
 Header: "KB repo"
 multiSelect: false
 Options:
-- "~/projects/solopreneur" — "Default solopreneur KB location"
+- "~/startups/solopreneur" — "Default solopreneur KB location"
 - "Skip" — "No solopreneur KB, skip for now"
 ```
 
