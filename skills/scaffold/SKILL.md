@@ -78,8 +78,12 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - `lib/supabase/client.ts`, `lib/supabase/server.ts`, `lib/utils.ts`
 
    **ios-swift:**
+   - `project.yml` (XcodeGen) — **MUST include** App Store requirements:
+     - `info.properties`: `UISupportedInterfaceOrientations` (all 4), `UILaunchScreen`, `UIApplicationSceneManifest`
+     - `settings.base`: `MARKETING_VERSION: "1.0.0"`, `CURRENT_PROJECT_VERSION: "1"`, `CODE_SIGN_STYLE: Automatic`
    - `<Name>/` with MVVM: `Models/`, `Views/`, `ViewModels/`, `Services/`
    - `<Name>Tests/`, `Package.swift`, `.swiftlint.yml`
+   - Makefile must include `archive` target: `xcodegen generate && xcodebuild archive -scheme <Name> ...`
 
    **kotlin-android:**
    - `build.gradle.kts`, `gradle/libs.versions.toml`
@@ -103,6 +107,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - `tests/test_main.py`
 
 7. **Generate Makefile** — stack-adapted with: `help`, `dev`, `test`, `lint`, `format`, `build`, `clean` targets.
+   - **ios-swift** must also include: `generate` (xcodegen), `archive` (xcodebuild archive), `open` (open .xcarchive for Distribute)
 
 8. **Generate CLAUDE.md** for the new project:
    - Project overview (problem/solution from PRD)

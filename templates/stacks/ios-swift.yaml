@@ -21,6 +21,7 @@ key_packages:
   - CloudKit (sync)
   - SharedAuth (shared auth)
   - SwiftLint (linter)
+project_gen: xcodegen (project.yml → .xcodeproj)
 deploy: app_store
 infra: none (native store distribution)
 ci_cd: github_actions (xcodebuild + fastlane)
@@ -37,3 +38,21 @@ notes: |
   - XCTest for existing tests, Swift Testing (@Test) for new tests
   - English first, then localize
   - StoreKit 2 for in-app purchases and subscriptions
+xcodegen_required:
+  info_plist:
+    UISupportedInterfaceOrientations:
+      - UIInterfaceOrientationPortrait
+      - UIInterfaceOrientationPortraitUpsideDown
+      - UIInterfaceOrientationLandscapeLeft
+      - UIInterfaceOrientationLandscapeRight
+    UILaunchScreen: {}
+    UIApplicationSceneManifest:
+      UIApplicationSupportsMultipleScenes: true
+  build_settings:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+  archive_command: |
+    xcodegen generate
+    xcodebuild archive -scheme <Name> -destination 'generic/platform=iOS' -archivePath build/<Name>.xcarchive
+    open build/<Name>.xcarchive  # → Distribute App
