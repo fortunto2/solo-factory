@@ -4,7 +4,7 @@ description: Score idea through POТОК, pick stack, generate PRD — go or kil
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.4.0"
+  version: "1.5.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__project_info
 argument-hint: "[idea name or description]"
 ---
@@ -42,7 +42,23 @@ If MCP tools are not available, fall back to Grep/Glob or CLI commands.
    - AI as foundation?
    - Speed over perfection?
 
-5. **ПОТОК analysis:** Walk the idea through 6 layers. For each layer, provide a brief assessment:
+5. **S.E.E.D. niche check** (quick, before deep analysis):
+
+   Score the idea on four dimensions:
+   - **S — Searchability:** Can you rank? Forums/Reddit in top-10, few fresh giants, no video blocks?
+   - **E — Evidence:** Real pain with real quotes/URLs? Or hypothetical?
+   - **E — Ease:** MVP in 1-2 days on existing stack? No heavy dependencies?
+   - **D — Demand:** Long-tail keywords exist? Clear monetization path?
+
+   **Kill flags** (stop immediately if any):
+   - Top-10 SERP dominated by media giants or encyclopedias
+   - Fresh competing content (<60 days old) already covers it well
+   - No evidence of real user pain (only founder's hypothesis)
+   - MVP needs >1 week even on best-fit stack
+
+   If any kill flag triggers → recommend KILL with explanation. Don't proceed to ПОТОК.
+
+6. **ПОТОК analysis:** Walk the idea through 6 layers. For each layer, provide a brief assessment:
 
    - **Layer 1 - Epistemological:** Is this within the circle of competence? What assumptions are unproven?
    - **Layer 2 - Temporal:** What's the time horizon? Is it Lindy-compliant?
@@ -51,7 +67,7 @@ If MCP tools are not available, fall back to Grep/Glob or CLI commands.
    - **Layer 5 - Social:** Reputation impact? Network effects?
    - **Layer 6 - Meta:** Does this pass the mortality filter? Worth the finite time?
 
-6. **Stack selection:** Auto-detect from research data, then confirm or ask.
+7. **Stack selection:** Auto-detect from research data, then confirm or ask.
 
    **Auto-detection rules** (from `research.md` `product_type` field or idea keywords):
    - `product_type: ios` → `ios-swift`
@@ -68,17 +84,26 @@ If MCP tools are not available, fall back to Grep/Glob or CLI commands.
    If ambiguous (e.g., could be web or mobile), ask via AskUserQuestion with the top 2-3 options.
    If MCP `project_info` is available, show user's existing stacks as reference.
 
-7. **Generate PRD:** Create a PRD document at `4-opportunities/<project-name>/prd.md` (or `docs/prd.md` if not in solopreneur KB). Use a kebab-case project name derived from the idea. Include:
-   - **Problem:** Based on the idea and ПОТОК analysis
-   - **Solution:** Core feature set (keep it minimal — one pain, one feature)
-   - **Target Market:** Who has this pain? (use research.md pain points if available)
-   - **Tech Stack:** Selected stack with key packages
-   - **Architecture Principles:** SOLID, DRY, KISS, schemas-first
-   - **Success Metrics:** How to measure if it works
+8. **Generate PRD:** Create a PRD document at `4-opportunities/<project-name>/prd.md` (or `docs/prd.md` if not in solopreneur KB). Use a kebab-case project name derived from the idea.
 
-8. **Output summary:**
+   **PRD must pass Definition of Done:**
+   - [ ] Problem statement ≥ 30 words (who suffers, when, why now)
+   - [ ] ICP + JTBD — target segment + 2-3 jobs-to-be-done
+   - [ ] 3-5 features, each with measurable acceptance criteria
+   - [ ] 3-5 KPIs with units (daily/weekly) and target values
+   - [ ] 3-5 risks with mitigation plans
+   - [ ] Tech stack with key packages
+   - [ ] Architecture principles (SOLID, DRY, KISS, schemas-first)
+   - [ ] Evidence-first — numbers/claims have source URLs (from research.md if available)
+
+9. **Output summary:**
    - Idea name and one-liner
-   - Opportunity score (0-10) based on the analysis
+   - S.E.E.D. score (S/E/E/D each rated low/medium/high)
+   - Opportunity score (0-10) based on ПОТОК + S.E.E.D.
    - Key risk and key advantage
    - Path to generated PRD
-   - Recommended next action
+   - **Recommended next action** (one of):
+     - `/research <idea>` — if evidence is weak, get data first
+     - `/scaffold <name> <stack>` — if validated, build it
+     - **Fake-Door Test** — if uncertain, spend $20 on a landing stub before coding
+     - **KILL** — if score < 5 or kill flags triggered
