@@ -308,7 +308,7 @@ Map the answers:
 
 ### 10. Verify Solograph MCP (optional check)
 
-- Try reading `~/.codegraph/registry.yaml`
+- Try reading `~/.solo/registry.yaml`
 - If exists: "Solograph detected — code graph ready"
 - If not: "Tip: install Solograph for code search across projects (`pip install solograph`)"
 

@@ -157,9 +157,9 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
     ```
 
 15. **Register project + index code** (if in solopreneur ecosystem):
-    - Append project to `~/.codegraph/registry.yaml`:
+    - Append project to `~/.solo/registry.yaml`:
       ```bash
-      cat >> ~/.codegraph/registry.yaml << 'EOF'
+      cat >> ~/.solo/registry.yaml << 'EOF'
 
       - name: <name>
         path: ~/startups/active/<name>

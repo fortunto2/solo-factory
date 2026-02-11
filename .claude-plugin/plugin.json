@@ -15,8 +15,8 @@
       "command": "uvx",
       "args": ["solograph"],
       "env": {
-        "CODEGRAPH_DB_PATH": "~/.codegraph/codegraph.db",
-        "CODEGRAPH_REGISTRY": "~/.codegraph/registry.yaml"
+        "CODEGRAPH_DB_PATH": "~/.solo/codegraph.db",
+        "CODEGRAPH_REGISTRY": "~/.solo/registry.yaml"
       }
     }
   }
