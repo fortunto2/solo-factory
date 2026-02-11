@@ -15,7 +15,7 @@ Set up a metrics tracking plan for a project. Defines PostHog event funnel, KPI 
 
 ## MCP Tools (use if available)
 
-- `kb_search(query)` — find PostHog methodology, manifesto rules, ПОТОК framework
+- `kb_search(query)` — find PostHog methodology, manifesto rules, STREAM framework
 
 If MCP tools are not available, fall back to Grep + Read.
 

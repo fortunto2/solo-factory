@@ -1,6 +1,6 @@
 ---
 name: solo-validate
-description: Score idea through POТОК, pick stack, generate PRD — go or kill in 5 min
+description: Score idea through STREAM, pick stack, generate PRD — go or kill in 5 min
 license: MIT
 metadata:
   author: fortunto2
@@ -11,7 +11,7 @@ argument-hint: "[idea name or description]"
 
 # /validate
 
-Validate a startup idea end-to-end: search KB for related docs, run ПОТОК analysis, pick a stack, generate a PRD.
+Validate a startup idea end-to-end: search KB for related docs, run STREAM analysis, pick a stack, generate a PRD.
 
 ## MCP Tools (use if available)
 
@@ -33,7 +33,7 @@ If MCP tools are not available, fall back to Grep/Glob or CLI commands.
    Summarize any related documents found (existing ideas, frameworks, opportunities).
 
 3. **Deep research (optional):** Check if `research.md` exists for this idea (look in `4-opportunities/<project-name>/` or `docs/`).
-   - If it exists: read it and use findings to inform ПОТОК analysis and PRD filling (competitors, pain points, market size).
+   - If it exists: read it and use findings to inform STREAM analysis and PRD filling (competitors, pain points, market size).
    - If it does not exist: ask the user if they want to run deep research first. If yes, tell them to run `/research <idea>` and come back. If no, continue without it.
 
 4. **Alignment check:** Look for core principles docs (search for `manifest.md` or use `kb_search(query="manifest principles")`). Verify the idea aligns with:
@@ -56,9 +56,9 @@ If MCP tools are not available, fall back to Grep/Glob or CLI commands.
    - No evidence of real user pain (only founder's hypothesis)
    - MVP needs >1 week even on best-fit stack
 
-   If any kill flag triggers → recommend KILL with explanation. Don't proceed to ПОТОК.
+   If any kill flag triggers → recommend KILL with explanation. Don't proceed to STREAM.
 
-6. **ПОТОК analysis:** Walk the idea through 6 layers. For each layer, provide a brief assessment:
+6. **STREAM analysis:** Walk the idea through 6 layers. For each layer, provide a brief assessment:
 
    - **Layer 1 - Epistemological:** Is this within the circle of competence? What assumptions are unproven?
    - **Layer 2 - Temporal:** What's the time horizon? Is it Lindy-compliant?
@@ -99,7 +99,7 @@ If MCP tools are not available, fall back to Grep/Glob or CLI commands.
 9. **Output summary:**
    - Idea name and one-liner
    - S.E.E.D. score (S/E/E/D each rated low/medium/high)
-   - Opportunity score (0-10) based on ПОТОК + S.E.E.D.
+   - Opportunity score (0-10) based on STREAM + S.E.E.D.
    - Key risk and key advantage
    - Path to generated PRD
    - **Recommended next action** (one of):

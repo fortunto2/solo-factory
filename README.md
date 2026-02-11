@@ -67,7 +67,7 @@ claude plugin list            # Claude Code plugin
 | 5 | `/solo:plan <description>` | Explore code, write battle plan |
 | 6 | `/solo:build [track-id]` | Ship it — TDD, auto-commit, phase gates |
 | - | `/solo:swarm <idea>` | 3 parallel research agents (market + users + tech) |
-| - | `/solo:potok <decision>` | 6-layer decision filter |
+| - | `/solo:stream <decision>` | 6-layer decision filter |
 | - | `/solo:audit [focus]` | KB health check — links, metadata, gaps |
 
 ## Agents
@@ -172,7 +172,7 @@ solo-factory/
 │   ├── plan/                # Code research → battle plan
 │   ├── build/               # TDD execution
 │   ├── swarm/               # 3 parallel research agents
-│   ├── potok/               # Decision framework
+│   ├── stream/               # Decision framework
 │   └── audit/               # KB health check
 ├── agents/
 │   ├── researcher.md        # Deep research (sonnet)

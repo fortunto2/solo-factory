@@ -1,4 +1,6 @@
-# POTOK Decision Framework — 6 Layers
+# STREAM Decision Framework — 6 Layers
+
+> **STREAM** = **S**cope (epistemological) · **T**ime (temporal) · **R**oute (action) · **E**xposure (stakes) · **A**udience (social) · **M**eaning (meta)
 
 A systematic decision-making framework for technical founders. Six layers of analysis, from epistemological foundations to meta-level mortality checks.
 

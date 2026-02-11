@@ -1,6 +1,6 @@
 ---
 name: solo-init
-description: Personalized founder setup — org defaults, manifest, dev principles, POTOK calibration, stack selection
+description: Personalized founder setup — org defaults, manifest, dev principles, STREAM calibration, stack selection
 license: MIT
 metadata:
   author: fortunto2
@@ -15,7 +15,7 @@ One-time founder onboarding. Asks key questions, generates personalized configur
 
 Two layers of config:
 - **`~/.solo-factory/defaults.yaml`** — org-level (bundle IDs, GitHub org, Apple Team ID). Shared across all projects.
-- **`.solo/`** in project — founder philosophy, dev principles, POTOK calibration, selected stacks. Per-project but usually the same.
+- **`.solo/`** in project — founder philosophy, dev principles, STREAM calibration, selected stacks. Per-project but usually the same.
 
 The templates in `solo-factory/templates/` are defaults. This skill personalizes them based on your answers.
 
@@ -29,7 +29,7 @@ Run once after installing solo-factory. Safe to re-run — shows current values 
 
 .solo/
 ├── manifest.md                # Your founder manifesto (generated from answers)
-├── potok-framework.md         # POTOK calibrated to your risk/decision style
+├── stream-framework.md         # STREAM calibrated to your risk/decision style
 ├── dev-principles.md          # Dev principles tuned to your preferences
 └── stacks/                    # Only your selected stack templates
     ├── nextjs-supabase.yaml
@@ -40,7 +40,7 @@ Other skills read from these:
 - `/scaffold` reads `defaults.yaml` for `<org_domain>`, `<apple_dev_team>` placeholders + `.solo/stacks/` for stack templates
 - `/validate` reads `manifest.md` for manifesto alignment check
 - `/setup` reads `dev-principles.md` for workflow config
-- `/potok` reads `potok-framework.md` for decision framework
+- `/stream` reads `stream-framework.md` for decision framework
 
 ## Steps
 
@@ -238,7 +238,7 @@ Find the templates directory. Check these locations in order:
 
 Read the default files:
 - `templates/principles/manifest.md`
-- `templates/principles/potok-framework.md`
+- `templates/principles/stream-framework.md`
 - `templates/principles/dev-principles.md`
 - `templates/stacks/*.yaml` (list available stacks)
 
@@ -262,9 +262,9 @@ Keep the structure of the template but rewrite sections to reflect the founder's
 
 The generated manifest should feel personal, not templated. Use active voice, first person.
 
-#### 9b. Generate `potok-framework.md`
+#### 9b. Generate `stream-framework.md`
 
-Read the default `templates/principles/potok-framework.md`. Copy it as-is BUT add a personalized "My Calibration" section at the top based on Round 3 answers:
+Read the default `templates/principles/stream-framework.md`. Copy it as-is BUT add a personalized "My Calibration" section at the top based on Round 3 answers:
 
 ```markdown
 ## My Calibration
@@ -327,7 +327,7 @@ Org config:
 Founder profile:
   Manifest:       .solo/manifest.md
   Dev Principles: .solo/dev-principles.md
-  POTOK:          .solo/potok-framework.md
+  STREAM:          .solo/stream-framework.md
   Stacks:         .solo/stacks/ (N stacks)
 
 These files are yours — edit anytime.

@@ -1,6 +1,6 @@
 ---
-name: solo-potok
-description: Run any decision through POТОК 6-layer filter — clarity in 3 minutes
+name: solo-stream
+description: Run any decision through STREAM 6-layer filter — clarity in 3 minutes
 license: MIT
 metadata:
   author: fortunto2
@@ -9,16 +9,16 @@ allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__kb_sear
 argument-hint: "[decision or dilemma to analyze]"
 ---
 
-# /potok
+# /stream
 
-Interactive wizard that walks any decision through the ПОТОК 6-layer framework. Designed for founders making high-stakes choices under uncertainty.
+Interactive wizard that walks any decision through the STREAM 6-layer framework. Designed for founders making high-stakes choices under uncertainty.
 
 ## Steps
 
 1. **Parse the decision** from `$ARGUMENTS`. If empty, ask: "What decision or dilemma do you want to analyze?"
 
 2. **Load framework context** (optional enhancement):
-   - If MCP `kb_search` available: `kb_search(query="ПОТОК framework", n_results=3)` for full framework details.
+   - If MCP `kb_search` available: `kb_search(query="STREAM framework", n_results=3)` for full framework details.
    - Otherwise, the framework is embedded below.
 
 3. **Walk through 6 layers interactively.** For each layer, explain the concept, ask a clarifying question via AskUserQuestion, then provide assessment.
@@ -61,7 +61,7 @@ Interactive wizard that walks any decision through the ПОТОК 6-layer framew
 
 4. **Synthesize verdict:**
    - Score each layer 1-10
-   - Overall ПОТОК score (weighted average)
+   - Overall STREAM score (weighted average)
    - **GO** (score > 7) / **PAUSE** (5-7) / **NO-GO** (< 5)
    - Key risk to mitigate
    - Recommended first action
@@ -75,7 +75,7 @@ Interactive wizard that walks any decision through the ПОТОК 6-layer framew
    ## Decision: [topic]
 
    **Date:** [today]
-   **Framework:** ПОТОК 6-layer
+   **Framework:** STREAM 6-layer
 
    ### Analysis Summary
    | Layer | Score | Key Finding |
@@ -87,7 +87,7 @@ Interactive wizard that walks any decision through the ПОТОК 6-layer framew
    | Social | X/10 | ... |
    | Meta | X/10 | ... |
 
-   **Overall ПОТОК Score: X/10 — GO/PAUSE/NO-GO**
+   **Overall STREAM Score: X/10 — GO/PAUSE/NO-GO**
 
    ### Recommendation
    [Clear recommendation with reasoning]
