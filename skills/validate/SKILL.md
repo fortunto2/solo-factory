@@ -4,7 +4,7 @@ description: Score idea through POТОК, pick stack, generate PRD — go or kil
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.0"
+  version: "1.4.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__project_info
 argument-hint: "[idea name or description]"
 ---
@@ -51,16 +51,22 @@ If MCP tools are not available, fall back to Grep/Glob or CLI commands.
    - **Layer 5 - Social:** Reputation impact? Network effects?
    - **Layer 6 - Meta:** Does this pass the mortality filter? Worth the finite time?
 
-6. **Stack selection:** Ask the user which tech stack to use.
-   If MCP `project_info` is available, show detected stacks from active projects as reference.
-   Common stacks:
-   - `ios-swift` — SwiftUI, CoreML, StoreKit 2
-   - `nextjs-supabase` — Next.js, React, Tailwind, Supabase
-   - `python-api` — FastAPI, SQLAlchemy, PostgreSQL
-   - `kotlin-android` — Jetpack Compose, Room
-   - `cloudflare-workers` — Hono, D1, edge-first
-   - `astro-static` — Astro, Cloudflare Pages
-   - `python-ml` — uv, Pydantic, ChromaDB, MLX
+6. **Stack selection:** Auto-detect from research data, then confirm or ask.
+
+   **Auto-detection rules** (from `research.md` `product_type` field or idea keywords):
+   - `product_type: ios` → `ios-swift`
+   - `product_type: android` → `kotlin-android`
+   - `product_type: web` + mentions AI/ML → `nextjs-supabase` (or `nextjs-ai-agents`)
+   - `product_type: web` + landing/static → `astro-static`
+   - `product_type: web` (default) → `nextjs-supabase`
+   - `product_type: api` → `python-api`
+   - `product_type: cli` + Python keywords → `python-ml`
+   - `product_type: cli` + JS/TS keywords → `nextjs-supabase` (monorepo)
+   - Edge/serverless keywords → `cloudflare-workers`
+
+   If auto-detected with high confidence, state the choice and proceed.
+   If ambiguous (e.g., could be web or mobile), ask via AskUserQuestion with the top 2-3 options.
+   If MCP `project_info` is available, show user's existing stacks as reference.
 
 7. **Generate PRD:** Create a PRD document at `4-opportunities/<project-name>/prd.md` (or `docs/prd.md` if not in solopreneur KB). Use a kebab-case project name derived from the idea. Include:
    - **Problem:** Based on the idea and ПОТОК analysis

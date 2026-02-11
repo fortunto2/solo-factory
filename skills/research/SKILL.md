@@ -4,7 +4,7 @@ description: Scout the market — competitors, SEO, naming, domains, market sizi
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.0"
+  version: "1.4.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__solograph__session_search, mcp__solograph__project_info
 argument-hint: "[idea name or description]"
 ---
@@ -71,8 +71,14 @@ curl -s -X POST 'http://localhost:8013/transcript' \
 
 1. **Parse the idea** from `$ARGUMENTS`. If empty, ask the user what idea they want to research.
 
-2. **Ask product type** — ask the user:
-   - Web app / Mobile (iOS) / Mobile (Android) / Desktop / CLI / API
+2. **Detect product type** — infer from the idea description:
+   - Keywords like "app", "mobile", "iPhone", "Android" → mobile (ios/android)
+   - Keywords like "website", "SaaS", "dashboard", "web app" → web
+   - Keywords like "CLI", "terminal", "command line" → cli
+   - Keywords like "API", "backend", "service" → api
+   - Keywords like "extension", "plugin", "browser" → web (extension)
+   - Default if unclear → web
+   - Only ask via AskUserQuestion if truly ambiguous (e.g., "build a todo app" could be web or mobile)
    - This determines which research sections apply (ASO for mobile, SEO for web, etc.)
 
 3. **Search knowledge base** for existing related content:
@@ -116,10 +122,18 @@ curl -s -X POST 'http://localhost:8013/transcript' \
 
    **Domain availability (RDAP — free, no auth):**
    ```bash
+   # Check all candidates in parallel (one batch command)
    # 404 = available, 200 = registered
-   curl -s -o /dev/null -w "%{http_code}" "https://rdap.org/domain/<name>.com"
+   for name in candidate1 candidate2 candidate3; do
+     for ext in com app io dev ai; do
+       (code=$(curl -s -o /dev/null -w "%{http_code}" "https://rdap.org/domain/${name}.${ext}"); \
+        if [ "$code" = "404" ]; then r="AVAIL"; else r="taken"; fi; \
+        echo "${name}.${ext}: ${r}") &
+     done
+   done; wait
    ```
-   - Check .com, .app, .io, .dev, .ai for each candidate (run in parallel)
+   - Run ALL candidates x extensions in a single parallel batch (uses `&` + `wait`)
+   - Reduces ~30s sequential to ~3s parallel
 
    **Trademark check:**
    - `"<name> trademark"` — basic conflict check
