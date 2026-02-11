@@ -153,7 +153,7 @@ After EVERY completed task, the agent must check and update documentation. This 
 |---------------|----------------|
 | `CLAUDE.md` | Added skill, command, stack, phase, MCP tool, key file |
 | `README.md` | Changed public API, setup, project description |
-| `conductor/tech-stack.md` | Added/updated dependency |
+| `docs/workflow.md` | Changed TDD policy, commit strategy, workflow |
 | `docs/prd.md` | Changed features, metrics, scope |
 | `AICODE-TODO` in touched files | Completed -> delete, new -> add |
 | `AICODE-NOTE` on complex logic | Wrote non-obvious code -> annotate |
@@ -336,7 +336,7 @@ At system boundaries (UI, API) — show user-friendly messages. Inside — let i
 
 # 2. Project Bootstrap
 /solo:scaffold <name> <stack>       # Create project: structure, deps, git, GitHub
-/solo:setup                         # Conductor artifacts from PRD + CLAUDE.md (0 questions)
+/solo:setup                         # Dev workflow config (0 questions)
 
 # 3. Development (per feature)
 /solo:plan "Feature X"              # Explore code -> spec + plan (0 questions)
@@ -346,25 +346,28 @@ At system boundaries (UI, API) — show user-friendly messages. Inside — let i
 /agent-teams:team-feature           # 2-4 agents on different parts
 /agent-teams:team-review            # Parallel code review
 /agent-teams:team-debug             # Debug complex bugs
+
+# 5. Distribution (Фабрика)
+/solo:seo-audit <url>               # SEO health check, score 0-100
+/solo:content-gen <project>         # Content pack (video, LinkedIn, Reddit, Twitter)
+/solo:landing-gen <project>         # Landing page content + A/B headlines
+/solo:community-outreach <project>  # Reddit/HN/PH thread drafts
+/solo:video-promo <project>         # Video script + storyboard
+/solo:metrics-track <project>       # PostHog funnel + KPI thresholds
 ```
 
-### Conductor — Context-Driven Development
+### Plan → Build — File-Based Development Workflow
 
-Manages feature lifecycle through structured artifacts in `conductor/`.
+Lightweight feature lifecycle through `docs/plan/` and `docs/workflow.md`. No framework, just files.
 
-**Project artifacts** (created via `/solo:setup`, 0 questions):
-- `conductor/product.md` — product description, target audience, key features
-- `conductor/product-guidelines.md` — voice, tone, design principles
-- `conductor/tech-stack.md` — stack, dependencies, versions
-- `conductor/workflow.md` — TDD, commits, code review, checkpoints
-- `conductor/code_styleguides/` — style guides per language
+**Setup** (created via `/solo:setup`, 0 questions):
+- `docs/workflow.md` — TDD policy, commit strategy, verification checkpoints
 
 **Track = unit of work** (feature, bug, refactoring):
 ```
-conductor/tracks/{name}_{date}/
+docs/plan/{name}_{date}/
   spec.md           # Specification (problem, solution, acceptance criteria)
   plan.md           # Phases, tasks, dependencies, [x]/[ ] progress
-  metadata.json     # Status, git branch, timestamps
 ```
 
 **Daily cycle:**
@@ -379,16 +382,16 @@ conductor/tracks/{name}_{date}/
 - TDD: test first -> then code -> verify
 - Each task = separate git commit
 - Phase checkpoints: tests + linter between phases
-- Auto-update `plan.md` and `metadata.json`
+- Auto-update `plan.md` progress markers
 - On error — don't skip, fix it
 
 ### When to Use What
 
 | Situation | Tool |
 |-----------|------|
-| Simple task (< 30 min) | Just do it, no Conductor |
+| Simple task (< 30 min) | Just do it, no plan needed |
 | Feature (1-3 days) | `/solo:plan` -> `/solo:build` |
-| Large feature (3+ days) | Conductor + Agent Teams (parallel) |
+| Large feature (3+ days) | Plan + Agent Teams (parallel) |
 | Code review | `/agent-teams:team-review` |
 | Complex bug | `/agent-teams:team-debug` |
 | Refactoring | `/solo:plan` (for tracking) |
