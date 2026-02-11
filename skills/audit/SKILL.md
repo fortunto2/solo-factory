@@ -17,7 +17,7 @@ Audit the knowledge base for quality issues: missing frontmatter, broken links, 
 
 1. **Parse focus area** from `$ARGUMENTS` (optional). If provided, focus on that area (e.g., "tags", "frontmatter", "links"). If empty, run full audit.
 
-2. **Find all markdown files:** Use Glob to find all .md files, excluding common non-content directories: `.venv/`, `node_modules/`, `.git/`, `.embeddings/`, `archive/`, `.archive_old/`, `conductor/`.
+2. **Find all markdown files:** Use Glob to find all .md files, excluding common non-content directories: `.venv/`, `node_modules/`, `.git/`, `.embeddings/`, `archive/`, `.archive_old/`.
 
 3. **Frontmatter audit:** For each markdown file, read it and check:
    - Has YAML frontmatter (starts with `---` and has closing `---`)

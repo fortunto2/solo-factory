@@ -4,20 +4,18 @@ description: Wire up dev workflow from PRD + CLAUDE.md — zero questions asked
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.0"
+  version: "2.0.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__kb_search
 argument-hint: "[project-name]"
 ---
 
 # /setup
 
-Auto-generate Conductor artifacts from existing PRD, CLAUDE.md, and stack template. Zero interactive questions — all answers are extracted from project data that already exists after `/scaffold`.
-
-Replaces the old `/conductor:setup` (which asks 19 questions with answers already available).
+Auto-generate project workflow config from existing PRD and CLAUDE.md. Zero interactive questions — all answers extracted from project data that already exists after `/scaffold`.
 
 ## When to use
 
-After `/scaffold` creates a project, before `/plan`. The generated artifacts make `/build` work.
+After `/scaffold` creates a project, before `/plan`. Creates `docs/workflow.md` so `/plan` and `/build` can work.
 
 ## MCP Tools (use if available)
 
@@ -36,7 +34,7 @@ If MCP tools are not available, fall back to reading local files only.
    - If not found, ask via AskUserQuestion.
 
 2. **Check if already initialized:**
-   - If `conductor/setup_state.json` exists with `"status": "complete"`, warn and ask whether to regenerate.
+   - If `docs/workflow.md` exists, warn and ask whether to regenerate.
 
 3. **Read project data** (parallel — all reads at once):
    - `CLAUDE.md` — tech stack, architecture, commands, Do/Don't
@@ -44,7 +42,6 @@ If MCP tools are not available, fall back to reading local files only.
    - `package.json` or `pyproject.toml` — exact dependency versions
    - `Makefile` — available commands
    - Linter configs (`.eslintrc*`, `eslint.config.*`, `.swiftlint.yml`, `ruff.toml`, `detekt.yml`)
-   - Formatter configs (`.prettierrc*`)
 
 4. **Read ecosystem sources** (optional — enhances quality):
    - Detect stack name from CLAUDE.md (look for "Stack:" or the stack name in tech section).
@@ -57,213 +54,53 @@ If MCP tools are not available, fall back to reading local files only.
    - `pyproject.toml` → Python
    - `*.xcodeproj` or `Package.swift` → Swift
    - `build.gradle.kts` → Kotlin
-   - Multiple languages possible (e.g., TypeScript + Python monorepo).
 
-6. **Create `conductor/` directory:**
+6. **Create docs directory if needed:**
    ```bash
-   mkdir -p conductor/code_styleguides
+   mkdir -p docs
    ```
 
-7. **Generate `conductor/product.md`:**
-   Extract from `docs/prd.md`:
+7. **Generate `docs/workflow.md`:**
+   Based on dev-principles (from MCP/KB or built-in defaults):
    ```markdown
-   # Product Definition — {ProjectName}
+   # Workflow — {ProjectName}
 
-   ## Project Name
-   {name}
+   ## TDD Policy
+   **Moderate** — Tests encouraged but not blocking. Write tests for:
+   - Business logic and validation
+   - API route handlers
+   - Complex algorithms
+   Tests optional for: UI components, one-off scripts, prototypes.
 
-   ## One-Liner
-   {from PRD summary}
+   ## Test Framework
+   {from package manifest devDeps: vitest/jest/pytest/xctest}
 
-   ## Problem
-   {from PRD problem section}
+   ## Commit Strategy
+   **Conventional Commits**
+   Format: `<type>(<scope>): <description>`
+   Types: feat, fix, refactor, test, docs, chore, perf, style
 
-   ## Target Users
-   {from PRD target users}
+   ## Verification Checkpoints
+   **After each phase completion:**
+   1. Run tests — all pass
+   2. Run linter — no errors
+   3. Run build — successful (if applicable)
+   4. Manual smoke test
 
-   ## Solution
-   {from PRD solution/features}
-
-   ## Key Differentiators
-   {from PRD differentiators or competitive advantage}
-
-   ## Success Metrics
-   {from PRD metrics table}
-
-   ## Pricing
-   {from PRD pricing, if present}
+   ## Branch Strategy
+   - `main` — production-ready
+   - `feat/<track-id>` — feature branches
+   - `fix/<description>` — hotfixes
    ```
 
-8. **Generate `conductor/product-guidelines.md`:**
-   Extract from CLAUDE.md Do/Don't sections:
-   ```markdown
-   # Product Guidelines — {ProjectName}
+8. **Update `CLAUDE.md`** — add workflow reference to Key Documents section if not present.
 
-   ## Voice and Tone
-   {infer from PRD/CLAUDE.md, default: "Friendly and approachable"}
-
-   ## Design Principles
-   1. **Privacy** — user data stays local where possible
-   2. **Simplicity** — zero learning curve
-   3. **Speed** — responsive UI, fast processing
-   {add more from CLAUDE.md Do/Don't}
-
-   ## UI Principles
-   {from CLAUDE.md architecture/design sections}
+9. **Show summary and suggest next step:**
    ```
+   Setup complete for {ProjectName}!
 
-9. **Generate `conductor/tech-stack.md`:**
-   Extract from CLAUDE.md tech stack + `package.json`/`pyproject.toml` for exact versions:
-   ```markdown
-   # Tech Stack — {ProjectName}
+   Created:
+     docs/workflow.md — TDD moderate, conventional commits
 
-   ## Languages
-   | Language | Version | Role |
-   |----------|---------|------|
-   {detected languages with versions}
-
-   ## Dependencies
-   | Technology | Version | Purpose |
-   |-----------|---------|---------|
-   {from package manifest — key deps with versions}
-
-   ## Dev Dependencies
-   | Technology | Version | Purpose |
-   |-----------|---------|---------|
-   {dev deps}
-
-   ## Infrastructure
-   {from stack YAML or CLAUDE.md deploy/infra section}
-
-   ## Package Manager
-   {from CLAUDE.md or package manifest}
+   Next: /plan "Your first feature"
    ```
-
-10. **Generate `conductor/workflow.md`:**
-    Based on dev-principles (from MCP/KB or built-in defaults):
-    ```markdown
-    # Workflow — {ProjectName}
-
-    ## TDD Policy
-    **Moderate** — Tests encouraged but not blocking. Write tests for:
-    - Business logic and validation
-    - API route handlers
-    - Complex algorithms
-    Tests optional for: UI components, one-off scripts, prototypes.
-
-    ## Test Framework
-    {from package manifest devDeps: vitest/jest/pytest/xctest}
-
-    ## Commit Strategy
-    **Conventional Commits**
-    Format: `<type>(<scope>): <description>`
-    Types: feat, fix, refactor, test, docs, chore, perf, style
-
-    ## Code Review
-    **Optional / self-review OK.**
-
-    ## Verification Checkpoints
-    **After each phase completion:**
-    1. Run tests — all pass
-    2. Run linter — no errors
-    3. Run build — successful (if applicable)
-    4. Manual smoke test
-    5. Mark phase as verified
-
-    ## Task Lifecycle
-    pending → in_progress → completed
-
-    ## Branch Strategy
-    - `main` — production-ready
-    - `feat/<track-id>-<short-name>` — feature branches
-    - `fix/<description>` — hotfixes
-    ```
-
-11. **Generate `conductor/tracks.md`:**
-    ```markdown
-    # Tracks Registry
-
-    | Status | Track ID | Title | Created | Updated |
-    | ------ | -------- | ----- | ------- | ------- |
-
-    <!-- Tracks registered by /plan -->
-    ```
-
-12. **Generate `conductor/code_styleguides/<lang>.md`** for each detected language:
-    Read linter configs from the project and generate style guide. Include:
-    - Formatting rules (from prettier/ruff/swiftlint config)
-    - Naming conventions (from stack conventions)
-    - Import ordering
-    - Key patterns (from CLAUDE.md architecture section)
-
-13. **Generate `conductor/index.md`:**
-    ```markdown
-    # Conductor — {ProjectName}
-
-    Navigation hub for project context.
-
-    ## Core
-    - [Product Definition](./product.md)
-    - [Product Guidelines](./product-guidelines.md)
-    - [Tech Stack](./tech-stack.md)
-    - [Workflow](./workflow.md)
-
-    ## Planning
-    - [Tracks](./tracks.md)
-
-    ## Code Style Guides
-    {list detected language guides}
-    ```
-
-14. **Generate `conductor/setup_state.json`:**
-    ```json
-    {
-      "status": "complete",
-      "project_type": "brownfield",
-      "current_section": "done",
-      "current_question": 0,
-      "completed_sections": ["product", "guidelines", "tech_stack", "workflow", "styleguides", "generation"],
-      "answers": {
-        "project_name": "{name}",
-        "description": "{one-liner from PRD}",
-        "problem": "{problem from PRD}",
-        "target_users": "{users from PRD}",
-        "key_goals": ["{goals from PRD}"],
-        "voice_tone": "Friendly and approachable",
-        "design_principles": ["Privacy", "Simplicity", "Speed"],
-        "tech_stack_confirmed": true,
-        "tdd_strictness": "moderate",
-        "commit_strategy": "conventional",
-        "code_review": "optional",
-        "verification": "phase",
-        "style_guides": ["{detected languages}"]
-      },
-      "files_created": ["{list of created files}"],
-      "started_at": "{ISO timestamp}",
-      "last_updated": "{ISO timestamp}"
-    }
-    ```
-
-15. **Show summary and suggest next step:**
-    ```
-    Conductor initialized for {ProjectName}!
-
-    Created:
-      conductor/product.md          — from docs/prd.md
-      conductor/product-guidelines.md — from CLAUDE.md
-      conductor/tech-stack.md       — from CLAUDE.md + package manifest
-      conductor/workflow.md         — TDD moderate, conventional commits
-      conductor/tracks.md           — empty registry
-      conductor/code_styleguides/   — {languages}
-      conductor/index.md            — navigation hub
-      conductor/setup_state.json    — complete
-
-    Next: /plan "Your first feature"
-    ```
-
-## Compatibility Notes
-
-- `setup_state.json` must have `"status": "complete"` — `/build` checks this.
-- All file formats match what `/build` reads (product.md, tech-stack.md, workflow.md, tracks.md).
-- Track format uses `## Phase N:` and `- [ ] Task N.Y:` markers that implement.md parses.
-- `conductor/tracks/{id}/` directories are created by `/plan`, not here.
