@@ -4,7 +4,7 @@ description: Scout the market — competitors, SEO, naming, domains, market sizi
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.4.0"
+  version: "1.5.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__solograph__session_search, mcp__solograph__project_info
 argument-hint: "[idea name or description]"
 ---
@@ -118,22 +118,53 @@ curl -s -X POST 'http://localhost:8013/transcript' \
    - Result: ASO keywords, competitor ratings, common complaints
 
 7. **Naming, domains, and company registration:**
-   - Generate 5-7 name candidates
+   - Generate 7-10 name candidates (mix of descriptive + invented/brandable)
 
-   **Domain availability (RDAP — free, no auth):**
+   **Domain availability — triple verification (RDAP → whois → dig):**
+
+   **Step 1: RDAP bulk screen (fast, ~3s for all candidates):**
    ```bash
-   # Check all candidates in parallel (one batch command)
+   # IMPORTANT: use -L to follow redirects (RDAP returns 302)
    # 404 = available, 200 = registered
    for name in candidate1 candidate2 candidate3; do
-     for ext in com app io dev ai; do
-       (code=$(curl -s -o /dev/null -w "%{http_code}" "https://rdap.org/domain/${name}.${ext}"); \
-        if [ "$code" = "404" ]; then r="AVAIL"; else r="taken"; fi; \
-        echo "${name}.${ext}: ${r}") &
+     for ext in com app; do
+       code=$(curl -sL -o /dev/null -w "%{http_code}" "https://rdap.org/domain/${name}.${ext}")
+       if [ "$code" = "404" ]; then r="AVAIL"; else r="taken"; fi
+       printf "  %-25s %s\n" "${name}.${ext}" "$r"
      done
-   done; wait
+   done
    ```
-   - Run ALL candidates x extensions in a single parallel batch (uses `&` + `wait`)
-   - Reduces ~30s sequential to ~3s parallel
+   - Check .com and .app for all candidates (most relevant for apps)
+   - Add .io, .dev, .ai only for promising candidates
+
+   **Step 2: whois confirmation (for RDAP "AVAIL" results):**
+   ```bash
+   # For .com: look for "No match for" or empty registrar
+   # For .app/.dev (Google Registry): TLD created date 2015 appears even for unregistered
+   #   → check for Name Server and Registrar fields instead
+   for domain in candidate1.app candidate2.com; do
+     ns=$(whois "$domain" 2>/dev/null | grep -i "Name Server" | head -1)
+     registrar=$(whois "$domain" 2>/dev/null | grep -i "Registrar:" | head -1)
+     if [ -z "$ns" ] && [ -z "$registrar" ]; then
+       echo "$domain: AVAIL (no NS, no registrar)"
+     else
+       echo "$domain: taken ($registrar)"
+     fi
+   done
+   ```
+   - IMPORTANT: `.app`/`.dev` domains show TLD creation date (2015-06-25) in whois even when unregistered — do NOT use creation date as indicator. Check for Name Server and Registrar fields instead.
+
+   **Step 3: dig DNS confirmation:**
+   ```bash
+   # NXDOMAIN or empty = not in use, IP = registered and active
+   for domain in candidate1.app candidate2.com; do
+     result=$(dig +short "$domain" 2>/dev/null)
+     if [ -z "$result" ]; then echo "$domain: no DNS (available)";
+     else echo "$domain: resolves to $result (active)"; fi
+   done
+   ```
+
+   **Summary:** RDAP screens fast → whois confirms registration → dig confirms DNS. All three must agree for high confidence.
 
    **Trademark check:**
    - `"<name> trademark"` — basic conflict check
