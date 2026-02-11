@@ -4,14 +4,14 @@ description: PRD to running project in 2 minutes — structure, deps, git, GitHu
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.0"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__project_code_reindex
+  version: "1.4.0"
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_reindex
 argument-hint: "[project-name] [stack-name]"
 ---
 
 # /scaffold
 
-Scaffold a complete project from PRD + stack template. Creates directory structure, configs, CLAUDE.md, git repo, and pushes to GitHub. Uses Context7 to research latest library versions and best practices.
+Scaffold a complete project from PRD + stack template. Creates directory structure, configs, CLAUDE.md, git repo, and pushes to GitHub. Studies existing projects via SoloGraph for consistent patterns, uses Context7 for latest library versions.
 
 ## Steps
 
@@ -47,25 +47,53 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
      - If not: generate a basic PRD template
    - Look for dev principles: search for `dev-principles.md` or use built-in SOLID/DRY/KISS/TDD principles.
 
-4. **Context7 research** (key step — determines exact versions and patterns):
+4. **Study existing projects via SoloGraph** (learn from your own codebase — critically):
+
+   Before generating code, study active projects with the same stack. **Don't blindly copy** — existing projects may have legacy patterns or mistakes. Evaluate what's actually useful.
+
+   a. **Find sibling projects** — use `project_info()` to list active projects, filter by matching stack.
+      Example: for `ios-swift`, find FaceAlarm, KubizBeat, etc.
+
+   b. **Architecture overview** — `codegraph_explain(project="<sibling>")` for each sibling.
+      Gives: directory layers, key patterns (base classes, protocols, CRUD), top dependencies, hub files.
+
+   c. **Search for reusable patterns** — `project_code_search(query="<pattern>", project="<sibling>")`:
+      - Search for stack-specific patterns: "MVVM ViewModel", "SwiftData model", "AVFoundation recording"
+      - Search for shared infrastructure: "Makefile", "project.yml", ".swiftlint.yml"
+      - Search for services: "Service protocol", "actor service"
+
+   d. **Check shared packages** — `codegraph_query("MATCH (p:Project)-[:DEPENDS_ON]->(pkg:Package) WHERE p.name = '<sibling>' RETURN pkg.name")`.
+      Collect package versions for reference (but verify with Context7 for latest).
+
+   e. **Critically evaluate** what to adopt vs skip:
+      - **Adopt:** consistent directory structure, Makefile targets, config patterns (.swiftlint.yml, project.yml)
+      - **Adopt:** proven infrastructure patterns (actor services, protocol-based DIP)
+      - **Skip if outdated:** old API patterns (ObservableObject → @Observable), deprecated deps
+      - **Skip if overcomplicated:** unnecessary abstractions, patterns that don't fit the new project's needs
+      - **Always prefer:** Context7 latest best practices over old project patterns when they conflict
+
+   **Goal:** Generated code should feel consistent with your portfolio but use the **best available** patterns, not just the same old ones.
+   Limit to 2-3 sibling projects to keep research focused.
+
+5. **Context7 research** (latest library versions and best practices):
    - For each key package from the stack:
      - `mcp__context7__resolve-library-id` — find the Context7 library ID
      - `mcp__context7__query-docs` — query "latest version, project setup, recommended file structure, best practices"
    - Collect: current versions, recommended directory structure, configuration patterns, setup commands
    - Limit to the 3-4 most important packages to keep research focused
 
-5. **Show plan + get confirmation** via AskUserQuestion:
+6. **Show plan + get confirmation** via AskUserQuestion:
    - Project path: `~/startups/active/<name>`
    - Stack name and key packages with versions from Context7
    - Proposed directory structure
    - Confirm or adjust before creating files
 
-6. **Create project directory:**
+7. **Create project directory:**
    ```bash
    mkdir -p ~/startups/active/<name>
    ```
 
-7. **Create file structure** based on the stack. **SGR-first: always start with domain schemas/models before any logic or views.** Every project gets these common files:
+8. **Create file structure** based on the stack. **SGR-first: always start with domain schemas/models before any logic or views.** Every project gets these common files:
    ```
    ~/startups/active/<name>/
    ├── CLAUDE.md          # AI-friendly project docs
@@ -121,10 +149,10 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - `pyproject.toml`, `src/<name>/main.py`, `src/<name>/models.py`
    - `tests/test_main.py`
 
-8. **Generate Makefile** — stack-adapted with: `help`, `dev`, `test`, `lint`, `format`, `build`, `clean` targets.
+9. **Generate Makefile** — stack-adapted with: `help`, `dev`, `test`, `lint`, `format`, `build`, `clean` targets.
    - **ios-swift** must also include: `generate` (xcodegen), `archive` (xcodebuild archive), `open` (open .xcarchive for Distribute)
 
-9. **Generate CLAUDE.md** for the new project:
+10. **Generate CLAUDE.md** for the new project:
    - Project overview (problem/solution from PRD)
    - Tech stack (packages + versions from Context7)
    - Directory structure
@@ -135,13 +163,13 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - **Solopreneur Integration section** (if MCP tools available):
      Lists available MCP tools: `project_code_search`, `kb_search`, `session_search`, `codegraph_query`, `project_info`, `web_search`
 
-10. **Generate README.md** — project name, description, prerequisites, setup, run/test/deploy.
+11. **Generate README.md** — project name, description, prerequisites, setup, run/test/deploy.
 
-11. **Generate .gitignore** — stack-specific patterns.
+12. **Generate .gitignore** — stack-specific patterns.
 
-12. **Copy PRD to docs/:** Copy from solopreneur KB or generate in place.
+13. **Copy PRD to docs/:** Copy from solopreneur KB or generate in place.
 
-13. **Git init + first commit:**
+14. **Git init + first commit:**
     ```bash
     cd ~/startups/active/<name>
     git init && git add . && git commit -m "Initial project scaffold
@@ -150,13 +178,13 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
     Generated by /scaffold"
     ```
 
-14. **Create GitHub private repo + push:**
+15. **Create GitHub private repo + push:**
     ```bash
     cd ~/startups/active/<name>
     gh repo create <name> --private --source=. --push
     ```
 
-15. **Register project + index code** (if in solopreneur ecosystem):
+16. **Register project + index code** (if in solopreneur ecosystem):
     - Append project to `~/.solo/registry.yaml`:
       ```bash
       cat >> ~/.solo/registry.yaml << 'EOF'
@@ -171,7 +199,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
       mcp__solograph__project_code_reindex(project="<name>")
       ```
 
-16. **Output summary:**
+17. **Output summary:**
     ```
     Project scaffolded!
 
