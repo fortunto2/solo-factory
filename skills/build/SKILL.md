@@ -4,20 +4,20 @@ description: Ship it — execute plan tasks with TDD, auto-commit, phase gates
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.0"
+  version: "2.0.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query
 argument-hint: "[track-id] [--task X.Y] [--phase N]"
 ---
 
 # /build
 
-Execute tasks from a track's implementation plan. Reads `conductor/tracks/{id}/plan.md`, picks the next unchecked task, implements it with TDD workflow, commits, and updates progress.
+Execute tasks from an implementation plan. Finds `plan.md` (in `docs/plan/` for projects or `4-opportunities/` for KB), picks the next unchecked task, implements it with TDD workflow, commits, and updates progress.
 
 ## When to use
 
 After `/plan` has created a track with `spec.md` + `plan.md`. This is the execution engine.
 
-Pipeline: `/setup` → `/plan` → **`/build`**
+Pipeline: `/plan` → **`/build`**
 
 ## MCP Tools (use if available)
 
@@ -29,45 +29,43 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 
 ## Pre-flight Checks
 
-1. Verify conductor is initialized:
-   - Check `conductor/product.md`, `conductor/workflow.md`, `conductor/tracks.md` exist.
-   - If missing: "Run `/setup` first."
+1. **Detect context** — find where plan files live:
+   - Check `docs/plan/*/plan.md` — project context
+   - Check `4-opportunities/*/plan.md` — KB context
+   - Use whichever exists. If both, prefer `docs/plan/`.
 
-2. Load workflow config from `conductor/workflow.md`:
+2. Load workflow config from `docs/workflow.md` (if exists):
    - TDD strictness (strict / moderate / none)
    - Commit strategy (conventional commits format)
    - Verification checkpoint rules
+   If `docs/workflow.md` missing: use defaults (moderate TDD, conventional commits).
 
 ## Track Selection
 
 ### If `$ARGUMENTS` contains a track ID:
-- Validate: `conductor/tracks/{argument}/plan.md` exists.
-- If not found: search for partial matches, suggest corrections.
+- Validate: `{plan_root}/{argument}/plan.md` exists (check both `docs/plan/` and `4-opportunities/`).
+- If not found: search `docs/plan/*/plan.md` and `4-opportunities/*/plan.md` for partial matches, suggest corrections.
 
 ### If `$ARGUMENTS` contains `--task X.Y`:
 - Jump directly to that task in the active track.
 
 ### If no argument:
-1. Read `conductor/tracks.md`.
-2. Find tracks marked `[~]` (in progress) — resume first.
-3. If none in progress, find tracks marked `[ ]` (pending).
-4. If multiple, ask via AskUserQuestion.
-5. If zero tracks: "No tracks found. Run `/plan` first."
+1. Search for `plan.md` files in `docs/plan/` and `4-opportunities/`.
+2. Read each `plan.md`, find tracks with uncompleted tasks.
+3. If multiple, ask via AskUserQuestion.
+4. If zero tracks: "No plans found. Run `/plan` first."
 
 ## Context Loading
 
 Load in parallel:
-1. `conductor/tracks/{trackId}/spec.md` — requirements, acceptance criteria
-2. `conductor/tracks/{trackId}/plan.md` — task list with checkboxes
-3. `conductor/tracks/{trackId}/metadata.json` — progress state
-4. `conductor/tech-stack.md` — technical constraints
-5. `conductor/workflow.md` — TDD policy, commit strategy
-6. `conductor/code_styleguides/{lang}.md` — if exists
-7. `CLAUDE.md` — architecture, Do/Don't
+1. `docs/plan/{trackId}/spec.md` — requirements, acceptance criteria
+2. `docs/plan/{trackId}/plan.md` — task list with checkboxes
+3. `docs/workflow.md` — TDD policy, commit strategy (if exists)
+4. `CLAUDE.md` — architecture, Do/Don't
 
 ## Resumption
 
-If `metadata.json` shows `status: "in_progress"` and a task is marked `[~]` in plan.md:
+If a task is marked `[~]` in plan.md:
 
 ```
 Resuming: {track title}
@@ -91,7 +89,6 @@ Parse plan.md for first line matching `- [ ] Task X.Y:` (or `- [~] Task X.Y:` if
 ### 2. Start Task
 
 - Update plan.md: `[ ]` → `[~]` for current task.
-- Update metadata.json: `current_task`, `current_phase`, `updated`.
 - Announce: **"Starting Task X.Y: {description}"**
 
 ### 3. Research (quick, before coding)
@@ -109,12 +106,10 @@ This takes 10-30 seconds and prevents reinventing the wheel.
 **Red — write failing test:**
 - Create/update test file for the task functionality.
 - Run tests to confirm they fail.
-- If tests pass unexpectedly: investigate before proceeding.
 
 **Green — implement:**
 - Write minimum code to make the test pass.
 - Run tests to confirm pass.
-- If tests fail: debug and fix.
 
 **Refactor:**
 - Clean up while tests stay green.
@@ -128,26 +123,15 @@ This takes 10-30 seconds and prevents reinventing the wheel.
 
 ### 6. Complete Task
 
-**Commit** (following commit strategy from workflow.md):
+**Commit** (following commit strategy):
 ```bash
 git add {specific files changed}
-git commit -m "<type>(<scope>): <description> ({trackId})"
+git commit -m "<type>(<scope>): <description>"
 ```
 
 Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `style`
 
 **Update plan.md:** `[~]` → `[x]` for completed task.
-
-**Update metadata.json:**
-- Increment `tasks.completed`
-- Record commit hash in `commits` array
-- Update `updated` timestamp
-
-**Commit plan update:**
-```bash
-git add conductor/tracks/{trackId}/plan.md conductor/tracks/{trackId}/metadata.json
-git commit -m "chore: mark task {X.Y} complete ({trackId})"
-```
 
 ### 7. Phase Completion Check
 
@@ -174,8 +158,6 @@ Continue to Phase {N+1}?
 
 **CRITICAL: Always wait for user approval before proceeding to next phase.**
 
-If issues found: fix them before asking to proceed.
-
 ## Error Handling
 
 ### Test Failure
@@ -189,15 +171,6 @@ Tests failing after Task X.Y:
 ```
 Ask via AskUserQuestion. Do NOT automatically continue past failures.
 
-### Git Conflict
-```
-Git error: {message}
-
-1. Show git status
-2. Attempt to resolve
-3. Pause for manual intervention
-```
-
 ## Track Completion
 
 When all phases and tasks are `[x]`:
@@ -207,41 +180,25 @@ When all phases and tasks are `[x]`:
 - Run linter.
 - Check acceptance criteria from spec.md.
 
-### 2. Update Status
-
-In `conductor/tracks.md`: `[~]` → `[x]` for this track.
-
-In `metadata.json`:
-```json
-{
-  "status": "complete",
-  "tasks": { "completed": N, "total": N },
-  "phases": { "completed": N, "total": N }
-}
-```
-
-### 3. Summary
+### 2. Summary
 
 ```
 Track complete: {title} ({trackId})
 
   Phases: {N}/{N}
   Tasks:  {M}/{M}
-  Commits: {count}
   Tests: All passing
 
 Next:
   /build {next-track-id}  — continue with next track
-  /plan "next feature"  — plan something new
+  /plan "next feature"    — plan something new
 ```
 
 ## Critical Rules
 
 1. **NEVER skip phase checkpoints** — always wait for user approval between phases.
 2. **STOP on failure** — do not continue past test failures or errors.
-3. **Follow workflow.md** — TDD policy, commit strategy, verification rules are mandatory.
-4. **Keep plan.md updated** — task status must reflect actual progress at all times.
-5. **Commit after each task** — atomic commits with conventional format.
-6. **Research before coding** — 30 seconds of search saves 30 minutes of reimplementation.
-7. **Track all commits** — record hashes in metadata.json for potential revert.
-8. **One task at a time** — finish current task before starting next.
+3. **Keep plan.md updated** — task status must reflect actual progress at all times.
+4. **Commit after each task** — atomic commits with conventional format.
+5. **Research before coding** — 30 seconds of search saves 30 minutes of reimplementation.
+6. **One task at a time** — finish current task before starting next.
