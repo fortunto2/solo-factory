@@ -121,6 +121,7 @@ claude plugin list            # Claude Code plugin
 | `cloudflare-workers` | Hono, D1, R2, Durable Objects |
 | `kotlin-android` | Jetpack Compose, Room, Koin |
 | `astro-static` | Astro 5, Cloudflare Pages |
+| `astro-hybrid` | Astro 5 SSG+SSR, Cloudflare Pages/Workers, R2 CDN, Orama |
 | `python-api` | FastAPI, Pydantic, SQLAlchemy, Alembic |
 | `python-ml` | uv, Pydantic, FalkorDB, MLX |
 

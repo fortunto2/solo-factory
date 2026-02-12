@@ -74,6 +74,7 @@ If MCP tools are not available, fall back to Grep/Glob or CLI commands.
    - `product_type: android` → `kotlin-android`
    - `product_type: web` + mentions AI/ML → `nextjs-supabase` (or `nextjs-ai-agents`)
    - `product_type: web` + landing/static → `astro-static`
+   - `product_type: web` + content site + needs SSR for some pages (CDN data, transcripts, dynamic) → `astro-hybrid`
    - `product_type: web` (default) → `nextjs-supabase`
    - `product_type: api` → `python-api`
    - `product_type: cli` + Python keywords → `python-ml`

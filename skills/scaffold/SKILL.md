@@ -25,6 +25,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - `cloudflare-workers` — Hono, D1, R2, Durable Objects, edge-first
    - `kotlin-android` — Jetpack Compose, Room, Koin, CameraX
    - `astro-static` — Astro 5, Cloudflare Pages, content collections
+   - `astro-hybrid` — Astro 5 SSG+SSR, Cloudflare Pages/Workers, R2 CDN, Orama search
    - `nextjs-ai-agents` — extends nextjs-supabase + Vercel AI SDK, @ai-sdk/react, ToolLoopAgent
    - `python-api` — uv, FastAPI, Pydantic, PostgreSQL, SQLAlchemy, Alembic
    - `python-ml` — uv, Pydantic, ChromaDB, MLX, CLI-first
@@ -140,6 +141,19 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    **astro-static:**
    - `package.json`, `astro.config.mjs`
    - `src/pages/index.astro`, `src/layouts/Layout.astro`, `src/content/config.ts`
+
+   **astro-hybrid** (SSG + SSR pattern):
+   - `package.json`, `astro.config.mjs` (output: `"server"`, adapter: `@astrojs/cloudflare`)
+   - `wrangler.toml` (R2 bucket binding, custom domain)
+   - `src/pages/index.astro` (SSG, `prerender = true`)
+   - `src/pages/[slug].astro` (SSR, `prerender = false` — fetches data from R2 at request time)
+   - `src/layouts/Layout.astro`, `src/content/config.ts`
+   - `src/lib/` — shared TypeScript (parsers, search indexes, data loaders)
+   - `scripts/upload-r2.sh` — parallel upload to R2 bucket
+   - Pattern: static pages for content (SSG), SSR for pages needing external data (R2/API).
+     SSR pages fetch from R2 CDN with aggressive edge caching (`cacheTtl: 604800`).
+     Page responses cached 24h (`s-maxage=86400`). Dev mode reads local files.
+     Content Collections for markdown. Orama for client-side fulltext search.
 
    **python-api:**
    - `pyproject.toml`, `src/<name>/main.py`, `src/<name>/schemas/`, `src/<name>/models/`
