@@ -78,7 +78,7 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
 
 6. **Devil's Advocate (Inversion):**
 
-   > "Переверни вопрос: как гарантированно провалиться?" — STREAM Layer 3
+   > "Flip the question: how would you guarantee failure?" — STREAM Layer 3 (Inversion)
 
    This step is MANDATORY. Before scoring positively, you MUST actively try to KILL the idea. The goal is to find reasons NOT to build it.
 
@@ -124,12 +124,12 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
    Consult `references/stream-layers.md` for the complete 6-layer framework with questions per layer.
 
    For EACH layer, provide BOTH positive and negative assessment. Use the actual framework questions:
-   - **Layer 1 (Scope):** Карта!=Территория, Простота, Границы — what assumptions are unproven?
-   - **Layer 2 (Time):** Энтропия, Lindy — will this exist in 5 years?
-   - **Layer 3 (Route):** Инверсия (use Devil's Advocate findings), Второй порядок — second-order effects?
-   - **Layer 4 (Stakes):** Асимметрия, Антихрупкость — real risk/reward with pessimistic numbers
-   - **Layer 5 (Audience):** Репутация, Сеть — deposit or withdrawal?
-   - **Layer 6 (Meta):** Смертность, Баланс — worth finite time? Aligns with mission?
+   - **Layer 1 (Scope):** Map!=Territory, Simplicity, Boundaries — what assumptions are unproven?
+   - **Layer 2 (Time):** Entropy, Lindy — will this exist in 5 years?
+   - **Layer 3 (Route):** Inversion (use Devil's Advocate findings), Second-Order Effects — effects of effects?
+   - **Layer 4 (Stakes):** Asymmetry, Antifragility — real risk/reward with pessimistic numbers
+   - **Layer 5 (Audience):** Reputation, Network — deposit or withdrawal?
+   - **Layer 6 (Meta):** Mortality, Balance — worth finite time? Aligns with mission?
 
    **Scoring rules:**
    - Each layer scored 1-10
