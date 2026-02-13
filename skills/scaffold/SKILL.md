@@ -199,6 +199,17 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
     Then: /setup → /plan "First feature" → /build
     ```
 
+## Verification
+
+Before reporting "project scaffolded":
+1. **Verify** all generated files exist (ls the directory tree).
+2. **Run** the install command (`pnpm install`, `uv sync`, etc.) — must succeed.
+3. **Run** the dev/build command if applicable — must not error.
+4. **Verify** git init + first commit succeeded (`git log --oneline -1`).
+5. **Verify** GitHub repo creation (`gh repo view` or check URL).
+
+Never say "scaffold complete" without running the install and verifying it works.
+
 ## Common Issues
 
 ### Stack YAML not found

@@ -283,6 +283,18 @@ This file signals to the pipeline that the deploy stage is finished.
 **Cause:** Remote has diverged.
 **Fix:** `git pull --rebase origin main`, resolve conflicts, push again.
 
+## Verification Gate
+
+Before reporting "deployment successful":
+1. **Run** `curl -s -o /dev/null -w "%{http_code}"` against the deployment URL.
+2. **Verify** HTTP 200 (not 404, 500, or redirect loop).
+3. **Check** the actual page content matches expectations (not a blank page or error).
+4. **Only then** report the deployment as successful.
+
+If `superpowers:verification-before-completion` is available, invoke it before claiming deploy is done.
+
+Never say "deployment should be live" — verify it IS live.
+
 ## Critical Rules
 
 1. **Use installed CLIs** — detect `vercel`, `wrangler`, `supabase`, `fly`, `sst` before falling back to `npx`.
@@ -292,3 +304,4 @@ This file signals to the pipeline that the deploy stage is finished.
 5. **Check build locally first** — `npm run build` (or equivalent) before deploying.
 6. **Report all URLs** — deployment URL + platform dashboard links.
 7. **Infrastructure in repo** — prefer `sst.config.ts` or `fly.toml` over manual dashboard config (see infra-prd.md).
+8. **Verify before claiming done** — HTTP 200 from the live URL, not just "deploy command succeeded".

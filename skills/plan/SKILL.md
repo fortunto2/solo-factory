@@ -199,7 +199,16 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    - Total: 5-15 tasks (not 70).
    - **Last phase is always "Docs & Cleanup"**.
 
-9. **Show plan for approval** via AskUserQuestion:
+9. **Create progress task list** for pipeline visibility:
+
+   After writing plan.md, create TaskCreate entries so progress is trackable:
+   - One task per phase: "Phase 1: {name}" with task list as description.
+   - This gives the user and pipeline real-time visibility into what's planned.
+   - `/build` will update these tasks as it works through them.
+
+   If `superpowers:writing-plans` skill is available, follow its granularity format: bite-sized tasks (2-5 minutes each), complete code in task descriptions, exact file paths, verification steps per task. This enhances the built-in format above.
+
+10. **Show plan for approval** via AskUserQuestion:
    Present the spec summary + plan overview. Options:
    - "Approve and start" — ready for `/build`
    - "Edit plan" — user wants to modify before implementing
@@ -225,6 +234,19 @@ Research findings:
 
 Next: /build {trackId}
 ```
+
+## Rationalizations Catalog
+
+These thoughts mean STOP — you're skipping research:
+
+| Thought | Reality |
+|---------|---------|
+| "I know this codebase" | You know what you've seen. Search for what you haven't. |
+| "The plan is obvious" | Obvious plans miss edge cases. Research first. |
+| "Let me just start coding" | 10 minutes of research prevents 2 hours of rework. |
+| "This is a small feature" | Small features touch many files. Map the blast radius. |
+| "I'll figure it out as I go" | That's not a plan. Write the file paths first. |
+| "70 tasks should cover it" | 5-15 tasks. If you need more, split into tracks. |
 
 ## Compatibility Notes
 

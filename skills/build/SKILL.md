@@ -254,6 +254,42 @@ Then update plan.md: all tasks in that phase `[x]` → `[ ]`.
 
 **Never use `git reset --hard`** — always `git revert` to preserve history.
 
+## Progress Tracking (TodoWrite)
+
+At the start of a build session, create a task list from plan.md so progress is visible:
+
+1. **On session start:** Read plan.md, find all incomplete tasks (`[ ]` and `[~]`).
+2. **Create TaskCreate** for each phase with its tasks as description.
+3. **TaskUpdate** as you work: `in_progress` when starting a task, `completed` when done.
+4. This gives the user (and pipeline) real-time visibility into progress.
+
+## Superpowers Integration
+
+If `superpowers` plugin skills are available, use them to enhance quality:
+
+- **`superpowers:test-driven-development`** — if TDD is enabled in workflow.md, invoke this skill for the Red-Green-Refactor cycle. It enforces stricter discipline than our built-in TDD steps.
+- **`superpowers:verification-before-completion`** — invoke before claiming any task or phase is complete. The iron rule: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE. Run the test/build command, read output, THEN claim success.
+- **`superpowers:systematic-debugging`** — if a test fails after implementation, invoke this before attempting fixes. Root cause investigation first, not "quick fix" attempts.
+
+If superpowers is not installed, the built-in rules below are sufficient.
+
+## Rationalizations Catalog
+
+These thoughts mean STOP — you're about to cut corners:
+
+| Thought | Reality |
+|---------|---------|
+| "This is too simple to test" | Simple code breaks too. Write the test. |
+| "I'll add tests later" | Tests written after pass immediately — they prove nothing. |
+| "I already tested it manually" | Manual tests don't persist. Automated tests do. |
+| "The test framework isn't set up" | Set it up. That's part of the task. |
+| "This is just a config change" | Config changes break builds. Verify. |
+| "I'm confident this works" | Confidence without evidence is guessing. Run the command. |
+| "Let me just try changing X" | Stop. Investigate root cause first. |
+| "Tests are passing, ship it" | Tests passing ≠ acceptance criteria met. Check spec.md. |
+| "I'll fix the lint later" | Fix it now. Tech debt compounds. |
+| "It works on my machine" | Run the build. Verify in the actual environment. |
+
 ## Critical Rules
 
 1. **NEVER skip phase checkpoints** — always wait for user approval between phases.
@@ -263,6 +299,7 @@ Then update plan.md: all tasks in that phase `[x]` → `[ ]`.
 5. **Research before coding** — 30 seconds of search saves 30 minutes of reimplementation.
 6. **One task at a time** — finish current task before starting next.
 7. **Keep test output concise** — when running tests, pipe through `head -50` or use `--reporter=dot` / `-q` flag. Thousands of test lines pollute context. Only show failures in detail.
+8. **Verify before claiming done** — run the actual command, read the full output, confirm success BEFORE marking a task complete. Never say "should work now".
 
 ## Common Issues
 

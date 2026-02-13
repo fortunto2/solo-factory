@@ -238,11 +238,54 @@ Add it to `.gitignore` if not already there.
 **Cause:** Type errors, import issues, missing env vars.
 **Fix:** Report specific errors. This is a BLOCK verdict — must fix before shipping.
 
+## Two-Stage Review Pattern
+
+When reviewing significant work, use two stages (inspired by `superpowers:requesting-code-review`):
+
+**Stage 1 — Spec Compliance:**
+- Does the implementation match spec.md requirements?
+- Are all acceptance criteria actually met (not just claimed)?
+- Any deviations from the plan? If so, are they justified improvements or problems?
+
+**Stage 2 — Code Quality:**
+- Architecture patterns, error handling, type safety
+- Test coverage and test quality
+- Security and performance
+- Code organization and maintainability
+
+If `superpowers:requesting-code-review` is available, use it to dispatch a dedicated code-reviewer agent for Stage 2. This gives an independent second opinion.
+
+## Verification Gate
+
+**Iron rule: NO VERDICT WITHOUT FRESH EVIDENCE.**
+
+Before writing any verdict (SHIP/FIX/BLOCK):
+1. **Run** the actual test/build/lint commands (not cached results).
+2. **Read** full output — exit codes, pass/fail counts, error messages.
+3. **Confirm** the output matches your claim.
+4. **Only then** write the verdict with evidence.
+
+If `superpowers:verification-before-completion` is available, invoke it before final verdict.
+
+Never write "tests should pass" — run them and show the output.
+
+## Rationalizations Catalog
+
+| Thought | Reality |
+|---------|---------|
+| "Tests were passing earlier" | Run them NOW. Code changed since then. |
+| "It's just a warning" | Warnings become bugs. Report them. |
+| "The build worked locally" | Check the platform too. Environment differences matter. |
+| "Security scan is overkill" | One missed secret = data breach. Always scan. |
+| "Good enough to ship" | Quantify "good enough". Show the numbers. |
+| "I already checked this" | Fresh evidence only. Stale checks are worthless. |
+
 ## Critical Rules
 
 1. **Run all checks** — do not skip dimensions even if project seems simple.
 2. **Be specific** — always include file:line references for issues.
-3. **Verdict must be justified** — every SHIP/FIX/BLOCK needs evidence.
+3. **Verdict must be justified** — every SHIP/FIX/BLOCK needs evidence from actual commands.
 4. **Don't auto-fix** — report issues, let user or `/build` fix them. Review is read-only.
 5. **Check acceptance criteria** — spec.md is the source of truth for "done".
 6. **Security is non-negotiable** — any hardcoded secret = BLOCK.
+7. **Fresh evidence only** — run commands before making claims. Never rely on memory.
