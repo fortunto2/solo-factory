@@ -4,7 +4,7 @@ description: Score startup idea through S.E.E.D. niche check + STREAM 6-layer an
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.0.0"
+  version: "2.1.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, WebSearch, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__web_search
 argument-hint: "[idea name or description]"
 ---
@@ -41,17 +41,24 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
 
 4. **Manifest Alignment Check (with teeth):**
 
-   **Read** `0-principles/manifest.md` (or `kb_search(query="manifest principles red flags")`) and check the idea against EACH principle listed there. This is not a formality — a manifest violation is a soft kill flag.
+   Consult `references/manifest-checklist.md` for the full checklist of 9 principles and 6 red flags. Check the idea against EACH one. This is not a formality — a manifest violation is a soft kill flag.
 
-   For each principle in the manifest, assess:
-   - Does the idea comply or violate?
-   - If violating — how specifically? (not vague, cite the principle text)
+   For each principle, assess: comply or violate? If violating — cite the specific principle.
 
-   Pay special attention to the "Red Flags I Cut Immediately" section in the manifest — if any apply, it's a strong KILL signal.
+   **Key principles** (see checklist for details):
+   1. Privacy-first / offline-first
+   2. One pain -> one feature -> launch
+   3. AI as foundation, not feature
+   4. Speed over perfection (MVP in days)
+   5. Antifragile architecture
+   6. Money without overheating
+   7. Against exploitation
+   8. Subscription fatigue
+   9. Creators, not robots
 
-   **Alignment score:** Count violations. 0 = perfect, 1-2 = proceed with caution, 3+ = strong KILL signal.
+   **Scoring:** 0 violations = perfect, 1-2 = caution, 3+ = strong KILL signal.
 
-   **Be honest.** If the idea conflicts with the manifest, SAY SO. Don't rationalize alignment.
+   **Be honest.** If the idea conflicts with principles, SAY SO. Don't rationalize alignment.
 
 5. **S.E.E.D. niche check** (quick, before deep analysis):
 
@@ -114,11 +121,15 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
 
 7. **STREAM analysis:** Walk the idea through all 6 layers.
 
-   **Read** `0-principles/stream-framework.md` (or `kb_search(query="STREAM framework layers")`) for the full framework with questions per layer.
+   Consult `references/stream-layers.md` for the complete 6-layer framework with questions per layer.
 
-   For EACH layer, provide BOTH positive and negative assessment. Use the actual framework questions — especially the mental models (Карта≠Территория, Инверсия, Асимметрия, Антихрупкость, Смертность, etc.).
-
-   In Layer 3 (Action/Route), use Devil's Advocate findings from step 6 for the Inversion question.
+   For EACH layer, provide BOTH positive and negative assessment. Use the actual framework questions:
+   - **Layer 1 (Scope):** Карта!=Территория, Простота, Границы — what assumptions are unproven?
+   - **Layer 2 (Time):** Энтропия, Lindy — will this exist in 5 years?
+   - **Layer 3 (Route):** Инверсия (use Devil's Advocate findings), Второй порядок — second-order effects?
+   - **Layer 4 (Stakes):** Асимметрия, Антихрупкость — real risk/reward with pessimistic numbers
+   - **Layer 5 (Audience):** Репутация, Сеть — deposit or withdrawal?
+   - **Layer 6 (Meta):** Смертность, Баланс — worth finite time? Aligns with mission?
 
    **Scoring rules:**
    - Each layer scored 1-10
@@ -178,6 +189,13 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
       - **Fake-Door Test** — if realistic score 5-7, spend $20 on a landing stub before coding
       - **KILL** — if realistic score < 5 or kill flags triggered
       - **PIVOT** — if the idea has merit but current angle fails (suggest specific pivot)
+
+## Important
+
+- Do NOT skip the Devil's Advocate step (step 6). It is mandatory.
+- Do NOT skip reading `references/manifest-checklist.md` and `references/stream-layers.md`. They contain the actual checklists.
+- Quality and honesty are more important than speed. Take your time on steps 4, 6, and 7.
+- A KILL recommendation is a valid and valuable outcome. It saves months of wasted effort.
 
 ## When to use
 
