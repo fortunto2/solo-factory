@@ -384,7 +384,7 @@ for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
   echo "==============================================================="
 
   # Load running docs (progress from previous iterations)
-  PROGRESS_FILE="$PIPELINES_DIR/$PROJECT_NAME/progress.md"
+  PROGRESS_FILE="$PROJECT_ROOT/.solo/pipelines/progress.md"
   PROGRESS_CONTEXT=""
   if [[ -f "$PROGRESS_FILE" ]]; then
     PROGRESS_CONTEXT="
@@ -419,8 +419,8 @@ When done with this stage, output: <promise>PIPELINE COMPLETE</promise>"
     | tee "$OUTFILE" || true
   OUTPUT=$(cat "$OUTFILE")
 
-  # --- Per-iteration log ---
-  ITER_DIR="$PIPELINES_DIR/$PROJECT_NAME"
+  # --- Per-iteration log (in project .solo/) ---
+  ITER_DIR="$PROJECT_ROOT/.solo/pipelines"
   mkdir -p "$ITER_DIR"
   cp "$OUTFILE" "$ITER_DIR/iter-$(printf '%03d' $ITERATION)-${STAGE_ID}.log"
 

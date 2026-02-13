@@ -69,6 +69,7 @@ Returns: stack, languages, directory layers, key patterns, top dependencies, hub
 2. `docs/plan/{trackId}/spec.md` — acceptance criteria (REQUIRED)
 3. `docs/workflow.md` — TDD policy, commit strategy (if exists)
 4. `CLAUDE.md` — architecture, Do/Don't
+5. `.solo/pipelines/progress.md` — running docs from previous iterations (if exists). Contains what was done in prior pipeline sessions: stages completed, commit SHAs, last output lines. **Use this to avoid repeating completed work.**
 
 **Do NOT read source code files at this stage.** Only docs. Source files are loaded per-task in the execution loop (step 3 below).
 
