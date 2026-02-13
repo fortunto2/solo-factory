@@ -262,6 +262,7 @@ Then update plan.md: all tasks in that phase `[x]` → `[ ]`.
 4. **Commit after each task** — atomic commits with conventional format.
 5. **Research before coding** — 30 seconds of search saves 30 minutes of reimplementation.
 6. **One task at a time** — finish current task before starting next.
+7. **Keep test output concise** — when running tests, pipe through `head -50` or use `--reporter=dot` / `-q` flag. Thousands of test lines pollute context. Only show failures in detail.
 
 ## Common Issues
 

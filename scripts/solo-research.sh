@@ -325,8 +325,20 @@ for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
   log_entry "STAGE" "iter $ITERATION/$MAX_ITERATIONS | stage $STAGE_NUM/$TOTAL_STAGES: $STAGE_ID"
   echo "==============================================================="
 
+  # Load running docs (progress from previous iterations)
+  PROGRESS_FILE="$PIPELINES_DIR/$PROJECT/progress.md"
+  PROGRESS_CONTEXT=""
+  if [[ -f "$PROGRESS_FILE" ]]; then
+    PROGRESS_CONTEXT="
+
+## Previous iterations (running docs)
+$(tail -50 "$PROGRESS_FILE")
+
+Use this context to understand what was already done. Do NOT repeat completed work."
+  fi
+
   # Build prompt
-  PROMPT="$SKILL $ARGS$CONTEXT_INSTRUCTION
+  PROMPT="$SKILL $ARGS$CONTEXT_INSTRUCTION$PROGRESS_CONTEXT
 
 This is stage $STAGE_NUM/$TOTAL_STAGES ($STAGE_ID) of the research pipeline (project: $PROJECT).
 When done with this stage, output: <promise>PIPELINE COMPLETE</promise>"
@@ -339,6 +351,32 @@ When done with this stage, output: <promise>PIPELINE COMPLETE</promise>"
     | python3 "$SCRIPT_DIR/solo-stream-fmt.py" \
     | tee "$OUTFILE" || true
   OUTPUT=$(cat "$OUTFILE")
+
+  # --- Per-iteration log ---
+  ITER_DIR="$PIPELINES_DIR/$PROJECT"
+  mkdir -p "$ITER_DIR"
+  cp "$OUTFILE" "$ITER_DIR/iter-$(printf '%03d' $ITERATION)-${STAGE_ID}.log"
+
+  # --- Running docs (progress.md) ---
+  PROGRESS_FILE="$ITER_DIR/progress.md"
+  COMMIT_SHA=$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo "none")
+  STAGE_RESULT="continuing"
+  if [[ -f "$CHECK" ]]; then
+    STAGE_RESULT="stage complete"
+  fi
+  LAST_LINES=$(grep -v '^$' "$OUTFILE" | tail -5 | sed 's/^/  > /')
+  cat >> "$PROGRESS_FILE" << PROGRESSEOF
+
+## Iteration $ITERATION — $STAGE_ID ($(date +"%Y-%m-%d %H:%M"))
+- **Stage:** $STAGE_ID ($STAGE_NUM/$TOTAL_STAGES)
+- **Commit:** $COMMIT_SHA
+- **Result:** $STAGE_RESULT
+- **Last 5 lines:**
+$LAST_LINES
+
+PROGRESSEOF
+  log_entry "ITER" "saved iter-$(printf '%03d' $ITERATION)-${STAGE_ID}.log | commit: $COMMIT_SHA | result: $STAGE_RESULT"
+
   rm -f "$OUTFILE"
 
   # Check output file
