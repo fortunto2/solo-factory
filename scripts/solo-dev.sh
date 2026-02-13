@@ -400,7 +400,7 @@ When done with this stage, output: <promise>PIPELINE COMPLETE</promise>"
 
   # Run Claude Code (stream-json for real-time tool visibility)
   log_entry "INVOKE" "$SKILL $ARGS"
-  OUTFILE=$(mktemp /tmp/solo-claude-XXXXXX.txt)
+  OUTFILE=$(mktemp /tmp/solo-claude-XXXXXX)
   (cd "$CLAUDE_CWD" && claude --dangerously-skip-permissions --verbose --print \
     --output-format stream-json -p "$PROMPT" 2>&1) \
     | python3 "$SCRIPT_DIR/solo-stream-fmt.py" \

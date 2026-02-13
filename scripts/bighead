@@ -11,7 +11,6 @@ Named after Nelson Bighetti from Silicon Valley.
 """
 
 import os
-import subprocess
 import sys
 from pathlib import Path
 
