@@ -56,36 +56,21 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 3. If multiple, ask via AskUserQuestion.
 4. If zero tracks: "No plans found. Run `/plan` first."
 
-## Context Loading (graph-first, not file-dump)
+## Context Loading
 
-**Do NOT read all project files into context.** Use the graph to understand the project, then read only what's needed.
-
-### Step 1 — Architecture via graph (if MCP available)
+### Step 1 — Architecture overview (if MCP available)
 ```
 codegraph_explain(project="{project name}")
 ```
-This returns: stack, languages, directory layers, key patterns, top dependencies, hub files — in one call, no file reads.
+Returns: stack, languages, directory layers, key patterns, top dependencies, hub files — one call instead of exploring the tree manually.
 
-### Step 2 — Essential files only (parallel reads)
-1. `docs/plan/{trackId}/plan.md` — task list (REQUIRED — this is what we execute)
+### Step 2 — Essential docs (parallel reads)
+1. `docs/plan/{trackId}/plan.md` — task list (REQUIRED)
 2. `docs/plan/{trackId}/spec.md` — acceptance criteria (REQUIRED)
 3. `docs/workflow.md` — TDD policy, commit strategy (if exists)
+4. `CLAUDE.md` — architecture, Do/Don't
 
-**Do NOT read CLAUDE.md at this stage** — codegraph_explain already gave you the architecture. Only read CLAUDE.md if a specific task references it or if MCP tools are unavailable.
-
-### Step 3 — Per-task targeted reads
-Before each task, read ONLY the files that task will modify:
-```
-project_code_search(query="{task keywords}", project="{name}")
-```
-Then read the specific files returned. This keeps context lean.
-
-### Fallback (no MCP)
-If MCP tools are not available, load the 4 essentials in parallel:
-1. `docs/plan/{trackId}/plan.md`
-2. `docs/plan/{trackId}/spec.md`
-3. `docs/workflow.md` (if exists)
-4. `CLAUDE.md`
+**Do NOT read source code files at this stage.** Only docs. Source files are loaded per-task in the execution loop (step 3 below).
 
 ## Resumption
 
@@ -115,15 +100,21 @@ Parse plan.md for first line matching `- [ ] Task X.Y:` (or `- [~] Task X.Y:` if
 - Update plan.md: `[ ]` → `[~]` for current task.
 - Announce: **"Starting Task X.Y: {description}"**
 
-### 3. Research (quick, before coding)
+### 3. Research (smart, before coding)
 
-Before implementing, do a quick search:
-- Grep project for relevant keywords from the task description.
-- If MCP available: `session_search("{task keywords}")` — check if you solved this before.
-- If MCP available: `project_code_search("{pattern}")` — find reusable code.
-- Read files that the task mentions (file paths in task description).
+**Do NOT grep the entire project or read all source files.** Load only what this specific task needs.
 
-This takes 10-30 seconds and prevents reinventing the wheel.
+**If MCP available (preferred):**
+1. `project_code_search(query="{task keywords}", project="{name}")` — find relevant code in the project. Read only the top 2-3 results.
+2. `session_search("{task keywords}")` — check if you solved this before.
+3. `codegraph_query("MATCH (f:File {project: '{name}'})-[:IMPORTS]->(dep) WHERE f.path CONTAINS '{module}' RETURN dep.path")` — check imports/dependencies of files you'll modify.
+
+**If MCP unavailable (fallback):**
+1. Read ONLY the files explicitly mentioned in the task description (file paths).
+2. Glob for the specific module directory the task targets (e.g., `src/auth/**/*.ts`), not the entire project.
+3. If the task doesn't mention files, use Grep with a narrow pattern on `src/` or `app/` — never `**/*`.
+
+**Never do:** `Grep "keyword" .` across the whole project. This dumps hundreds of lines into context for no reason. Be surgical.
 
 ### 4. TDD Workflow (if TDD enabled in workflow.md)
 

@@ -28,36 +28,38 @@ Can also be used standalone: `/review` on any project to audit code quality.
 
 If MCP tools are not available, fall back to Glob + Grep + Read.
 
-## Pre-flight Checks (graph-first, not file-dump)
+## Pre-flight Checks
 
-**Do NOT read all project files into context.** Use the graph for architecture, then read selectively.
-
-### 1. Architecture via graph (if MCP available)
+### 1. Architecture overview (if MCP available)
 ```
 codegraph_explain(project="{project name}")
 ```
-Returns: stack, languages, directory layers, key patterns, top dependencies, hub files. This replaces reading CLAUDE.md + package.json for stack detection.
+Returns: stack, languages, directory layers, key patterns, top dependencies, hub files. Use this to detect stack and understand project structure.
 
-### 2. Essential files only (parallel reads)
+### 2. Essential docs (parallel reads)
+- `CLAUDE.md` — architecture, Do/Don't rules
 - `docs/plan/*/spec.md` — acceptance criteria to verify (REQUIRED)
 - `docs/plan/*/plan.md` — task completion status (REQUIRED)
 - `docs/workflow.md` — TDD policy, quality standards (if exists)
 
-### 3. Detect stack from graph (or fallback)
-Use the stack from `codegraph_explain` response to choose correct tools:
+**Do NOT read source code at this stage.** Only docs.
+
+### 3. Detect stack
+Use stack from `codegraph_explain` response (or `CLAUDE.md` if no MCP) to choose tools:
 - Next.js → `npm run build`, `npm test`, `npx next lint`
 - Python → `uv run pytest`, `uv run ruff check`
 - Swift → `swift test`, `swiftlint`
 - Kotlin → `./gradlew test`, `./gradlew lint`
 
-If MCP unavailable, read `CLAUDE.md` + `package.json`/`pyproject.toml` as fallback.
+### 4. Smart source code loading (for code quality spot check)
 
-### 4. Per-dimension targeted reads
-For code quality spot check (dimension 6), use graph to find hub files:
+**Do NOT read random source files.** Use the graph to find the most important code:
+
 ```
 codegraph_query("MATCH (f:File {project: '{name}'})-[e]-() RETURN f.path, COUNT(e) AS edges ORDER BY edges DESC LIMIT 5")
 ```
-Read only the top hub files — these are the most connected, most impactful code. Don't randomly sample.
+
+Read only the top 3-5 hub files (most connected = most impactful). For security checks, use Grep with narrow patterns (`sk_live`, `password\s*=`) — not full file reads.
 
 ## Review Dimensions
 
