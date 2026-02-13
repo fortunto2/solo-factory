@@ -4,7 +4,7 @@ description: Execute implementation plan tasks with TDD workflow, auto-commit, a
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.1.0"
+  version: "2.2.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query
 argument-hint: "[track-id] [--task X.Y] [--phase N]"
 ---
@@ -131,7 +131,18 @@ git commit -m "<type>(<scope>): <description>"
 
 Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `style`
 
-**Update plan.md:** `[~]` → `[x]` for completed task.
+**Capture SHA** after commit:
+```bash
+git rev-parse --short HEAD
+```
+
+**Update plan.md** — mark task done and append SHA:
+- `[~]` → `[x]` for completed task
+- Append commit SHA inline: `- [x] Task X.Y: description <!-- sha:abc1234 -->`
+
+This enables reverting individual tasks later via `git revert <sha>`.
+
+If task required multiple commits, record the last one (it covers the full change).
 
 ### 7. Phase Completion Check
 
@@ -142,16 +153,23 @@ If phase complete:
 1. Run verification steps listed under `### Verification` for the phase.
 2. Run full test suite.
 3. Run linter.
-4. Report results and **wait for user approval**:
+4. Mark verification checkboxes in plan.md: `- [ ]` → `- [x]`.
+5. Commit plan.md progress: `git commit -m "chore(plan): complete phase {N}"`.
+6. Capture checkpoint SHA and append to phase heading in plan.md:
+   `## Phase N: Title <!-- checkpoint:abc1234 -->`.
+7. Report results and **wait for user approval**:
 
 ```
-Phase {N} complete!
+Phase {N} complete! <!-- checkpoint:abc1234 -->
 
-  Tests:   {pass/fail}
-  Linter:  {pass/fail}
+  Tasks:  {M}/{M}
+  Tests:  {pass/fail}
+  Linter: {pass/fail}
   Verification:
     - [x] {check 1}
     - [x] {check 2}
+
+  Revert this phase: git revert abc1234..HEAD
 
 Continue to Phase {N+1}?
 ```
@@ -180,19 +198,51 @@ When all phases and tasks are `[x]`:
 - Run linter.
 - Check acceptance criteria from spec.md.
 
-### 2. Summary
+### 2. Update plan.md header
+
+Change `**Status:** [ ] Not Started` → `**Status:** [x] Complete` at the top of plan.md.
+
+### 3. Summary
 
 ```
 Track complete: {title} ({trackId})
 
   Phases: {N}/{N}
   Tasks:  {M}/{M}
-  Tests: All passing
+  Tests:  All passing
+
+  Phase checkpoints:
+    Phase 1: abc1234
+    Phase 2: def5678
+    Phase 3: ghi9012
+
+  Revert entire track: git revert abc1234..HEAD
 
 Next:
   /build {next-track-id}  — continue with next track
   /plan "next feature"    — plan something new
 ```
+
+## Reverting Work
+
+SHA comments in plan.md enable surgical reverts:
+
+**Revert a single task:**
+```bash
+# Find SHA from plan.md: - [x] Task 2.3: ... <!-- sha:abc1234 -->
+git revert abc1234
+```
+Then update plan.md: `[x]` → `[ ]` for that task.
+
+**Revert an entire phase:**
+```bash
+# Find checkpoint from phase heading: ## Phase 2: ... <!-- checkpoint:def5678 -->
+# Find previous checkpoint: ## Phase 1: ... <!-- checkpoint:abc1234 -->
+git revert abc1234..def5678
+```
+Then update plan.md: all tasks in that phase `[x]` → `[ ]`.
+
+**Never use `git reset --hard`** — always `git revert` to preserve history.
 
 ## Critical Rules
 
