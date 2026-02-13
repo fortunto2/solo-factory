@@ -5,7 +5,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"solo-factory\": \"loaded\", \"version\": \"1.3.0\", \"skills\": [\"research\", \"validate\", \"scaffold\", \"setup\", \"plan\", \"build\", \"swarm\", \"stream\", \"audit\"], \"agents\": [\"researcher\", \"code-analyst\", \"idea-validator\"], \"mcp\": \"codegraph\"}'"
+            "command": "echo '{\"solo-factory\": \"loaded\", \"version\": \"1.4.0\", \"skills\": [\"research\", \"validate\", \"scaffold\", \"setup\", \"plan\", \"build\", \"swarm\", \"stream\", \"audit\", \"pipeline\"], \"agents\": [\"researcher\", \"code-analyst\", \"idea-validator\"], \"mcp\": \"codegraph\"}'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pipeline-stop.sh"
           }
         ]
       }

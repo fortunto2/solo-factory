@@ -2,7 +2,7 @@
 
 Your own path. Multiple stacks. Ship everything.
 
-You're a solopreneur juggling iOS, Next.js, Python, Kotlin — and you want to validate, scaffold, and ship them all without slowing down. Solo Factory gives you 9 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
+You're a solopreneur juggling iOS, Next.js, Python, Kotlin — and you want to validate, scaffold, and ship them all without slowing down. Solo Factory gives you 10 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
 
 From "shower thought" to deployed product in one pipeline:
 
@@ -69,6 +69,8 @@ claude plugin list            # Claude Code plugin
 | - | `/solo:swarm <idea>` | 3 parallel research agents (market + users + tech) |
 | - | `/solo:stream <decision>` | 6-layer decision filter |
 | - | `/solo:audit [focus]` | KB health check — links, metadata, gaps |
+| - | `/solo:pipeline research <idea>` | Automated research → validate loop (Stop hook chains skills) |
+| - | `/solo:pipeline dev <name> <stack>` | Automated scaffold → setup → plan → build loop |
 
 ## Agents
 
@@ -100,7 +102,36 @@ claude plugin list            # Claude Code plugin
 /solo:validate "AI-powered habit tracker"
 ```
 
-### Full pipeline: idea to shipped product
+### Automated pipeline (hands-free)
+
+```bash
+# Research pipeline — research → validate, fully automated
+/solo:pipeline research "AI therapist app"
+
+# Dev pipeline — scaffold → setup → plan → build, fully automated
+/solo:pipeline dev "my-app" "nextjs-supabase"
+/solo:pipeline dev "my-app" "ios-swift" --feature "user onboarding"
+```
+
+The Stop hook chains skills automatically — no manual invocation needed between stages. State files at `~/.solo/pipelines/`, log files for monitoring.
+
+**tmux dashboard** opens automatically when run from terminal (session reusable — re-run without closing):
+
+```bash
+# Or launch scripts directly
+solo-factory/scripts/solo-research.sh "AI therapist app" --project lovon
+solo-factory/scripts/solo-dev.sh "lovon" "nextjs-supabase" --from setup
+
+# Monitor
+solo-factory/scripts/solo-pipeline-status.sh           # colored status
+tail -f ~/.solo/pipelines/solo-pipeline-lovon.log       # log stream
+solo-factory/scripts/solo-dashboard.sh attach lovon     # tmux dashboard
+
+# Cancel
+rm ~/.solo/pipelines/solo-pipeline-lovon.local.md
+```
+
+### Manual pipeline: idea to shipped product
 
 ```bash
 /solo:research "my-app"              # Scout the market
@@ -174,13 +205,22 @@ solo-factory/
 │   ├── build/               # TDD execution
 │   ├── swarm/               # 3 parallel research agents
 │   ├── stream/               # Decision framework
-│   └── audit/               # KB health check
+│   ├── audit/               # KB health check
+│   └── pipeline/            # Automated multi-skill pipeline
+├── scripts/
+│   ├── solo-research.sh        # Research pipeline launcher
+│   ├── solo-dev.sh             # Dev pipeline launcher
+│   ├── solo-pipeline-status.sh # Colored status display
+│   ├── solo-dashboard.sh       # tmux dashboard manager
+│   ├── solo-stream-fmt.py      # Stream-json formatter (colored tool calls + 8-bit SFX)
+│   └── solo-chiptune.sh        # 8-bit background music (zero deps, Python wave + afplay)
 ├── agents/
 │   ├── researcher.md        # Deep research (sonnet)
 │   ├── code-analyst.md      # Code intelligence (haiku)
 │   └── idea-validator.md    # Idea validation (sonnet)
 └── hooks/
-    └── hooks.json           # SessionStart info
+    ├── hooks.json           # SessionStart info + Stop hook
+    └── pipeline-stop.sh     # Pipeline progression (scans ~/.solo/pipelines/)
 ```
 
 ## Works well with
