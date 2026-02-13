@@ -7,7 +7,7 @@ You're a solopreneur juggling iOS, Next.js, Python, Kotlin — and you want to v
 From "shower thought" to deployed product in one pipeline:
 
 ```
-/solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build
+/solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:review
 ```
 
 ## Install
@@ -66,11 +66,13 @@ claude plugin list            # Claude Code plugin
 | 4 | `/solo:setup [name]` | Wire dev workflow (0 questions) |
 | 5 | `/solo:plan <description>` | Explore code, write battle plan |
 | 6 | `/solo:build [track-id]` | Ship it — TDD, auto-commit, phase gates |
+| 7 | `/solo:deploy [platform]` | Deploy — hosting, DB, env vars, push, verify |
+| 8 | `/solo:review [focus]` | Final quality gate — tests, security, acceptance criteria |
 | - | `/solo:swarm <idea>` | 3 parallel research agents (market + users + tech) |
 | - | `/solo:stream <decision>` | 6-layer decision filter |
 | - | `/solo:audit [focus]` | KB health check — links, metadata, gaps |
 | - | `/solo:pipeline research <idea>` | Automated research → validate loop (Stop hook chains skills) |
-| - | `/solo:pipeline dev <name> <stack>` | Automated scaffold → setup → plan → build loop |
+| - | `/solo:pipeline dev <name> <stack>` | Automated scaffold → setup → plan → build → deploy → review |
 
 ## Agents
 
@@ -108,7 +110,7 @@ claude plugin list            # Claude Code plugin
 # Research pipeline — research → validate, fully automated
 /solo:pipeline research "AI therapist app"
 
-# Dev pipeline — scaffold → setup → plan → build, fully automated
+# Dev pipeline — scaffold → setup → plan → build → deploy → review
 /solo:pipeline dev "my-app" "nextjs-supabase"
 /solo:pipeline dev "my-app" "ios-swift" --feature "user onboarding"
 ```
@@ -147,6 +149,8 @@ rm ~/.solo/pipelines/solo-pipeline-lovon.local.md
 /solo:setup                          # Wire dev workflow
 /solo:plan "User auth with OAuth"    # Write battle plan
 /solo:build                          # Ship it
+/solo:deploy                         # Deploy to Vercel/CF/Fly
+/solo:review                         # Final quality gate
 ```
 
 ## Available Stacks
@@ -210,6 +214,8 @@ solo-factory/
 │   ├── setup/               # Wire dev workflow
 │   ├── plan/                # Code research → battle plan
 │   ├── build/               # TDD execution
+│   ├── deploy/              # Deploy to hosting platform
+│   ├── review/              # Final quality gate
 │   ├── swarm/               # 3 parallel research agents
 │   ├── stream/               # Decision framework
 │   ├── audit/               # KB health check

@@ -247,9 +247,19 @@ stages:
     args: ""
     check: "$PLAN_CHECK/*/BUILD_COMPLETE"
     done: $BUILD_DONE
+  - id: deploy
+    skill: "/deploy"
+    args: ""
+    check: "$DEPLOY_CHECK"
+    done: $DEPLOY_DONE
+  - id: review
+    skill: "/review"
+    args: ""
+    check: "$REVIEW_CHECK"
+    done: $REVIEW_DONE
 ---
 
-Solo Pipeline: Scaffold -> Setup -> Plan -> Build
+Solo Pipeline: Scaffold -> Setup -> Plan -> Build -> Deploy -> Review
 STATEEOF
 fi
 
