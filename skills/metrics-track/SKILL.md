@@ -1,6 +1,6 @@
 ---
 name: solo-metrics-track
-description: Set up metrics plan — PostHog funnel, KPIs, kill/iterate/scale thresholds
+description: Set up PostHog metrics plan with event funnel, KPI benchmarks, and kill/iterate/scale decision thresholds. Use when user says "set up metrics", "track KPIs", "PostHog events", "funnel analysis", "when to kill or scale", or "success metrics". Do NOT use for SEO metrics (use /seo-audit).
 license: MIT
 metadata:
   author: fortunto2
@@ -178,3 +178,17 @@ This skill implements metrics tracking from:
 - Identity: start anonymous, `identify()` on signup with user ID
 - Cross-platform: same PostHog project, same user ID → unified journey
 - Review dashboard weekly, make kill/iterate/scale decision monthly
+
+## Common Issues
+
+### Wrong platform detected
+**Cause:** Project has both web and iOS indicators.
+**Fix:** Skill checks package manifests. If both exist, it generates cross-platform identity setup. Verify the detected platform in the output.
+
+### KPI thresholds too aggressive
+**Cause:** Default thresholds are industry averages.
+**Fix:** Adjust thresholds in `docs/metrics-plan.md` based on your niche. B2B typically has lower volume but higher conversion.
+
+### PostHog SDK not in project
+**Cause:** Metrics plan generated but SDK not installed.
+**Fix:** This skill generates the PLAN only. Install PostHog SDK separately: `pnpm add posthog-js` (web) or add `posthog-ios` via SPM (iOS).

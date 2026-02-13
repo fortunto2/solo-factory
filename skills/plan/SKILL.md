@@ -1,6 +1,6 @@
 ---
 name: solo-plan
-description: Explore codebase, write spec + battle plan — zero questions, pure code research
+description: Explore codebase and create spec + phased implementation plan with file-level task breakdown. Use when user says "plan this feature", "create implementation plan", "write a spec", "battle plan", or describes a feature/bug/refactor. Zero questions — researches code instead. Do NOT use for idea validation (use /validate) or execution (use /build).
 license: MIT
 metadata:
   author: fortunto2
@@ -231,3 +231,17 @@ Next: /build {trackId}
 - Plan format must match what `/build` parses: `## Phase N:`, `- [ ] Task N.Y:`.
 - `/build` reads `docs/workflow.md` for TDD policy and commit strategy (if exists).
 - If `docs/workflow.md` missing, `/build` uses sensible defaults (moderate TDD, conventional commits).
+
+## Common Issues
+
+### Plan has too many tasks
+**Cause:** Feature scope too broad or tasks not atomic enough.
+**Fix:** Target 5-15 tasks across 2-4 phases. Split large features into multiple tracks.
+
+### Context detection wrong (project vs KB)
+**Cause:** Directory has both code manifests and KB-style directories.
+**Fix:** Project context takes priority if `package.json`/`pyproject.toml` exists. Force KB context by running from solopreneur root.
+
+### Research phase finds no relevant code
+**Cause:** New project with minimal codebase or MCP tools unavailable.
+**Fix:** Skill falls back to Glob + Grep. For new projects, the plan will rely more on CLAUDE.md architecture and stack conventions.

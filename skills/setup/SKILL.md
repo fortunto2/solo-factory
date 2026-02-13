@@ -1,6 +1,6 @@
 ---
 name: solo-setup
-description: Wire up dev workflow from PRD + CLAUDE.md — zero questions asked
+description: Auto-generate project workflow config (docs/workflow.md) from existing PRD and CLAUDE.md with zero questions. Use when user says "set up workflow", "configure TDD", "wire up dev workflow", or after running /scaffold before /plan. Do NOT use for founder setup (use /init) or project scaffolding (use /scaffold).
 license: MIT
 metadata:
   author: fortunto2
@@ -104,3 +104,17 @@ If MCP tools are not available, fall back to reading local files only.
 
    Next: /plan "Your first feature"
    ```
+
+## Common Issues
+
+### CLAUDE.md not found
+**Cause:** Project not scaffolded or running from wrong directory.
+**Fix:** Run `/scaffold` first, or ensure you're in the project root with CLAUDE.md.
+
+### workflow.md already exists
+**Cause:** Previously set up.
+**Fix:** Skill warns and asks whether to regenerate. Existing file is preserved unless you confirm overwrite.
+
+### Wrong test framework detected
+**Cause:** Multiple test frameworks in devDependencies.
+**Fix:** Skill picks the first found. Edit `docs/workflow.md` manually to specify the correct framework.

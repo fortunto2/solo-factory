@@ -1,6 +1,6 @@
 ---
 name: solo-landing-gen
-description: Generate landing page content — hero, features, CTA, SEO meta, A/B headlines
+description: Generate landing page content from PRD — hero section, features, A/B headline variants, CTA, and SEO meta tags. Use when user says "create landing page", "write landing copy", "hero section", "A/B headlines", or "landing content". Can scaffold actual pages for astro-static. Do NOT use for SEO auditing (use /seo-audit).
 license: MIT
 metadata:
   author: fortunto2
@@ -146,3 +146,17 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 - Social proof is placeholder — fill with real data as it comes
 - For fake-door tests: hero + CTA + email capture is enough (2-hour launch)
 - Works with /seo-audit — generate content, then audit the deployed page
+
+## Common Issues
+
+### No PRD or product info found
+**Cause:** Project lacks `docs/prd.md` or README with product description.
+**Fix:** Run `/validate` to generate PRD first, or provide a README with problem/solution/features.
+
+### Headlines too generic
+**Cause:** Weak problem statement or missing competitor differentiation.
+**Fix:** Add `research.md` with competitive analysis. Specific pain points produce specific headlines.
+
+### Stack not detected for page scaffolding
+**Cause:** No `astro.config.*` or `next.config.*` found.
+**Fix:** Skill outputs content-only markdown by default. To get actual page files, ensure the project uses astro-static or nextjs-supabase stack.

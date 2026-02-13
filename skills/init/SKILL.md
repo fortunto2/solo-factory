@@ -1,6 +1,6 @@
 ---
 name: solo-init
-description: Personalized founder setup — org defaults, manifest, dev principles, STREAM calibration, stack selection
+description: One-time founder onboarding — generates personalized manifest, STREAM calibration, dev principles, and stack selection. Use when user says "set up solo factory", "initialize profile", "configure defaults", "first time setup", or "onboard me". Safe to re-run. Do NOT use for project scaffolding (use /scaffold).
 license: MIT
 metadata:
   author: fortunto2
@@ -345,3 +345,17 @@ Next steps:
 - If templates directory not found — generate from inline knowledge (this skill has all the context needed)
 - If user answers "Other" to any question — use their free-text input in generation
 - For stacks, always show what was NOT selected: "Other available stacks: ... (run /init again to add)"
+
+## Common Issues
+
+### Templates directory not found
+**Cause:** solo-factory not installed as submodule or templates moved.
+**Fix:** Skill generates from inline knowledge if templates missing. To fix permanently, ensure `solo-factory/templates/` exists.
+
+### Stacks not copied to .solo/
+**Cause:** Stack selection answer didn't map to a template file.
+**Fix:** Check available stacks in `templates/stacks/`. Re-run `/init` and select from the list.
+
+### defaults.yaml already exists
+**Cause:** Previously initialized.
+**Fix:** Skill detects existing config and asks whether to reconfigure. Choose "Reconfigure from scratch" to overwrite.

@@ -1,6 +1,6 @@
 ---
 name: solo-build
-description: Ship it — execute plan tasks with TDD, auto-commit, phase gates
+description: Execute implementation plan tasks with TDD workflow, auto-commit, and phase gates. Use when user says "build it", "start building", "execute plan", "implement tasks", "ship it", or references a track ID. Do NOT use for planning (use /plan) or scaffolding (use /scaffold).
 license: MIT
 metadata:
   author: fortunto2
@@ -202,3 +202,17 @@ Next:
 4. **Commit after each task** — atomic commits with conventional format.
 5. **Research before coding** — 30 seconds of search saves 30 minutes of reimplementation.
 6. **One task at a time** — finish current task before starting next.
+
+## Common Issues
+
+### "No plans found"
+**Cause:** No `plan.md` exists in `docs/plan/` or `4-opportunities/`.
+**Fix:** Run `/plan "your feature"` first to create a track.
+
+### Tests failing after task
+**Cause:** Implementation broke existing functionality.
+**Fix:** Use the error handling flow — attempt fix, rollback if needed, pause for user input. Never skip failing tests.
+
+### Phase checkpoint skipped
+**Cause:** Model proceeded without user approval.
+**Fix:** Phase gates are mandatory. If skipped, re-run verification for that phase before continuing.

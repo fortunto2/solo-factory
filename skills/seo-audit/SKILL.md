@@ -1,6 +1,6 @@
 ---
 name: solo-seo-audit
-description: SEO health check — meta tags, OG, JSON-LD, sitemap, SERP positions, score 0-100
+description: SEO health check for any URL — analyzes meta tags, OG, JSON-LD, sitemap, robots.txt, SERP positions, and scores 0-100. Use when user says "check SEO", "audit this page", "SEO score", "check meta tags", or "SERP position". Do NOT use for generating landing content (use /landing-gen) or social media posts (use /content-gen).
 license: MIT
 metadata:
   author: fortunto2
@@ -113,3 +113,17 @@ If MCP tools are not available, use Claude WebSearch/WebFetch as fallback.
 - Score is relative — 80+ is good for a landing page, 90+ is excellent
 - SERP checks are approximations (not real-time ranking data)
 - Run periodically after content changes or before launch
+
+## Common Issues
+
+### Page fetch fails
+**Cause:** URL is behind authentication, CORS, or returns non-HTML.
+**Fix:** Ensure the URL is publicly accessible. For SPAs, check if content is server-rendered.
+
+### SERP positions show "not found"
+**Cause:** Site is new or not indexed by search engines.
+**Fix:** This is expected for new sites. Submit sitemap to Google Search Console and re-audit in 2-4 weeks.
+
+### Low score despite good content
+**Cause:** Missing infrastructure files (sitemap.xml, robots.txt, JSON-LD).
+**Fix:** These are the highest-impact fixes. Generate sitemap, add robots.txt with sitemap reference, and add JSON-LD structured data.

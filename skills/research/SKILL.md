@@ -1,6 +1,6 @@
 ---
 name: solo-research
-description: Scout the market — competitors, SEO, naming, domains, market sizing
+description: Deep market research — competitor analysis, user pain points, SEO/ASO keywords, naming/domain availability, and TAM/SAM/SOM sizing. Use when user says "research this idea", "find competitors", "check the market", "domain availability", "market size", or "analyze opportunity". Do NOT use for idea scoring (use /validate) or SEO auditing existing pages (use /seo-audit).
 license: MIT
 metadata:
   author: fortunto2
@@ -122,49 +122,62 @@ curl -s -X POST 'http://localhost:8013/transcript' \
 
    **Domain availability — triple verification (RDAP → whois → dig):**
 
-   **Step 1: RDAP bulk screen (fast, ~3s for all candidates):**
+   **TLD priority tiers** (check in order, skip regionals except .us):
+
+   | Tier | TLDs | When to check |
+   |------|------|---------------|
+   | **Must** | `.com` | Always — SEO, credibility |
+   | **Core** | `.app`, `.dev`, `.io`, `.co` | All candidates — tech/startup standard |
+   | **Budget** | `.win`, `.xyz`, `.cc`, `.work`, `.club`, `.org` | All candidates — cheap alternatives ($4-12/yr) |
+   | **Premium** | `.ai` | Only if AI product — NOTE: $160/yr from March 2026 |
+   | **US only** | `.us` | Add-on if US-focused ($6.50/yr) |
+   | **Skip** | `.ru`, `.de`, `.uk`, `.fr`, `.jp`, etc. | Regional — skip unless targeting that market |
+   | **Skip** | `.net`, `.info`, `.biz`, `.mobi`, `.site`, `.online`, `.store`, `.shop` | Low trust / overpriced for the value |
+
+   **Step 1: whois + dig combo (most reliable):**
+   ```bash
+   # Check all TLD tiers at once
+   for name in candidate1 candidate2 candidate3; do
+     for ext in com app dev io co win xyz cc work club org us; do
+       domain="${name}.${ext}"
+       # whois check
+       match=$(whois "$domain" 2>/dev/null | grep -i "no match\|not found\|domain not found\|no data found" | head -1)
+       if [ -n "$match" ]; then
+         echo "AVAILABLE:  $domain"
+       else
+         # DNS fallback for ambiguous whois
+         ns=$(dig +short "$domain" 2>/dev/null)
+         if [ -z "$ns" ]; then
+           echo "LIKELY FREE: $domain  (no DNS)"
+         else
+           echo "TAKEN:       $domain"
+         fi
+       fi
+     done
+     echo "---"
+   done
+   ```
+
+   **Step 2: RDAP cross-check (for uncertain results):**
    ```bash
    # IMPORTANT: use -L to follow redirects (RDAP returns 302)
    # 404 = available, 200 = registered
-   for name in candidate1 candidate2 candidate3; do
-     for ext in com app; do
+   for name in candidate1 candidate2; do
+     for ext in com app io; do
        code=$(curl -sL -o /dev/null -w "%{http_code}" "https://rdap.org/domain/${name}.${ext}")
        if [ "$code" = "404" ]; then r="AVAIL"; else r="taken"; fi
        printf "  %-25s %s\n" "${name}.${ext}" "$r"
      done
    done
    ```
-   - Check .com and .app for all candidates (most relevant for apps)
-   - Add .io, .dev, .ai only for promising candidates
 
-   **Step 2: whois confirmation (for RDAP "AVAIL" results):**
-   ```bash
-   # For .com: look for "No match for" or empty registrar
-   # For .app/.dev (Google Registry): TLD created date 2015 appears even for unregistered
-   #   → check for Name Server and Registrar fields instead
-   for domain in candidate1.app candidate2.com; do
-     ns=$(whois "$domain" 2>/dev/null | grep -i "Name Server" | head -1)
-     registrar=$(whois "$domain" 2>/dev/null | grep -i "Registrar:" | head -1)
-     if [ -z "$ns" ] && [ -z "$registrar" ]; then
-       echo "$domain: AVAIL (no NS, no registrar)"
-     else
-       echo "$domain: taken ($registrar)"
-     fi
-   done
-   ```
-   - IMPORTANT: `.app`/`.dev` domains show TLD creation date (2015-06-25) in whois even when unregistered — do NOT use creation date as indicator. Check for Name Server and Registrar fields instead.
+   **Gotchas:**
+   - `.app`/`.dev` (Google Registry): whois shows TLD creation date 2015 even for unregistered domains — do NOT use creation date as indicator. Check Name Server and Registrar fields instead.
+   - `.ai`: $160/yr from March 2026. Only worth it for AI-branded products.
+   - `.win`: extremely cheap ($4-5/yr) — good for MVPs and redirects.
+   - RDAP rate limits after ~20 requests — prefer whois+dig combo for bulk checks.
 
-   **Step 3: dig DNS confirmation:**
-   ```bash
-   # NXDOMAIN or empty = not in use, IP = registered and active
-   for domain in candidate1.app candidate2.com; do
-     result=$(dig +short "$domain" 2>/dev/null)
-     if [ -z "$result" ]; then echo "$domain: no DNS (available)";
-     else echo "$domain: resolves to $result (active)"; fi
-   done
-   ```
-
-   **Summary:** RDAP screens fast → whois confirms registration → dig confirms DNS. All three must agree for high confidence.
+   **Summary:** whois checks availability → dig confirms no DNS → RDAP cross-checks uncertain cases.
 
    **Trademark check:**
    - `"<name> trademark"` — basic conflict check
@@ -230,9 +243,9 @@ product_type: web|ios|android|desktop|cli|api
 
 ## 4. Naming & Domains
 
-| Name | .com | .app | .io | .ai | Trademark | Notes |
-|------|------|------|-----|-----|-----------|-------|
-| ... | avail | taken | avail | avail | clean | ... |
+| Name | .com | .app | .dev | .io | .co | .win | .xyz | .cc | .us | .ai | Trademark | Notes |
+|------|------|------|------|-----|-----|------|------|-----|-----|-----|-----------|-------|
+| ... | avail | — | — | avail | — | $4 | — | — | — | $160 | clean | ... |
 
 ### Recommended Name: **<name>**
 
@@ -256,3 +269,17 @@ product_type: web|ios|android|desktop|cli|api
 - Always use kebab-case for project directory names
 - If research.md already exists, ask before overwriting
 - Run SearXNG and Claude WebSearch queries in parallel when independent
+
+## Common Issues
+
+### SearXNG not available
+**Cause:** SSH tunnel not active or server down.
+**Fix:** Run `make search-tunnel` in solopreneur. Skill automatically falls back to Claude WebSearch if SearXNG unavailable.
+
+### Domain check returns wrong results
+**Cause:** `.app`/`.dev` whois shows TLD creation date for unregistered domains.
+**Fix:** Use the triple verification method (whois -> dig -> RDAP). Check Name Server and Registrar fields, not creation date.
+
+### research.md already exists
+**Cause:** Previous research run for this idea.
+**Fix:** Skill asks before overwriting. Choose to merge new findings or start fresh.

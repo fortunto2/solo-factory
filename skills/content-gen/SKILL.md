@@ -1,6 +1,6 @@
 ---
 name: solo-content-gen
-description: Generate promotion content pack from PRD — LinkedIn, Reddit, Twitter (video via /video-promo)
+description: Generate social media content pack from PRD — LinkedIn post, Reddit answer draft, and Twitter/X thread. Use when user says "create content", "write LinkedIn post", "social media pack", "marketing copy", or "promotion content". Do NOT use for community thread responses (use /community-outreach) or video scripts (use /video-promo).
 license: MIT
 metadata:
   author: fortunto2
@@ -107,3 +107,17 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 - For video scripts, use `/video-promo` (owns video generation entirely)
 - Rerun after major product updates to refresh messaging
 - Works best with detailed PRD — falls back to README if no PRD
+
+## Common Issues
+
+### No PRD found
+**Cause:** Project doesn't have `docs/prd.md` or README.
+**Fix:** Provide a project path with PRD, or run `/validate` first to generate one.
+
+### Content too generic
+**Cause:** PRD lacks specific differentiators or ICP details.
+**Fix:** Ensure PRD has detailed problem statement, ICP persona, and unique angle. Add `research.md` for competitive context.
+
+### Wrong tone for audience
+**Cause:** ICP not clearly defined in PRD.
+**Fix:** Specify the target audience in PRD. LinkedIn = professional, Reddit = casual/technical, Twitter = punchy/conversational.

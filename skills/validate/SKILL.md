@@ -1,6 +1,6 @@
 ---
 name: solo-validate
-description: Score idea through STREAM, pick stack, generate PRD — go or kill in 5 min
+description: Score startup idea through S.E.E.D. niche check + STREAM 6-layer analysis, auto-pick stack, and generate PRD with acceptance criteria. Use when user says "validate idea", "score this idea", "should I build this", "go or kill", "generate PRD", or "evaluate opportunity". Do NOT use for deep research (use /research first) or decision-only framework (use /stream).
 license: MIT
 metadata:
   author: fortunto2
@@ -108,3 +108,17 @@ If MCP tools are not available, fall back to Grep/Glob or CLI commands.
      - `/scaffold <name> <stack>` — if validated, build it
      - **Fake-Door Test** — if uncertain, spend $20 on a landing stub before coding
      - **KILL** — if score < 5 or kill flags triggered
+
+## Common Issues
+
+### S.E.E.D. kill flag triggered
+**Cause:** Idea fails basic niche viability (SERP dominated, no evidence, MVP too complex).
+**Fix:** This is by design — kill flags save time. Consider pivoting the idea or running `/research` for deeper evidence.
+
+### No research.md found
+**Cause:** Skipped `/research` step.
+**Fix:** Skill asks if you want to research first. For stronger PRDs, run `/research <idea>` before `/validate`.
+
+### Stack auto-detection wrong
+**Cause:** Ambiguous product type (could be web or mobile).
+**Fix:** Skill asks via AskUserQuestion when ambiguous. Specify product type explicitly in the idea description.

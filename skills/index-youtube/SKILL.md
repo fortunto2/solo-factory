@@ -1,6 +1,6 @@
 ---
 name: solo-index-youtube
-description: Index YouTube channels into FalkorDB source graph
+description: Index YouTube channel videos and transcripts into FalkorDB source graph for semantic search. Use when user says "index YouTube", "add YouTube channel", "update video index", or "index transcripts". Requires yt-dlp and SearXNG tunnel active.
 license: MIT
 metadata:
   author: fortunto2
@@ -72,3 +72,17 @@ Report to the user:
 2. Number of chunks created
 3. How many had chapter markers
 4. How many were skipped (already indexed or no transcript)
+
+## Common Issues
+
+### "MISSING: brew install yt-dlp"
+**Cause:** yt-dlp not installed.
+**Fix:** Run `brew install yt-dlp` (macOS) or `pip install yt-dlp`.
+
+### SearXNG health check fails
+**Cause:** SSH tunnel not active.
+**Fix:** Run `make search-tunnel` in solopreneur first. For direct URL mode (`-u`), SearXNG is not needed.
+
+### Videos skipped (no transcript)
+**Cause:** Video has no auto-generated or manual subtitles.
+**Fix:** This is expected — some videos lack transcripts. Check `~/.solo/sources/youtube/vtt/` for cached VTT files.

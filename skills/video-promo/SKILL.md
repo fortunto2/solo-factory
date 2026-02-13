@@ -1,6 +1,6 @@
 ---
 name: solo-video-promo
-description: Generate promo video plan — script, storyboard, Remotion/Life2Film config
+description: Generate promo video plan with 30-45s script, shot-by-shot storyboard, and optional Remotion/Life2Film config. Use when user says "create video", "promo video", "video script", "storyboard", "demo video", or "product video plan". Do NOT use for social media text posts (use /content-gen) or landing page copy (use /landing-gen).
 license: MIT
 metadata:
   author: fortunto2
@@ -149,3 +149,17 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 - For web: use browser screen recording
 - Music: suggest royalty-free sources (Artlist, Epidemic Sound, YouTube Audio Library)
 - This skill generates the PLAN — actual video rendering is manual or via Life2Film/Remotion
+
+## Common Issues
+
+### No video tooling detected
+**Cause:** Project doesn't use Remotion or Life2Film.
+**Fix:** Skill outputs plain storyboard by default. Record manually and edit in CapCut/iMovie, or add Remotion to the project.
+
+### Script too long for short-form video
+**Cause:** Too many features to showcase.
+**Fix:** Pick TOP 3 features only. 30-45 seconds = ~75-100 words of narration. Less is more.
+
+### No screenshots or UI to record
+**Cause:** Product not built yet or no visual interface.
+**Fix:** Use mockups, wireframes, or describe intended visuals in the storyboard. Record after MVP is built.

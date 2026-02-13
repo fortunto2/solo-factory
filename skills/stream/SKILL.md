@@ -1,6 +1,6 @@
 ---
 name: solo-stream
-description: Run any decision through STREAM 6-layer filter — clarity in 3 minutes
+description: Interactive decision-making wizard using STREAM 6-layer framework for founders facing high-stakes choices. Use when user says "help me decide", "should I do this", "evaluate decision", "STREAM analysis", "run decision framework", or "pros and cons". Do NOT use for idea validation with PRD (use /validate).
 license: MIT
 metadata:
   author: fortunto2
@@ -97,3 +97,17 @@ Interactive wizard that walks any decision through the STREAM 6-layer framework.
    2. [action]
    3. [action]
    ```
+
+## Common Issues
+
+### Questions feel too abstract
+**Cause:** Decision not specific enough.
+**Fix:** Start with a concrete decision statement: "Should I [action] given [context]?" not just "What should I do?"
+
+### Score seems wrong
+**Cause:** Layers weighted equally but some matter more for this decision.
+**Fix:** The overall score is a starting point. Pay more attention to the layers most relevant to your situation (e.g., Stakes for financial decisions, Meta for life choices).
+
+### Want to save but not in KB
+**Cause:** Running outside solopreneur knowledge base.
+**Fix:** Skill saves to `docs/decisions/` in any project, or `3-inbox/` in solopreneur KB. Create the directory if needed.

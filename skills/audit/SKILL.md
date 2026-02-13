@@ -1,6 +1,6 @@
 ---
 name: solo-audit
-description: Health check your knowledge base — find broken links, missing metadata, gaps
+description: Health check knowledge base for broken links, missing frontmatter, tag inconsistencies, and coverage gaps. Use when user says "audit KB", "check frontmatter", "find broken links", "tag cleanup", or "knowledge base quality". Do NOT use for SEO audits (use /seo-audit) or code reviews.
 license: MIT
 metadata:
   author: fortunto2
@@ -87,3 +87,17 @@ Audit the knowledge base for quality issues: missing frontmatter, broken links, 
    2. [specific action]
    3. [specific action]
    ```
+
+## Common Issues
+
+### No markdown files found
+**Cause:** Running in wrong directory or all files excluded.
+**Fix:** Ensure you're in the knowledge base root. Check exclude patterns in step 2.
+
+### Too many single-use tags
+**Cause:** Inconsistent tagging across documents.
+**Fix:** Pick canonical tags from the most-used list. Run audit again after cleanup.
+
+### Frontmatter validation errors
+**Cause:** YAML syntax issues (missing quotes, wrong indentation).
+**Fix:** Ensure `---` delimiters are present. Use `type:` and `status:` from the allowed values list.

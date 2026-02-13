@@ -1,6 +1,6 @@
 ---
 name: solo-swarm
-description: Launch 3 research agents in parallel — market, users, tech — fast answers
+description: Launch 3 parallel research agents (market, users, tech) to investigate an idea from multiple angles simultaneously. Use when user says "swarm research", "parallel research", "investigate fast", "3 agents", "team research", or wants faster alternative to /research. Produces research.md. Do NOT use for solo research (use /research) or idea scoring (use /validate).
 license: MIT
 metadata:
   author: fortunto2
@@ -69,3 +69,17 @@ After team completes, the lead should:
 2. Write `research.md` to `4-opportunities/<project-name>/` (solopreneur KB) or `docs/` (any project)
 3. Provide GO / NO-GO / PIVOT recommendation
 4. Suggest next step: `/validate <idea>`
+
+## Common Issues
+
+### Agent team not available
+**Cause:** `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var not set.
+**Fix:** Ensure `.claude/settings.json` has `"env": {"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"}`.
+
+### Teammates produce overlapping findings
+**Cause:** Research areas not clearly separated.
+**Fix:** Each teammate has a distinct focus (market/users/tech). The lead synthesizes and deduplicates findings.
+
+### SearXNG not available for teammates
+**Cause:** SSH tunnel not active.
+**Fix:** Run `make search-tunnel` before starting swarm. Teammates fall back to WebSearch if SearXNG unavailable.

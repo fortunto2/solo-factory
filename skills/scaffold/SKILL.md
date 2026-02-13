@@ -1,6 +1,6 @@
 ---
 name: solo-scaffold
-description: PRD to running project in 2 minutes — structure, deps, git, GitHub
+description: Generate complete project from PRD + stack template — directory structure, configs, CLAUDE.md, git repo, and GitHub push. Use when user says "scaffold project", "create new project", "start new app", "bootstrap project", or "set up from PRD". Uses SoloGraph for patterns and Context7 for latest versions. Do NOT use for planning features (use /plan) or PRD generation (use /validate).
 license: MIT
 metadata:
   author: fortunto2
@@ -230,3 +230,21 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
 
     Then: /setup → /plan "First feature" → /build
     ```
+
+## Common Issues
+
+### Stack YAML not found
+**Cause:** Stack template missing from `templates/stacks/` or not symlinked.
+**Fix:** Skill uses built-in knowledge if template not found. To fix: ensure `solo-factory/templates/stacks/<stack>.yaml` exists.
+
+### GitHub repo creation fails
+**Cause:** `gh` CLI not authenticated or repo name already taken.
+**Fix:** Run `gh auth login` first. If name taken, choose a different project name.
+
+### Context7 queries fail
+**Cause:** MCP server not running or Context7 rate limited.
+**Fix:** Skill proceeds with stack YAML versions as fallback. Context7 enhances but is not required.
+
+### org defaults missing
+**Cause:** `~/.solo-factory/defaults.yaml` not created.
+**Fix:** Run `/init` first for one-time setup, or skill will ask for bundle ID and team ID interactively.

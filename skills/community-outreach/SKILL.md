@@ -1,6 +1,6 @@
 ---
 name: solo-community-outreach
-description: Find relevant communities and draft outreach — Reddit, HN, ProductHunt
+description: Find relevant Reddit, HN, and ProductHunt threads and draft value-first community responses with launch checklist. Use when user says "find communities", "draft outreach", "Reddit promotion", "ProductHunt launch", or "community marketing". Do NOT use for social media posts (use /content-gen) or video scripts (use /video-promo).
 license: MIT
 metadata:
   author: fortunto2
@@ -165,3 +165,17 @@ If MCP tools are not available, use Claude WebSearch/WebFetch as fallback.
 4. **No astroturfing** — never pretend to be a user
 5. **Respect community rules** — check subreddit rules before posting
 6. **Quality over quantity** — 5 great responses > 50 generic ones
+
+## Common Issues
+
+### SearXNG not available
+**Cause:** SSH tunnel not active or server down.
+**Fix:** Run `make search-tunnel` in solopreneur. If still down, skill falls back to Claude WebSearch.
+
+### No relevant threads found
+**Cause:** Niche too small or wrong keywords.
+**Fix:** Broaden search terms. Try competitor names, problem descriptions, or adjacent categories.
+
+### Responses sound promotional
+**Cause:** Product mention too prominent or lacks genuine value.
+**Fix:** Rewrite with value-first approach: 80% helpful answer, 20% product mention. Always include builder disclosure.
