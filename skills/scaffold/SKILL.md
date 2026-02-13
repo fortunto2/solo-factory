@@ -17,20 +17,10 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
 
 1. **Parse arguments** from `$ARGUMENTS` — extract `<project-name>` and `<stack-name>`.
    - If not provided or incomplete, use AskUserQuestion to ask for missing values.
-   - Show available stacks (if MCP `project_info` available, show detected stacks from active projects):
-
-   Common stacks:
-   - `ios-swift` — SwiftUI, CoreML, StoreKit 2, async/await
-   - `nextjs-supabase` — Next.js 16, React 19, Tailwind 4, shadcn-ui, Supabase, Drizzle ORM
-   - `cloudflare-workers` — Hono, D1, R2, Durable Objects, edge-first
-   - `kotlin-android` — Jetpack Compose, Room, Koin, CameraX
-   - `astro-static` — Astro 5, Cloudflare Pages, content collections
-   - `astro-hybrid` — Astro 5 SSG+SSR, Cloudflare Pages/Workers, R2 CDN, Orama search
-   - `nextjs-ai-agents` — extends nextjs-supabase + Vercel AI SDK, @ai-sdk/react, ToolLoopAgent
-   - `python-api` — uv, FastAPI, Pydantic, PostgreSQL, SQLAlchemy, Alembic
-   - `python-ml` — uv, Pydantic, ChromaDB, MLX, CLI-first
-
-   Project name should be kebab-case.
+   - Show available stacks from `templates/stacks/*.yaml` (source of truth).
+     If MCP `project_info` available, also show detected stacks from active projects.
+     List stack names with one-line descriptions from each YAML's `description` field.
+   - Project name should be kebab-case.
 
 2. **Load org defaults** from `~/.solo-factory/defaults.yaml`:
    - Read `org_domain` (e.g. `co.superduperai`), `apple_dev_team`, `github_org`, `projects_dir`

@@ -144,16 +144,8 @@ Options:
 Question 3: "Which stacks do you work with?"
 Header: "Stacks"
 multiSelect: true
-Options:
-- "Next.js + Supabase" — "Next.js 16, React 19, Tailwind 4, shadcn-ui, Supabase, Drizzle"
-- "iOS Swift" — "SwiftUI, CoreML, StoreKit 2, async/await"
-- "Python API" — "FastAPI, Pydantic, SQLAlchemy, PostgreSQL"
-- "Python ML" — "uv, Pydantic, MLX, sentence-transformers, CLI-first"
+Options: dynamically built from `templates/stacks/*.yaml` — read each YAML's `name` and `description` fields.
+Show the 4 most popular as options (nextjs-supabase, ios-swift, python-api, python-ml).
 ```
 
-If user selects "Other" for stacks, ask a follow-up about which additional stacks they need:
-- `kotlin-android` — Jetpack Compose, Room, Koin
-- `cloudflare-workers` — Hono, D1, R2, Durable Objects
-- `astro-static` — Astro 5, Cloudflare Pages
-- `nextjs-ai-agents` — extends Next.js + Vercel AI SDK
-- `python-scraper` — curl_cffi, playwright, BeautifulSoup
+If user selects "Other" for stacks, list remaining stacks from `templates/stacks/*.yaml` as follow-up options.

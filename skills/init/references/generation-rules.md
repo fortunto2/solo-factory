@@ -90,18 +90,10 @@ All other sections (SOLID, DRY, KISS, DDD, Clean Architecture, SGR, i18n, etc.) 
 
 ## Stack Template Copying
 
-For each stack selected in Round 3, copy the YAML file from `templates/stacks/` to `.solo/stacks/`.
+For each stack selected in Round 3, copy the corresponding YAML from `templates/stacks/` to `.solo/stacks/`.
 
-Map the answers:
-- "Next.js + Supabase" → `nextjs-supabase.yaml`
-- "iOS Swift" → `ios-swift.yaml`
-- "Python API" → `python-api.yaml`
-- "Python ML" → `python-ml.yaml`
-- "Kotlin Android" → `kotlin-android.yaml`
-- "Cloudflare Workers" → `cloudflare-workers.yaml`
-- "Astro Static" → `astro-static.yaml`
-- "Next.js AI Agents" → `nextjs-ai-agents.yaml`
-- "Python Scraper" → `python-scraper.yaml`
+Stack names match filenames: user picks "ios-swift" → copy `templates/stacks/ios-swift.yaml`.
+No hardcoded mapping needed — `templates/stacks/*.yaml` is the source of truth.
 
 ## Edge Cases
 
