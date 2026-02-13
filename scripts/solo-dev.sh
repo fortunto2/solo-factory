@@ -315,10 +315,6 @@ fi
 # =============================================
 # Main loop: run claude --print for each stage
 # =============================================
-
-# Start background chiptune music
-"$SCRIPT_DIR/solo-chiptune.sh" start --volume 0.08 --bpm 140 2>/dev/null || true
-
 log_entry "START" "$PROJECT_NAME | stages: $STAGES_DISPLAY | max: $MAX_ITERATIONS"
 
 for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
@@ -413,9 +409,6 @@ When done with this stage, output: <promise>PIPELINE COMPLETE</promise>"
 
   sleep 2
 done
-
-# Stop background music
-"$SCRIPT_DIR/solo-chiptune.sh" stop 2>/dev/null || true
 
 # --- Calculate duration ---
 END_TIME=$(date +%s)
