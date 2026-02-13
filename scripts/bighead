@@ -1,0 +1,362 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["click>=8.1", "rich>=13.0", "pyyaml>=6.0"]
+# ///
+"""
+Big Head — does nothing, ships everything.
+
+Interactive pipeline launcher for Solo Factory.
+Named after Nelson Bighetti from Silicon Valley.
+"""
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import click
+import yaml
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Confirm, IntPrompt, Prompt
+from rich.table import Table
+from rich.text import Text
+
+console = Console()
+
+# --- Paths ---
+SCRIPT_DIR = Path(__file__).resolve().parent
+SOLO_FACTORY = SCRIPT_DIR.parent
+STACKS_DIR = SOLO_FACTORY / "templates" / "stacks"
+PIPELINES_DIR = Path.home() / ".solo" / "pipelines"
+REGISTRY_PATH = Path.home() / ".solo" / "registry.yaml"
+
+
+def get_stacks() -> list[dict]:
+    """Load available stacks from YAML templates."""
+    stacks = []
+    if not STACKS_DIR.exists():
+        return stacks
+    for f in sorted(STACKS_DIR.glob("*.yaml")):
+        try:
+            data = yaml.safe_load(f.read_text())
+            stacks.append({
+                "id": f.stem,
+                "name": data.get("name", f.stem),
+                "framework": data.get("framework", ""),
+                "platform": data.get("platform", ""),
+                "deploy": data.get("deploy", ""),
+            })
+        except Exception:
+            stacks.append({"id": f.stem, "name": f.stem, "framework": "", "platform": "", "deploy": ""})
+    return stacks
+
+
+def get_projects() -> list[dict]:
+    """Load active projects from registry."""
+    if not REGISTRY_PATH.exists():
+        return []
+    try:
+        data = yaml.safe_load(REGISTRY_PATH.read_text())
+        return data.get("projects", [])
+    except Exception:
+        return []
+
+
+def pick_stack() -> str:
+    """Interactive stack picker with Rich table."""
+    stacks = get_stacks()
+    if not stacks:
+        console.print("[red]No stacks found in templates/stacks/[/red]")
+        return Prompt.ask("[bold]Stack name[/bold]")
+
+    table = Table(title="Available Stacks", show_lines=False, pad_edge=False)
+    table.add_column("#", style="bold cyan", width=3)
+    table.add_column("Stack", style="bold white", min_width=20)
+    table.add_column("Framework", style="dim")
+    table.add_column("Deploy", style="dim")
+
+    for i, s in enumerate(stacks, 1):
+        table.add_row(str(i), s["id"], str(s.get("framework", "")), str(s.get("deploy", "")))
+
+    console.print(table)
+    console.print()
+
+    choice = IntPrompt.ask(
+        "[bold]Pick a stack[/bold]",
+        choices=[str(i) for i in range(1, len(stacks) + 1)],
+    )
+    return stacks[choice - 1]["id"]
+
+
+def pick_project() -> str:
+    """Interactive project picker or free text input."""
+    projects = get_projects()
+    if not projects:
+        return Prompt.ask("[bold]Project name[/bold]")
+
+    table = Table(title="Active Projects", show_lines=False, pad_edge=False)
+    table.add_column("#", style="bold cyan", width=3)
+    table.add_column("Project", style="bold white", min_width=15)
+    table.add_column("Stacks", style="dim")
+    table.add_column("Description", style="dim", max_width=40)
+
+    for i, p in enumerate(projects, 1):
+        stacks_str = ", ".join(p.get("stacks", []))
+        desc = (p.get("description") or "")[:40]
+        table.add_row(str(i), p["name"], stacks_str, desc)
+
+    console.print(table)
+    console.print(f"  [dim]{len(projects) + 1}. Enter new name[/dim]")
+    console.print()
+
+    choice = IntPrompt.ask(
+        "[bold]Pick a project or enter new[/bold]",
+        choices=[str(i) for i in range(1, len(projects) + 2)],
+    )
+    if choice <= len(projects):
+        return projects[choice - 1]["name"]
+    return Prompt.ask("[bold]New project name[/bold]")
+
+
+def run_script(script: str, args: list[str]) -> None:
+    """Run a solo-factory script."""
+    script_path = SCRIPT_DIR / script
+    if not script_path.exists():
+        console.print(f"[red]Script not found: {script_path}[/red]")
+        sys.exit(1)
+    cmd = ["bash", str(script_path)] + args
+    console.print(f"[dim]$ {' '.join(cmd)}[/dim]")
+    console.print()
+    os.execvp("bash", cmd)
+
+
+def show_banner():
+    """Show Big Head banner."""
+    banner = Text()
+    banner.append("Big Head", style="bold white")
+    banner.append(" — does nothing, ships everything\n", style="dim")
+    banner.append("Named after Nelson Bighetti. Automated Solo Factory pipelines.", style="dim")
+    console.print(Panel(banner, border_style="cyan", padding=(0, 2)))
+    console.print()
+
+
+# --- CLI ---
+
+@click.group(invoke_without_command=True)
+@click.pass_context
+def cli(ctx):
+    """Big Head — interactive pipeline launcher."""
+    if ctx.invoked_subcommand is not None:
+        return
+
+    # Interactive menu
+    show_banner()
+
+    console.print("[bold]What do you want to do?[/bold]")
+    console.print()
+    console.print("  [cyan]1.[/cyan] Research an idea [dim](research → validate)[/dim]")
+    console.print("  [cyan]2.[/cyan] Build a project  [dim](scaffold → setup → plan → build → deploy → review)[/dim]")
+    console.print("  [cyan]3.[/cyan] Pipeline status")
+    console.print()
+
+    choice = IntPrompt.ask("[bold]Choose[/bold]", choices=["1", "2", "3"])
+
+    if choice == 1:
+        ctx.invoke(research)
+    elif choice == 2:
+        ctx.invoke(dev)
+    elif choice == 3:
+        ctx.invoke(status)
+
+
+@cli.command()
+@click.argument("idea", required=False)
+@click.option("-p", "--project", default=None, help="Project name for organizing files")
+@click.option("-f", "--file", "file_path", default=None, help="Research file or directory")
+@click.option("--from", "from_stage", default=None, help="Resume from stage (validate)")
+@click.option("--max", "max_iter", default=None, type=int, help="Max iterations")
+def research(idea, project, file_path, from_stage, max_iter):
+    """Research pipeline: research → validate."""
+    show_banner()
+    console.print("[bold cyan]Research Pipeline[/bold cyan]")
+    console.print("[dim]research → validate → PRD[/dim]")
+    console.print()
+
+    if not idea:
+        idea = Prompt.ask("[bold]What's your idea?[/bold]")
+
+    if not project:
+        project = Prompt.ask("[bold]Project name[/bold] [dim](optional, for file org)[/dim]", default="")
+
+    # Build args
+    args = [idea]
+    if project:
+        args += ["--project", project]
+    if file_path:
+        args += ["--file", file_path]
+    if from_stage:
+        args += ["--from", from_stage]
+    if max_iter:
+        args += ["--max", str(max_iter)]
+
+    console.print()
+    console.print(Panel(
+        f"[bold]Idea:[/bold] {idea}\n"
+        f"[bold]Project:[/bold] {project or '(auto)'}\n"
+        f"[bold]Pipeline:[/bold] research → validate",
+        title="Launching",
+        border_style="green",
+    ))
+    console.print()
+
+    run_script("solo-research.sh", args)
+
+
+@cli.command()
+@click.argument("project", required=False)
+@click.argument("stack", required=False)
+@click.option("--feat", "--feature", "feature", default=None, help="Feature focus")
+@click.option("--from", "from_stage", default=None, help="Resume from stage")
+@click.option("--max", "max_iter", default=None, type=int, help="Max iterations")
+def dev(project, stack, feature, from_stage, max_iter):
+    """Dev pipeline: scaffold → setup → plan → build → deploy → review."""
+    show_banner()
+    console.print("[bold cyan]Dev Pipeline[/bold cyan]")
+    console.print("[dim]scaffold → setup → plan → build → deploy → review[/dim]")
+    console.print()
+
+    if not project:
+        project = pick_project()
+
+    if not stack:
+        stack = pick_stack()
+
+    if feature is None:
+        feature = Prompt.ask("[bold]Feature focus[/bold] [dim](optional)[/dim]", default="")
+
+    if from_stage is None and Confirm.ask("[bold]Resume from a specific stage?[/bold]", default=False):
+        stages = ["scaffold", "setup", "plan", "build", "deploy", "review"]
+        for i, s in enumerate(stages):
+            console.print(f"  [cyan]{i + 1}.[/cyan] {s}")
+        console.print()
+        stage_choice = IntPrompt.ask(
+            "[bold]Start from[/bold]",
+            choices=[str(i) for i in range(1, len(stages) + 1)],
+        )
+        from_stage = stages[stage_choice - 1]
+
+    # Build args
+    args = [project, stack]
+    if feature:
+        args += ["--feature", feature]
+    if from_stage:
+        args += ["--from", from_stage]
+    if max_iter:
+        args += ["--max", str(max_iter)]
+
+    console.print()
+    console.print(Panel(
+        f"[bold]Project:[/bold] {project}\n"
+        f"[bold]Stack:[/bold] {stack}\n"
+        f"[bold]Feature:[/bold] {feature or '(full project)'}\n"
+        f"[bold]From:[/bold] {from_stage or 'scaffold (start)'}\n"
+        f"[bold]Pipeline:[/bold] scaffold → setup → plan → build → deploy → review",
+        title="Launching",
+        border_style="green",
+    ))
+    console.print()
+
+    run_script("solo-dev.sh", args)
+
+
+@cli.command()
+@click.argument("project", required=False)
+def status(project):
+    """Show pipeline status."""
+    args = [project] if project else []
+    run_script("solo-pipeline-status.sh", args)
+
+
+@cli.command()
+@click.argument("project", required=True)
+def attach(project):
+    """Attach to tmux dashboard."""
+    run_script("solo-dashboard.sh", ["attach", project])
+
+
+@cli.command()
+@click.argument("project", required=True)
+def log(project):
+    """Tail pipeline log."""
+    log_file = PIPELINES_DIR / f"solo-pipeline-{project}.log"
+    if not log_file.exists():
+        console.print(f"[red]No log found: {log_file}[/red]")
+        sys.exit(1)
+    os.execvp("tail", ["tail", "-f", str(log_file)])
+
+
+@cli.command()
+@click.argument("project", required=True)
+def cancel(project):
+    """Cancel a running pipeline."""
+    state_file = PIPELINES_DIR / f"solo-pipeline-{project}.local.md"
+    if not state_file.exists():
+        console.print(f"[yellow]No active pipeline for '{project}'[/yellow]")
+        return
+    if Confirm.ask(f"[bold red]Cancel pipeline '{project}'?[/bold red]"):
+        state_file.unlink()
+        console.print(f"[green]Pipeline '{project}' cancelled[/green]")
+
+
+@cli.command()
+def stacks():
+    """List available stack templates."""
+    show_banner()
+    stack_list = get_stacks()
+    if not stack_list:
+        console.print("[red]No stacks found[/red]")
+        return
+
+    table = Table(title="Available Stacks", show_lines=True)
+    table.add_column("Stack", style="bold white")
+    table.add_column("Framework", style="cyan")
+    table.add_column("Platform")
+    table.add_column("Deploy", style="green")
+
+    for s in stack_list:
+        table.add_row(s["id"], str(s.get("framework", "")), str(s.get("platform", "")), str(s.get("deploy", "")))
+
+    console.print(table)
+
+
+@cli.command()
+def projects():
+    """List active projects."""
+    show_banner()
+    proj_list = get_projects()
+    if not proj_list:
+        console.print("[yellow]No projects in registry. Run: make scan[/yellow]")
+        return
+
+    table = Table(title="Active Projects", show_lines=False)
+    table.add_column("Project", style="bold white")
+    table.add_column("Stacks", style="cyan")
+    table.add_column("Status")
+    table.add_column("Description", style="dim", max_width=40)
+
+    for p in proj_list:
+        stacks_str = ", ".join(p.get("stacks", []))
+        table.add_row(
+            p["name"],
+            stacks_str,
+            p.get("status", "?"),
+            (p.get("description") or "")[:40],
+        )
+
+    console.print(table)
+
+
+if __name__ == "__main__":
+    cli()
