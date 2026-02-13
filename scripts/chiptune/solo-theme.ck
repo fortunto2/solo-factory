@@ -3,8 +3,11 @@
 // Run: chuck solo-theme.ck
 // Stop: chuck --kill or Ctrl-C
 
-// ── Master volume (override via env or arg) ──
+// ── Master volume (override via command-line arg) ──
 0.15 => float masterVol;
+if (me.args() > 0) {
+    Std.atof(me.arg(0)) => masterVol;
+}
 
 // ── BPM ──
 140 => float bpm;
