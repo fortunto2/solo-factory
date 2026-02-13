@@ -55,10 +55,12 @@ done
 if [[ -z "$PROJECT_NAME" ]] || [[ -z "$STACK" ]]; then
   echo "Usage: solo-dev.sh \"project\" \"stack\" [--feature \"desc\"] [--file path|dir] [--from stage] [--max N] [--no-dashboard]"
   echo ""
-  echo "Stages: scaffold, setup, plan, build"
+  echo "Stages: scaffold, setup, plan, build, deploy, review"
   echo "  --from setup       # skip scaffold"
   echo "  --from plan        # skip scaffold + setup"
   echo "  --from build       # skip scaffold + setup + plan"
+  echo "  --from deploy      # skip to deploy"
+  echo "  --from review      # skip to review"
   echo "  --no-dashboard     # skip tmux dashboard"
   exit 1
 fi
@@ -76,7 +78,7 @@ if [[ -n "$CONTEXT_FILE" ]]; then
 fi
 
 # Validate --from stage
-VALID_STAGES="scaffold setup plan build"
+VALID_STAGES="scaffold setup plan build deploy review"
 if [[ -n "$START_FROM" ]]; then
   if ! echo "$VALID_STAGES" | grep -qw "$START_FROM"; then
     echo "Error: Unknown stage '$START_FROM'. Valid: $VALID_STAGES"
@@ -90,6 +92,8 @@ PROJECT_ROOT="$ACTIVE_DIR"
 SCAFFOLD_CHECK="$ACTIVE_DIR/CLAUDE.md"
 SETUP_CHECK="$ACTIVE_DIR/docs/workflow.md"
 PLAN_CHECK="$ACTIVE_DIR/docs/plan"
+DEPLOY_CHECK="$ACTIVE_DIR/.deploy-complete"
+REVIEW_CHECK="$ACTIVE_DIR/.review-complete"
 
 # --- State & log files (global, absolute) ---
 mkdir -p "$PIPELINES_DIR"
@@ -125,7 +129,7 @@ IDX=0
 INCLUDE=true
 [[ -n "$START_FROM" ]] && INCLUDE=false
 
-for stage in scaffold setup plan build; do
+for stage in scaffold setup plan build deploy review; do
   [[ "$stage" == "$START_FROM" ]] && INCLUDE=true
   [[ "$INCLUDE" != "true" ]] && continue
 
@@ -145,12 +149,22 @@ for stage in scaffold setup plan build; do
     plan)
       STAGE_SKILLS[$IDX]="/plan"
       STAGE_ARGS[$IDX]="${FEATURE:+\"$FEATURE\"}"
-      STAGE_CHECKS[$IDX]="$PLAN_CHECK/*.md"
+      STAGE_CHECKS[$IDX]="$PLAN_CHECK/*/*.md"
       ;;
     build)
       STAGE_SKILLS[$IDX]="/build"
       STAGE_ARGS[$IDX]=""
-      STAGE_CHECKS[$IDX]="$PLAN_CHECK/*.md"
+      STAGE_CHECKS[$IDX]="$PLAN_CHECK/*/BUILD_COMPLETE"
+      ;;
+    deploy)
+      STAGE_SKILLS[$IDX]="/deploy"
+      STAGE_ARGS[$IDX]=""
+      STAGE_CHECKS[$IDX]="$DEPLOY_CHECK"
+      ;;
+    review)
+      STAGE_SKILLS[$IDX]="/review"
+      STAGE_ARGS[$IDX]=""
+      STAGE_CHECKS[$IDX]="$REVIEW_CHECK"
       ;;
   esac
 
@@ -182,11 +196,13 @@ Use its content as input — competitors, tech stack, market data, pain points, 
 fi
 
 # --- Create state file (skip if already exists from outer invocation) ---
-SCAFFOLD_DONE="false"; SETUP_DONE="false"; PLAN_DONE="false"; BUILD_DONE="false"
+SCAFFOLD_DONE="false"; SETUP_DONE="false"; PLAN_DONE="false"; BUILD_DONE="false"; DEPLOY_DONE="false"; REVIEW_DONE="false"
 case "$START_FROM" in
-  setup) SCAFFOLD_DONE="true" ;;
-  plan)  SCAFFOLD_DONE="true"; SETUP_DONE="true" ;;
-  build) SCAFFOLD_DONE="true"; SETUP_DONE="true"; PLAN_DONE="true" ;;
+  setup)  SCAFFOLD_DONE="true" ;;
+  plan)   SCAFFOLD_DONE="true"; SETUP_DONE="true" ;;
+  build)  SCAFFOLD_DONE="true"; SETUP_DONE="true"; PLAN_DONE="true" ;;
+  deploy) SCAFFOLD_DONE="true"; SETUP_DONE="true"; PLAN_DONE="true"; BUILD_DONE="true" ;;
+  review) SCAFFOLD_DONE="true"; SETUP_DONE="true"; PLAN_DONE="true"; BUILD_DONE="true"; DEPLOY_DONE="true" ;;
 esac
 
 CONTEXT_FILE_YAML="context_file: \"\""
@@ -224,12 +240,12 @@ stages:
   - id: plan
     skill: "/plan"
     args: "$PLAN_ARGS_STR"
-    check: "$PLAN_CHECK/*.md"
+    check: "$PLAN_CHECK/*/*.md"
     done: $PLAN_DONE
   - id: build
     skill: "/build"
     args: ""
-    check: "$PLAN_CHECK/*.md"
+    check: "$PLAN_CHECK/*/BUILD_COMPLETE"
     done: $BUILD_DONE
 ---
 
@@ -365,11 +381,18 @@ for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
 This is stage $STAGE_NUM/$TOTAL_STAGES ($STAGE_ID) of the dev pipeline (project: $PROJECT_NAME).
 When done with this stage, output: <promise>PIPELINE COMPLETE</promise>"
 
+  # cd to project dir for stages that operate on the project (not scaffold)
+  CLAUDE_CWD="$(pwd)"
+  if [[ "$STAGE_ID" != "scaffold" ]] && [[ -d "$PROJECT_ROOT" ]]; then
+    CLAUDE_CWD="$PROJECT_ROOT"
+    log_entry "CWD" "$CLAUDE_CWD"
+  fi
+
   # Run Claude Code (stream-json for real-time tool visibility)
   log_entry "INVOKE" "$SKILL $ARGS"
   OUTFILE=$(mktemp /tmp/solo-claude-XXXXXX.txt)
-  claude --dangerously-skip-permissions --verbose --print \
-    --output-format stream-json -p "$PROMPT" 2>&1 \
+  (cd "$CLAUDE_CWD" && claude --dangerously-skip-permissions --verbose --print \
+    --output-format stream-json -p "$PROMPT" 2>&1) \
     | python3 "$SCRIPT_DIR/solo-stream-fmt.py" \
     | tee "$OUTFILE" || true
   OUTPUT=$(cat "$OUTFILE")

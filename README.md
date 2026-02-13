@@ -115,12 +115,19 @@ claude plugin list            # Claude Code plugin
 
 The Stop hook chains skills automatically — no manual invocation needed between stages. State files at `~/.solo/pipelines/`, log files for monitoring.
 
+**CWD behavior:** scaffold runs from launch directory (needs KB/templates access), then setup/plan/build run from `~/startups/active/{project}/` so skills detect project context correctly.
+
 **tmux dashboard** opens automatically when run from terminal (session reusable — re-run without closing):
 
 ```bash
-# Or launch scripts directly
+# Launch scripts directly
 solo-factory/scripts/solo-research.sh "AI therapist app" --project lovon
+solo-factory/scripts/solo-dev.sh "lovon" "nextjs-supabase"
+
+# Resume from specific stage (skips completed stages)
 solo-factory/scripts/solo-dev.sh "lovon" "nextjs-supabase" --from setup
+solo-factory/scripts/solo-dev.sh "lovon" "nextjs-supabase" --from plan
+solo-factory/scripts/solo-dev.sh "lovon" "nextjs-supabase" --from build
 
 # Monitor
 solo-factory/scripts/solo-pipeline-status.sh           # colored status
