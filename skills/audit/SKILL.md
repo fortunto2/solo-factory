@@ -4,7 +4,7 @@ description: Health check knowledge base for broken links, missing frontmatter, 
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.0"
+  version: "1.4.0"
 allowed-tools: Read, Grep, Bash, Glob, mcp__solograph__kb_search
 argument-hint: "[optional: focus area like 'tags' or 'frontmatter']"
 ---

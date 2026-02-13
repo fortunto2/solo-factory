@@ -4,7 +4,7 @@ description: Score startup idea through S.E.E.D. niche check + STREAM 6-layer an
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.5.0"
+  version: "1.6.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__project_info
 argument-hint: "[idea name or description]"
 ---

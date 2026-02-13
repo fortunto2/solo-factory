@@ -4,7 +4,7 @@ description: Execute implementation plan tasks with TDD workflow, auto-commit, a
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.0.0"
+  version: "2.1.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query
 argument-hint: "[track-id] [--task X.Y] [--phase N]"
 ---

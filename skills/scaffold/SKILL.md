@@ -4,7 +4,7 @@ description: Generate complete project from PRD + stack template — directory s
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.4.0"
+  version: "1.5.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_reindex
 argument-hint: "[project-name] [stack-name]"
 ---
@@ -102,8 +102,37 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    ├── README.md          # Human-friendly project docs
    ├── docs/
    │   └── prd.md         # Copy of PRD
+   ├── .claude/
+   │   └── skills/        # Product-specific workflow skills
+   │       └── dev/
+   │           └── SKILL.md  # Dev workflow skill (run, test, deploy)
    └── .gitignore         # Stack-specific ignores
    ```
+
+   ### `.claude/skills/dev/SKILL.md` — product dev workflow skill
+
+   Generate a skill that teaches Claude how to work with THIS specific project. Structure:
+
+   ```yaml
+   ---
+   name: <name>-dev
+   description: Dev workflow for <Name> — run, test, build, deploy. Use when working on <Name> features, fixing bugs, or deploying changes. Do NOT use for other projects.
+   license: MIT
+   metadata:
+     author: <github_org>
+     version: "1.0.0"
+   allowed-tools: Read, Grep, Glob, Bash, Write, Edit
+   ---
+   ```
+
+   Body should include:
+   - **Stack:** key packages, versions, where configs live
+   - **Commands:** `make dev`, `make test`, `make build`, `make deploy` (from Makefile)
+   - **Architecture:** directory structure, naming conventions, key patterns
+   - **Testing:** how to run tests, where test files live, testing conventions
+   - **Common tasks:** add a new page/screen, add an API endpoint, add a model
+
+   This makes every scaffolded project immediately Claude-friendly — new sessions get project context via the skill.
 
    Then stack-specific files. Key patterns per stack:
 
@@ -169,6 +198,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
 10. **Generate CLAUDE.md** for the new project:
    - Project overview (problem/solution from PRD)
    - Tech stack (packages + versions from Context7)
+   - **Skills section:** list available `.claude/skills/` with descriptions
    - Directory structure
    - Common commands (reference `make help`)
    - SGR / Domain-First section
@@ -222,6 +252,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
       Stack:  <stack-name>
       PRD:    docs/prd.md
       CLAUDE: configured
+      Skills: .claude/skills/dev/ (project workflow)
 
     Next steps:
       cd ~/startups/active/<name>

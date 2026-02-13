@@ -4,7 +4,7 @@ description: Generate landing page content from PRD — hero section, features, 
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.1.0"
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__web_search
 argument-hint: "<project-name>"
 ---

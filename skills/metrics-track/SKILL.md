@@ -4,7 +4,7 @@ description: Set up PostHog metrics plan with event funnel, KPI benchmarks, and 
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.1.0"
 allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__kb_search
 argument-hint: "<project-name>"
 ---

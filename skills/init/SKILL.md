@@ -4,7 +4,7 @@ description: One-time founder onboarding — generates personalized manifest, ST
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.0.0"
+  version: "2.1.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion
 argument-hint: "[project-path]"
 ---

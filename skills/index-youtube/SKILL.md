@@ -4,7 +4,7 @@ description: Index YouTube channel videos and transcripts into FalkorDB source g
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.1.0"
 allowed-tools: Bash, Read, Glob, Grep, AskUserQuestion
 argument-hint: "[channel handles or 'all']"
 ---
