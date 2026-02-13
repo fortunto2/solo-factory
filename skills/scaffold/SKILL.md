@@ -124,6 +124,9 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
 
    This makes every scaffolded project immediately Claude-friendly — new sessions get project context via the skill.
 
+   **MCP server** (optional): If PRD indicates a data/AI/developer product, also generate MCP server stub.
+   See `templates/mcp-skills-bundle.md` for the full "MCP + Skills bundle" pattern and rules for when to generate MCP.
+
    Then add stack-specific files. See `references/stack-structures.md` for per-stack file listings (8 stacks: nextjs, ios, kotlin, cloudflare, astro-static, astro-hybrid, python-api, python-ml).
 
 9. **Generate Makefile** — stack-adapted with: `help`, `dev`, `test`, `lint`, `format`, `build`, `clean` targets.
