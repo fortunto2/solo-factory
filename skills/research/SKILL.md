@@ -4,8 +4,8 @@ description: Deep market research — competitor analysis, user pain points, SEO
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.6.0"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__solograph__session_search, mcp__solograph__project_info
+  version: "1.7.0"
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__solograph__session_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_search
 argument-hint: "[idea name or description]"
 ---
 
@@ -19,7 +19,10 @@ If MCP tools are available, prefer them over CLI:
 - `kb_search(query, n_results)` — search knowledge base for related docs
 - `web_search(query, engines, include_raw_content)` — SearXNG web search with engine routing
 - `session_search(query, project)` — find how similar research was done before
-- `project_info(name)` — check project details
+- `project_info(name)` — check project details and stacks
+- `codegraph_explain(project)` — architecture overview of an existing project (stack, patterns, deps)
+- `codegraph_query(query)` — raw Cypher queries against code graph (find shared packages, dependencies)
+- `project_code_search(query, project)` — semantic search over project source code
 
 MCP `web_search` supports engine override: `engines="reddit"`, `engines="youtube"`, etc.
 If MCP tools are not available, use Claude WebSearch/WebFetch as fallback.
@@ -81,12 +84,20 @@ curl -s -X POST 'http://localhost:8013/transcript' \
    - Only ask via AskUserQuestion if truly ambiguous (e.g., "build a todo app" could be web or mobile)
    - This determines which research sections apply (ASO for mobile, SEO for web, etc.)
 
-3. **Search knowledge base** for existing related content:
+3. **Search knowledge base and past work:**
    - If MCP `kb_search` available: `kb_search(query="<idea keywords>", n_results=5)`
+   - If MCP `session_search` available: `session_search(query="<idea keywords>")` — check if this idea was researched before
    - Otherwise: Grep for keywords in `.md` files
    - Check if `research.md` or `prd.md` already exist for this idea.
 
-4. **Competitive analysis** — use Claude WebSearch (primary) + SearXNG (scraping):
+4. **Check existing portfolio** (if MCP codegraph tools available):
+   - `codegraph_explain(project="<similar project>")` — architecture overview of related projects in the portfolio
+   - `project_code_search(query="<relevant pattern>", project="<sibling>")` — find reusable code, patterns, infrastructure
+   - `codegraph_query("MATCH (p:Project)-[:DEPENDS_ON]->(pkg:Package) WHERE pkg.name CONTAINS '<relevant tech>' RETURN p.name, pkg.name")` — find projects using similar tech
+   - This helps assess: feasibility, reusable code, stack decisions, and time estimates
+   - If no MCP tools available, skip this step.
+
+5. **Competitive analysis** — use Claude WebSearch (primary) + SearXNG (scraping):
    - `"<idea> competitors alternatives 2026"` — broad discovery
    - `"<idea> app review pricing"` — pricing data
    - SearXNG `include_raw_content=true`: scrape competitor URLs for detailed pricing
@@ -96,7 +107,7 @@ curl -s -X POST 'http://localhost:8013/transcript' \
    - `"site:crunchbase.com <competitor>"` — funding, team size
    - For each competitor extract: name, URL, pricing, key features, weaknesses
 
-5. **User pain points** — use SearXNG reddit (primary) + YouTube + Claude WebSearch:
+6. **User pain points** — use SearXNG reddit (primary) + YouTube + Claude WebSearch:
    - SearXNG/MCP `engines: reddit`: `"<problem>"` — Reddit via PullPush API
    - SearXNG/MCP `engines: youtube`: `"<problem> review"` — video reviews
    - SearXNG `/transcript`: extract subtitles from top 2-3 YouTube videos
@@ -104,7 +115,7 @@ curl -s -X POST 'http://localhost:8013/transcript' \
    - Claude WebSearch: `"<problem> frustrating OR annoying"` — broader sweep
    - Synthesis: top 5 pain points with quotes and source URLs
 
-6. **SEO / ASO analysis** (depends on product type from step 2):
+7. **SEO / ASO analysis** (depends on product type from step 2):
 
    **For web apps:**
    - `"<competitor> SEO keywords ranking"` — competitor keywords
@@ -117,21 +128,21 @@ curl -s -X POST 'http://localhost:8013/transcript' \
    - `"site:reddit.com <competitor app> review"` — user complaints
    - Result: ASO keywords, competitor ratings, common complaints
 
-7. **Naming, domains, and company registration:**
+8. **Naming, domains, and company registration:**
    - Generate 7-10 name candidates (mix of descriptive + invented/brandable)
    - Domain availability: triple verification (whois → dig → RDAP)
    - Trademark + company name conflict checks
 
    See `references/domain-check.md` for TLD priority tiers, bash scripts, gotchas, and trademark check methods.
 
-8. **Market sizing** (TAM/SAM/SOM) — use Claude WebSearch (primary):
+9. **Market sizing** (TAM/SAM/SOM) — use Claude WebSearch (primary):
    - `"<market> market size 2025 2026 report"` — synthesizes numbers
    - `"<market> growth rate CAGR billion"` — growth projections
    - Extrapolation: TAM → SAM → SOM (Year 1)
 
-9. **Write `research.md`** — write to `4-opportunities/<project-name>/research.md` if in solopreneur KB, otherwise to `docs/research.md` in the current project. Create the directory if needed.
+10. **Write `research.md`** — write to `4-opportunities/<project-name>/research.md` if in solopreneur KB, otherwise to `docs/research.md` in the current project. Create the directory if needed.
 
-10. **Output summary:**
+11. **Output summary:**
     - Key findings (3-5 bullets)
     - Recommendation: GO / NO-GO / PIVOT with brief reasoning
     - Path to generated research.md

@@ -4,8 +4,8 @@ description: Launch 3 parallel research agents (market, users, tech) to investig
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.4.0"
-allowed-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Write, mcp__solograph__web_search, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__codegraph_query
+  version: "1.5.0"
+allowed-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Write, mcp__solograph__web_search, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_search, mcp__solograph__session_search
 argument-hint: "[idea name or description]"
 ---
 
@@ -29,6 +29,7 @@ Focus: competitors, market size, pricing models, business models.
 Focus: pain points, user sentiment, feature requests.
 - Search Reddit (via SearXNG `engines: reddit`, MCP `web_search`, or WebSearch `site:reddit.com`)
 - Search Hacker News for tech community opinions (`site:news.ycombinator.com`)
+- If MCP `session_search` available: check if this idea was researched before in past sessions
 - Find app reviews and ratings
 - Extract direct user quotes about frustrations
 - Identify unmet needs and feature requests
@@ -38,7 +39,9 @@ Focus: feasibility, tech stack, existing solutions, implementation complexity.
 - Search GitHub for open-source alternatives (`site:github.com <query>`)
 - Evaluate tech stack options
 - If MCP `project_info` available: check existing projects for reusable code
+- If MCP `codegraph_explain` available: get architecture overview of similar projects in portfolio
 - If MCP `codegraph_query` available: find shared packages across projects
+- If MCP `project_code_search` available: search for reusable patterns, services, infrastructure across projects
 - Assess implementation complexity and timeline
 
 ## Search Backends
