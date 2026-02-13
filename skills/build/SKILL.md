@@ -56,13 +56,36 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 3. If multiple, ask via AskUserQuestion.
 4. If zero tracks: "No plans found. Run `/plan` first."
 
-## Context Loading
+## Context Loading (graph-first, not file-dump)
 
-Load in parallel:
-1. `docs/plan/{trackId}/spec.md` — requirements, acceptance criteria
-2. `docs/plan/{trackId}/plan.md` — task list with checkboxes
+**Do NOT read all project files into context.** Use the graph to understand the project, then read only what's needed.
+
+### Step 1 — Architecture via graph (if MCP available)
+```
+codegraph_explain(project="{project name}")
+```
+This returns: stack, languages, directory layers, key patterns, top dependencies, hub files — in one call, no file reads.
+
+### Step 2 — Essential files only (parallel reads)
+1. `docs/plan/{trackId}/plan.md` — task list (REQUIRED — this is what we execute)
+2. `docs/plan/{trackId}/spec.md` — acceptance criteria (REQUIRED)
 3. `docs/workflow.md` — TDD policy, commit strategy (if exists)
-4. `CLAUDE.md` — architecture, Do/Don't
+
+**Do NOT read CLAUDE.md at this stage** — codegraph_explain already gave you the architecture. Only read CLAUDE.md if a specific task references it or if MCP tools are unavailable.
+
+### Step 3 — Per-task targeted reads
+Before each task, read ONLY the files that task will modify:
+```
+project_code_search(query="{task keywords}", project="{name}")
+```
+Then read the specific files returned. This keeps context lean.
+
+### Fallback (no MCP)
+If MCP tools are not available, load the 4 essentials in parallel:
+1. `docs/plan/{trackId}/plan.md`
+2. `docs/plan/{trackId}/spec.md`
+3. `docs/workflow.md` (if exists)
+4. `CLAUDE.md`
 
 ## Resumption
 

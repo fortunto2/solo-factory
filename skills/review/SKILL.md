@@ -28,20 +28,36 @@ Can also be used standalone: `/review` on any project to audit code quality.
 
 If MCP tools are not available, fall back to Glob + Grep + Read.
 
-## Pre-flight Checks
+## Pre-flight Checks (graph-first, not file-dump)
 
-1. **Load project context** (parallel reads):
-   - `CLAUDE.md` — stack, architecture, Do/Don't rules
-   - `docs/plan/*/spec.md` — acceptance criteria to verify
-   - `docs/plan/*/plan.md` — task completion status
-   - `docs/workflow.md` — TDD policy, quality standards
-   - `package.json` or `pyproject.toml` — test scripts, linter config
+**Do NOT read all project files into context.** Use the graph for architecture, then read selectively.
 
-2. **Detect stack** from CLAUDE.md to choose correct tools:
-   - Next.js → `npm run build`, `npm test`, `npx next lint`
-   - Python → `uv run pytest`, `uv run ruff check`
-   - Swift → `swift test`, `swiftlint`
-   - Kotlin → `./gradlew test`, `./gradlew lint`
+### 1. Architecture via graph (if MCP available)
+```
+codegraph_explain(project="{project name}")
+```
+Returns: stack, languages, directory layers, key patterns, top dependencies, hub files. This replaces reading CLAUDE.md + package.json for stack detection.
+
+### 2. Essential files only (parallel reads)
+- `docs/plan/*/spec.md` — acceptance criteria to verify (REQUIRED)
+- `docs/plan/*/plan.md` — task completion status (REQUIRED)
+- `docs/workflow.md` — TDD policy, quality standards (if exists)
+
+### 3. Detect stack from graph (or fallback)
+Use the stack from `codegraph_explain` response to choose correct tools:
+- Next.js → `npm run build`, `npm test`, `npx next lint`
+- Python → `uv run pytest`, `uv run ruff check`
+- Swift → `swift test`, `swiftlint`
+- Kotlin → `./gradlew test`, `./gradlew lint`
+
+If MCP unavailable, read `CLAUDE.md` + `package.json`/`pyproject.toml` as fallback.
+
+### 4. Per-dimension targeted reads
+For code quality spot check (dimension 6), use graph to find hub files:
+```
+codegraph_query("MATCH (f:File {project: '{name}'})-[e]-() RETURN f.path, COUNT(e) AS edges ORDER BY edges DESC LIMIT 5")
+```
+Read only the top hub files — these are the most connected, most impactful code. Don't randomly sample.
 
 ## Review Dimensions
 
