@@ -17,7 +17,7 @@ Execute tasks from an implementation plan. Finds `plan.md` (in `docs/plan/` for 
 
 After `/plan` has created a track with `spec.md` + `plan.md`. This is the execution engine.
 
-Pipeline: `/plan` → **`/build`**
+Pipeline: `/plan` → **`/build`** → `/deploy` → `/review`
 
 ## MCP Tools (use if available)
 
@@ -30,9 +30,10 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 ## Pre-flight Checks
 
 1. **Detect context** — find where plan files live:
-   - Check `docs/plan/*/plan.md` — project context
-   - Check `4-opportunities/*/plan.md` — KB context
+   - Check `docs/plan/*/plan.md` — project context (standard location)
+   - Check `4-opportunities/*/plan.md` — KB context (solopreneur only)
    - Use whichever exists. If both, prefer `docs/plan/`.
+   - **DO NOT** search for `conductor/` or any other directory — only `docs/plan/` and `4-opportunities/`.
 
 2. Load workflow config from `docs/workflow.md` (if exists):
    - TDD strictness (strict / moderate / none)
