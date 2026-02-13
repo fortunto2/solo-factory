@@ -119,73 +119,10 @@ curl -s -X POST 'http://localhost:8013/transcript' \
 
 7. **Naming, domains, and company registration:**
    - Generate 7-10 name candidates (mix of descriptive + invented/brandable)
+   - Domain availability: triple verification (whois → dig → RDAP)
+   - Trademark + company name conflict checks
 
-   **Domain availability — triple verification (RDAP → whois → dig):**
-
-   **TLD priority tiers** (check in order, skip regionals except .us):
-
-   | Tier | TLDs | When to check |
-   |------|------|---------------|
-   | **Must** | `.com` | Always — SEO, credibility |
-   | **Core** | `.app`, `.dev`, `.io`, `.co` | All candidates — tech/startup standard |
-   | **Budget** | `.win`, `.xyz`, `.cc`, `.work`, `.club`, `.org` | All candidates — cheap alternatives ($4-12/yr) |
-   | **Premium** | `.ai` | Only if AI product — NOTE: $160/yr from March 2026 |
-   | **US only** | `.us` | Add-on if US-focused ($6.50/yr) |
-   | **Skip** | `.ru`, `.de`, `.uk`, `.fr`, `.jp`, etc. | Regional — skip unless targeting that market |
-   | **Skip** | `.net`, `.info`, `.biz`, `.mobi`, `.site`, `.online`, `.store`, `.shop` | Low trust / overpriced for the value |
-
-   **Step 1: whois + dig combo (most reliable):**
-   ```bash
-   # Check all TLD tiers at once
-   for name in candidate1 candidate2 candidate3; do
-     for ext in com app dev io co win xyz cc work club org us; do
-       domain="${name}.${ext}"
-       # whois check
-       match=$(whois "$domain" 2>/dev/null | grep -i "no match\|not found\|domain not found\|no data found" | head -1)
-       if [ -n "$match" ]; then
-         echo "AVAILABLE:  $domain"
-       else
-         # DNS fallback for ambiguous whois
-         ns=$(dig +short "$domain" 2>/dev/null)
-         if [ -z "$ns" ]; then
-           echo "LIKELY FREE: $domain  (no DNS)"
-         else
-           echo "TAKEN:       $domain"
-         fi
-       fi
-     done
-     echo "---"
-   done
-   ```
-
-   **Step 2: RDAP cross-check (for uncertain results):**
-   ```bash
-   # IMPORTANT: use -L to follow redirects (RDAP returns 302)
-   # 404 = available, 200 = registered
-   for name in candidate1 candidate2; do
-     for ext in com app io; do
-       code=$(curl -sL -o /dev/null -w "%{http_code}" "https://rdap.org/domain/${name}.${ext}")
-       if [ "$code" = "404" ]; then r="AVAIL"; else r="taken"; fi
-       printf "  %-25s %s\n" "${name}.${ext}" "$r"
-     done
-   done
-   ```
-
-   **Gotchas:**
-   - `.app`/`.dev` (Google Registry): whois shows TLD creation date 2015 even for unregistered domains — do NOT use creation date as indicator. Check Name Server and Registrar fields instead.
-   - `.ai`: $160/yr from March 2026. Only worth it for AI-branded products.
-   - `.win`: extremely cheap ($4-5/yr) — good for MVPs and redirects.
-   - RDAP rate limits after ~20 requests — prefer whois+dig combo for bulk checks.
-
-   **Summary:** whois checks availability → dig confirms no DNS → RDAP cross-checks uncertain cases.
-
-   **Trademark check:**
-   - `"<name> trademark"` — basic conflict check
-   - `"site:trademarkia.com <name>"` — US trademarks
-
-   **Company name conflicts:**
-   - `"site:opencorporates.com <name>"` — 240M+ companies worldwide
-   - `"<name> LLC OR Inc OR Corp"` — existing businesses
+   See `references/domain-check.md` for TLD priority tiers, bash scripts, gotchas, and trademark check methods.
 
 8. **Market sizing** (TAM/SAM/SOM) — use Claude WebSearch (primary):
    - `"<market> market size 2025 2026 report"` — synthesizes numbers
@@ -202,67 +139,7 @@ curl -s -X POST 'http://localhost:8013/transcript' \
 
 ## research.md Format
 
-```markdown
----
-type: research
-status: draft
-title: "Deep Research — <Idea Name>"
-created: <today>
-tags: [<project>, research, competitive-analysis]
-product_type: web|ios|android|desktop|cli|api
----
-
-# Deep Research: <Idea Name>
-
-## Executive Summary
-<!-- 3-4 sentences: problem, market, competitors, recommendation -->
-
-## 1. Competitive Landscape
-
-| Competitor | URL | Pricing | Key Features | Weaknesses |
-|-----------|-----|---------|-------------|------------|
-| ... | ... | ... | ... | ... |
-
-### Gap Analysis
-<!-- What nobody does. Where our advantage is. -->
-
-## 2. User Pain Points
-
-| Pain Point | Source | URL | Sentiment |
-|-----------|--------|-----|-----------|
-| ... | Reddit r/... | ... | negative |
-
-### Top Insights
-<!-- 3-5 key insights -->
-
-## 3. SEO / ASO Analysis
-
-| Keyword | Intent | Competition | Relevance |
-|---------|--------|------------|-----------|
-| ... | commercial | medium | primary |
-
-## 4. Naming & Domains
-
-| Name | .com | .app | .dev | .io | .co | .win | .xyz | .cc | .us | .ai | Trademark | Notes |
-|------|------|------|------|-----|-----|------|------|-----|-----|-----|-----------|-------|
-| ... | avail | — | — | avail | — | $4 | — | — | — | $160 | clean | ... |
-
-### Recommended Name: **<name>**
-
-## 5. Market Size
-
-- **TAM:** $X — <source>
-- **SAM:** $X — <reasoning>
-- **SOM (Year 1):** $X — <assumptions>
-
-## 6. Recommendation
-
-**Verdict:** GO / NO-GO / PIVOT
-
-## Sources
-
-1. [Title](url) — brief description
-```
+See `references/research-template.md` for the full output template (frontmatter, 6 sections, tables).
 
 ## Notes
 
