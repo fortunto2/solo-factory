@@ -103,6 +103,57 @@ BUILD_CHECK="$STATES_DIR/build"
 DEPLOY_CHECK="$STATES_DIR/deploy"
 REVIEW_CHECK="$STATES_DIR/review"
 
+# --- Visual testing detection (from stack YAML) ---
+VISUAL_TYPE=""
+CHROME_AVAILABLE=false
+SIMULATOR_AVAILABLE=false
+EMULATOR_AVAILABLE=false
+
+# Extract visual_testing.type from stack YAML
+STACK_YAML=""
+for search_dir in "$SCRIPT_DIR/../templates/stacks" "$LAUNCH_DIR/solo-factory/templates/stacks" "$LAUNCH_DIR/1-methodology/stacks"; do
+  if [[ -f "$search_dir/${STACK}.yaml" ]]; then
+    STACK_YAML="$search_dir/${STACK}.yaml"
+    break
+  fi
+done
+
+if [[ -n "$STACK_YAML" ]]; then
+  VISUAL_TYPE=$(python3 -c "
+import yaml, sys
+with open('$STACK_YAML') as f:
+    d = yaml.safe_load(f)
+vt = d.get('visual_testing', {})
+print(vt.get('type', '') if isinstance(vt, dict) else '')
+" 2>/dev/null || true)
+fi
+
+# Check tool availability based on visual type
+case "$VISUAL_TYPE" in
+  browser)
+    if [[ -d "/Applications/Google Chrome.app" ]] || command -v google-chrome &>/dev/null; then
+      CHROME_AVAILABLE=true
+      # Ensure dev-browser marketplace + skill is available as fallback
+      if command -v claude &>/dev/null; then
+        if ! CLAUDECODE= claude plugin marketplace list 2>/dev/null | grep -q "dev-browser"; then
+          echo "  Installing dev-browser marketplace..."
+          CLAUDECODE= claude plugin marketplace add sawyerhood/dev-browser 2>/dev/null || true
+        fi
+      fi
+    fi
+    ;;
+  simulator)
+    if command -v xcrun &>/dev/null && xcrun simctl list devices 2>/dev/null | grep -q "iPhone"; then
+      SIMULATOR_AVAILABLE=true
+    fi
+    ;;
+  emulator)
+    if command -v emulator &>/dev/null && emulator -list-avds 2>/dev/null | grep -q "."; then
+      EMULATOR_AVAILABLE=true
+    fi
+    ;;
+esac
+
 # --- State & log files ---
 mkdir -p "$PIPELINES_DIR"
 mkdir -p "$PROJECT_ROOT/.solo/pipelines"
@@ -333,6 +384,15 @@ if [[ -d "$PLAN_QUEUE_DIR" ]]; then
   QUEUE_COUNT=$(find "$PLAN_QUEUE_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
 fi
 [[ "$QUEUE_COUNT" -gt 0 ]] && echo "  Queue:   $QUEUE_COUNT plans in docs/plan-queue/"
+if [[ -n "$VISUAL_TYPE" ]]; then
+  VT_STATUS="$VISUAL_TYPE"
+  case "$VISUAL_TYPE" in
+    browser)   [[ "$CHROME_AVAILABLE" == "true" ]] && VT_STATUS="$VT_STATUS (--chrome)" || VT_STATUS="$VT_STATUS (Chrome not found, skipping)" ;;
+    simulator) [[ "$SIMULATOR_AVAILABLE" == "true" ]] && VT_STATUS="$VT_STATUS (ready)" || VT_STATUS="$VT_STATUS (no simulator, skipping)" ;;
+    emulator)  [[ "$EMULATOR_AVAILABLE" == "true" ]] && VT_STATUS="$VT_STATUS (ready)" || VT_STATUS="$VT_STATUS (no emulator, skipping)" ;;
+  esac
+  echo "  Visual:  $VT_STATUS"
+fi
 echo "  Max:     $MAX_ITERATIONS iterations"
 echo "  State:   $STATE_FILE"
 echo "  Log:     $LOG_FILE"
@@ -463,7 +523,56 @@ Use this context to understand what was already done. Do NOT repeat completed wo
     fi
   fi
 
-  PROMPT="$PROMPT$CONTEXT_INSTRUCTION$PROGRESS_CONTEXT
+  # --- Visual testing instructions (injected for build/review stages) ---
+  VISUAL_INSTRUCTION=""
+  if [[ "$STAGE_ID" == "build" ]] || [[ "$STAGE_ID" == "review" ]]; then
+    case "$VISUAL_TYPE" in
+      browser)
+        if [[ "$CHROME_AVAILABLE" == "true" ]]; then
+          VISUAL_INSTRUCTION="
+
+## Visual Testing (Browser)
+You have browser tools available (--chrome). After implementing changes or during review:
+1. Start the dev server if not running
+2. Navigate to the app URL and verify the page loads without console errors
+3. Check for hydration mismatches or React errors in the browser console
+4. Take screenshots of key pages to verify visual output
+5. Test at mobile viewport (375px width) for responsive layout
+If browser tools fail or are unavailable — skip visual checks, do not block progress."
+        fi
+        ;;
+      simulator)
+        if [[ "$SIMULATOR_AVAILABLE" == "true" ]]; then
+          VISUAL_INSTRUCTION="
+
+## Visual Testing (iOS Simulator)
+After implementing changes or during review:
+1. Boot the iOS Simulator: xcrun simctl boot 'iPhone 16' 2>/dev/null || true
+2. Build and install: xcodebuild -scheme {Name} -sdk iphonesimulator build
+3. Install on simulator: xcrun simctl install booted {path-to-app}
+4. Launch and take screenshot: xcrun simctl io booted screenshot /tmp/sim-screenshot.png
+5. Check logs for crashes: xcrun simctl spawn booted log stream --style compact --timeout 10
+If simulator is unavailable — skip visual checks, do not block progress."
+        fi
+        ;;
+      emulator)
+        if [[ "$EMULATOR_AVAILABLE" == "true" ]]; then
+          VISUAL_INSTRUCTION="
+
+## Visual Testing (Android Emulator)
+After implementing changes or during review:
+1. Start emulator if not running: emulator -avd \$(emulator -list-avds | head -1) -no-window -no-audio &
+2. Wait for boot: adb wait-for-device && adb shell getprop sys.boot_completed | grep -q 1
+3. Build and install: ./gradlew assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk
+4. Take screenshot: adb exec-out screencap -p > /tmp/emu-screenshot.png
+5. Check logcat for crashes: adb logcat '*:E' --format=time -d 2>&1 | tail -20
+If emulator is unavailable — skip visual checks, do not block progress."
+        fi
+        ;;
+    esac
+  fi
+
+  PROMPT="$PROMPT$CONTEXT_INSTRUCTION$PROGRESS_CONTEXT$VISUAL_INSTRUCTION
 
 This is stage $STAGE_NUM/$TOTAL_STAGES ($STAGE_ID) of the dev pipeline (project: $PROJECT_NAME).
 When done with this stage, output exactly: <solo:done/>
@@ -477,10 +586,14 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
   fi
 
   # Run Claude Code (stream-json for real-time tool visibility)
+  CLAUDE_FLAGS="--dangerously-skip-permissions --verbose --print --output-format stream-json"
+  if [[ "$CHROME_AVAILABLE" == "true" ]] && [[ "$STAGE_ID" == "build" || "$STAGE_ID" == "review" ]]; then
+    CLAUDE_FLAGS="$CLAUDE_FLAGS --chrome"
+    log_entry "CHROME" "Browser tools enabled for $STAGE_ID"
+  fi
   log_entry "INVOKE" "$SKILL $ARGS"
   OUTFILE=$(mktemp /tmp/solo-claude-XXXXXX)
-  (cd "$CLAUDE_CWD" && claude --dangerously-skip-permissions --verbose --print \
-    --output-format stream-json -p "$PROMPT" 2>&1) \
+  (cd "$CLAUDE_CWD" && claude $CLAUDE_FLAGS -p "$PROMPT" 2>&1) \
     | python3 "$SCRIPT_DIR/solo-stream-fmt.py" \
     | tee "$OUTFILE" || true
   OUTPUT=$(cat "$OUTFILE")

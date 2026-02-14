@@ -57,6 +57,13 @@ ICONS = {
     "Task": f"{MAGENTA}::{RESET}",
     "Skill": f"{MAGENTA}=>{RESET}",
     "mcp": f"{BLUE}~~{RESET}",
+    "BrowserNavigate": f"{GREEN}->{RESET}",
+    "BrowserScreenshot": f"{GREEN}[]{RESET}",
+    "BrowserClick": f"{GREEN}*!{RESET}",
+    "BrowserType": f"{GREEN}aA{RESET}",
+    "BrowserConsole": f"{GREEN}>_{RESET}",
+    "BrowserWait": f"{GREEN}..{RESET}",
+    "BrowserClose": f"{GREEN}xx{RESET}",
 }
 
 
@@ -211,6 +218,11 @@ def _generate_all_sfx():
     _write_wav(os.path.join(_sfx_dir, "complete.wav"), s)
     _sfx_cache["complete"] = os.path.join(_sfx_dir, "complete.wav")
 
+    # Browser: navigation ping (D5 → A5, bright web feel)
+    s = _triangle(587, 0.06, v * 0.45) + _triangle(880, 0.08, v * 0.5)
+    _write_wav(os.path.join(_sfx_dir, "browser.wav"), s)
+    _sfx_cache["browser"] = os.path.join(_sfx_dir, "browser.wav")
+
     # Generic tool: single blip
     s = _triangle(659, 0.06, v * 0.35)
     _write_wav(os.path.join(_sfx_dir, "blip.wav"), s)
@@ -250,6 +262,8 @@ def _sfx_for_tool(name: str) -> str:
         return "search"
     elif name in ("WebSearch", "WebFetch"):
         return "web"
+    elif name.startswith("Browser"):
+        return "browser"
     elif name == "Task":
         return "agent"
     elif name == "Skill":
@@ -331,6 +345,12 @@ def format_tool_line(name: str, inp: dict) -> str:
 
     elif name == "WebFetch":
         url = inp.get("url", "")[:80]
+        return f"  {icon} {GREEN}{short}{RESET} {DIM}{url}{RESET}"
+
+    elif name.startswith("Browser"):
+        url = inp.get("url", inp.get("selector", inp.get("text", "")))
+        if len(url) > COLS - 30:
+            url = url[:COLS - 33] + "..."
         return f"  {icon} {GREEN}{short}{RESET} {DIM}{url}{RESET}"
 
     elif name == "Task":

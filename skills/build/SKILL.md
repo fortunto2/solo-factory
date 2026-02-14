@@ -225,6 +225,34 @@ Both use **lefthook** for pre-commit hooks (language-agnostic, no Node.js requir
 - Run existing tests to check nothing broke.
 - For "moderate": write tests for business logic and API routes, skip for UI/config.
 
+### 5.5. Visual Verification (if browser/simulator/emulator available)
+
+After implementation, run a quick visual smoke test if tools are available:
+
+**Web projects (browser tools via --chrome):**
+If you have browser tools (BrowserNavigate, BrowserScreenshot, etc.):
+1. Start the dev server if not already running (check stack YAML for `dev_server.command`)
+2. Navigate to the page affected by the current task
+3. Check the browser console for errors (hydration mismatches, uncaught exceptions, 404s)
+4. Take a screenshot to verify the visual output matches expectations
+5. If the task affects responsive layout, resize to mobile viewport (375px) and check
+
+**iOS projects (simulator):**
+If instructed to use iOS Simulator in the pipeline prompt:
+1. Build for simulator: `xcodebuild -scheme {Name} -sdk iphonesimulator build`
+2. Install on booted simulator: `xcrun simctl install booted {app-path}`
+3. Launch and take screenshot: `xcrun simctl io booted screenshot /tmp/sim-screenshot.png`
+4. Check simulator logs: `xcrun simctl spawn booted log stream --style compact --timeout 10`
+
+**Android projects (emulator):**
+If instructed to use Android Emulator in the pipeline prompt:
+1. Build debug APK: `./gradlew assembleDebug`
+2. Install: `adb install -r app/build/outputs/apk/debug/app-debug.apk`
+3. Take screenshot: `adb exec-out screencap -p > /tmp/emu-screenshot.png`
+4. Check logcat: `adb logcat '*:E' --format=time -d 2>&1 | tail -20`
+
+**Graceful degradation:** If browser/simulator/emulator tools are not available or fail — skip visual checks entirely. Visual testing is a bonus, never a blocker. Log that it was skipped and continue with the task.
+
 ### 6. Complete Task
 
 **Commit** (following commit strategy):
@@ -307,6 +335,11 @@ When all phases and tasks are `[x]`:
   - Android: `./gradlew assembleDebug`
 - Run full test suite.
 - Run linter + type-checker.
+- **Visual smoke test** (if tools available):
+  - Web: start dev server, navigate to main page, check console for errors, take screenshot
+  - iOS: build + install on simulator, launch, take screenshot, check logs
+  - Android: build APK + install on emulator, launch, take screenshot, check logcat
+  - Skip if tools unavailable — not a blocker for completion
 - Check acceptance criteria from spec.md.
 
 ### 2. Update plan.md header

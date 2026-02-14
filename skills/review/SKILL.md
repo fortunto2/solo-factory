@@ -76,7 +76,7 @@ Read only the top 3-5 hub files (most connected = most impactful). For security 
 
 ## Review Dimensions
 
-Run all 11 dimensions in sequence. Report findings per dimension.
+Run all 12 dimensions in sequence. Report findings per dimension.
 
 ### 1. Test Suite
 
@@ -354,6 +354,40 @@ Report:
 - AICODE-ASK unanswered: {N}
 - Dead code: {files/exports found}
 
+### 12. Visual/E2E Testing
+
+If browser tools or device tools are available, run a visual smoke test.
+
+**Web projects (browser tools via --chrome):**
+1. Start dev server (use `dev_server.command` from stack YAML, e.g. `pnpm dev`)
+2. Navigate to the main page and verify it loads without console errors
+3. Check for hydration mismatches, React errors, or uncaught exceptions
+4. Navigate to 2-3 key pages (based on spec.md features)
+5. Test at desktop (1280px) and mobile (375px) viewports
+6. Look for broken images, missing styles, layout overflow
+
+**iOS projects (simulator):**
+1. Build for simulator: `xcodebuild -scheme {Name} -sdk iphonesimulator build`
+2. Install and launch on booted simulator
+3. Take screenshot of main screen
+4. Check simulator logs for crashes or assertion failures
+
+**Android projects (emulator):**
+1. Build debug APK: `./gradlew assembleDebug`
+2. Install and launch on emulator
+3. Take screenshot of main activity
+4. Check logcat for crashes or ANRs: `adb logcat '*:E' --format=time -d 2>&1 | tail -20`
+
+**If tools are not available:** skip this dimension, note as "N/A — no browser/device tools" in the report. Visual testing is never a blocker for SHIP verdict on its own.
+
+Report:
+- Platform tested: {browser / simulator / emulator / N/A}
+- Pages/screens checked: {N}
+- Console errors: {N}
+- Visual issues: {NONE / list}
+- Responsive: {PASS / issues found}
+- Status: {PASS / WARN / FAIL / N/A}
+
 ## Review Report
 
 Generate the final report:
@@ -419,6 +453,13 @@ Date: {YYYY-MM-DD}
 - Dead code: {NONE / found}
 - Status: {PASS / WARN / FAIL}
 
+### Visual Testing
+- Platform: {browser / simulator / emulator / N/A}
+- Pages/screens: {N}
+- Console errors: {N}
+- Visual issues: {NONE / list}
+- Status: {PASS / WARN / FAIL / N/A}
+
 ### Issues Found
 1. [{severity}] {description} — {file:line}
 2. [{severity}] {description} — {file:line}
@@ -429,9 +470,9 @@ Date: {YYYY-MM-DD}
 ```
 
 **Verdict logic:**
-- **SHIP**: All tests pass, no security issues, acceptance criteria met, build succeeds, production logs clean, docs current, commits atomic
-- **FIX FIRST**: Minor issues (warnings, partial criteria, low-severity vulns, intermittent log errors, stale docs, non-conventional commits, minor SOLID violations) — list what to fix
-- **BLOCK**: Failing tests, security vulnerabilities, missing critical features, production crashes in logs, missing CLAUDE.md/README.md, critical architecture violations — do not ship
+- **SHIP**: All tests pass, no security issues, acceptance criteria met, build succeeds, production logs clean, docs current, commits atomic, no critical visual issues
+- **FIX FIRST**: Minor issues (warnings, partial criteria, low-severity vulns, intermittent log errors, stale docs, non-conventional commits, minor SOLID violations, minor visual issues like layout overflow) — list what to fix
+- **BLOCK**: Failing tests, security vulnerabilities, missing critical features, production crashes in logs, missing CLAUDE.md/README.md, critical architecture violations, app crashes on launch (simulator/emulator) — do not ship
 
 <MANDATORY>
 ## IMMEDIATELY AFTER writing the verdict — output a signal tag:
