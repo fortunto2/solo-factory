@@ -6,10 +6,10 @@ Claude Code plugin for solopreneurs. Single source of truth for all skills, agen
 
 ```
 .claude-plugin/plugin.json  # Manifest (name, version)
-skills/                     # 21 skills (SKILL.md + references/)
+skills/                     # 22 skills (SKILL.md + references/)
 agents/                     # 3 agents (researcher, code-analyst, idea-validator)
 hooks/                      # SessionStart info + Stop pipeline hook
-scripts/                    # Pipeline launchers (bighead, solo-dev.sh, solo-research.sh)
+scripts/                    # Pipeline launchers (bighead, solo-dev.sh, solo-research.sh, solo-codex.sh)
 templates/                  # Stack templates, dev principles, PRD templates
 solo → .claude-plugin/      # Symlink for plugin cache compatibility
 Makefile                    # plugin-link, plugin-publish
@@ -61,6 +61,8 @@ The pipeline (`solo-dev.sh`) calls skills as `/solo:{name}`. Claude Code resolve
 - **MCP conditional:** skills must work with AND without MCP tools (use "IF available" pattern)
 - **No hardcoded paths:** use `${CLAUDE_PLUGIN_ROOT}` or relative paths for references
 - **Submodule:** this repo is included as git submodule in `solopreneur`
+- **MCP in pipeline:** `solo-dev.sh` passes `--mcp-config ~/.mcp.json` so solograph tools work in `--print` sessions
+- **Codex optional:** `solo-codex.sh` runs OpenAI Codex CLI for review/test/fix — reads `AGENTS.md` in project root
 
 ## Don't
 

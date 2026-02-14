@@ -480,6 +480,11 @@ fi
 # =============================================
 log_entry "START" "$PROJECT_NAME | stages: $STAGES_DISPLAY | max: $MAX_ITERATIONS"
 
+# --- Circuit breaker: track consecutive failures for same stage ---
+CONSECUTIVE_FAILS=0
+LAST_FAIL_STAGE=""
+CIRCUIT_BREAKER_LIMIT=5
+
 for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
   # --- Check control file (pause/stop/skip) ---
   check_control
@@ -709,6 +714,24 @@ $LAST_LINES
 
 PROGRESSEOF
   log_entry "ITER" "saved iter-$(printf '%03d' $ITERATION)-${STAGE_ID}.log | commit: $COMMIT_SHA | result: $STAGE_RESULT"
+
+  # --- Circuit breaker: abort after N consecutive failures for same stage ---
+  if [[ "$STAGE_RESULT" == "continuing" ]]; then
+    if [[ "$STAGE_ID" == "$LAST_FAIL_STAGE" ]]; then
+      CONSECUTIVE_FAILS=$((CONSECUTIVE_FAILS + 1))
+    else
+      CONSECUTIVE_FAILS=1
+      LAST_FAIL_STAGE="$STAGE_ID"
+    fi
+    if [[ $CONSECUTIVE_FAILS -ge $CIRCUIT_BREAKER_LIMIT ]]; then
+      log_entry "CIRCUIT" "Stage '$STAGE_ID' failed $CONSECUTIVE_FAILS times consecutively — aborting"
+      rm -f "$OUTFILE"
+      break
+    fi
+  else
+    CONSECUTIVE_FAILS=0
+    LAST_FAIL_STAGE=""
+  fi
 
   rm -f "$OUTFILE"
 
