@@ -264,7 +264,10 @@ EOF
 
 Add `.deploy-complete` to `.gitignore` if not already there.
 
-This file signals to the pipeline that the deploy stage is finished.
+Then output this exact signal tag (pipeline reads it as backup):
+```
+<solo:deploy-done/>
+```
 
 ## Error Handling
 

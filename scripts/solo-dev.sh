@@ -438,6 +438,13 @@ When done with this stage, output: <promise>PIPELINE COMPLETE</promise>"
     fi
   fi
 
+  if grep -q '<solo:deploy-done/>' "$OUTFILE" 2>/dev/null; then
+    if [[ ! -f "$PROJECT_ROOT/.deploy-complete" ]]; then
+      log_entry "SIGNAL" "<solo:deploy-done/> → creating .deploy-complete"
+      echo "Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$PROJECT_ROOT/.deploy-complete"
+    fi
+  fi
+
   if grep -q '<solo:review-fix/>' "$OUTFILE" 2>/dev/null; then
     if [[ -n "$PLAN_DIR" ]] && [[ -f "$PLAN_DIR/BUILD_COMPLETE" ]]; then
       log_entry "SIGNAL" "<solo:review-fix/> → removing BUILD_COMPLETE"
