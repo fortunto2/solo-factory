@@ -250,23 +250,11 @@ Deployment: {project-name}
 
 ## Completion
 
-### Create completion marker
+### Signal completion
 
-Write `.deploy-complete` in project root:
-```bash
-cat > .deploy-complete << EOF
-Platform: {platform}
-URL: {deployment-url}
-Commit: $(git rev-parse --short HEAD)
-Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-EOF
+Output this exact tag — the pipeline will create all necessary marker files:
 ```
-
-Add `.deploy-complete` to `.gitignore` if not already there.
-
-Then output this exact signal tag (pipeline reads it as backup):
-```
-<solo:deploy-done/>
+<solo:done/>
 ```
 
 ## Error Handling

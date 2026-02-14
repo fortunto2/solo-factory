@@ -234,15 +234,9 @@ Change `**Status:** [ ] Not Started` → `**Status:** [x] Complete` at the top o
 
 ### 3. Signal completion
 
-Write a `BUILD_COMPLETE` file in the track directory:
-```bash
-echo "Track: {trackId}" > {plan_root}/{trackId}/BUILD_COMPLETE
-echo "Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> {plan_root}/{trackId}/BUILD_COMPLETE
+Output this exact tag — the pipeline will create all necessary marker files:
 ```
-
-Then output this exact signal tag (pipeline reads it as backup):
-```
-<solo:build-done/>
+<solo:done/>
 ```
 
 ### 4. Summary

@@ -237,43 +237,23 @@ Date: {YYYY-MM-DD}
 - **BLOCK**: Failing tests, security vulnerabilities, missing critical features — do not ship
 
 <MANDATORY>
-## IMMEDIATELY AFTER writing the verdict — do BOTH:
-
-### 1. Create/remove marker files
-
-**If SHIP:**
-```bash
-cat > .review-complete << 'REVIEWEOF'
-Verdict: SHIP
-Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-REVIEWEOF
-```
-
-**If FIX FIRST or BLOCK:**
-1. Remove BUILD_COMPLETE:
-```bash
-rm -f docs/plan/*/BUILD_COMPLETE
-```
-2. Open plan.md and APPEND a new phase with fix tasks (one `- [ ] Task` per issue found)
-3. Change plan.md status from `[x] Complete` to `[~] In Progress`
-4. Commit:
-```bash
-git add docs/plan/*/plan.md docs/plan/*/BUILD_COMPLETE && git commit -m "fix: add review fix tasks"
-```
-
-### 2. Output signal tag (pipeline reads this as backup)
+## IMMEDIATELY AFTER writing the verdict — output a signal tag:
 
 **If SHIP:** output this exact line:
 ```
-<solo:review-ship/>
+<solo:done/>
 ```
 
-**If FIX FIRST or BLOCK:** output this exact line:
+**If FIX FIRST or BLOCK:**
+1. Open plan.md and APPEND a new phase with fix tasks (one `- [ ] Task` per issue found)
+2. Change plan.md status from `[x] Complete` to `[~] In Progress`
+3. Commit: `git add docs/plan/ && git commit -m "fix: add review fix tasks"`
+4. Output this exact line:
 ```
-<solo:review-fix/>
+<solo:redo/>
 ```
 
-You MUST do both steps BEFORE the session ends. The signal tag is the pipeline's safety net — if the file creation fails, the pipeline still knows what happened.
+The pipeline reads these tags and handles all marker files automatically. You do NOT need to create or delete any marker files yourself.
 </MANDATORY>
 
 ## Error Handling

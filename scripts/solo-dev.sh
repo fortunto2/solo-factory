@@ -420,34 +420,29 @@ When done with this stage, output: <promise>PIPELINE COMPLETE</promise>"
     | tee "$OUTFILE" || true
   OUTPUT=$(cat "$OUTFILE")
 
-  # --- Signal-based markers (Claude outputs tags, bash creates files) ---
-  PLAN_DIR=$(compgen -G "$PROJECT_ROOT/docs/plan/*" 2>/dev/null | head -1)
-
-  if grep -q '<solo:build-done/>' "$OUTFILE" 2>/dev/null; then
-    if [[ -n "$PLAN_DIR" ]] && [[ ! -f "$PLAN_DIR/BUILD_COMPLETE" ]]; then
-      log_entry "SIGNAL" "<solo:build-done/> → creating BUILD_COMPLETE"
-      echo "Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$PLAN_DIR/BUILD_COMPLETE"
+  # --- Signal-based markers (2 universal signals, bash owns all files) ---
+  # Claude outputs <solo:done/> or <solo:redo/>, bash creates/removes markers.
+  # Claude does NOT need to know about marker file names or paths.
+  if grep -q '<solo:done/>' "$OUTFILE" 2>/dev/null; then
+    # Resolve CHECK path for glob patterns (e.g. docs/plan/*/BUILD_COMPLETE)
+    if [[ "$CHECK" == *"*"* ]]; then
+      CHECK_DIR=$(compgen -G "$(dirname "$CHECK")" 2>/dev/null | head -1)
+      CHECK_FILE="$CHECK_DIR/$(basename "$CHECK")"
+    else
+      CHECK_FILE="$CHECK"
+    fi
+    if [[ -n "$CHECK_FILE" ]] && [[ "$CHECK_FILE" != *"*"* ]] && [[ ! -f "$CHECK_FILE" ]]; then
+      log_entry "SIGNAL" "<solo:done/> → creating $(basename "$CHECK_FILE")"
+      mkdir -p "$(dirname "$CHECK_FILE")"
+      echo "Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$CHECK_FILE"
     fi
   fi
 
-  if grep -q '<solo:review-ship/>' "$OUTFILE" 2>/dev/null; then
-    if [[ ! -f "$PROJECT_ROOT/.review-complete" ]]; then
-      log_entry "SIGNAL" "<solo:review-ship/> → creating .review-complete"
-      echo "Verdict: SHIP" > "$PROJECT_ROOT/.review-complete"
-      echo "Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$PROJECT_ROOT/.review-complete"
-    fi
-  fi
-
-  if grep -q '<solo:deploy-done/>' "$OUTFILE" 2>/dev/null; then
-    if [[ ! -f "$PROJECT_ROOT/.deploy-complete" ]]; then
-      log_entry "SIGNAL" "<solo:deploy-done/> → creating .deploy-complete"
-      echo "Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$PROJECT_ROOT/.deploy-complete"
-    fi
-  fi
-
-  if grep -q '<solo:review-fix/>' "$OUTFILE" 2>/dev/null; then
+  if grep -q '<solo:redo/>' "$OUTFILE" 2>/dev/null; then
+    # Go back: remove previous stage's marker (build → review loop)
+    PLAN_DIR=$(compgen -G "$PROJECT_ROOT/docs/plan/*" 2>/dev/null | head -1)
     if [[ -n "$PLAN_DIR" ]] && [[ -f "$PLAN_DIR/BUILD_COMPLETE" ]]; then
-      log_entry "SIGNAL" "<solo:review-fix/> → removing BUILD_COMPLETE"
+      log_entry "SIGNAL" "<solo:redo/> → removing BUILD_COMPLETE (back to build)"
       rm -f "$PLAN_DIR/BUILD_COMPLETE"
     fi
   fi
