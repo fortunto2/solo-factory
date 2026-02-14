@@ -420,6 +420,35 @@ When done with this stage, output: <promise>PIPELINE COMPLETE</promise>"
     | tee "$OUTFILE" || true
   OUTPUT=$(cat "$OUTFILE")
 
+  # --- Ralph-style: bash creates markers if Claude forgot ---
+  if [[ "$STAGE_ID" == "review" ]]; then
+    # Check if review output contains SHIP verdict
+    if grep -qi "verdict.*SHIP" "$OUTFILE" && ! grep -qi "FIX FIRST\|BLOCK" "$OUTFILE"; then
+      if [[ ! -f "$PROJECT_ROOT/.review-complete" ]]; then
+        log_entry "AUTOFIX" "review said SHIP but forgot .review-complete — creating it"
+        echo "Verdict: SHIP (auto-created by pipeline)" > "$PROJECT_ROOT/.review-complete"
+        echo "Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$PROJECT_ROOT/.review-complete"
+      fi
+    elif grep -qi "FIX FIRST\|BLOCK" "$OUTFILE"; then
+      # FIX FIRST/BLOCK — ensure BUILD_COMPLETE is removed
+      if compgen -G "$PROJECT_ROOT/docs/plan/*/BUILD_COMPLETE" > /dev/null 2>&1; then
+        log_entry "AUTOFIX" "review said FIX — removing BUILD_COMPLETE"
+        rm -f "$PROJECT_ROOT"/docs/plan/*/BUILD_COMPLETE
+      fi
+    fi
+  fi
+  if [[ "$STAGE_ID" == "build" ]]; then
+    # Check if all plan tasks are [x] but BUILD_COMPLETE missing
+    PLAN_DIR=$(compgen -G "$PROJECT_ROOT/docs/plan/*" 2>/dev/null | head -1)
+    if [[ -n "$PLAN_DIR" ]] && [[ -f "$PLAN_DIR/plan.md" ]]; then
+      INCOMPLETE=$(grep -c '^\- \[ \] \|^\- \[~\] ' "$PLAN_DIR/plan.md" 2>/dev/null || echo "0")
+      if [[ "$INCOMPLETE" == "0" ]] && [[ ! -f "$PLAN_DIR/BUILD_COMPLETE" ]]; then
+        log_entry "AUTOFIX" "all tasks [x] but BUILD_COMPLETE missing — creating it"
+        echo "Auto-created by pipeline: $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$PLAN_DIR/BUILD_COMPLETE"
+      fi
+    fi
+  fi
+
   # --- Per-iteration log (in project .solo/) ---
   ITER_DIR="$PROJECT_ROOT/.solo/pipelines"
   mkdir -p "$ITER_DIR"
