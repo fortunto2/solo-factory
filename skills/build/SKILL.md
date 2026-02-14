@@ -232,14 +232,18 @@ When all phases and tasks are `[x]`:
 
 Change `**Status:** [ ] Not Started` → `**Status:** [x] Complete` at the top of plan.md.
 
-### 3. Create completion marker
+### 3. Signal completion
 
 Write a `BUILD_COMPLETE` file in the track directory:
 ```bash
 echo "Track: {trackId}" > {plan_root}/{trackId}/BUILD_COMPLETE
 echo "Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> {plan_root}/{trackId}/BUILD_COMPLETE
 ```
-This file signals to the pipeline that the build stage is finished.
+
+Then output this exact signal tag (pipeline reads it as backup):
+```
+<solo:build-done/>
+```
 
 ### 4. Summary
 

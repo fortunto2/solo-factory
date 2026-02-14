@@ -237,9 +237,11 @@ Date: {YYYY-MM-DD}
 - **BLOCK**: Failing tests, security vulnerabilities, missing critical features — do not ship
 
 <MANDATORY>
-## IMMEDIATELY AFTER writing the verdict — execute ONE of these blocks:
+## IMMEDIATELY AFTER writing the verdict — do BOTH:
 
-### If SHIP:
+### 1. Create/remove marker files
+
+**If SHIP:**
 ```bash
 cat > .review-complete << 'REVIEWEOF'
 Verdict: SHIP
@@ -247,7 +249,7 @@ Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 REVIEWEOF
 ```
 
-### If FIX FIRST or BLOCK:
+**If FIX FIRST or BLOCK:**
 1. Remove BUILD_COMPLETE:
 ```bash
 rm -f docs/plan/*/BUILD_COMPLETE
@@ -259,7 +261,19 @@ rm -f docs/plan/*/BUILD_COMPLETE
 git add docs/plan/*/plan.md docs/plan/*/BUILD_COMPLETE && git commit -m "fix: add review fix tasks"
 ```
 
-You MUST execute the bash commands above BEFORE the session ends. If you skip this step, the pipeline will loop forever. This is not optional.
+### 2. Output signal tag (pipeline reads this as backup)
+
+**If SHIP:** output this exact line:
+```
+<solo:review-ship/>
+```
+
+**If FIX FIRST or BLOCK:** output this exact line:
+```
+<solo:review-fix/>
+```
+
+You MUST do both steps BEFORE the session ends. The signal tag is the pipeline's safety net — if the file creation fails, the pipeline still knows what happened.
 </MANDATORY>
 
 ## Error Handling
