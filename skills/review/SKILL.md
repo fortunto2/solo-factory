@@ -5,7 +5,7 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.1.0"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
 argument-hint: "[focus-area]"
 ---
 
