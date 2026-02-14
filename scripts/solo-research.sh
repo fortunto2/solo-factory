@@ -353,6 +353,9 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
   if [[ -f "$HOME/.mcp.json" ]]; then
     MCP_FLAG="--mcp-config $HOME/.mcp.json"
   fi
+  if [[ -f "$PROJECT_ROOT/.mcp.json" ]]; then
+    MCP_FLAG="$MCP_FLAG --mcp-config $PROJECT_ROOT/.mcp.json"
+  fi
   claude --dangerously-skip-permissions --verbose --print \
     $MCP_FLAG --output-format stream-json -p "$PROMPT" 2>&1 \
     | python3 "$SCRIPT_DIR/solo-stream-fmt.py" \
