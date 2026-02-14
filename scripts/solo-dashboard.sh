@@ -31,8 +31,24 @@ NAME="$2"
 shift 2
 
 SESSION="solo-${NAME}"
-LOG_FILE="$PIPELINES_DIR/solo-pipeline-${NAME}.log"
 STATUS_CMD="$SCRIPT_DIR/solo-pipeline-status.sh $NAME"
+
+# Read log_file from state file (absolute path to project .solo/pipelines/pipeline.log)
+STATE_FILE="$PIPELINES_DIR/solo-pipeline-${NAME}.local.md"
+LOG_FILE=""
+if [[ -f "$STATE_FILE" ]]; then
+  LOG_FILE=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$STATE_FILE" | grep '^log_file:' | sed 's/log_file: *//' | sed 's/^"\(.*\)"$/\1/')
+fi
+# Fallback if state file doesn't exist yet or has no log_file
+if [[ -z "$LOG_FILE" ]]; then
+  # Try project root from state file
+  PROJ_ROOT=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$STATE_FILE" 2>/dev/null | grep '^project_root:' | sed 's/project_root: *//' | sed 's/^"\(.*\)"$/\1/')
+  if [[ -n "$PROJ_ROOT" ]]; then
+    LOG_FILE="$PROJ_ROOT/.solo/pipelines/pipeline.log"
+  else
+    LOG_FILE="$PIPELINES_DIR/solo-pipeline-${NAME}.log"
+  fi
+fi
 
 # Get pane IDs sorted by index (respects base-index and pane-base-index)
 # Returns lines like "%0 %1 %2" — unique pane IDs that always work

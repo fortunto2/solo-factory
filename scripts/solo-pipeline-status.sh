@@ -75,7 +75,9 @@ for f in "$PIPELINES_DIR"/solo-pipeline-*.local.md; do
   ITERATION=$(echo "$FRONTMATTER" | grep '^iteration:' | sed 's/iteration: *//')
   MAX_ITER=$(echo "$FRONTMATTER" | grep '^max_iterations:' | sed 's/max_iterations: *//')
   STARTED_AT=$(echo "$FRONTMATTER" | grep '^started_at:' | sed 's/started_at: *//' | sed 's/^"\(.*\)"$/\1/')
-  LOG_FILE="$PIPELINES_DIR/solo-pipeline-${PROJECT}.log"
+  LOG_FILE=$(echo "$FRONTMATTER" | grep '^log_file:' | sed 's/log_file: *//' | sed 's/^"\(.*\)"$/\1/')
+  # Fallback for old state files without log_file field
+  [[ -z "$LOG_FILE" ]] && LOG_FILE="$PIPELINES_DIR/solo-pipeline-${PROJECT}.log"
 
   # Parse stages with Python (handles YAML arrays)
   STAGES_JSON=$(python3 -c "

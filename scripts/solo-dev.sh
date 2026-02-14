@@ -95,10 +95,11 @@ PLAN_CHECK="$ACTIVE_DIR/docs/plan"
 DEPLOY_CHECK="$ACTIVE_DIR/.deploy-complete"
 REVIEW_CHECK="$ACTIVE_DIR/.review-complete"
 
-# --- State & log files (global, absolute) ---
+# --- State & log files ---
 mkdir -p "$PIPELINES_DIR"
+mkdir -p "$PROJECT_ROOT/.solo/pipelines"
 STATE_FILE="$PIPELINES_DIR/solo-pipeline-${PROJECT_NAME}.local.md"
-LOG_FILE="$PIPELINES_DIR/solo-pipeline-${PROJECT_NAME}.log"
+LOG_FILE="$PROJECT_ROOT/.solo/pipelines/pipeline.log"
 STARTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Truncate log on fresh run (not on --no-dashboard re-exec)
