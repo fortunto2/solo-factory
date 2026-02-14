@@ -646,6 +646,10 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
 
   # Run Claude Code (stream-json for real-time tool visibility)
   CLAUDE_FLAGS="--dangerously-skip-permissions --verbose --print --output-format stream-json"
+  # Load MCP servers (global + plugin) so solograph tools are available
+  if [[ -f "$HOME/.mcp.json" ]]; then
+    CLAUDE_FLAGS="$CLAUDE_FLAGS --mcp-config $HOME/.mcp.json"
+  fi
   if [[ "$CHROME_AVAILABLE" == "true" ]] && [[ "$STAGE_ID" == "build" || "$STAGE_ID" == "review" ]]; then
     CLAUDE_FLAGS="$CLAUDE_FLAGS --chrome"
     log_entry "CHROME" "Browser tools enabled for $STAGE_ID"

@@ -349,8 +349,12 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
   # Run Claude Code (stream-json for real-time tool visibility)
   log_entry "INVOKE" "$SKILL $ARGS"
   OUTFILE=$(mktemp /tmp/solo-claude-XXXXXX)
+  MCP_FLAG=""
+  if [[ -f "$HOME/.mcp.json" ]]; then
+    MCP_FLAG="--mcp-config $HOME/.mcp.json"
+  fi
   claude --dangerously-skip-permissions --verbose --print \
-    --output-format stream-json -p "$PROMPT" 2>&1 \
+    $MCP_FLAG --output-format stream-json -p "$PROMPT" 2>&1 \
     | python3 "$SCRIPT_DIR/solo-stream-fmt.py" \
     | tee "$OUTFILE" || true
   OUTPUT=$(cat "$OUTFILE")
