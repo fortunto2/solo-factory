@@ -9,8 +9,10 @@ i18n: none
 auth: none
 linter: ruff (replaces flake8, isort, pyflakes)
 formatter: ruff format (replaces black)
-testing: pytest + respx (mock HTTP)
-pre_commit: pre-commit (ruff + ruff-format hooks)
+type_checker: ty (Astral, extremely fast, replaces mypy/pyright)
+testing: pytest + respx (mock HTTP) + hypothesis (property-based)
+pre_commit: pre-commit (ruff + ruff-format + ty hooks)
+cli: typer (CLI framework) + rich (terminal output)
 key_packages:
   # --- Anti-detection (уровни от лёгкого к тяжёлому) ---
   - curl_cffi (TLS fingerprint impersonation — Chrome/Firefox/Safari, обход Cloudflare)
@@ -25,13 +27,21 @@ key_packages:
   - sqlite-utils (quick SQLite storage)
   # --- Инфра ---
   - ruff (linter + formatter)
+  - ty (type-checker, Astral — extremely fast, replaces mypy)
   - pytest + respx (testing, mock responses)
+  - hypothesis (property-based testing)
+  - typer (CLI framework, type-hint driven)
+  - rich (beautiful terminal output — tables, panels, progress bars)
   - tenacity (retry logic with backoff)
   - fake-useragent (random User-Agent rotation)
 deploy: local | docker | hetzner
 infra: docker-compose (for proxies, or local-only)
 ci_cd: github_actions
 monitoring: posthog (analytics, EU hosting) | none
+logs:
+  docker: "docker logs {container} --tail=50"
+  local: "uv run {name} --help 2>&1"
+  local_build: "uv build 2>&1"
 architecture: pipeline (fetch → parse → validate → store)
 notes: |
   ## TLS Fingerprint Insight
@@ -73,8 +83,12 @@ notes: |
   - uv for all dependency management (not pip/poetry)
   - Pydantic-first: схемы данных до парсинга
   - ruff for linting AND formatting
+  - ty for type-checking (Astral, extremely fast — replaces mypy/pyright)
   - pytest + respx для тестов (mock HTTP responses, не бить реальные сайты)
-  - pre-commit with ruff hooks
+  - hypothesis for property-based testing (schema validation, edge cases)
+  - pre-commit with ruff + ty hooks
+  - typer for CLI (type-hint driven, auto-generates --help)
+  - rich for terminal output (tables, panels, progress bars)
   - Retry with exponential backoff (tenacity)
   - Respect robots.txt и rate limits
   - Rotate User-Agent (fake-useragent)

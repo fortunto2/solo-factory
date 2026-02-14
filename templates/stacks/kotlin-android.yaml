@@ -10,7 +10,7 @@ i18n: android_resources (res/values/strings.xml, res/values-ru/strings.xml)
 linter: detekt (static analysis) + ktlint (style)
 formatter: ktfmt (Google style)
 testing: junit + espresso + compose_testing
-pre_commit: none (Gradle tasks for detekt/ktlint)
+pre_commit: lefthook (detekt + ktlint hooks)
 key_packages:
   - Jetpack Compose
   - Material3
@@ -25,6 +25,12 @@ deploy: play_store
 infra: none (native store distribution)
 ci_cd: github_actions (gradle + self-hosted runner)
 monitoring: posthog (analytics + errors, posthog-android)
+logs:
+  adb: "adb logcat -s {name} --format=time 2>&1 | tail -50"
+  adb_crash: "adb logcat '*:E' --format=time 2>&1 | tail -30"
+  play_console: "Google Play Console → Android vitals → Crashes & ANRs"
+  posthog: "PostHog dashboard → Error tracking"
+  local_build: "./gradlew assembleDebug 2>&1 | tail -30"
 architecture: MVVM + clean_architecture
 notes: |
   - SharedAuth for Google Sign-In via Supabase
@@ -33,6 +39,7 @@ notes: |
   - ktlint for Kotlin style (via org.jlleitschuh.gradle.ktlint plugin)
   - ktfmt for formatting (Google style)
   - JUnit 4 + Espresso + Compose Testing for tests
+  - lefthook for pre-commit hooks (detekt + ktlint, language-agnostic, no Node.js)
   - English first, then localize
   - Google Play Billing for subscriptions
 gradle_required:

@@ -244,7 +244,55 @@ vercel logs --output=short 2>&1 | tail -30
 
 **Do NOT output `<solo:done/>` until the live URL returns HTTP 200 and page loads without errors.** If you cannot fix the issue, output `<solo:redo/>` to go back to build.
 
-### Step 6. Post-Deploy Report
+### Step 6. Post-Deploy Log Monitoring
+
+After verifying HTTP 200, **tail production logs** to catch runtime errors that only appear under real conditions (missing env vars, DB connection issues, SSR crashes, API timeouts).
+
+Read the `logs` field from the stack YAML to get platform-specific commands:
+
+**Vercel (Next.js):**
+```bash
+vercel logs --output=short 2>&1 | tail -50
+```
+Look for: `Error`, `FUNCTION_INVOCATION_FAILED`, `EDGE_FUNCTION_INVOCATION_FAILED`, `504 GATEWAY_TIMEOUT`, unhandled rejections.
+
+**Cloudflare Workers:**
+```bash
+wrangler tail --format=pretty 2>&1 | head -100
+```
+Look for: `Error`, uncaught exceptions, D1 query failures, R2 access errors.
+
+**Cloudflare Pages (Astro):**
+```bash
+wrangler pages deployment tail --project-name={name} 2>&1 | head -100
+```
+
+**Fly.io (Python API):**
+```bash
+fly logs --app {name} 2>&1 | tail -50
+fly status --app {name}
+```
+Look for: `ERROR`, `CRITICAL`, unhealthy instances, OOM kills, connection refused.
+
+**Supabase Edge Functions (if used):**
+```bash
+supabase functions logs --scroll 2>&1 | tail -30
+```
+
+**What to do with log errors:**
+- **Env var missing** → fix with platform CLI (see Step 3), redeploy
+- **DB connection error** → check connection string, IP allowlist
+- **Runtime crash / unhandled error** → output `<solo:redo/>` to go back to build with fix
+- **No errors in 30 lines of logs** → proceed to report
+
+**If logs show zero traffic (fresh deploy), make a few test requests:**
+```bash
+curl -s https://{deployment-url}/           # homepage
+curl -s https://{deployment-url}/api/health  # API health (if exists)
+```
+Then re-check logs for any errors triggered by these requests.
+
+### Step 7. Post-Deploy Report
 
 ```
 Deployment: {project-name}
@@ -310,7 +358,8 @@ Never say "deployment should be live" — verify it IS live.
 2. **Auto-deploy aware** — if platform auto-deploys on push, just push. Don't run manual deploy commands unnecessarily.
 3. **NEVER commit secrets** — no .env files with real values, no API keys in code.
 4. **Preview before production** — deploy preview first, verify, then promote to prod.
-5. **Check build locally first** — `npm run build` (or equivalent) before deploying.
-6. **Report all URLs** — deployment URL + platform dashboard links.
-7. **Infrastructure in repo** — prefer `sst.config.ts` or `fly.toml` over manual dashboard config (see infra-prd.md).
-8. **Verify before claiming done** — HTTP 200 from the live URL, not just "deploy command succeeded".
+5. **Check build locally first** — `pnpm build` / `uv build` (or equivalent) before deploying.
+6. **Check production logs** — always tail logs after deploy, catch runtime errors before declaring success.
+7. **Report all URLs** — deployment URL + platform dashboard links.
+8. **Infrastructure in repo** — prefer `sst.config.ts` or `fly.toml` over manual dashboard config (see infra-prd.md).
+9. **Verify before claiming done** — HTTP 200 from the live URL + clean logs, not just "deploy command succeeded".

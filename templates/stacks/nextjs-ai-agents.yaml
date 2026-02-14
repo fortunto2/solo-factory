@@ -15,8 +15,10 @@ i18n: next-intl
 package_manager: pnpm
 linter: eslint (flat config v9, typescript-eslint, eslint-plugin-react, @next/eslint-plugin-next)
 formatter: prettier
+type_checker: tsc --noEmit (strict mode)
+dead_code: knip (find unused files, exports, dependencies)
 testing: vitest + @testing-library/react + @testing-library/jest-dom
-pre_commit: husky + lint-staged
+pre_commit: husky + lint-staged (eslint + prettier + tsc)
 ai_sdk: "ai (Vercel AI SDK 6 — ToolLoopAgent, stopWhen, Output.object)"
 ai_react: "@ai-sdk/react (useChat, sendAutomaticallyWhen, addToolOutput)"
 ai_provider: "@ai-sdk/openai (default — OpenAI-compatible, works with any baseURL)"
@@ -49,6 +51,7 @@ key_packages:
   - recharts (charts)
   - tailwindcss
   - eslint + typescript-eslint + prettier (code quality)
+  - knip (find unused files, exports, deps — run periodically)
 deploy: vercel (git push → auto-deploy)
 deploy_cli:
   - "vercel (local preview, env vars, promote)"
@@ -56,6 +59,12 @@ deploy_cli:
 infra: sst (sst.config.ts) — Tier 1
 ci_cd: github_actions
 monitoring: posthog (analytics + errors, EU hosting)
+logs:
+  vercel: "vercel logs --output=short 2>&1 | tail -50"
+  vercel_functions: "vercel logs --output=short --scope=functions 2>&1 | tail -50"
+  supabase: "supabase functions logs --scroll"
+  posthog: "PostHog dashboard → Error tracking"
+  local_build: "pnpm build 2>&1 | tail -50"
 architecture: app_router_rsc
 extends: nextjs-supabase
 notes: |

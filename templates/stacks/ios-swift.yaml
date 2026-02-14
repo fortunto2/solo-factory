@@ -12,7 +12,7 @@ i18n: string_catalog (.xcstrings, Xcode 16 native)
 linter: swiftlint (SPM plugin or Homebrew)
 formatter: swift-format (Apple, SPM plugin)
 testing: XCTest + Swift Testing
-pre_commit: none (Xcode build phases for SwiftLint)
+pre_commit: lefthook (swiftlint + swift-format hooks)
 key_packages:
   - SwiftUI
   - SwiftData (local persistence, NOT Core Data for new projects)
@@ -26,6 +26,12 @@ deploy: app_store
 infra: none (native store distribution)
 ci_cd: github_actions (xcodebuild + fastlane)
 monitoring: posthog (analytics + errors, posthog-ios SPM)
+logs:
+  xcode: "Xcode → Window → Devices and Simulators → View Device Logs"
+  console: "log stream --predicate 'subsystem == \"com.{org}.{name}\"' --style compact"
+  testflight: "App Store Connect → TestFlight → Crashes"
+  posthog: "PostHog dashboard → Error tracking"
+  local_build: "xcodegen generate && xcodebuild -scheme {Name} -sdk iphonesimulator build 2>&1 | tail -30"
 architecture: MVVM
 
 # Patterns learned from real projects via SoloGraph
@@ -96,6 +102,7 @@ notes: |
   - String Catalog for i18n (Xcode 16 native, .xcstrings)
   - SwiftLint for linting (SPM plugin or build phase)
   - swift-format for consistent formatting
+  - lefthook for pre-commit hooks (swiftlint + swift-format, language-agnostic, no Node.js)
   - Swift Testing (@Test) for new tests, XCTest for legacy
   - English first, then localize
   - StoreKit 2 for in-app purchases and subscriptions

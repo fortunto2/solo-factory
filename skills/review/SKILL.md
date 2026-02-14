@@ -76,7 +76,7 @@ Read only the top 3-5 hub files (most connected = most impactful). For security 
 
 ## Review Dimensions
 
-Run all dimensions in sequence. Report findings per dimension.
+Run all 11 dimensions in sequence. Report findings per dimension.
 
 ### 1. Test Suite
 
@@ -101,15 +101,19 @@ Report:
 
 ```bash
 # Next.js
-npx next lint 2>&1 || true
-npx tsc --noEmit 2>&1 || true
+pnpm lint 2>&1 || true
+pnpm tsc --noEmit 2>&1 || true
 
 # Python
 uv run ruff check . 2>&1 || true
-uv run mypy . 2>&1 || true
+uv run ty check . 2>&1 || true
 
-# General
-# Check for any linter config (.eslintrc, ruff.toml, .swiftlint.yml)
+# Swift
+swiftlint lint --strict 2>&1 || true
+
+# Kotlin
+./gradlew detekt 2>&1 || true
+./gradlew ktlintCheck 2>&1 || true
 ```
 
 Report: warnings count, errors count, top issues.
@@ -181,6 +185,175 @@ Read `docs/plan/*/plan.md`:
 - Flag any `[ ]` or `[~]` tasks still remaining
 - Verify all phase checkpoints have SHAs
 
+### 8. Production Logs (if deployed)
+
+If the project has been deployed (`.solo/states/deploy` exists or deploy URL in CLAUDE.md), **check production logs for runtime errors**.
+
+Read the `logs` field from the stack YAML (`templates/stacks/{stack}.yaml`) to get platform-specific commands.
+
+**Vercel (Next.js):**
+```bash
+vercel logs --output=short 2>&1 | tail -50
+```
+Look for: `Error`, `FUNCTION_INVOCATION_FAILED`, `504`, unhandled rejections, hydration mismatches.
+
+**Cloudflare Workers:**
+```bash
+wrangler tail --format=pretty 2>&1 | head -50
+```
+Look for: uncaught exceptions, D1 errors, R2 access failures.
+
+**Fly.io (Python API):**
+```bash
+fly logs --app {name} 2>&1 | tail -50
+```
+Look for: `ERROR`, `CRITICAL`, OOM, connection refused, unhealthy instances.
+
+**Supabase Edge Functions:**
+```bash
+supabase functions logs --scroll 2>&1 | tail -30
+```
+
+**iOS (TestFlight):**
+- Check App Store Connect → TestFlight → Crashes
+- If local device: `log stream --predicate 'subsystem == "com.{org}.{name}"'`
+
+**Android:**
+```bash
+adb logcat '*:E' --format=time 2>&1 | tail -30
+```
+- Check Google Play Console → Android vitals → Crashes & ANRs
+
+**If no deploy yet:** skip this dimension, note in report as "N/A — not deployed".
+
+**If logs show errors:**
+- Classify: startup crash vs runtime error vs intermittent
+- Add as FIX FIRST issues in the report
+- Include exact log lines as evidence
+
+Report:
+- Log source checked (platform, command used)
+- Errors found: count + severity
+- Error patterns (recurring vs one-off)
+- Status: CLEAN / WARN / ERRORS
+
+### 9. Dev Principles Compliance
+
+Check adherence to `templates/principles/dev-principles.md` (solo-factory) or `1-methodology/dev-principles.md` (solopreneur KB).
+
+Read the dev principles file, then spot-check 3-5 key source files for violations:
+
+**SOLID:**
+- **SRP** — any god-class/god-module doing auth + profile + email + notifications? Flag bloated files (>300 LOC with mixed responsibilities).
+- **DIP** — are services injected or hardcoded? Look for `new ConcreteService()` inside business logic instead of dependency injection.
+
+**DRY vs Rule of Three:**
+- Search for duplicated logic blocks (Grep for identical function signatures across files).
+- But don't flag 2-3 similar lines — duplication is OK until a pattern emerges.
+
+**KISS:**
+- Over-engineered abstractions for one-time operations?
+- Feature flags or backward-compat shims where a simple change would do?
+- Helpers/utilities used only once?
+
+**Schemas-First (SGR):**
+- Are Pydantic/Zod schemas defined before logic? Or is raw data passed around?
+- Are API responses typed (not `any` / `dict`)?
+- Validation at boundaries (user input, external APIs)?
+
+**Clean Architecture:**
+- Do dependencies point inward? Business logic should not import from UI/framework layer.
+- Is business logic framework-independent?
+
+**Error Handling:**
+- Fail-fast on invalid inputs? Or silent swallowing of errors?
+- User-facing errors are friendly? Internal errors have stack traces?
+
+Report:
+- Principles followed: list key ones observed
+- Violations found: with file:line references
+- Severity: MINOR (style) / MAJOR (architecture) / CRITICAL (data loss risk)
+
+### 10. Commit Quality
+
+Check git history for the current track/feature:
+
+```bash
+git log --oneline --since="1 week ago" 2>&1 | head -30
+```
+
+**Conventional commits format:**
+- Each commit follows `<type>(<scope>): <description>` pattern
+- Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `style`
+- Flag: generic messages ("fix", "update", "wip", "changes"), missing type prefix, too-long titles (>72 chars)
+
+**Atomicity:**
+- Each commit = one logical change? Or monster commits with 20 files across unrelated features?
+- Revert-friendly? Could you `git revert` a single commit without side effects?
+
+**SHAs in plan.md:**
+- Check that completed tasks have `<!-- sha:abc1234 -->` comments
+- Check that phase checkpoints have `<!-- checkpoint:abc1234 -->`
+
+```bash
+grep -c "sha:" docs/plan/*/plan.md 2>/dev/null || echo "No SHAs found"
+```
+
+Report:
+- Total commits: {N}
+- Conventional format: {N}/{M} compliant
+- Atomic commits: YES / NO (with examples of violations)
+- Plan SHAs: {N}/{M} tasks have SHAs
+
+### 11. Documentation Freshness
+
+Check that project documentation is up-to-date with the code.
+
+**Required files check:**
+```bash
+ls -la CLAUDE.md README.md docs/prd.md docs/workflow.md 2>&1
+```
+
+**CLAUDE.md:**
+- Does it reflect current tech stack, commands, directory structure?
+- Are recently added features/endpoints documented?
+- Grep for outdated references (old package names, removed files):
+  ```bash
+  # Check that files mentioned in CLAUDE.md actually exist
+  grep -oP '`[a-zA-Z0-9_./-]+\.(ts|py|swift|kt|md)`' CLAUDE.md | while read f; do [ ! -f "$f" ] && echo "MISSING: $f"; done
+  ```
+
+**README.md:**
+- Does it have setup/run/test/deploy instructions?
+- Are the commands actually runnable?
+
+**docs/prd.md:**
+- Do features match what was actually built?
+- Are metrics and success criteria defined?
+
+**AICODE- comments:**
+```bash
+grep -rn "AICODE-TODO" src/ app/ lib/ 2>/dev/null | head -10
+grep -rn "AICODE-ASK" src/ app/ lib/ 2>/dev/null | head -10
+```
+- Flag unresolved `AICODE-TODO` items that were completed but not cleaned up
+- Flag unanswered `AICODE-ASK` questions
+- Check for `AICODE-NOTE` on complex/non-obvious logic
+
+**Dead code check:**
+- Unused imports (linter should catch, but verify)
+- Orphaned files not imported anywhere
+- If `knip` available (Next.js): `pnpm knip 2>&1 | head -30`
+
+Report:
+- CLAUDE.md: CURRENT / STALE / MISSING
+- README.md: CURRENT / STALE / MISSING
+- docs/prd.md: CURRENT / STALE / MISSING
+- docs/workflow.md: CURRENT / STALE / MISSING
+- AICODE-TODO unresolved: {N}
+- AICODE-ASK unanswered: {N}
+- Dead code: {files/exports found}
+
 ## Review Report
 
 Generate the final report:
@@ -222,6 +395,30 @@ Date: {YYYY-MM-DD}
 - Phases: {N}/{M} complete
 - Status: {COMPLETE / IN PROGRESS}
 
+### Production Logs
+- Platform: {Vercel / Cloudflare / Fly.io / N/A}
+- Errors: {N} | Warnings: {N}
+- Status: {CLEAN / WARN / ERRORS / N/A}
+
+### Dev Principles
+- SOLID: {PASS / violations found}
+- Schemas-first: {YES / raw data found}
+- Error handling: {PASS / issues found}
+- Status: {PASS / WARN / FAIL}
+
+### Commits
+- Total: {N} | Conventional: {N}/{M}
+- Atomic: {YES / NO}
+- Plan SHAs: {N}/{M}
+- Status: {PASS / WARN / FAIL}
+
+### Documentation
+- CLAUDE.md: {CURRENT / STALE / MISSING}
+- README.md: {CURRENT / STALE / MISSING}
+- AICODE-TODO unresolved: {N}
+- Dead code: {NONE / found}
+- Status: {PASS / WARN / FAIL}
+
 ### Issues Found
 1. [{severity}] {description} — {file:line}
 2. [{severity}] {description} — {file:line}
@@ -232,9 +429,9 @@ Date: {YYYY-MM-DD}
 ```
 
 **Verdict logic:**
-- **SHIP**: All tests pass, no security issues, acceptance criteria met, build succeeds
-- **FIX FIRST**: Minor issues (warnings, partial criteria, low-severity vulns) — list what to fix
-- **BLOCK**: Failing tests, security vulnerabilities, missing critical features — do not ship
+- **SHIP**: All tests pass, no security issues, acceptance criteria met, build succeeds, production logs clean, docs current, commits atomic
+- **FIX FIRST**: Minor issues (warnings, partial criteria, low-severity vulns, intermittent log errors, stale docs, non-conventional commits, minor SOLID violations) — list what to fix
+- **BLOCK**: Failing tests, security vulnerabilities, missing critical features, production crashes in logs, missing CLAUDE.md/README.md, critical architecture violations — do not ship
 
 <MANDATORY>
 ## IMMEDIATELY AFTER writing the verdict — output a signal tag:

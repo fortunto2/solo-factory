@@ -11,8 +11,9 @@ auth: "shared-auth (Supabase Auth backend, or JWT for API-only)"
 payments: "stripe (server-side, webhooks)"
 linter: ruff (replaces flake8, isort, pyflakes)
 formatter: ruff format (replaces black)
-testing: pytest + httpx (TestClient) + pytest-asyncio
-pre_commit: pre-commit (ruff + ruff-format hooks)
+type_checker: ty (Astral, extremely fast, replaces mypy/pyright)
+testing: pytest + httpx (TestClient) + pytest-asyncio + hypothesis (property-based)
+pre_commit: pre-commit (ruff + ruff-format + ty hooks)
 key_packages:
   - fastapi (API framework)
   - pydantic (schemas, validation — always first)
@@ -22,11 +23,19 @@ key_packages:
   - uvicorn (ASGI server)
   - httpx (HTTP client)
   - ruff (linter + formatter)
+  - ty (type-checker, Astral — extremely fast, replaces mypy)
   - pytest + pytest-asyncio (testing)
+  - hypothesis (property-based testing for schemas/edge cases)
 deploy: docker | fly.io | hetzner
 infra: pulumi (Python, infra/__main__.py) — Tier 2, or fly.io for MVP (Tier 4)
 ci_cd: github_actions
 monitoring: posthog (analytics + errors, EU hosting)
+logs:
+  fly: "fly logs --app {name} 2>&1 | tail -50"
+  fly_status: "fly status --app {name}"
+  docker: "docker logs {container} --tail=50"
+  posthog: "PostHog dashboard → Error tracking"
+  local_build: "uv run uvicorn src.{name}.main:app --port 8000 2>&1 | head -20"
 architecture: layered (routers → services → repositories → models)
 notes: |
   - uv for all dependency management (not pip/poetry)
@@ -37,7 +46,9 @@ notes: |
   - PostgreSQL as default database
   - asyncpg for async, psycopg for sync fallback
   - ruff for linting AND formatting (replaces black + isort + flake8)
+  - ty for type-checking (Astral, extremely fast — replaces mypy/pyright)
   - pytest + httpx TestClient for API tests, pytest-asyncio for async
-  - pre-commit with ruff hooks
+  - hypothesis for property-based testing (schema validation, edge cases)
+  - pre-commit with ruff + ty hooks
   - English first for API responses, i18n via gettext if needed
   - Project structure: src/<name>/{routers,services,models,schemas,db}/

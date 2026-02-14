@@ -10,8 +10,9 @@ validation: zod@4
 i18n: json (simple key-value, or @formatjs/intl)
 linter: eslint (flat config v9, typescript-eslint)
 formatter: prettier
+type_checker: tsc --noEmit (strict mode)
 testing: vitest + miniflare (@cloudflare/vitest-pool-workers)
-pre_commit: husky + lint-staged
+pre_commit: husky + lint-staged (eslint + prettier + tsc)
 key_packages:
   - wrangler
   - hono (routing)
@@ -23,6 +24,12 @@ deploy: cloudflare_workers
 infra: sst (sst.config.ts) — Tier 1, wrangler for dev
 ci_cd: github_actions
 monitoring: posthog (analytics + errors) + cloudflare_analytics
+logs:
+  wrangler_tail: "wrangler tail --format=pretty 2>&1 | head -100"
+  wrangler_logs: "wrangler deployments list && wrangler deployments view"
+  d1_logs: "wrangler d1 insights {db-name}"
+  posthog: "PostHog dashboard → Error tracking"
+  local_build: "pnpm build 2>&1 | tail -50"
 storage:
   - D1 (SQLite at edge)
   - R2 (S3-compatible storage)
@@ -35,6 +42,7 @@ notes: |
   - Zod 4 for all input validation (import from "zod/v4")
   - pnpm as package manager
   - ESLint flat config + Prettier for code quality
+  - tsc --noEmit for type-checking (strict mode)
   - Vitest + @cloudflare/vitest-pool-workers for Workers testing
-  - Husky + lint-staged for pre-commit
+  - Husky + lint-staged for pre-commit (eslint, prettier, tsc --noEmit)
   - English first for API responses, i18n via JSON if needed

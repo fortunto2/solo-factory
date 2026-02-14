@@ -9,8 +9,9 @@ architecture: islands_architecture
 i18n: "@astrojs/i18n or paraglide-js"
 linter: eslint (flat config v9, eslint-plugin-astro, typescript-eslint)
 formatter: prettier (prettier-plugin-astro)
+type_checker: tsc --noEmit (strict mode)
 testing: vitest
-pre_commit: husky + lint-staged
+pre_commit: husky + lint-staged (eslint + prettier + tsc)
 key_packages:
   - astro
   - "@astrojs/cloudflare"
@@ -20,6 +21,10 @@ deploy: cloudflare_pages
 infra: sst (sst.config.ts) — Tier 1
 ci_cd: github_actions
 monitoring: posthog (analytics + errors) + cloudflare_analytics
+logs:
+  cf_pages: "wrangler pages deployment tail --project-name={name}"
+  posthog: "PostHog dashboard → Error tracking"
+  local_build: "pnpm build 2>&1 | tail -50"
 features:
   - content_collections
   - static_generation
@@ -28,8 +33,9 @@ notes: |
   - pnpm as package manager
   - ESLint flat config + eslint-plugin-astro for .astro files
   - Prettier with prettier-plugin-astro for formatting
+  - tsc --noEmit for type-checking (strict mode)
   - Vitest for unit tests
-  - Husky + lint-staged for pre-commit
+  - Husky + lint-staged for pre-commit (eslint, prettier, tsc --noEmit)
   - i18n via @astrojs/i18n or paraglide-js
   - English first, then localize
   - Content collections for structured content
