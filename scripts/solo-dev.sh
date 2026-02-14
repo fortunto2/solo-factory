@@ -92,12 +92,15 @@ PROJECT_ROOT="$ACTIVE_DIR"
 SCAFFOLD_CHECK="$ACTIVE_DIR/CLAUDE.md"
 SETUP_CHECK="$ACTIVE_DIR/docs/workflow.md"
 PLAN_CHECK="$ACTIVE_DIR/docs/plan"
-DEPLOY_CHECK="$ACTIVE_DIR/.deploy-complete"
-REVIEW_CHECK="$ACTIVE_DIR/.review-complete"
+STATES_DIR="$ACTIVE_DIR/.solo/states"
+BUILD_CHECK="$STATES_DIR/build"
+DEPLOY_CHECK="$STATES_DIR/deploy"
+REVIEW_CHECK="$STATES_DIR/review"
 
 # --- State & log files ---
 mkdir -p "$PIPELINES_DIR"
 mkdir -p "$PROJECT_ROOT/.solo/pipelines"
+mkdir -p "$STATES_DIR"
 STATE_FILE="$PIPELINES_DIR/solo-pipeline-${PROJECT_NAME}.local.md"
 LOG_FILE="$PROJECT_ROOT/.solo/pipelines/pipeline.log"
 STARTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -155,7 +158,7 @@ for stage in scaffold setup plan build deploy review; do
     build)
       STAGE_SKILLS[$IDX]="/build"
       STAGE_ARGS[$IDX]=""
-      STAGE_CHECKS[$IDX]="$PLAN_CHECK/*/BUILD_COMPLETE"
+      STAGE_CHECKS[$IDX]="$BUILD_CHECK"
       ;;
     deploy)
       STAGE_SKILLS[$IDX]="/deploy"
@@ -246,7 +249,7 @@ stages:
   - id: build
     skill: "/build"
     args: ""
-    check: "$PLAN_CHECK/*/BUILD_COMPLETE"
+    check: "$BUILD_CHECK"
     done: $BUILD_DONE
   - id: deploy
     skill: "/deploy"
@@ -439,11 +442,10 @@ When done with this stage, output: <promise>PIPELINE COMPLETE</promise>"
   fi
 
   if grep -q '<solo:redo/>' "$OUTFILE" 2>/dev/null; then
-    # Go back: remove previous stage's marker (build → review loop)
-    PLAN_DIR=$(compgen -G "$PROJECT_ROOT/docs/plan/*" 2>/dev/null | head -1)
-    if [[ -n "$PLAN_DIR" ]] && [[ -f "$PLAN_DIR/BUILD_COMPLETE" ]]; then
-      log_entry "SIGNAL" "<solo:redo/> → removing BUILD_COMPLETE (back to build)"
-      rm -f "$PLAN_DIR/BUILD_COMPLETE"
+    # Go back: remove build marker (review → build loop)
+    if [[ -f "$STATES_DIR/build" ]]; then
+      log_entry "SIGNAL" "<solo:redo/> → removing .solo/states/build (back to build)"
+      rm -f "$STATES_DIR/build"
     fi
   fi
 

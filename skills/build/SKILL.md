@@ -102,7 +102,7 @@ Ask via AskUserQuestion, then proceed.
 
 ## Task Execution Loop
 
-**IMPORTANT — All-done check:** Before entering the loop, scan plan.md for ANY `- [ ]` or `- [~]` tasks. If ALL tasks are `[x]` and `BUILD_COMPLETE` does NOT exist yet — skip the loop entirely and jump to **Completion** section below to run final verification and create the marker file. Do NOT just run `pnpm build` and output the promise — you MUST create `BUILD_COMPLETE`.
+**IMPORTANT — All-done check:** Before entering the loop, scan plan.md for ANY `- [ ]` or `- [~]` tasks. If ALL tasks are `[x]` — skip the loop entirely and jump to **Completion** section below to run final verification and output `<solo:done/>`.
 
 For each incomplete task in plan.md (marked `[ ]`), in order:
 
