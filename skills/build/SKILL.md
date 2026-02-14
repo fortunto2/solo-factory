@@ -289,7 +289,7 @@ If phase complete:
 5. Commit plan.md progress: `git commit -m "chore(plan): complete phase {N}"`.
 6. Capture checkpoint SHA and append to phase heading in plan.md:
    `## Phase N: Title <!-- checkpoint:abc1234 -->`.
-7. Report results and **wait for user approval**:
+7. Report results and continue:
 
 ```
 Phase {N} complete! <!-- checkpoint:abc1234 -->
@@ -302,11 +302,9 @@ Phase {N} complete! <!-- checkpoint:abc1234 -->
     - [x] {check 2}
 
   Revert this phase: git revert abc1234..HEAD
-
-Continue to Phase {N+1}?
 ```
 
-**CRITICAL: Always wait for user approval before proceeding to next phase.**
+Proceed to the next phase automatically. No approval needed.
 
 ## Error Handling
 
@@ -433,7 +431,7 @@ These thoughts mean STOP — you're about to cut corners:
 
 ## Critical Rules
 
-1. **NEVER skip phase checkpoints** — always wait for user approval between phases.
+1. **Run phase checkpoints** — verify tests + linter pass before moving to next phase.
 2. **STOP on failure** — do not continue past test failures or errors.
 3. **Keep plan.md updated** — task status must reflect actual progress at all times.
 4. **Commit after each task** — atomic commits with conventional format.
@@ -452,6 +450,6 @@ These thoughts mean STOP — you're about to cut corners:
 **Cause:** Implementation broke existing functionality.
 **Fix:** Use the error handling flow — attempt fix, rollback if needed, pause for user input. Never skip failing tests.
 
-### Phase checkpoint skipped
-**Cause:** Model proceeded without user approval.
-**Fix:** Phase gates are mandatory. If skipped, re-run verification for that phase before continuing.
+### Phase checkpoint failed
+**Cause:** Tests or linter failed at phase boundary.
+**Fix:** Fix failures before proceeding. Re-run verification for that phase.
