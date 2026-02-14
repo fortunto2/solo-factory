@@ -236,52 +236,31 @@ Date: {YYYY-MM-DD}
 - **FIX FIRST**: Minor issues (warnings, partial criteria, low-severity vulns) — list what to fix
 - **BLOCK**: Failing tests, security vulnerabilities, missing critical features — do not ship
 
-## Completion
+<MANDATORY>
+## IMMEDIATELY AFTER writing the verdict — execute ONE of these blocks:
 
-### Verdict: SHIP
-
-If verdict is **SHIP** — create completion marker:
-
+### If SHIP:
 ```bash
-cat > .review-complete << EOF
+cat > .review-complete << 'REVIEWEOF'
 Verdict: SHIP
-Tests: {pass}/{total}
-Coverage: {N}%
-Security: {PASS|WARN|FAIL}
-Criteria: {verified}/{total}
 Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-EOF
+REVIEWEOF
 ```
 
-This file signals to the pipeline that the review stage is finished.
-Add it to `.gitignore` if not already there.
-
-### Verdict: FIX FIRST or BLOCK
-
-If verdict is **FIX FIRST** or **BLOCK** — do NOT create `.review-complete`. Instead:
-
-1. **Remove BUILD_COMPLETE** to send pipeline back to build stage:
+### If FIX FIRST or BLOCK:
+1. Remove BUILD_COMPLETE:
 ```bash
 rm -f docs/plan/*/BUILD_COMPLETE
 ```
-
-2. **Add fix tasks to plan.md** — append a new phase at the bottom with tasks for each issue found:
-```markdown
-## Phase N+1: Review Fixes
-
-### Tasks
-- [ ] Task N.1: {Fix issue description} — {file:line}
-- [ ] Task N.2: {Fix issue description} — {file:line}
-```
-
-3. **Update plan.md header** — change `**Status:** [x] Complete` back to `**Status:** [~] In Progress`
-
-4. **Commit** the updated plan.md:
+2. Open plan.md and APPEND a new phase with fix tasks (one `- [ ] Task` per issue found)
+3. Change plan.md status from `[x] Complete` to `[~] In Progress`
+4. Commit:
 ```bash
-git add docs/plan/*/plan.md && git commit -m "fix: add review fix tasks (verdict: {FIX FIRST|BLOCK})"
+git add docs/plan/*/plan.md docs/plan/*/BUILD_COMPLETE && git commit -m "fix: add review fix tasks"
 ```
 
-This way the pipeline loops: `/review` (FIX FIRST) → removes BUILD_COMPLETE → `/build` picks up new tasks → `/build` creates BUILD_COMPLETE → `/deploy` → `/review` again.
+You MUST execute the bash commands above BEFORE the session ends. If you skip this step, the pipeline will loop forever. This is not optional.
+</MANDATORY>
 
 ## Error Handling
 
