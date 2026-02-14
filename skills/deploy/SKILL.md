@@ -4,7 +4,8 @@ description: Deploy project to hosting platform — read stack YAML for exact co
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.1.0"
+  version: "1.2.0"
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit
 argument-hint: "[platform]"
 ---
 
