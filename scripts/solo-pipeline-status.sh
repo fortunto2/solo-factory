@@ -90,7 +90,8 @@ if len(parts) >= 3:
     stages = fm.get('stages', [])
     for s in stages:
         check = s.get('check', '')
-        if check and not s.get('done', False):
+        if check:
+            # Always re-check (review can remove BUILD_COMPLETE to loop back)
             if '*' in check:
                 s['done'] = len(glob.glob(os.path.expanduser(check))) > 0
             else:

@@ -225,12 +225,13 @@ Date: {YYYY-MM-DD}
 
 ## Completion
 
-### Create completion marker
+### Verdict: SHIP
 
-Write `.review-complete` in project root:
+If verdict is **SHIP** — create completion marker:
+
 ```bash
 cat > .review-complete << EOF
-Verdict: {SHIP|FIX FIRST|BLOCK}
+Verdict: SHIP
 Tests: {pass}/{total}
 Coverage: {N}%
 Security: {PASS|WARN|FAIL}
@@ -241,6 +242,33 @@ EOF
 
 This file signals to the pipeline that the review stage is finished.
 Add it to `.gitignore` if not already there.
+
+### Verdict: FIX FIRST or BLOCK
+
+If verdict is **FIX FIRST** or **BLOCK** — do NOT create `.review-complete`. Instead:
+
+1. **Remove BUILD_COMPLETE** to send pipeline back to build stage:
+```bash
+rm -f docs/plan/*/BUILD_COMPLETE
+```
+
+2. **Add fix tasks to plan.md** — append a new phase at the bottom with tasks for each issue found:
+```markdown
+## Phase N+1: Review Fixes
+
+### Tasks
+- [ ] Task N.1: {Fix issue description} — {file:line}
+- [ ] Task N.2: {Fix issue description} — {file:line}
+```
+
+3. **Update plan.md header** — change `**Status:** [x] Complete` back to `**Status:** [~] In Progress`
+
+4. **Commit** the updated plan.md:
+```bash
+git add docs/plan/*/plan.md && git commit -m "fix: add review fix tasks (verdict: {FIX FIRST|BLOCK})"
+```
+
+This way the pipeline loops: `/review` (FIX FIRST) → removes BUILD_COMPLETE → `/build` picks up new tasks → `/build` creates BUILD_COMPLETE → `/deploy` → `/review` again.
 
 ## Error Handling
 
@@ -303,7 +331,7 @@ Never write "tests should pass" — run them and show the output.
 1. **Run all checks** — do not skip dimensions even if project seems simple.
 2. **Be specific** — always include file:line references for issues.
 3. **Verdict must be justified** — every SHIP/FIX/BLOCK needs evidence from actual commands.
-4. **Don't auto-fix** — report issues, let user or `/build` fix them. Review is read-only.
+4. **Don't auto-fix code** — report issues and add fix tasks to plan.md. Let `/build` fix them. Review only modifies plan.md and BUILD_COMPLETE, never source code.
 5. **Check acceptance criteria** — spec.md is the source of truth for "done".
 6. **Security is non-negotiable** — any hardcoded secret = BLOCK.
 7. **Fresh evidence only** — run commands before making claims. Never rely on memory.
