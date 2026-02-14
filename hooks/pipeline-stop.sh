@@ -68,6 +68,12 @@ HOOK_INPUT=$(cat)
 # --- Parse YAML frontmatter ---
 FRONTMATTER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$STATE_FILE")
 
+# --- Skip if Big Head is managing this pipeline ---
+MODE=$(echo "$FRONTMATTER" | grep '^mode:' | sed 's/mode: *//')
+if [[ "$MODE" == "bighead" ]]; then
+  exit 0
+fi
+
 ACTIVE=$(echo "$FRONTMATTER" | grep '^active:' | sed 's/active: *//')
 ITERATION=$(echo "$FRONTMATTER" | grep '^iteration:' | sed 's/iteration: *//')
 MAX_ITERATIONS=$(echo "$FRONTMATTER" | grep '^max_iterations:' | sed 's/max_iterations: *//')
@@ -116,8 +122,10 @@ if [[ $MAX_ITERATIONS -gt 0 ]] && [[ $ITERATION -ge $MAX_ITERATIONS ]]; then
   exit 0
 fi
 
-# --- Check <solo:done/> signal in last assistant message ---
+# --- Check <solo:done/> / <solo:redo/> signals in last assistant message ---
 TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | jq -r '.transcript_path')
+SIGNAL_DONE=false
+SIGNAL_REDO=false
 
 if [[ -f "$TRANSCRIPT_PATH" ]] && grep -q '"role":"assistant"' "$TRANSCRIPT_PATH"; then
   LAST_LINE=$(grep '"role":"assistant"' "$TRANSCRIPT_PATH" | tail -1)
@@ -128,12 +136,55 @@ if [[ -f "$TRANSCRIPT_PATH" ]] && grep -q '"role":"assistant"' "$TRANSCRIPT_PATH
     join("\n")
   ' 2>/dev/null || echo "")
 
-  if echo "$LAST_OUTPUT" | grep -q '<solo:done/>' 2>/dev/null; then
-    DURATION=$(calc_duration "$STARTED_AT")
-    echo "Pipeline ($PROJECT) complete: detected <solo:done/>" >&2
-    log_entry "$LOG_FILE" "DONE" "All stages complete! Duration: $DURATION"
-    rm "$STATE_FILE"
-    exit 0
+  echo "$LAST_OUTPUT" | grep -q '<solo:done/>' 2>/dev/null && SIGNAL_DONE=true
+  echo "$LAST_OUTPUT" | grep -q '<solo:redo/>' 2>/dev/null && SIGNAL_REDO=true
+fi
+
+# Create/remove stage markers based on signals (same as solo-dev.sh does)
+if [[ "$SIGNAL_DONE" == "true" ]] || [[ "$SIGNAL_REDO" == "true" ]]; then
+  # Find current (first incomplete) stage to know which marker to create
+  CURRENT_STAGE_CHECK=$(python3 -c "
+import yaml, json, os, glob
+with open('$STATE_FILE') as f:
+    content = f.read()
+parts = content.split('---', 2)
+if len(parts) >= 3:
+    fm = yaml.safe_load(parts[1])
+    for s in fm.get('stages', []):
+        check = s.get('check', '')
+        if not check:
+            continue
+        if '*' in check:
+            if len(glob.glob(os.path.expanduser(check))) == 0:
+                print(s['id'] + '|' + check)
+                break
+        else:
+            if not os.path.exists(os.path.expanduser(check)):
+                print(s['id'] + '|' + check)
+                break
+" 2>/dev/null || echo "")
+
+  if [[ -n "$CURRENT_STAGE_CHECK" ]]; then
+    CUR_STAGE_ID="${CURRENT_STAGE_CHECK%%|*}"
+    CUR_STAGE_FILE="${CURRENT_STAGE_CHECK##*|}"
+
+    if [[ "$SIGNAL_DONE" == "true" ]]; then
+      # Create marker for current stage (if it's a states/ file, not a glob)
+      if [[ "$CUR_STAGE_FILE" != *"*"* ]] && [[ ! -f "$CUR_STAGE_FILE" ]]; then
+        mkdir -p "$(dirname "$CUR_STAGE_FILE")"
+        echo "Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$CUR_STAGE_FILE"
+        log_entry "$LOG_FILE" "SIGNAL" "<solo:done/> → creating $CUR_STAGE_ID marker"
+      fi
+    fi
+
+    if [[ "$SIGNAL_REDO" == "true" ]]; then
+      # Remove build marker (review → build loop)
+      STATES_DIR="$PROJECT_ROOT/.solo/states"
+      if [[ -f "$STATES_DIR/build" ]]; then
+        rm -f "$STATES_DIR/build"
+        log_entry "$LOG_FILE" "SIGNAL" "<solo:redo/> → removing build marker"
+      fi
+    fi
   fi
 fi
 

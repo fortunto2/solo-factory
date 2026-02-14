@@ -178,6 +178,7 @@ if [[ ! -f "$STATE_FILE" ]]; then
 cat > "$STATE_FILE" << STATEEOF
 ---
 active: true
+mode: bighead
 pipeline: research
 iteration: 0
 max_iterations: $MAX_ITERATIONS

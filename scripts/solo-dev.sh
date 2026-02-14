@@ -103,6 +103,10 @@ BUILD_CHECK="$STATES_DIR/build"
 DEPLOY_CHECK="$STATES_DIR/deploy"
 REVIEW_CHECK="$STATES_DIR/review"
 
+# --- Pipeline control files (in project dir) ---
+CONTROL_FILE="$ACTIVE_DIR/.solo/pipelines/control"
+MSG_FILE="$ACTIVE_DIR/.solo/pipelines/messages"
+
 # --- Visual testing detection (from stack YAML) ---
 VISUAL_TYPE=""
 CHROME_AVAILABLE=false
@@ -172,6 +176,35 @@ log_entry() {
   local tag="$1"
   shift
   echo "[$(date +%H:%M:%S)] $tag | $*" | tee -a "$LOG_FILE"
+}
+
+# --- Pipeline control check ---
+# Reads control file: stop, pause, skip. Called at top of each iteration.
+SKIP_STAGE=false
+
+check_control() {
+  SKIP_STAGE=false
+  [[ ! -f "$CONTROL_FILE" ]] && return
+  local CMD
+  CMD=$(head -1 "$CONTROL_FILE")
+  case "$CMD" in
+    stop)
+      log_entry "CTRL" "Stop requested"
+      rm -f "$CONTROL_FILE"
+      rm -f "$STATE_FILE"
+      exit 0
+      ;;
+    pause)
+      log_entry "CTRL" "Paused — waiting for resume (rm $CONTROL_FILE)"
+      while [[ -f "$CONTROL_FILE" ]]; do sleep 2; done
+      log_entry "CTRL" "Resumed"
+      ;;
+    skip)
+      log_entry "CTRL" "Skip stage requested"
+      rm -f "$CONTROL_FILE"
+      SKIP_STAGE=true
+      ;;
+  esac
 }
 
 # --- Plan queue cycling ---
@@ -311,6 +344,7 @@ if [[ ! -f "$STATE_FILE" ]]; then
 cat > "$STATE_FILE" << STATEEOF
 ---
 active: true
+mode: bighead
 pipeline: dev
 iteration: 0
 max_iterations: $MAX_ITERATIONS
@@ -454,6 +488,9 @@ fi
 log_entry "START" "$PROJECT_NAME | stages: $STAGES_DISPLAY | max: $MAX_ITERATIONS"
 
 for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
+  # --- Check control file (pause/stop/skip) ---
+  check_control
+
   # Find next incomplete stage
   CURRENT_STAGE=-1
   for i in "${!STAGE_IDS[@]}"; do
@@ -486,6 +523,16 @@ for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
   ARGS="${STAGE_ARGS[$CURRENT_STAGE]}"
   CHECK="${STAGE_CHECKS[$CURRENT_STAGE]}"
   STAGE_NUM=$((CURRENT_STAGE + 1))
+
+  # Handle skip: create stage marker and move to next
+  if [[ "$SKIP_STAGE" == "true" ]]; then
+    log_entry "CTRL" "Skipping stage: $STAGE_ID"
+    if [[ "$CHECK" != *"*"* ]]; then
+      mkdir -p "$(dirname "$CHECK")"
+      echo "Skipped: $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$CHECK"
+    fi
+    continue
+  fi
 
   # Update iteration in state file
   TEMP_FILE="${STATE_FILE}.tmp.$$"
@@ -572,7 +619,19 @@ If emulator is unavailable — skip visual checks, do not block progress."
     esac
   fi
 
-  PROMPT="$PROMPT$CONTEXT_INSTRUCTION$PROGRESS_CONTEXT$VISUAL_INSTRUCTION
+  # --- Inject user messages (mid-pipeline) ---
+  MSG_INSTRUCTION=""
+  if [[ -f "$MSG_FILE" ]] && [[ -s "$MSG_FILE" ]]; then
+    MSG_INSTRUCTION="
+
+--- USER INSTRUCTIONS (mid-pipeline) ---
+$(cat "$MSG_FILE")
+---"
+    rm -f "$MSG_FILE"
+    log_entry "MSG" "Injected user message into prompt"
+  fi
+
+  PROMPT="$PROMPT$CONTEXT_INSTRUCTION$PROGRESS_CONTEXT$VISUAL_INSTRUCTION$MSG_INSTRUCTION
 
 This is stage $STAGE_NUM/$TOTAL_STAGES ($STAGE_ID) of the dev pipeline (project: $PROJECT_NAME).
 When done with this stage, output exactly: <solo:done/>

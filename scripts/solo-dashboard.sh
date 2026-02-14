@@ -103,6 +103,35 @@ case "$CMD" in
       tmux send-keys -t "$STATUS_PANE" "while true; do clear; $STATUS_CMD; sleep 2; done" C-m
     fi
 
+    # Split bottom of status pane for control menu
+    PROJECT_NAME="$NAME"
+    tmux split-window -v -t "$STATUS_PANE" -p 25 bash -c '
+P="'"$PROJECT_NAME"'"
+C="$HOME/startups/active/$P/.solo/pipelines/control"
+M="$HOME/startups/active/$P/.solo/pipelines/messages"
+mkdir -p "$(dirname "$C")"
+while true; do
+  clear
+  printf "\033[1m═ Control: %s ═\033[0m\n" "$P"
+  echo "p=pause  r=resume  s=stop  k=skip  m=message  q=close"
+  echo ""
+  if [[ -f "$C" ]]; then
+    printf "  Status: \033[33m%s\033[0m\n" "$(head -1 "$C")"
+  else
+    printf "  Status: \033[32mrunning\033[0m\n"
+  fi
+  read -rsn1 K
+  case $K in
+    p) echo pause>"$C"; printf "\n\033[33mPaused\033[0m\n";;
+    r) rm -f "$C"; printf "\n\033[32mResumed\033[0m\n";;
+    s) echo stop>"$C"; printf "\n\033[31mStopping...\033[0m\n";;
+    k) echo skip>"$C"; printf "\n\033[36mSkipping stage...\033[0m\n";;
+    m) printf "\n→ "; read -r T; echo "$T">>"$M"; printf "\033[32mSent\033[0m\n";;
+    q) exit 0;;
+  esac
+  sleep 1
+done'
+
     # Focus work pane
     tmux select-pane -t "$WORK_PANE"
 
@@ -110,6 +139,7 @@ case "$CMD" in
     echo "  Pane: work area"
     echo "  Pane: log tail"
     echo "  Pane: status monitor"
+    echo "  Pane: control (p/r/s/k/m/q)"
     echo ""
     echo "Attach: solo-dashboard.sh attach $NAME"
     ;;
