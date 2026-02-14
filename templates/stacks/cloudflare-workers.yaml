@@ -30,6 +30,16 @@ logs:
   d1_logs: "wrangler d1 insights {db-name}"
   posthog: "PostHog dashboard → Error tracking"
   local_build: "pnpm build 2>&1 | tail -50"
+dev_server:
+  command: "pnpm dev"
+  port: 8787
+  ready_url: "http://localhost:8787"
+visual_testing:
+  type: browser
+  checks:
+    - "Navigate to localhost:8787, verify API responds with valid JSON"
+    - "Test key API endpoints return expected status codes"
+    - "Check browser console for CORS or fetch errors"
 storage:
   - D1 (SQLite at edge)
   - R2 (S3-compatible storage)

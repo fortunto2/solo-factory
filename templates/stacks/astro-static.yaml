@@ -25,6 +25,16 @@ logs:
   cf_pages: "wrangler pages deployment tail --project-name={name}"
   posthog: "PostHog dashboard → Error tracking"
   local_build: "pnpm build 2>&1 | tail -50"
+dev_server:
+  command: "pnpm dev"
+  port: 4321
+  ready_url: "http://localhost:4321"
+visual_testing:
+  type: browser
+  checks:
+    - "Navigate to localhost:4321, verify page loads without console errors"
+    - "Check that content collections render correctly"
+    - "Verify responsive layout at mobile viewport (375px)"
 features:
   - content_collections
   - static_generation

@@ -1,5 +1,5 @@
 ---
-name: review
+name: solo-review
 description: Final code review and quality gate — run tests, check coverage, audit security, verify acceptance criteria from spec, and generate ship-ready report. Use when user says "review code", "quality check", "is it ready to ship", "final review", or after /deploy completes. Do NOT use for planning (use /plan) or building (use /build).
 license: MIT
 metadata:

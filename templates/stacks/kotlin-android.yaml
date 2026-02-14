@@ -32,6 +32,18 @@ logs:
   posthog: "PostHog dashboard → Error tracking"
   local_build: "./gradlew assembleDebug 2>&1 | tail -30"
 architecture: MVVM + clean_architecture
+visual_testing:
+  type: emulator
+  boot: "emulator -avd $(emulator -list-avds | head -1) -no-window -no-audio &"
+  wait: "adb wait-for-device && adb shell getprop sys.boot_completed | grep -q 1"
+  screenshot: "adb exec-out screencap -p > /tmp/emu-screenshot.png"
+  install: "adb install -r"
+  launch: "adb shell am start"
+  logs: "adb logcat '*:E' --format=time -d 2>&1 | tail -20"
+  checks:
+    - "Build debug APK and install on emulator"
+    - "Take screenshot after launch, verify main activity renders"
+    - "Check logcat for crashes or ANRs"
 notes: |
   - SharedAuth for Google Sign-In via Supabase
   - Android Resources for i18n (strings.xml, values-ru/)

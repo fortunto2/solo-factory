@@ -90,6 +90,17 @@ xcodegen_required:
     xcodebuild archive -scheme <Name> -destination 'generic/platform=iOS' -archivePath build/<Name>.xcarchive
     open build/<Name>.xcarchive  # → Distribute App
 
+visual_testing:
+  type: simulator
+  boot: "xcrun simctl boot 'iPhone 16' 2>/dev/null || true"
+  screenshot: "xcrun simctl io booted screenshot /tmp/sim-screenshot.png"
+  install: "xcrun simctl install booted"
+  launch: "xcrun simctl launch booted"
+  logs: "xcrun simctl spawn booted log stream --style compact --timeout 10"
+  checks:
+    - "Build and install on iOS Simulator"
+    - "Take screenshot after launch, verify main screen renders"
+    - "Check simulator logs for crashes or assertion failures"
 notes: |
   - Prefer SwiftUI over UIKit for new views
   - Use async/await (Swift 6 strict concurrency)

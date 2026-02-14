@@ -1,5 +1,5 @@
 ---
-name: deploy
+name: solo-deploy
 description: Deploy project to hosting platform — read stack YAML for exact config, detect local CLI tools (vercel, wrangler, supabase, fly, sst), set up database, push code, verify live deployment. Use when user says "deploy it", "push to production", "set up hosting", or after /build completes. Do NOT use before build is complete.
 license: MIT
 metadata:

@@ -65,6 +65,17 @@ logs:
   supabase: "supabase functions logs --scroll"
   posthog: "PostHog dashboard → Error tracking"
   local_build: "pnpm build 2>&1 | tail -50"
+dev_server:
+  command: "pnpm dev"
+  port: 3000
+  ready_url: "http://localhost:3000"
+visual_testing:
+  type: browser
+  checks:
+    - "Navigate to localhost:3000, verify page loads without console errors"
+    - "Check for hydration mismatches in browser console"
+    - "Test AI chat interface responds to user input"
+    - "Verify responsive layout at mobile viewport (375px)"
 architecture: app_router_rsc
 extends: nextjs-supabase
 notes: |
