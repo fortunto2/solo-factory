@@ -216,14 +216,33 @@ sst deploy --stage dev     # staging
 
 ### Step 5. Verify Deployment
 
-After deployment:
+After deployment, verify it actually works:
+
 ```bash
-# Get deployment URL from platform output
-# Check HTTP status:
-curl -s -o /dev/null -w "%{http_code}" https://{deployment-url}
+# 1. HTTP status check
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://{deployment-url})
+
+# 2. Check for runtime errors in page body
+BODY=$(curl -s https://{deployment-url} | head -200)
+
+# 3. Check Vercel deployment logs for errors
+vercel logs --output=short 2>&1 | tail -30
 ```
 
-Report the live URL to user.
+**If HTTP status is not 200, or page contains error messages:**
+1. Check `vercel env ls` — are all required env vars set on the platform?
+2. If env vars missing: add them with `vercel env add NAME production <<< "value"`
+3. If env vars set but wrong: `vercel env rm NAME production` then re-add
+4. After fixing env vars: redeploy with `vercel --prod --yes`
+5. Re-check HTTP status and page content
+
+**Common runtime errors and fixes:**
+- "Supabase URL/Key required" → add `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` to Vercel
+- "DATABASE_URL not set" → add `DATABASE_URL` to Vercel
+- "STRIPE_SECRET_KEY missing" → add Stripe keys or remove Stripe code if not ready
+- Blank page / hydration error → check build logs, may need `vercel --prod` redeploy
+
+**Do NOT output `<solo:done/>` until the live URL returns HTTP 200 and page loads without errors.** If you cannot fix the issue, output `<solo:redo/>` to go back to build.
 
 ### Step 6. Post-Deploy Report
 
@@ -282,8 +301,6 @@ Before reporting "deployment successful":
 2. **Verify** HTTP 200 (not 404, 500, or redirect loop).
 3. **Check** the actual page content matches expectations (not a blank page or error).
 4. **Only then** report the deployment as successful.
-
-If `superpowers:verification-before-completion` is available, invoke it before claiming deploy is done.
 
 Never say "deployment should be live" — verify it IS live.
 
