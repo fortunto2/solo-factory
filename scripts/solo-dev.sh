@@ -228,7 +228,7 @@ project_root: "$PROJECT_ROOT"
 stack: "$STACK"
 $CONTEXT_FILE_YAML
 log_file: "$LOG_FILE"
-completion_promise: "PIPELINE COMPLETE"
+signals: "<solo:done/> and <solo:redo/>"
 started_at: "$STARTED_AT"
 stages:
   - id: scaffold
@@ -405,7 +405,8 @@ Use this context to understand what was already done. Do NOT repeat completed wo
   PROMPT="$PROMPT$CONTEXT_INSTRUCTION$PROGRESS_CONTEXT
 
 This is stage $STAGE_NUM/$TOTAL_STAGES ($STAGE_ID) of the dev pipeline (project: $PROJECT_NAME).
-When done with this stage, output: <promise>PIPELINE COMPLETE</promise>"
+When done with this stage, output exactly: <solo:done/>
+If the stage needs to go back (e.g. review found issues), output exactly: <solo:redo/>"
 
   # cd to project dir for stages that operate on the project (not scaffold)
   CLAUDE_CWD="$(pwd)"
@@ -493,21 +494,19 @@ PROGRESSEOF
     fi
   fi
 
-  # Check for completion promise
-  if echo "$OUTPUT" | grep -q "<promise>PIPELINE COMPLETE</promise>"; then
-    ALL_DONE=true
-    for j in "${!STAGE_IDS[@]}"; do
-      C="${STAGE_CHECKS[$j]}"
-      if [[ "$C" == *"*"* ]]; then
-        compgen -G "$C" > /dev/null 2>&1 || { ALL_DONE=false; break; }
-      else
-        [[ -f "$C" ]] || { ALL_DONE=false; break; }
-      fi
-    done
-    if [[ "$ALL_DONE" == "true" ]]; then
-      log_entry "DONE" "All stages complete! Promise detected."
-      break
+  # Check if all stages are complete (early exit)
+  ALL_DONE=true
+  for j in "${!STAGE_IDS[@]}"; do
+    C="${STAGE_CHECKS[$j]}"
+    if [[ "$C" == *"*"* ]]; then
+      compgen -G "$C" > /dev/null 2>&1 || { ALL_DONE=false; break; }
+    else
+      [[ -f "$C" ]] || { ALL_DONE=false; break; }
     fi
+  done
+  if [[ "$ALL_DONE" == "true" ]]; then
+    log_entry "DONE" "All stages complete!"
+    break
   fi
 
   sleep 2
