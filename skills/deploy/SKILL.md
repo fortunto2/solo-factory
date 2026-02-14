@@ -22,7 +22,7 @@ Deploy the project to its hosting platform. Reads the stack template YAML (`temp
 
 ## When to use
 
-After `/build` has completed all tasks (BUILD_COMPLETE marker exists). This is the deployment engine.
+After `/build` has completed all tasks (build stage is complete). This is the deployment engine.
 
 Pipeline: `/build` → **`/deploy`** → `/review`
 
@@ -37,7 +37,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 ## Pre-flight Checks
 
 ### 1. Verify build is complete
-- Check `docs/plan/*/BUILD_COMPLETE` exists.
+- Check `.solo/states/build` exists.
 - If not found: "Build not complete. Run `/build` first."
 
 ### 2. Detect available CLI tools

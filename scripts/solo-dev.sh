@@ -428,7 +428,7 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
   # Claude outputs <solo:done/> or <solo:redo/>, bash creates/removes markers.
   # Claude does NOT need to know about marker file names or paths.
   if grep -q '<solo:done/>' "$OUTFILE" 2>/dev/null; then
-    # Resolve CHECK path for glob patterns (e.g. docs/plan/*/BUILD_COMPLETE)
+    # Resolve CHECK path for glob patterns (e.g. .solo/states/build)
     if [[ "$CHECK" == *"*"* ]]; then
       CHECK_DIR=$(compgen -G "$(dirname "$CHECK")" 2>/dev/null | head -1)
       CHECK_FILE="$CHECK_DIR/$(basename "$CHECK")"

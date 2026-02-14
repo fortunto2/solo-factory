@@ -187,7 +187,7 @@ project_root: "$PROJECT_ROOT"
 stack: ""
 $CONTEXT_FILE_YAML
 log_file: "$LOG_FILE"
-completion_promise: "PIPELINE COMPLETE"
+signals: "<solo:done/> and <solo:redo/>"
 started_at: "$STARTED_AT"
 stages:
   - id: research
@@ -342,7 +342,8 @@ Use this context to understand what was already done. Do NOT repeat completed wo
   PROMPT="$SKILL $ARGS$CONTEXT_INSTRUCTION$PROGRESS_CONTEXT
 
 This is stage $STAGE_NUM/$TOTAL_STAGES ($STAGE_ID) of the research pipeline (project: $PROJECT).
-When done with this stage, output: <promise>PIPELINE COMPLETE</promise>"
+When done with this stage, output exactly: <solo:done/>
+If the stage needs to go back (e.g. review found issues), output exactly: <solo:redo/>"
 
   # Run Claude Code (stream-json for real-time tool visibility)
   log_entry "INVOKE" "$SKILL $ARGS"
@@ -387,20 +388,19 @@ PROGRESSEOF
     log_entry "CHECK" "$STAGE_ID | $CHECK -> NOT FOUND"
   fi
 
-  # Check for completion promise (all stages)
-  if echo "$OUTPUT" | grep -q "<promise>PIPELINE COMPLETE</promise>"; then
-    # Verify all files actually exist
-    ALL_DONE=true
-    for j in "${!STAGE_IDS[@]}"; do
-      if [[ ! -f "${STAGE_CHECKS[$j]}" ]]; then
-        ALL_DONE=false
-        break
-      fi
-    done
-    if [[ "$ALL_DONE" == "true" ]]; then
-      log_entry "DONE" "All stages complete! Promise detected."
-      break
+  # Check if all stages are complete (early exit)
+  ALL_DONE=true
+  for j in "${!STAGE_IDS[@]}"; do
+    C="${STAGE_CHECKS[$j]}"
+    if [[ "$C" == *"*"* ]]; then
+      compgen -G "$C" > /dev/null 2>&1 || { ALL_DONE=false; break; }
+    else
+      [[ -f "$C" ]] || { ALL_DONE=false; break; }
     fi
+  done
+  if [[ "$ALL_DONE" == "true" ]]; then
+    log_entry "DONE" "All stages complete!"
+    break
   fi
 
   sleep 2

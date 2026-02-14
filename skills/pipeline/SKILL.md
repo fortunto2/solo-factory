@@ -87,10 +87,10 @@ For dev pipeline: Run `/scaffold project-name stack`
 
 When all stages are done, output:
 ```
-<promise>PIPELINE COMPLETE</promise>
+<solo:done/>
 ```
 
-The Stop hook checks for this promise and cleans up the state file.
+The Stop hook checks for this signal and cleans up the state file.
 
 ## State File
 

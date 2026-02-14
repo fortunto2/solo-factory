@@ -317,7 +317,7 @@ Never write "tests should pass" — run them and show the output.
 1. **Run all checks** — do not skip dimensions even if project seems simple.
 2. **Be specific** — always include file:line references for issues.
 3. **Verdict must be justified** — every SHIP/FIX/BLOCK needs evidence from actual commands.
-4. **Don't auto-fix code** — report issues and add fix tasks to plan.md. Let `/build` fix them. Review only modifies plan.md and BUILD_COMPLETE, never source code.
+4. **Don't auto-fix code** — report issues and add fix tasks to plan.md. Let `/build` fix them. Review only modifies plan.md, never source code.
 5. **Check acceptance criteria** — spec.md is the source of truth for "done".
 6. **Security is non-negotiable** — any hardcoded secret = BLOCK.
 7. **Fresh evidence only** — run commands before making claims. Never rely on memory.

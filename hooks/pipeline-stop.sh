@@ -71,7 +71,7 @@ FRONTMATTER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$STATE_FILE")
 ACTIVE=$(echo "$FRONTMATTER" | grep '^active:' | sed 's/active: *//')
 ITERATION=$(echo "$FRONTMATTER" | grep '^iteration:' | sed 's/iteration: *//')
 MAX_ITERATIONS=$(echo "$FRONTMATTER" | grep '^max_iterations:' | sed 's/max_iterations: *//')
-COMPLETION_PROMISE=$(echo "$FRONTMATTER" | grep '^completion_promise:' | sed 's/completion_promise: *//' | sed 's/^"\(.*\)"$/\1/')
+SIGNALS=$(echo "$FRONTMATTER" | grep '^signals:' | sed 's/signals: *//' | sed 's/^"\(.*\)"$/\1/')
 PIPELINE_TYPE=$(echo "$FRONTMATTER" | grep '^pipeline:' | sed 's/pipeline: *//')
 IDEA=$(echo "$FRONTMATTER" | grep '^idea:' | sed 's/idea: *//' | sed 's/^"\(.*\)"$/\1/')
 PROJECT=$(echo "$FRONTMATTER" | grep '^project:' | sed 's/project: *//' | sed 's/^"\(.*\)"$/\1/')
@@ -116,7 +116,7 @@ if [[ $MAX_ITERATIONS -gt 0 ]] && [[ $ITERATION -ge $MAX_ITERATIONS ]]; then
   exit 0
 fi
 
-# --- Check completion promise in last assistant message ---
+# --- Check <solo:done/> signal in last assistant message ---
 TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | jq -r '.transcript_path')
 
 if [[ -f "$TRANSCRIPT_PATH" ]] && grep -q '"role":"assistant"' "$TRANSCRIPT_PATH"; then
@@ -128,15 +128,12 @@ if [[ -f "$TRANSCRIPT_PATH" ]] && grep -q '"role":"assistant"' "$TRANSCRIPT_PATH
     join("\n")
   ' 2>/dev/null || echo "")
 
-  if [[ -n "$COMPLETION_PROMISE" ]] && [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$LAST_OUTPUT" ]]; then
-    PROMISE_TEXT=$(echo "$LAST_OUTPUT" | perl -0777 -pe 's/.*?<promise>(.*?)<\/promise>.*/$1/s; s/^\s+|\s+$//g; s/\s+/ /g' 2>/dev/null || echo "")
-    if [[ -n "$PROMISE_TEXT" ]] && [[ "$PROMISE_TEXT" = "$COMPLETION_PROMISE" ]]; then
-      DURATION=$(calc_duration "$STARTED_AT")
-      echo "Pipeline ($PROJECT) complete: detected <promise>$COMPLETION_PROMISE</promise>" >&2
-      log_entry "$LOG_FILE" "DONE" "All stages complete! Duration: $DURATION"
-      rm "$STATE_FILE"
-      exit 0
-    fi
+  if echo "$LAST_OUTPUT" | grep -q '<solo:done/>' 2>/dev/null; then
+    DURATION=$(calc_duration "$STARTED_AT")
+    echo "Pipeline ($PROJECT) complete: detected <solo:done/>" >&2
+    log_entry "$LOG_FILE" "DONE" "All stages complete! Duration: $DURATION"
+    rm "$STATE_FILE"
+    exit 0
   fi
 fi
 
@@ -152,7 +149,7 @@ if len(parts) >= 3:
     for s in stages:
         check = s.get('check', '')
         if check:
-            # Always re-check file existence (review can remove BUILD_COMPLETE)
+            # Always re-check file existence (review <solo:redo/> removes .solo/states/build)
             if '*' in check:
                 s['done'] = len(glob.glob(os.path.expanduser(check))) > 0
             else:
@@ -253,7 +250,8 @@ fi
 PROMPT="$PROMPT
 
 This is stage $STAGE_NUM/$TOTAL_STAGES ($STAGE_ID) of the $PIPELINE_TYPE pipeline (project: $PROJECT).
-When ALL stages are complete, output: <promise>$COMPLETION_PROMISE</promise>"
+When done with this stage, output exactly: <solo:done/>
+If the stage needs to go back (e.g. review found issues), output exactly: <solo:redo/>"
 
 SYSTEM_MSG="Pipeline ($PROJECT) iteration $NEXT_ITERATION | Stage $STAGE_NUM/$TOTAL_STAGES: $STAGE_ID"
 

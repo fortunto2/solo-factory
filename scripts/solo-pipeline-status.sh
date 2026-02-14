@@ -91,7 +91,7 @@ if len(parts) >= 3:
     for s in stages:
         check = s.get('check', '')
         if check:
-            # Always re-check (review can remove BUILD_COMPLETE to loop back)
+            # Always re-check (review <solo:redo/> removes .solo/states/build)
             if '*' in check:
                 s['done'] = len(glob.glob(os.path.expanduser(check))) > 0
             else:
