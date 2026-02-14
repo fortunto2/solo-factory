@@ -109,7 +109,7 @@ MSG_FILE="$ACTIVE_DIR/.solo/pipelines/messages"
 
 # --- Visual testing detection (from stack YAML) ---
 VISUAL_TYPE=""
-CHROME_AVAILABLE=false
+BROWSER_AVAILABLE=false
 SIMULATOR_AVAILABLE=false
 EMULATOR_AVAILABLE=false
 
@@ -135,16 +135,9 @@ fi
 # Check tool availability based on visual type
 case "$VISUAL_TYPE" in
   browser)
-    if [[ -d "/Applications/Google Chrome.app" ]] || command -v google-chrome &>/dev/null; then
-      CHROME_AVAILABLE=true
-      # Ensure dev-browser marketplace + skill is available as fallback
-      if command -v claude &>/dev/null; then
-        if ! CLAUDECODE= claude plugin marketplace list 2>/dev/null | grep -q "dev-browser"; then
-          echo "  Installing dev-browser marketplace..."
-          CLAUDECODE= claude plugin marketplace add sawyerhood/dev-browser 2>/dev/null || true
-        fi
-      fi
-    fi
+    # Playwright MCP is available via ~/.mcp.json (passed as --mcp-config)
+    # No Chrome binary check needed — Playwright manages its own browsers
+    BROWSER_AVAILABLE=true
     ;;
   simulator)
     if command -v xcrun &>/dev/null && xcrun simctl list devices 2>/dev/null | grep -q "iPhone"; then
@@ -421,7 +414,7 @@ fi
 if [[ -n "$VISUAL_TYPE" ]]; then
   VT_STATUS="$VISUAL_TYPE"
   case "$VISUAL_TYPE" in
-    browser)   [[ "$CHROME_AVAILABLE" == "true" ]] && VT_STATUS="$VT_STATUS (--chrome)" || VT_STATUS="$VT_STATUS (Chrome not found, skipping)" ;;
+    browser)   [[ "$BROWSER_AVAILABLE" == "true" ]] && VT_STATUS="$VT_STATUS (playwright MCP)" || VT_STATUS="$VT_STATUS (no browser tools, skipping)" ;;
     simulator) [[ "$SIMULATOR_AVAILABLE" == "true" ]] && VT_STATUS="$VT_STATUS (ready)" || VT_STATUS="$VT_STATUS (no simulator, skipping)" ;;
     emulator)  [[ "$EMULATOR_AVAILABLE" == "true" ]] && VT_STATUS="$VT_STATUS (ready)" || VT_STATUS="$VT_STATUS (no emulator, skipping)" ;;
   esac
@@ -575,17 +568,17 @@ Use this context to understand what was already done. Do NOT repeat completed wo
   if [[ "$STAGE_ID" == "build" ]] || [[ "$STAGE_ID" == "review" ]]; then
     case "$VISUAL_TYPE" in
       browser)
-        if [[ "$CHROME_AVAILABLE" == "true" ]]; then
+        if [[ "$BROWSER_AVAILABLE" == "true" ]]; then
           VISUAL_INSTRUCTION="
 
-## Visual Testing (Browser)
-You have browser tools available (--chrome). After implementing changes or during review:
+## Visual Testing (Playwright MCP)
+You have Playwright browser tools available via MCP. After implementing changes or during review:
 1. Start the dev server if not running
-2. Navigate to the app URL and verify the page loads without console errors
-3. Check for hydration mismatches or React errors in the browser console
-4. Take screenshots of key pages to verify visual output
+2. Use playwright MCP tools to navigate to the app URL
+3. Take screenshots of key pages to verify visual output
+4. Check for console errors or hydration mismatches
 5. Test at mobile viewport (375px width) for responsive layout
-If browser tools fail or are unavailable — skip visual checks, do not block progress."
+If playwright tools fail or are unavailable — skip visual checks, do not block progress."
         fi
         ;;
       simulator)
@@ -653,9 +646,9 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
   if [[ -f "$CLAUDE_CWD/.mcp.json" ]]; then
     CLAUDE_FLAGS="$CLAUDE_FLAGS --mcp-config $CLAUDE_CWD/.mcp.json"
   fi
-  if [[ "$CHROME_AVAILABLE" == "true" ]] && [[ "$STAGE_ID" == "build" || "$STAGE_ID" == "review" ]]; then
-    CLAUDE_FLAGS="$CLAUDE_FLAGS --chrome"
-    log_entry "CHROME" "Browser tools enabled for $STAGE_ID"
+  # Playwright MCP is loaded via --mcp-config (no --chrome flag needed)
+  if [[ "$BROWSER_AVAILABLE" == "true" ]] && [[ "$STAGE_ID" == "build" || "$STAGE_ID" == "review" ]]; then
+    log_entry "PLAYWRIGHT" "Browser tools available via MCP for $STAGE_ID"
   fi
   log_entry "INVOKE" "$SKILL $ARGS"
   OUTFILE=$(mktemp /tmp/solo-claude-XXXXXX)

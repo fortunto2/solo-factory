@@ -88,16 +88,20 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    ```
    ~/startups/active/<name>/
    ├── CLAUDE.md          # AI-friendly project docs
-   ├── Makefile           # Common commands (run, test, build, lint, deploy)
+   ├── Makefile           # Common commands (run, test, build, lint, deploy, integration)
    ├── README.md          # Human-friendly project docs
    ├── docs/
    │   └── prd.md         # Copy of PRD
+   ├── cli/               # CLI utility — mirrors core business logic (CLI-First Testing principle)
+   │   └── main.ts|py     # Deterministic pipeline entry point (no LLM required)
    ├── .claude/
    │   └── skills/        # Product-specific workflow skills
    │       └── dev/
    │           └── SKILL.md  # Dev workflow skill (run, test, deploy)
    └── .gitignore         # Stack-specific ignores
    ```
+
+   **CLI-First Testing:** generate a `cli/` directory with a stub that imports core business logic from `lib/` (or equivalent). The CLI should run the main pipeline deterministically without requiring LLM, network, or UI. This enables `make integration` for pipeline verification. See `dev-principles.md` → "CLI-First Testing".
 
    ### `.claude/skills/dev/SKILL.md` — product dev workflow skill
 
@@ -129,8 +133,10 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
 
    Then add stack-specific files. See `references/stack-structures.md` for per-stack file listings (8 stacks: nextjs, ios, kotlin, cloudflare, astro-static, astro-hybrid, python-api, python-ml).
 
-9. **Generate Makefile** — stack-adapted with: `help`, `dev`, `test`, `lint`, `format`, `build`, `clean` targets.
+9. **Generate Makefile** — stack-adapted with: `help`, `dev`, `test`, `lint`, `format`, `build`, `clean`, `deploy` targets.
+   - Add `integration` target if the project has a CLI or deterministic pipeline (stub with a comment if not yet implemented)
    - **ios-swift** must also include: `generate` (xcodegen), `archive` (xcodebuild archive), `open` (open .xcarchive for Distribute)
+   - The Makefile is the **canonical command interface** — `/build` and `/review` use `make` targets instead of raw commands
 
 10. **Generate CLAUDE.md** for the new project:
    - Project overview (problem/solution from PRD)

@@ -51,6 +51,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    - TDD strictness (strict / moderate / none)
    - Commit strategy (conventional commits format)
    - Verification checkpoint rules
+   - **Integration Testing section** — if present, run the specified CLI commands after completing tasks that touch the listed paths
    If `docs/workflow.md` missing: use defaults (moderate TDD, conventional commits).
 
 ## Track Selection
@@ -101,6 +102,8 @@ Last task: Task {X.Y}: {description} [in progress]
 Ask via AskUserQuestion, then proceed.
 
 ## Task Execution Loop
+
+**Makefile convention:** If `Makefile` exists in project root, **always prefer `make` targets** over raw commands. Use `make test` instead of `pnpm test`, `make lint` instead of `pnpm lint`, `make build` instead of `pnpm build`, etc. Run `make help` (or read Makefile) to discover available targets. If a `make integration` or similar target exists, use it for integration testing after pipeline-related tasks.
 
 **IMPORTANT — All-done check:** Before entering the loop, scan plan.md for ANY `- [ ]` or `- [~]` tasks. If ALL tasks are `[x]` — skip the loop entirely and jump to **Completion** section below to run final verification and output `<solo:done/>`.
 
@@ -225,12 +228,16 @@ Both use **lefthook** for pre-commit hooks (language-agnostic, no Node.js requir
 - Run existing tests to check nothing broke.
 - For "moderate": write tests for business logic and API routes, skip for UI/config.
 
-### 5.5. Visual Verification (if browser/simulator/emulator available)
+### 5.5. Integration Testing (CLI-First)
+
+If the task touches core business logic (pipeline, algorithms, agent tools), run `make integration` (or the integration command from `docs/workflow.md`). The CLI exercises the same code paths as the UI without requiring a browser. If `make integration` fails, fix before committing.
+
+### 5.6. Visual Verification (if browser/simulator/emulator available)
 
 After implementation, run a quick visual smoke test if tools are available:
 
-**Web projects (browser tools via --chrome):**
-If you have browser tools (BrowserNavigate, BrowserScreenshot, etc.):
+**Web projects (Playwright MCP or browser tools):**
+If you have Playwright MCP tools or browser tools available:
 1. Start the dev server if not already running (check stack YAML for `dev_server.command`)
 2. Navigate to the page affected by the current task
 3. Check the browser console for errors (hydration mismatches, uncaught exceptions, 404s)

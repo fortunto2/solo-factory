@@ -53,7 +53,7 @@ Returns: stack, languages, directory layers, key patterns, top dependencies, hub
 - `CLAUDE.md` — architecture, Do/Don't rules
 - `docs/plan/*/spec.md` — acceptance criteria to verify (REQUIRED)
 - `docs/plan/*/plan.md` — task completion status (REQUIRED)
-- `docs/workflow.md` — TDD policy, quality standards (if exists)
+- `docs/workflow.md` — TDD policy, quality standards, **integration testing commands** (if exists)
 
 **Do NOT read source code at this stage.** Only docs.
 
@@ -76,13 +76,18 @@ Read only the top 3-5 hub files (most connected = most impactful). For security 
 
 ## Review Dimensions
 
+**Makefile convention:** If `Makefile` exists in project root, **always prefer `make` targets** over raw commands. Use `make test` instead of `npm test`, `make lint` instead of `pnpm lint`, `make build` instead of `pnpm build`. Run `make help` (or read Makefile) to discover available targets including integration tests.
+
 Run all 12 dimensions in sequence. Report findings per dimension.
 
 ### 1. Test Suite
 
-Run the full test suite:
+Run the full test suite (prefer `make test` if Makefile exists):
 ```bash
-# Next.js / Node
+# If Makefile exists — use it
+make test 2>&1 || true
+
+# Fallback: Next.js / Node
 npm test -- --coverage 2>&1 || true
 
 # Python
@@ -96,6 +101,11 @@ Report:
 - Total tests: pass / fail / skip
 - Coverage percentage (if available)
 - Any failing tests with file:line references
+
+**Integration tests** — if `docs/workflow.md` has an "Integration Testing" section, run the specified commands:
+- Execute the CLI/integration commands listed there
+- Verify exit code 0 and expected output format
+- Report: command run, exit code, pass/fail
 
 ### 2. Linter & Type Check
 
@@ -358,12 +368,12 @@ Report:
 
 If browser tools or device tools are available, run a visual smoke test.
 
-**Web projects (browser tools via --chrome):**
+**Web projects (Playwright MCP or browser tools):**
 1. Start dev server (use `dev_server.command` from stack YAML, e.g. `pnpm dev`)
-2. Navigate to the main page and verify it loads without console errors
-3. Check for hydration mismatches, React errors, or uncaught exceptions
+2. Use Playwright MCP tools (or browser-use skill) to navigate to the main page
+3. Verify it loads without console errors, hydration mismatches, or React errors
 4. Navigate to 2-3 key pages (based on spec.md features)
-5. Test at desktop (1280px) and mobile (375px) viewports
+5. Take screenshots at desktop (1280px) and mobile (375px) viewports
 6. Look for broken images, missing styles, layout overflow
 
 **iOS projects (simulator):**
