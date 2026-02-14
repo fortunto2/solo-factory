@@ -115,7 +115,30 @@ claude plugin list            # Claude Code plugin
 /solo:pipeline dev "my-app" "ios-swift" --feature "user onboarding"
 ```
 
-The Stop hook chains skills automatically — no manual invocation needed between stages. State files at `~/.solo/pipelines/`, log files for monitoring.
+**Pipeline signals** — 2 universal tags, bash owns all state:
+- `<solo:done/>` — stage complete (bash creates marker in `.solo/states/`)
+- `<solo:redo/>` — go back to build (bash removes `.solo/states/build`)
+
+Claude outputs the tag, bash detects it in stdout and manages marker files. Skills don't need to know file paths.
+
+**Stage markers** live in `{project}/.solo/states/` (build, deploy, review). Reset: `rm -rf .solo/states/`
+
+**Per-iteration logs** — each iteration saves output separately:
+```
+~/.solo/pipelines/{project}/
+├── iter-001-scaffold.log   # Full output per iteration
+├── iter-002-setup.log
+├── iter-003-plan.log
+├── iter-004-build.log
+└── progress.md             # Running docs (injected into next iteration prompt)
+```
+
+**Two pipeline modes:**
+
+| Mode | Launch | Loop owner | Best for |
+|------|--------|------------|----------|
+| **Interactive** | `/pipeline dev ...` in Claude Code | Stop hook | Quick runs, single session |
+| **Big Head** (recommended) | `make bighead-dev` or `solo-dev.sh` | bash script | Long pipelines, tmux dashboard, logs |
 
 **CWD behavior:** scaffold runs from launch directory (needs KB/templates access), then setup/plan/build run from `~/startups/active/{project}/` so skills detect project context correctly.
 
@@ -221,8 +244,9 @@ solo-factory/
 │   ├── audit/               # KB health check
 │   └── pipeline/            # Automated multi-skill pipeline
 ├── scripts/
-│   ├── solo-research.sh        # Research pipeline launcher
-│   ├── solo-dev.sh             # Dev pipeline launcher
+│   ├── bighead                 # Interactive pipeline launcher (Rich CLI, Python)
+│   ├── solo-dev.sh             # Dev pipeline bash loop (signal-based, per-iteration logs)
+│   ├── solo-research.sh        # Research pipeline bash loop
 │   ├── solo-pipeline-status.sh # Colored status display
 │   ├── solo-dashboard.sh       # tmux dashboard manager
 │   ├── solo-stream-fmt.py      # Stream-json formatter (colored tool calls + 8-bit SFX)
