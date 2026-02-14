@@ -10,6 +10,18 @@ argument-hint: "[focus-area]"
 
 # /review
 
+<CRITICAL>
+This skill is SELF-CONTAINED. You MUST follow ONLY the instructions in this file.
+Do NOT invoke, delegate to, or spawn any of these skills:
+- superpowers:requesting-code-review
+- superpowers:code-reviewer
+- superpowers:verification-before-completion
+- Any other external review/audit skill
+
+Do NOT spawn Task subagents for code review. Run all checks yourself, directly.
+If you catch yourself thinking "let me use superpowers for this" — STOP. That is the ONE thing you must not do here.
+</CRITICAL>
+
 Final quality gate before shipping. Runs tests, checks security, verifies acceptance criteria from spec.md, audits code quality, and generates a ship-ready report with go/no-go verdict.
 
 ## When to use

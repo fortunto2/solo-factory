@@ -11,6 +11,18 @@ argument-hint: "[track-id] [--task X.Y] [--phase N]"
 
 # /build
 
+<CRITICAL>
+This skill is SELF-CONTAINED. You MUST follow ONLY the instructions in this file.
+Do NOT invoke, delegate to, or spawn any of these skills:
+- superpowers:executing-plans
+- superpowers:test-driven-development
+- superpowers:subagent-driven-development
+- superpowers:verification-before-completion
+- Any other external build/execution skill
+
+Follow THIS file's task loop, TDD rules, and completion flow. Not superpowers' version.
+</CRITICAL>
+
 Execute tasks from an implementation plan. Finds `plan.md` (in `docs/plan/` for projects or `4-opportunities/` for KB), picks the next unchecked task, implements it with TDD workflow, commits, and updates progress.
 
 ## When to use
