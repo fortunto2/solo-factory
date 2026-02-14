@@ -1,8 +1,12 @@
 #!/bin/bash
 
 # Solo Dev Pipeline
-# Chains: /scaffold -> /setup -> /plan -> /build
+# Chains: /scaffold -> /setup -> /plan -> /build -> /deploy -> /review
 # Runs claude --dangerously-skip-permissions --print in a loop (Ralph-style)
+#
+# Plan Queue: If docs/plan-queue/ contains plan directories, after each
+# build→review cycle the next plan is auto-activated and the cycle repeats.
+# Completed plans are archived to docs/plan-done/.
 #
 # Usage:
 #   solo-dev.sh "project-name" "stack" [--feature "desc"] [--file path] [--from stage] [--max N] [--no-dashboard]
@@ -92,6 +96,8 @@ PROJECT_ROOT="$ACTIVE_DIR"
 SCAFFOLD_CHECK="$ACTIVE_DIR/CLAUDE.md"
 SETUP_CHECK="$ACTIVE_DIR/docs/workflow.md"
 PLAN_CHECK="$ACTIVE_DIR/docs/plan"
+PLAN_QUEUE_DIR="$ACTIVE_DIR/docs/plan-queue"
+PLAN_DONE_DIR="$ACTIVE_DIR/docs/plan-done"
 STATES_DIR="$ACTIVE_DIR/.solo/states"
 BUILD_CHECK="$STATES_DIR/build"
 DEPLOY_CHECK="$STATES_DIR/deploy"
@@ -115,6 +121,41 @@ log_entry() {
   local tag="$1"
   shift
   echo "[$(date +%H:%M:%S)] $tag | $*" | tee -a "$LOG_FILE"
+}
+
+# --- Plan queue cycling ---
+# After build→review completes for one plan, activate next from queue
+cycle_next_plan() {
+  [[ ! -d "$PLAN_QUEUE_DIR" ]] && return 1
+
+  # Find next queued plan (alphabetical order: 02-* before 03-*)
+  NEXT_PLAN=$(find "$PLAN_QUEUE_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | head -1)
+  [[ -z "$NEXT_PLAN" ]] && return 1
+
+  NEXT_PLAN_NAME=$(basename "$NEXT_PLAN")
+  log_entry "QUEUE" "Next plan in queue: $NEXT_PLAN_NAME"
+
+  # Archive completed plan(s) from docs/plan/ → docs/plan-done/
+  mkdir -p "$PLAN_DONE_DIR"
+  for completed in "$PLAN_CHECK"/*/; do
+    [[ -d "$completed" ]] || continue
+    COMPLETED_NAME=$(basename "$completed")
+    log_entry "QUEUE" "Archiving: $COMPLETED_NAME → docs/plan-done/"
+    mv "$completed" "$PLAN_DONE_DIR/$COMPLETED_NAME"
+  done
+
+  # Move next plan from queue to active
+  log_entry "QUEUE" "Activating: $NEXT_PLAN_NAME → docs/plan/"
+  mv "$NEXT_PLAN" "$PLAN_CHECK/$NEXT_PLAN_NAME"
+
+  # Reset build/deploy/review markers for new cycle
+  rm -f "$STATES_DIR/build" "$STATES_DIR/deploy" "$STATES_DIR/review"
+  log_entry "QUEUE" "Reset state markers (build, deploy, review)"
+
+  # Clean up empty queue dir
+  rmdir "$PLAN_QUEUE_DIR" 2>/dev/null || true
+
+  return 0
 }
 
 # --- Check for existing pipeline (skip on tmux re-exec) ---
@@ -141,32 +182,32 @@ for stage in scaffold setup plan build deploy review; do
 
   case "$stage" in
     scaffold)
-      STAGE_SKILLS[$IDX]="/scaffold"
+      STAGE_SKILLS[$IDX]="/solo:scaffold"
       STAGE_ARGS[$IDX]="$PROJECT_NAME $STACK"
       STAGE_CHECKS[$IDX]="$SCAFFOLD_CHECK"
       ;;
     setup)
-      STAGE_SKILLS[$IDX]="/setup"
+      STAGE_SKILLS[$IDX]="/solo:setup"
       STAGE_ARGS[$IDX]=""
       STAGE_CHECKS[$IDX]="$SETUP_CHECK"
       ;;
     plan)
-      STAGE_SKILLS[$IDX]="/plan"
+      STAGE_SKILLS[$IDX]="/solo:plan"
       STAGE_ARGS[$IDX]="${FEATURE:+\"$FEATURE\"}"
       STAGE_CHECKS[$IDX]="$PLAN_CHECK/*/*.md"
       ;;
     build)
-      STAGE_SKILLS[$IDX]="/build"
+      STAGE_SKILLS[$IDX]="/solo:build"
       STAGE_ARGS[$IDX]=""
       STAGE_CHECKS[$IDX]="$BUILD_CHECK"
       ;;
     deploy)
-      STAGE_SKILLS[$IDX]="/deploy"
+      STAGE_SKILLS[$IDX]="/solo:deploy"
       STAGE_ARGS[$IDX]=""
       STAGE_CHECKS[$IDX]="$DEPLOY_CHECK"
       ;;
     review)
-      STAGE_SKILLS[$IDX]="/review"
+      STAGE_SKILLS[$IDX]="/solo:review"
       STAGE_ARGS[$IDX]=""
       STAGE_CHECKS[$IDX]="$REVIEW_CHECK"
       ;;
@@ -232,32 +273,32 @@ signals: "<solo:done/> and <solo:redo/>"
 started_at: "$STARTED_AT"
 stages:
   - id: scaffold
-    skill: "/scaffold"
+    skill: "/solo:scaffold"
     args: "$SCAFFOLD_ARGS_STR"
     check: "$SCAFFOLD_CHECK"
     done: $SCAFFOLD_DONE
   - id: setup
-    skill: "/setup"
+    skill: "/solo:setup"
     args: ""
     check: "$SETUP_CHECK"
     done: $SETUP_DONE
   - id: plan
-    skill: "/plan"
+    skill: "/solo:plan"
     args: "$PLAN_ARGS_STR"
     check: "$PLAN_CHECK/*/*.md"
     done: $PLAN_DONE
   - id: build
-    skill: "/build"
+    skill: "/solo:build"
     args: ""
     check: "$BUILD_CHECK"
     done: $BUILD_DONE
   - id: deploy
-    skill: "/deploy"
+    skill: "/solo:deploy"
     args: ""
     check: "$DEPLOY_CHECK"
     done: $DEPLOY_DONE
   - id: review
-    skill: "/review"
+    skill: "/solo:review"
     args: ""
     check: "$REVIEW_CHECK"
     done: $REVIEW_DONE
@@ -287,6 +328,11 @@ if [[ -n "$CONTEXT_FILE" ]]; then
   fi
 fi
 echo "  Stages:  $STAGES_DISPLAY"
+QUEUE_COUNT=0
+if [[ -d "$PLAN_QUEUE_DIR" ]]; then
+  QUEUE_COUNT=$(find "$PLAN_QUEUE_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+fi
+[[ "$QUEUE_COUNT" -gt 0 ]] && echo "  Queue:   $QUEUE_COUNT plans in docs/plan-queue/"
 echo "  Max:     $MAX_ITERATIONS iterations"
 echo "  State:   $STATE_FILE"
 echo "  Log:     $LOG_FILE"
@@ -365,9 +411,13 @@ for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
     fi
   done
 
-  # All stages complete
+  # All stages complete — try cycling to next plan from queue
   if [[ $CURRENT_STAGE -lt 0 ]]; then
-    log_entry "DONE" "All stages complete!"
+    if cycle_next_plan; then
+      log_entry "QUEUE" "Cycling to next plan — restarting build→review"
+      continue
+    fi
+    log_entry "DONE" "All stages complete (no more plans in queue)"
     break
   fi
 
@@ -402,6 +452,17 @@ Use this context to understand what was already done. Do NOT repeat completed wo
   # Build prompt
   PROMPT="$SKILL"
   [[ -n "$ARGS" ]] && PROMPT="$PROMPT $ARGS"
+
+  # For build/review stages: inject active plan track ID so Claude finds the right plan
+  if [[ "$STAGE_ID" == "build" ]] || [[ "$STAGE_ID" == "review" ]]; then
+    ACTIVE_PLAN_DIR=$(find "$PLAN_CHECK" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | head -1)
+    if [[ -n "$ACTIVE_PLAN_DIR" ]]; then
+      TRACK_ID=$(basename "$ACTIVE_PLAN_DIR")
+      PROMPT="$PROMPT $TRACK_ID"
+      log_entry "PLAN" "Active plan track: $TRACK_ID"
+    fi
+  fi
+
   PROMPT="$PROMPT$CONTEXT_INSTRUCTION$PROGRESS_CONTEXT
 
 This is stage $STAGE_NUM/$TOTAL_STAGES ($STAGE_ID) of the dev pipeline (project: $PROJECT_NAME).
@@ -505,7 +566,11 @@ PROGRESSEOF
     fi
   done
   if [[ "$ALL_DONE" == "true" ]]; then
-    log_entry "DONE" "All stages complete!"
+    if cycle_next_plan; then
+      log_entry "QUEUE" "Cycling to next plan — restarting build→review"
+      continue
+    fi
+    log_entry "DONE" "All stages complete (no more plans in queue)"
     break
   fi
 
@@ -539,8 +604,18 @@ done
 
 if [[ "$ALL_COMPLETE" == "true" ]]; then
   echo ""
-  echo "Pipeline complete! All stages done."
-  log_entry "DONE" "Pipeline complete!"
+  # Count completed plans
+  DONE_COUNT=0
+  [[ -d "$PLAN_DONE_DIR" ]] && DONE_COUNT=$(find "$PLAN_DONE_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+  ACTIVE_COUNT=$(find "$PLAN_CHECK" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+  TOTAL_PLANS=$((DONE_COUNT + ACTIVE_COUNT))
+  if [[ "$TOTAL_PLANS" -gt 1 ]]; then
+    echo "Pipeline complete! All $TOTAL_PLANS plans done (build→review each)."
+    log_entry "DONE" "Pipeline complete! $TOTAL_PLANS plans cycled."
+  else
+    echo "Pipeline complete! All stages done."
+    log_entry "DONE" "Pipeline complete!"
+  fi
 else
   echo ""
   echo "Pipeline reached max iterations ($MAX_ITERATIONS) without completing all stages."

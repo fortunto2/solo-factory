@@ -44,19 +44,19 @@ else:
 COLS = shutil.get_terminal_size((120, 40)).columns
 HOME = os.path.expanduser("~")
 
-# Tool icons
+# Tool icons (ASCII — hacker style, no emoji)
 ICONS = {
-    "Read": "📖",
-    "Write": "✏️ ",
-    "Edit": "✏️ ",
-    "Bash": "💻",
-    "Glob": "🔍",
-    "Grep": "🔍",
-    "WebSearch": "🌐",
-    "WebFetch": "🌐",
-    "Task": "🤖",
-    "Skill": "⚡",
-    "mcp": "🔌",
+    "Read": f"{CYAN}>>{RESET}",
+    "Write": f"{YELLOW}<<{RESET}",
+    "Edit": f"{YELLOW}<>{RESET}",
+    "Bash": f"{GREEN}$ {RESET}",
+    "Glob": f"{CYAN}**{RESET}",
+    "Grep": f"{CYAN}//",
+    "WebSearch": f"{GREEN}@@{RESET}",
+    "WebFetch": f"{GREEN}@@{RESET}",
+    "Task": f"{MAGENTA}::{RESET}",
+    "Skill": f"{MAGENTA}=>{RESET}",
+    "mcp": f"{BLUE}~~{RESET}",
 }
 
 
@@ -288,8 +288,8 @@ def short_path(path: str) -> str:
 def tool_icon(name: str) -> str:
     """Get icon for tool name."""
     if name.startswith("mcp__"):
-        return ICONS.get("mcp", "🔧")
-    return ICONS.get(name, "🔧")
+        return ICONS.get("mcp", f"{DIM}--{RESET}")
+    return ICONS.get(name, f"{DIM}--{RESET}")
 
 
 def short_tool_name(name: str) -> str:
@@ -354,7 +354,7 @@ def format_tool_line(name: str, inp: dict) -> str:
 
     else:
         first_val = next((str(v)[:60] for v in inp.values() if v), "")
-        return f"  🔧 {CYAN}{short}{RESET} {DIM}{first_val}{RESET}"
+        return f"  {DIM}--{RESET} {CYAN}{short}{RESET} {DIM}{first_val}{RESET}"
 
 
 def emit_tool(name: str, inp: dict):
@@ -442,7 +442,7 @@ def main():
         elif etype == "error":
             err = event.get("error", {})
             msg = err.get("message", str(err))
-            print(f"\n  {RED}❌ Error: {msg}{RESET}", flush=True)
+            print(f"\n  {RED}!! Error: {msg}{RESET}", flush=True)
             _play_sfx("error")
 
         elif etype == "system":

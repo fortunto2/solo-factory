@@ -127,14 +127,14 @@ IDX=0
 
 if [[ "$START_FROM" != "validate" ]]; then
   STAGE_IDS[$IDX]="research"
-  STAGE_SKILLS[$IDX]="/research"
+  STAGE_SKILLS[$IDX]="/solo:research"
   STAGE_ARGS[$IDX]="\"$IDEA\""
   STAGE_CHECKS[$IDX]="$RESEARCH_CHECK"
   IDX=$((IDX + 1))
 fi
 
 STAGE_IDS[$IDX]="validate"
-STAGE_SKILLS[$IDX]="/validate"
+STAGE_SKILLS[$IDX]="/solo:validate"
 STAGE_ARGS[$IDX]="\"$IDEA\""
 STAGE_CHECKS[$IDX]="$PRD_CHECK"
 
@@ -191,12 +191,12 @@ signals: "<solo:done/> and <solo:redo/>"
 started_at: "$STARTED_AT"
 stages:
   - id: research
-    skill: "/research"
+    skill: "/solo:research"
     args: "\"$IDEA\""
     check: "$RESEARCH_CHECK"
     done: $RESEARCH_DONE
   - id: validate
-    skill: "/validate"
+    skill: "/solo:validate"
     args: "\"$IDEA\""
     check: "$PRD_CHECK"
     done: $VALIDATE_DONE
