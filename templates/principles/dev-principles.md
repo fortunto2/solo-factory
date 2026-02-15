@@ -261,6 +261,46 @@ Don't write your own auth — use a shared module.
 
 All domains through Cloudflare. SSL, CDN, DDoS protection — out of the box.
 
+### Cloudflare Tunnel — Expose Services Without Open Ports
+
+Instead of Traefik/nginx reverse proxy, opening firewall ports, and manual SSL certs — use a `cloudflared` tunnel in docker-compose. The tunnel connects outbound to Cloudflare edge, no open ports needed.
+
+**When:** any backend/API on VPS or local machine that needs internet exposure.
+
+**Why better than Traefik/nginx:** zero open ports, automatic SSL, no firewall rules, no DNS propagation wait, works behind NAT.
+
+**Setup:**
+```bash
+cloudflared tunnel create <name>                    # Create tunnel (saves credentials.json)
+cloudflared tunnel route dns <name> api.example.com # Bind subdomain
+```
+
+**docker-compose:**
+```yaml
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: always
+    command: tunnel --no-autoupdate run
+    volumes:
+      - ./cloudflared-config.yml:/etc/cloudflared/config.yml:ro
+      - /path/to/credentials.json:/etc/cloudflared/credentials.json:ro
+    depends_on:
+      service:
+        condition: service_healthy
+```
+
+**cloudflared-config.yml:**
+```yaml
+tunnel: <tunnel-id>
+credentials-file: /etc/cloudflared/credentials.json
+ingress:
+  - hostname: api.example.com
+    service: http://service-name:port
+  - service: http_status:404
+```
+
+**Requirements:** domain must be on Cloudflare DNS. Never commit credentials.json to git.
+
 ### Secrets
 
 - SST: `sst secret set`
