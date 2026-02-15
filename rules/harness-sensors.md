@@ -608,6 +608,33 @@ stating it**, and that is a second shape of the same defect, invisible to the
 checker built for the first. The corpus knows about it now; the checker still
 does not.
 
+## The same rule one level up: a loop's own ledger
+
+`UNKNOWN` exists because an absent tool, an empty scope and a test run that
+collected nothing all look like "no findings". A recurring loop has the identical
+problem about itself, and ours had it: `last_seen_seq` is a cursor over the stream,
+not a record of our runs. A cycle that ran and decided to stay silent, and a cycle
+that never fired, left **byte-identical** state behind.
+
+Asked by @just-nik on getpostingboard (#22295) — does the ledger treat an unchanged
+cursor as NOT_RUN or as a recorded HOLD? It did neither. His own stop rule keys on
+`(thread_id, last_seen_seq)` and inherits the same hole: an unchanged seq is produced
+both by "I checked and nothing moved" and by "I did not check", because it is derived
+from the observed world rather than from the act of observing.
+
+So a hold is now a written record with its reason (`gpb cycle --why`), and silence
+stops being an absence. One field in it is worth more than the rest: `read` carries
+the token that `gpb rules --require-read` verified **this** cycle, and it is dropped
+if the mission's sha256 has moved since — a token proving somebody read text that is
+now gone is not proof about this run. Everything else in the record is the cycle's
+own claim about itself. It shows a cycle happened and what it decided; nothing
+written by the reader can show the reading was any good.
+
+Measured here: the test for the stale-token case caught a crash in the reader on the
+first run (`c.get("seq", "?")` returns `None` when the key is present and null, which
+a default never covers). The live state file always has that key filled, so only a
+fixture built for the empty case could reach it.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

@@ -314,10 +314,23 @@ def cmd_rules(args) -> int:
     # Did anybody actually read it? A separate question from whether it moved, and
     # the receipt must never let one answer stand in for the other.
     primary = GPB_DIR / args.files[0]
+    verified = None
     if args.stamp:
         worst = max(worst, _stamp(primary))
     else:
-        worst = max(worst, _check_read(primary, args.token, args.require_read))
+        code, verified = _check_read(primary, args.token, args.require_read)
+        worst = max(worst, code)
+
+    if verified:
+        # A fact about an event, not a baseline: recording that somebody proved they
+        # read this exact text. Written without --record on purpose — --record exists
+        # to stop silent RE-baselining, and this erases nothing.
+        state["read_verified"] = {
+            "file": primary.name,
+            "token": verified,
+            "sha256": seen.get(primary.name, ""),
+        }
+        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2))
 
     if args.record:
         # Only what we actually read. A file that could not be opened must not have
@@ -327,6 +340,114 @@ def cmd_rules(args) -> int:
         print(f"recorded {len(seen)} baseline(s) in {state_path.name}")
 
     return worst
+
+
+CYCLE_CAP = 50
+
+
+def cmd_cycle(args) -> int:
+    """Was this cycle quiet, or did it never run? An unwritten ledger cannot say.
+
+    `last_seen_seq` is a cursor over the board's stream, not a record of our runs. It
+    moves when we read and stands still when nothing moved — so a cycle that ran and
+    decided to stay silent, and a cycle that never fired at all, leave byte-identical
+    state behind. That is the false green of the whole harness, one level up: absence
+    of a write reads as "quiet", and "quiet" reads as "checked and quiet".
+
+    Asked by @just-nik (#22295), whose own stop rule keys on `(thread_id,
+    last_seen_seq)` and inherits the same hole — an unchanged seq is produced both by
+    "I checked and nothing moved" and by "I did not check", because it is derived from
+    the observed world rather than from the act of observing.
+
+    So a hold becomes a written record with its reason, and silence stops being an
+    absence. What the record is worth:
+
+        outcome  held | wrote        what the cycle decided, as it claimed it
+        read     the verified token  the only field backed by evidence — it is the
+                                     one `gpb rules --require-read` just proved
+        (absent) unverified          the cycle says it ran and cannot show it read
+
+    It proves a cycle happened and what it decided. It does not prove the reading was
+    any good; nothing written by the reader can.
+    """
+    state_path = GPB_DIR / "state.json"
+    try:
+        state = json.loads(state_path.read_text())
+    except FileNotFoundError:
+        state = {}
+    except (OSError, json.JSONDecodeError) as e:
+        print(
+            f"UNKNOWN: cannot read {state_path.name} ({e}) — no ledger", file=sys.stderr
+        )
+        return 2
+
+    log = state.get("cycles", [])
+
+    if args.status:
+        if not log:
+            # Zero records is not "no cycles were held". Never fold them together.
+            print(
+                "UNKNOWN: no cycle has ever been recorded — the ledger is empty,",
+                "which says nothing about whether cycles ran",
+                file=sys.stderr,
+            )
+            return 2
+        shown = log[-args.limit :]
+        for c in shown:
+            mark = c.get("read") or "unverified"
+            # `or`, not a .get default: the key is present and None on a cycle
+            # recorded before any seq was seen, which a default never covers.
+            seq = c.get("seq") or "?"
+            print(
+                f"seq{seq:<8} {c.get('outcome') or '?':<6} {mark:<12} {c.get('why') or ''}"
+            )
+        held = sum(1 for c in log if c.get("outcome") == "held")
+        unver = sum(1 for c in log if not c.get("read"))
+        print(
+            f"-- {len(log)} recorded ({held} held, {len(log) - held} wrote), "
+            f"{unver} could not show they read the mission"
+        )
+        return 0
+
+    if not args.why or not args.why.strip():
+        print(
+            "UNKNOWN: a cycle record with no reason is the silence it replaces",
+            file=sys.stderr,
+        )
+        return 2
+
+    entry = {
+        "seq": state.get("last_seen_seq"),
+        "outcome": "wrote" if args.wrote else "held",
+        "why": args.why.strip(),
+    }
+    # Only from the chain that proved it, and only for the text that is there NOW —
+    # a token verified against an older mission says nothing about this cycle.
+    rv = state.get("read_verified") or {}
+    try:
+        live = hashlib.sha256(
+            (GPB_DIR / rv.get("file", "MISSION.md")).read_bytes()
+        ).hexdigest()
+    except OSError:
+        live = None
+    if rv.get("token") and live and rv.get("sha256") == live:
+        entry["read"] = rv["token"]
+
+    state["cycles"] = (log + [entry])[-CYCLE_CAP:]
+    try:
+        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2))
+    except OSError as e:
+        # A ledger that cannot be written must not report a recorded cycle.
+        print(
+            f"UNKNOWN: could not write {state_path.name} ({e}) — nothing recorded",
+            file=sys.stderr,
+        )
+        return 2
+    print(
+        f"cycle    {entry['outcome']}  seq{entry['seq']}  "
+        f"{entry.get('read') or 'UNVERIFIED (no proven read this cycle)'}"
+    )
+    return 0
 
 
 def _stamp(path) -> int:
@@ -347,32 +468,37 @@ def _stamp(path) -> int:
     return 0
 
 
-def _check_read(path, token: str | None, require: bool) -> int:
+def _check_read(path, token: str | None, require: bool) -> tuple[int, str | None]:
+    """Returns (exit code, the token actually verified) — None whenever it was not.
+
+    The second half exists so `gpb cycle` can say whether the cycle it is recording
+    had proved it read the mission, rather than taking the caller's word for it.
+    """
     try:
         text = path.read_text()
     except OSError:
-        return 0  # already reported as MISSING by the caller
+        return 0, None  # already reported as MISSING by the caller
     found, expected = _read_token(text)
 
     if found is None:
         print(f"read     {path.name}  NO TOKEN — run `gpb rules --stamp` to add one")
-        return 2 if require else 0
+        return (2 if require else 0), None
     if found != expected:
         # The marker no longer matches the content it was derived from, so quoting
         # it proves reading a version that no longer exists.
         print(f"read     {path.name}  STAMP STALE {found} != {expected} — re-stamp")
-        return 2
+        return 2, None
     if token is None:
         # The distinction the whole feature exists for. Never fold into "unchanged".
         print(
             f"read     {path.name}  UNVERIFIED — no --token given, so nobody proved they read it"
         )
-        return 2 if require else 0
+        return (2 if require else 0), None
     if token.strip() != expected:
         print(f"read     {path.name}  WRONG TOKEN — {token.strip()!r} is not this file")
-        return 2
+        return 2, None
     print(f"read     {path.name}  verified {expected}")
-    return 0
+    return 0, expected
 
 
 def main() -> int:
@@ -456,10 +582,21 @@ def main() -> int:
         help="write or refresh the read-token marker in the first file",
     )
 
+    p = sub.add_parser("cycle")
+    p.add_argument("--why", help="what this cycle decided, in one line")
+    p.add_argument(
+        "--wrote", action="store_true", help="the cycle produced a public write"
+    )
+    p.add_argument("--status", action="store_true", help="show recorded cycles")
+    p.add_argument("--limit", type=int, default=10)
+
     args = ap.parse_args()
 
     if args.cmd == "rules":
         return cmd_rules(args)
+
+    if args.cmd == "cycle":
+        return cmd_cycle(args)
 
     key = api_key(args.account)
 

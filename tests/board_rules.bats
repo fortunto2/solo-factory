@@ -352,3 +352,96 @@ def fake(method, path, key, payload=None, idempotent=False):
 "
   [[ "$output" == *"seq=42"* ]]
 }
+
+# ── `gpb cycle` — a hold is a record, not the absence of one ──────────────────
+#
+# @just-nik (#22295) asked whether our ledger treats an unchanged last_seen_seq as
+# NOT_RUN or as a recorded HOLD. It did neither: nothing was written either way, so
+# "ran and stayed silent" and "never fired" left identical state. Same false green
+# as an absent tool reported as no problems, one level up.
+
+stamp_and_verify() {  # the read chain a real cycle goes through
+  python3 "$GPB" rules --stamp >/dev/null
+  local tok
+  tok=$(head -1 "$GPB_DIR/MISSION.md" | sed 's/.*read-token: \([a-f0-9]*\).*/\1/')
+  python3 "$GPB" rules --record --token "$tok" --require-read >/dev/null
+  echo "$tok"
+}
+
+@test "an empty ledger is UNKNOWN, never quiet" {
+  run python3 "$GPB" cycle --status
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"UNKNOWN"* ]]
+  [[ "$output" == *"says nothing about whether cycles ran"* ]]
+  # The reading it must refuse: zero records as evidence of zero activity.
+  [[ "$output" != *"no cycles were held"* ]]
+}
+
+@test "a hold is recorded with its reason and is readable back" {
+  stamp_and_verify
+  run python3 "$GPB" cycle --why "nothing addressed to us"
+  [ "$status" -eq 0 ]
+  run python3 "$GPB" cycle --status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"held"* ]]
+  [[ "$output" == *"nothing addressed to us"* ]]
+  [[ "$output" == *"1 recorded (1 held, 0 wrote)"* ]]
+}
+
+@test "a cycle that proved it read the mission carries that token" {
+  tok=$(stamp_and_verify)
+  run python3 "$GPB" cycle --why "quiet"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$tok"* ]]
+  [[ "$output" != *"UNVERIFIED"* ]]
+}
+
+@test "a token verified against an older mission does not carry into this cycle" {
+  stamp_and_verify
+  # The mission moves after the verification. The old token is still in state and
+  # still well-formed — and it is now proof of reading text that is gone.
+  printf 'a different mission nobody proved they read\n' > "$GPB_DIR/MISSION.md"
+  run python3 "$GPB" cycle --why "quiet"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"UNVERIFIED"* ]]
+  [[ "$output" == *"no proven read this cycle"* ]]
+}
+
+@test "a cycle with no reason is refused, because it is the silence it replaces" {
+  stamp_and_verify
+  run python3 "$GPB" cycle --why "   "
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"UNKNOWN"* ]]
+  run python3 "$GPB" cycle --status
+  [ "$status" -eq 2 ]  # and nothing was recorded
+}
+
+@test "--wrote and --held are distinguished in the summary" {
+  stamp_and_verify
+  python3 "$GPB" cycle --why "posted the answer" --wrote
+  python3 "$GPB" cycle --why "quiet"
+  run python3 "$GPB" cycle --status
+  [[ "$output" == *"2 recorded (1 held, 1 wrote)"* ]]
+}
+
+@test "the ledger is bounded — an old-enough cycle falls off" {
+  stamp_and_verify
+  for i in $(seq 1 52); do python3 "$GPB" cycle --why "cycle $i" >/dev/null; done
+  run python3 "$GPB" cycle --status --limit 100
+  [[ "$output" == *"50 recorded"* ]]
+  [[ "$output" == *"cycle 52"* ]]
+  [[ "$output" != *"cycle 1 "* ]]
+}
+
+@test "a ledger that cannot be written reports UNKNOWN, not a recorded cycle" {
+  stamp_and_verify
+  # The file, not the directory: an existing file is rewritten in place, so a
+  # read-only directory would not have stopped it and the test would have passed
+  # while measuring nothing.
+  chmod 400 "$GPB_DIR/state.json"
+  run python3 "$GPB" cycle --why "quiet"
+  chmod 600 "$GPB_DIR/state.json"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"nothing recorded"* ]]
+  [[ "$output" != *"cycle    held"* ]]
+}
