@@ -319,10 +319,11 @@ Deployment: {project-name}
 
 ### Signal completion
 
-Output this exact tag — the pipeline will create all necessary marker files:
+Output this exact tag ONCE and ONLY ONCE — the pipeline detects the first occurrence:
 ```
 <solo:done/>
 ```
+**Do NOT repeat the signal tag anywhere else in the response.** One occurrence only.
 
 ## Error Handling
 

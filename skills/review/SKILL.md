@@ -171,7 +171,9 @@ For each `- [ ]` criterion in spec.md:
 2. Check if related tests exist.
 3. Mark as verified or flag as missing.
 
-**After verification, update spec.md directly** — use Edit tool to change each verified `- [ ]` to `- [x]` in spec.md. This keeps the spec as a living document and prevents checkbox staleness across pipeline runs.
+<CRITICAL>
+**MANDATORY: Update spec.md checkboxes.** After verifying each criterion, IMMEDIATELY use Edit tool to change `- [ ]` to `- [x]` in spec.md for every verified criterion. Do NOT leave verified criteria as `- [ ]` — this causes staleness across pipeline runs. If you verified it, check it off NOW, not later.
+</CRITICAL>
 
 ```
 Acceptance Criteria:
@@ -179,6 +181,8 @@ Acceptance Criteria:
   - [x] Dashboard shows project list — found in app/dashboard/page.tsx
   - [ ] Stripe checkout works — route exists but no test coverage
 ```
+
+After updating checkboxes, commit: `git add docs/plan/*/spec.md && git commit -m "docs: update spec checkboxes (verified by review)"`
 
 ### 6. Code Quality Spot Check
 
@@ -521,9 +525,11 @@ After the verdict report, revise the project's CLAUDE.md to keep it lean and use
 - Every line must earn its place: "would a future agent need this to do their job?"
 - Commit the update: `git add CLAUDE.md && git commit -m "docs: revise CLAUDE.md (post-review)"`
 
-## AFTER CLAUDE.md revision — output a signal tag:
+## AFTER CLAUDE.md revision — output signal EXACTLY ONCE:
 
-**If SHIP:** output this exact line:
+**Output the signal tag ONCE and ONLY ONCE.** Do not repeat it. The pipeline detects the first occurrence.
+
+**If SHIP:** output this exact line (once):
 ```
 <solo:done/>
 ```
@@ -532,12 +538,13 @@ After the verdict report, revise the project's CLAUDE.md to keep it lean and use
 1. Open plan.md and APPEND a new phase with fix tasks (one `- [ ] Task` per issue found)
 2. Change plan.md status from `[x] Complete` to `[~] In Progress`
 3. Commit: `git add docs/plan/ && git commit -m "fix: add review fix tasks"`
-4. Output this exact line:
+4. Output this exact line (once):
 ```
 <solo:redo/>
 ```
 
 The pipeline reads these tags and handles all marker files automatically. You do NOT need to create or delete any marker files yourself.
+**Do NOT output the signal tag anywhere else in the response — exactly one occurrence.**
 </MANDATORY>
 
 ## Error Handling

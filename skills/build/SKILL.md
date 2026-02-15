@@ -275,13 +275,14 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `style`
 git rev-parse --short HEAD
 ```
 
-**Update plan.md** — mark task done and append SHA:
-- `[~]` → `[x]` for completed task
-- Append commit SHA inline: `- [x] Task X.Y: description <!-- sha:abc1234 -->`
+<CRITICAL>
+**MANDATORY: SHA annotation in plan.md.** After EVERY task commit, you MUST:
+1. Mark task done: `[~]` → `[x]`
+2. Append commit SHA inline: `- [x] Task X.Y: description <!-- sha:abc1234 -->`
 
-This enables reverting individual tasks later via `git revert <sha>`.
-
+Do NOT mark a task `[x]` without a SHA. No SHA = no traceability = no revert capability.
 If task required multiple commits, record the last one (it covers the full change).
+</CRITICAL>
 
 ### 7. Phase Completion Check
 
@@ -289,14 +290,15 @@ After each task, check if all tasks in current phase are `[x]`.
 
 If phase complete:
 
-1. Run verification steps listed under `### Verification` for the phase.
-2. Run full test suite.
-3. Run linter.
-4. Mark verification checkboxes in plan.md: `- [ ]` → `- [x]`.
-5. Commit plan.md progress: `git commit -m "chore(plan): complete phase {N}"`.
-6. Capture checkpoint SHA and append to phase heading in plan.md:
+1. **SHA audit** — scan all `[x]` tasks in this phase. If any are missing `<!-- sha:... -->`, capture their SHA now from git log and add it. Every `[x]` task MUST have a SHA.
+2. Run verification steps listed under `### Verification` for the phase.
+3. Run full test suite.
+4. Run linter.
+5. Mark verification checkboxes in plan.md: `- [ ]` → `- [x]`.
+6. Commit plan.md progress: `git commit -m "chore(plan): complete phase {N}"`.
+7. Capture checkpoint SHA and append to phase heading in plan.md:
    `## Phase N: Title <!-- checkpoint:abc1234 -->`.
-7. Report results and continue:
+8. Report results and continue:
 
 ```
 Phase {N} complete! <!-- checkpoint:abc1234 -->
@@ -353,10 +355,11 @@ Change `**Status:** [ ] Not Started` → `**Status:** [x] Complete` at the top o
 
 ### 3. Signal completion
 
-Output this exact tag — the pipeline will create all necessary marker files:
+Output this exact tag ONCE and ONLY ONCE — the pipeline detects the first occurrence:
 ```
 <solo:done/>
 ```
+**Do NOT repeat the signal tag elsewhere in the response.** One occurrence only.
 
 ### 4. Summary
 
