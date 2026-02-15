@@ -11,8 +11,8 @@ agents/                     # 3 agents (researcher, code-analyst, idea-validator
 hooks/                      # SessionStart info + Stop pipeline hook
 scripts/                    # Pipeline launchers (bighead, solo-dev.sh, solo-research.sh, solo-codex.sh)
 templates/                  # Stack templates, dev principles, PRD templates
+Makefile                    # plugin-link, plugin-publish, evolve, evolve-apply, factory-critique
 solo → .claude-plugin/      # Symlink for plugin cache compatibility
-Makefile                    # plugin-link, plugin-publish
 ```
 
 ## Publishing Plugin
@@ -63,6 +63,9 @@ The pipeline (`solo-dev.sh`) calls skills as `/solo:{name}`. Claude Code resolve
 - **Submodule:** this repo is included as git submodule in `solopreneur`
 - **MCP in pipeline:** `solo-dev.sh` passes `--mcp-config ~/.mcp.json` so solograph tools work in `--print` sessions
 - **Codex optional:** `solo-codex.sh` runs OpenAI Codex CLI for review/test/fix — reads `AGENTS.md` in project root
+- **Factory Critic / Evolution Loop:** `/retro` Phase 10 runs factory critique (opus evaluates skills/scripts/pipeline), `solo-codex.sh --factory` adds independent Codex critique. Both append structured defects to `~/.solo/evolution.md`. Use `make evolve` to view, `make evolve-apply` to fix interactively, `make factory-critique P=project` to run Codex factory critique.
+- **Signal priority:** `<solo:redo/>` takes priority over `<solo:done/>` when both present in same iteration output. `<solo:redo/>` removes ALL markers (build+deploy+review) and re-execs from build.
+- **Circuit breaker:** fingerprint-based (md5 of last 5 lines), limit 3 identical failures
 
 ## Don't
 
