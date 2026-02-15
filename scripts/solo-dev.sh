@@ -888,6 +888,13 @@ if [[ "$ALL_COMPLETE" == "true" ]]; then
     log_entry "POST" "Retro complete — see $RETRO_LOG"
   fi
 
+  # Step 1b: Codex factory critique (second critic, independent perspective)
+  if [[ "$SKIP_RETRO" != "true" ]] && command -v codex &>/dev/null; then
+    log_entry "POST" "Running Codex factory critique..."
+    "$SCRIPT_DIR/solo-codex.sh" "$PROJECT_NAME" --factory 2>&1 | tee "$ITER_DIR/post-codex-factory.log" || true
+    log_entry "POST" "Codex factory critique complete"
+  fi
+
   # Step 2: Auto-plan from backlog
   if [[ "$SKIP_AUTOPLAN" != "true" ]]; then
     # Build context from backlog + completed plans + PRD

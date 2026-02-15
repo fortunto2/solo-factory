@@ -4,7 +4,7 @@ description: Post-pipeline retrospective — parse logs, score process quality, 
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "2.0.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__codegraph_explain, mcp__solograph__codegraph_query
 argument-hint: "[project-name]"
 ---
@@ -314,6 +314,70 @@ After patching, revise the project's CLAUDE.md to keep it lean and useful for fu
 - Preserve overall section structure and ordering
 - Every line must earn its place: "would a future agent need this to do their job?"
 - Commit the update: `git add CLAUDE.md && git commit -m "docs: revise CLAUDE.md (post-retro)"`
+
+## Phase 10: Factory Critic
+
+After evaluating the project pipeline, step back and evaluate **the factory itself** — the skills, scripts, and pipeline logic that produced this result. Be a harsh critic.
+
+### What to evaluate:
+
+1. **Read the skills that were invoked** in this pipeline run (from INVOKE lines in pipeline.log):
+   - For each skill: `${CLAUDE_PLUGIN_ROOT}/skills/{stage}/SKILL.md`
+   - Did the skill have the right instructions for this project's needs?
+   - Did it miss context it should have had?
+
+2. **Read solo-dev.sh** signal handling and stage logic:
+   - `${CLAUDE_PLUGIN_ROOT}/scripts/solo-dev.sh`
+   - Were there structural issues (wrong stage order, missing re-exec, broken redo)?
+
+3. **Cross-reference with failure patterns** from Phase 3:
+   - For each failure: was the root cause in the skill, the script, or the project?
+   - Skills that caused waste = factory defects
+
+### Score the factory (not the project):
+
+```
+Factory Score: {N}/10
+
+Skill quality:
+- {skill}: {score}/10 — {why}
+- {skill}: {score}/10 — {why}
+
+Pipeline reliability: {N}/10 — {why}
+
+Missing capabilities:
+- {what the factory couldn't do that it should have}
+
+Top factory defects:
+1. {defect} → {which file to fix} → {concrete fix}
+2. {defect} → {which file to fix} → {concrete fix}
+```
+
+### Write to evolution log:
+
+Append findings to `~/.solo/evolution.md` (create if not exists):
+
+```markdown
+## {YYYY-MM-DD} | {project} | Factory Score: {N}/10
+
+Pipeline: {stages run} | Iters: {total} | Waste: {pct}%
+
+### Defects
+- **{severity}** | {skill/script}: {description}
+  - Fix: {concrete file:change}
+
+### Missing
+- {capability the factory lacked}
+
+### What worked well
+- {skill/pattern that performed efficiently}
+```
+
+**Rules:**
+- Be brutally honest — if a skill is broken, say so
+- Every defect must have a concrete fix (file + what to change)
+- Track what works well too — don't regress good patterns
+- Keep entries compact — this file accumulates over time
 
 ## Signal Output
 
