@@ -60,6 +60,9 @@ Record which tools are available. Use them directly when found — do NOT `npx` 
 - `docs/workflow.md` — CI/CD policy (if exists)
 - `package.json` or `pyproject.toml` — dependencies, scripts
 - `fly.toml`, `wrangler.toml`, `sst.config.ts` — platform configs (if exist)
+- `docs/plan/*/plan.md` — **active plan** (look for deploy-related phases/tasks)
+
+**Plan-driven deploy:** If the active plan contains deploy phases or tasks (e.g. "deploy Python backend to VPS", "run deploy.sh", "set up Docker on server"), treat those as **primary deploy instructions**. The plan knows the project-specific deploy targets that the generic stack YAML may not cover. Execute plan deploy tasks in addition to (or instead of) the standard platform deploy below.
 
 ### 4. Read stack template YAML
 

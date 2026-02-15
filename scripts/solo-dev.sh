@@ -9,7 +9,7 @@
 # Completed plans are archived to docs/plan-done/.
 #
 # Usage:
-#   solo-dev.sh "project-name" "stack" [--feature "desc"] [--file path] [--from stage] [--max N] [--no-dashboard]
+#   solo-dev.sh "project-name" "stack" [--feature "desc"] [--file path] [--from stage] [--max N] [--no-dashboard] [--no-retro] [--no-autoplan]
 #
 # Examples:
 #   solo-dev.sh "lovon" "nextjs-supabase"
@@ -37,6 +37,8 @@ CONTEXT_FILE=""
 START_FROM=""
 MAX_ITERATIONS=15
 NO_DASHBOARD=false
+SKIP_RETRO=false
+SKIP_AUTOPLAN=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -45,6 +47,8 @@ while [[ $# -gt 0 ]]; do
     --from) START_FROM="$2"; shift 2 ;;
     --max) MAX_ITERATIONS="$2"; shift 2 ;;
     --no-dashboard) NO_DASHBOARD=true; shift ;;
+    --no-retro) SKIP_RETRO=true; shift ;;
+    --no-autoplan) SKIP_AUTOPLAN=true; shift ;;
     *)
       if [[ -z "$PROJECT_NAME" ]]; then
         PROJECT_NAME="$1"
@@ -57,7 +61,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$PROJECT_NAME" ]] || [[ -z "$STACK" ]]; then
-  echo "Usage: solo-dev.sh \"project\" \"stack\" [--feature \"desc\"] [--file path|dir] [--from stage] [--max N] [--no-dashboard]"
+  echo "Usage: solo-dev.sh \"project\" \"stack\" [--feature \"desc\"] [--file path|dir] [--from stage] [--max N] [--no-dashboard] [--no-retro] [--no-autoplan]"
   echo ""
   echo "Stages: scaffold, setup, plan, build, deploy, review"
   echo "  --from setup       # skip scaffold"
@@ -66,6 +70,8 @@ if [[ -z "$PROJECT_NAME" ]] || [[ -z "$STACK" ]]; then
   echo "  --from deploy      # skip to deploy"
   echo "  --from review      # skip to review"
   echo "  --no-dashboard     # skip tmux dashboard"
+  echo "  --no-retro         # skip post-completion retro"
+  echo "  --no-autoplan      # skip post-completion auto-plan"
   exit 1
 fi
 
@@ -702,10 +708,32 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
   fi
 
   if grep -q '<solo:redo/>' "$OUTFILE" 2>/dev/null; then
-    # Go back: remove build marker (review → build loop)
-    if [[ -f "$STATES_DIR/build" ]]; then
-      log_entry "SIGNAL" "<solo:redo/> → removing .solo/states/build (back to build)"
-      rm -f "$STATES_DIR/build"
+    # Go back: remove markers from build onwards (build, deploy, review)
+    for marker in build deploy review; do
+      if [[ -f "$STATES_DIR/$marker" ]]; then
+        log_entry "SIGNAL" "<solo:redo/> → removing .solo/states/$marker"
+        rm -f "$STATES_DIR/$marker"
+      fi
+    done
+
+    # If build is not in current stages (e.g. --from deploy), re-exec from build
+    BUILD_IN_STAGES=false
+    for s in "${STAGE_IDS[@]}"; do
+      [[ "$s" == "build" ]] && BUILD_IN_STAGES=true
+    done
+
+    if [[ "$BUILD_IN_STAGES" != "true" ]]; then
+      REMAINING=$((MAX_ITERATIONS - ITERATION))
+      log_entry "SIGNAL" "<solo:redo/> → build not in stages, re-exec from build ($REMAINING iters left)"
+      # Save iter log before re-exec
+      cp "$OUTFILE" "$ITER_DIR/iter-$(printf '%03d' $ITERATION)-${STAGE_ID}.log" 2>/dev/null || true
+      rm -f "$STATE_FILE" "$OUTFILE"
+      REEXEC_ARGS=("$PROJECT_NAME" "$STACK" --from build --no-dashboard --max "$REMAINING")
+      [[ -n "$FEATURE" ]] && REEXEC_ARGS+=(--feature "$FEATURE")
+      [[ -n "$CONTEXT_FILE" ]] && REEXEC_ARGS+=(--file "$CONTEXT_FILE")
+      [[ "$SKIP_RETRO" == "true" ]] && REEXEC_ARGS+=(--no-retro)
+      [[ "$SKIP_AUTOPLAN" == "true" ]] && REEXEC_ARGS+=(--no-autoplan)
+      exec "$SCRIPT_DIR/solo-dev.sh" "${REEXEC_ARGS[@]}"
     fi
   fi
 
@@ -836,6 +864,97 @@ else
   echo ""
   echo "Pipeline reached max iterations ($MAX_ITERATIONS) without completing all stages."
   log_entry "MAXITER" "Reached max iterations ($MAX_ITERATIONS)"
+fi
+
+# --- Post-completion: retro + auto-plan ---
+if [[ "$ALL_COMPLETE" == "true" ]]; then
+
+  # Step 1: Run retro
+  if [[ "$SKIP_RETRO" != "true" ]]; then
+    log_entry "POST" "Running post-pipeline retro..."
+    RETRO_PROMPT="/solo:retro $PROJECT_NAME"
+
+    RETRO_LOG="$ITER_DIR/post-retro.log"
+
+    # Same claude invocation pattern as main loop
+    RETRO_FLAGS="--dangerously-skip-permissions --verbose --print --output-format stream-json"
+    RETRO_MCP_FLAGS=""
+    [[ -f "$HOME/.mcp.json" ]] && RETRO_MCP_FLAGS="$RETRO_MCP_FLAGS --mcp-config $HOME/.mcp.json"
+    [[ -f "$PROJECT_ROOT/.mcp.json" ]] && RETRO_MCP_FLAGS="$RETRO_MCP_FLAGS --mcp-config $PROJECT_ROOT/.mcp.json"
+
+    (cd "$PROJECT_ROOT" && claude $RETRO_FLAGS $RETRO_MCP_FLAGS -p "$RETRO_PROMPT") \
+      2>&1 | python3 "$SCRIPT_DIR/solo-stream-fmt.py" | tee "$RETRO_LOG" || true
+
+    log_entry "POST" "Retro complete — see $RETRO_LOG"
+  fi
+
+  # Step 2: Auto-plan from backlog
+  if [[ "$SKIP_AUTOPLAN" != "true" ]]; then
+    # Build context from backlog + completed plans + PRD
+    AUTOPLAN_CONTEXT=""
+
+    # Collect backlog files
+    for f in "$PROJECT_ROOT"/docs/backlog*.md; do
+      [[ -f "$f" ]] && AUTOPLAN_CONTEXT="$AUTOPLAN_CONTEXT
+Read $(basename "$f") for backlog items."
+    done
+
+    # Reference completed plans for continuity
+    if [[ -d "$PLAN_DONE_DIR" ]]; then
+      DONE_PLANS=$(ls -d "$PLAN_DONE_DIR"/*/ 2>/dev/null | xargs -I{} basename {} | tr '\n' ', ')
+      [[ -n "$DONE_PLANS" ]] && AUTOPLAN_CONTEXT="$AUTOPLAN_CONTEXT
+Completed plans (already done, do NOT repeat): $DONE_PLANS"
+    fi
+
+    # Reference retro report if just generated
+    LATEST_RETRO=$(find "$PROJECT_ROOT/docs/retro" -name "*.md" -type f 2>/dev/null | sort | tail -1)
+    [[ -n "$LATEST_RETRO" ]] && AUTOPLAN_CONTEXT="$AUTOPLAN_CONTEXT
+Read $(basename "$LATEST_RETRO") for retro recommendations."
+
+    # Check if there's backlog content to plan from
+    BACKLOG_EXISTS=false
+    for f in "$PROJECT_ROOT"/docs/backlog*.md "$PROJECT_ROOT"/docs/prd.md "$PROJECT_ROOT"/docs/roadmap*.md; do
+      [[ -f "$f" ]] && { BACKLOG_EXISTS=true; break; }
+    done
+
+    if [[ "$BACKLOG_EXISTS" == "true" ]]; then
+      log_entry "POST" "Running auto-plan from backlog..."
+
+      AUTOPLAN_PROMPT="/solo:plan Pick the highest-priority unimplemented item from the project backlog (docs/backlog*.md, docs/prd.md, docs/roadmap*.md). Review completed plans in docs/plan-done/ to avoid repeating work. Read the latest retro in docs/retro/ for process recommendations.$AUTOPLAN_CONTEXT"
+
+      PLAN_LOG="$ITER_DIR/post-plan.log"
+
+      (cd "$PROJECT_ROOT" && claude $RETRO_FLAGS $RETRO_MCP_FLAGS -p "$AUTOPLAN_PROMPT") \
+        2>&1 | python3 "$SCRIPT_DIR/solo-stream-fmt.py" | tee "$PLAN_LOG" || true
+
+      log_entry "POST" "Auto-plan complete — see $PLAN_LOG"
+
+      # Check if a new plan was created → restart build->review cycle
+      NEW_PLAN=$(find "$PLAN_CHECK" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | head -1)
+      if [[ -n "$NEW_PLAN" ]]; then
+        NEW_PLAN_NAME=$(basename "$NEW_PLAN")
+        log_entry "POST" "New plan created: $NEW_PLAN_NAME — restarting build→deploy→review"
+
+        # Reset state markers for new cycle
+        rm -f "$STATES_DIR/build" "$STATES_DIR/deploy" "$STATES_DIR/review"
+
+        # Build re-exec args: preserve --max, --feature, --file from original invocation
+        REEXEC_ARGS=("$PROJECT_NAME" "$STACK" --from build --no-dashboard)
+        [[ -n "$FEATURE" ]] && REEXEC_ARGS+=(--feature "$FEATURE")
+        [[ -n "$CONTEXT_FILE" ]] && REEXEC_ARGS+=(--file "$CONTEXT_FILE")
+        [[ "$MAX_ITERATIONS" != "15" ]] && REEXEC_ARGS+=(--max "$MAX_ITERATIONS")
+        [[ "$SKIP_RETRO" == "true" ]] && REEXEC_ARGS+=(--no-retro)
+        [[ "$SKIP_AUTOPLAN" == "true" ]] && REEXEC_ARGS+=(--no-autoplan)
+
+        # Re-exec pipeline from build stage (plan already exists)
+        exec "$SCRIPT_DIR/solo-dev.sh" "${REEXEC_ARGS[@]}"
+      else
+        log_entry "POST" "No new plan created — pipeline fully done"
+      fi
+    else
+      log_entry "POST" "No backlog/roadmap found — skipping auto-plan"
+    fi
+  fi
 fi
 
 # Cleanup state file
