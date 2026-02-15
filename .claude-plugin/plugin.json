@@ -16,7 +16,8 @@
       "args": ["solograph"],
       "env": {
         "CODEGRAPH_DB_PATH": "~/.solo/codegraph.db",
-        "CODEGRAPH_REGISTRY": "~/.solo/registry.yaml"
+        "CODEGRAPH_REGISTRY": "~/.solo/registry.yaml",
+        "TAVILY_API_URL": "http://localhost:8013"
       }
     }
   }

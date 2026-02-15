@@ -171,6 +171,8 @@ For each `- [ ]` criterion in spec.md:
 2. Check if related tests exist.
 3. Mark as verified or flag as missing.
 
+**After verification, update spec.md directly** — use Edit tool to change each verified `- [ ]` to `- [x]` in spec.md. This keeps the spec as a living document and prevents checkbox staleness across pipeline runs.
+
 ```
 Acceptance Criteria:
   - [x] User can sign up with email — found in app/auth/signup/page.tsx + test

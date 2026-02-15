@@ -480,6 +480,27 @@ fi
 # =============================================
 log_entry "START" "$PROJECT_NAME | stages: $STAGES_DISPLAY | max: $MAX_ITERATIONS"
 
+# --- Pre-flight: verify all required skills exist ---
+PLUGIN_DIR="$(dirname "$SCRIPT_DIR")"
+SKILLS_MISSING=false
+for i in "${!STAGE_IDS[@]}"; do
+  STAGE="${STAGE_IDS[$i]}"
+  SKILL_FILE="$PLUGIN_DIR/skills/$STAGE/SKILL.md"
+  if [[ ! -f "$SKILL_FILE" ]]; then
+    log_entry "PREFLIGHT" "MISSING skill file: $SKILL_FILE"
+    SKILLS_MISSING=true
+  elif ! grep -q "^name: solo-$STAGE" "$SKILL_FILE"; then
+    ACTUAL_NAME=$(grep "^name:" "$SKILL_FILE" | head -1)
+    log_entry "PREFLIGHT" "WRONG name in $STAGE/SKILL.md — got '$ACTUAL_NAME', expected 'name: solo-$STAGE'"
+    SKILLS_MISSING=true
+  fi
+done
+if [[ "$SKILLS_MISSING" == "true" ]]; then
+  log_entry "ABORT" "Pre-flight failed — fix skill files and retry"
+  echo "ERROR: Required skills not found or misconfigured. Check $PLUGIN_DIR/skills/"
+  exit 1
+fi
+
 # --- Circuit breaker: track consecutive failures for same stage ---
 CONSECUTIVE_FAILS=0
 LAST_FAIL_STAGE=""
