@@ -281,7 +281,43 @@ After generating the report:
    - If any patches were applied: suggest committing with `fix(retro): {description}`
    - Do NOT auto-commit — just suggest the command
 
-6. **Output signal:** `<solo:done/>`
+## Phase 9: CLAUDE.md Revision
+
+After patching, revise the project's CLAUDE.md to keep it lean and useful for future agents.
+
+### Steps:
+
+1. **Read CLAUDE.md** and check size: `wc -c CLAUDE.md`
+2. **Add learnings from this retro:**
+   - Pipeline failure patterns worth remembering (avoid next time)
+   - New workflow rules or process improvements
+   - Updated commands or tooling changes
+   - Architecture decisions that emerged during the pipeline run
+3. **If over 40,000 characters — trim ruthlessly:**
+   - Collapse completed phase/milestone histories into one line each
+   - Remove verbose explanations — keep terse, actionable notes
+   - Remove duplicate info (same thing explained in multiple sections)
+   - Remove historical migration notes, old debugging context
+   - Remove examples that are obvious from code or covered by skill/doc files
+   - Remove outdated troubleshooting for resolved issues
+4. **Verify result ≤ 40,000 characters** — if still over, cut least actionable content
+5. **Write updated CLAUDE.md**, update "Last updated" date
+
+### Priority (keep → cut):
+1. **ALWAYS KEEP:** Tech stack, directory structure, Do/Don't rules, common commands, architecture decisions
+2. **KEEP:** Workflow instructions, troubleshooting for active issues, key file references
+3. **CONDENSE:** Phase histories (one line each), detailed examples, tool/MCP listings
+4. **CUT FIRST:** Historical notes, verbose explanations, duplicated content, resolved issues
+
+### Rules:
+- Never remove Do/Don't sections — critical guardrails
+- Preserve overall section structure and ordering
+- Every line must earn its place: "would a future agent need this to do their job?"
+- Commit the update: `git add CLAUDE.md && git commit -m "docs: revise CLAUDE.md (post-retro)"`
+
+## Signal Output
+
+**Output signal:** `<solo:done/>`
 
 **Important:** `/retro` always outputs `<solo:done/>` — it never needs redo. Even if pipeline was terrible, the retro itself always completes.
 
