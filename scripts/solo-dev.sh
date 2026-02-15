@@ -692,7 +692,13 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
   # --- Signal-based markers (2 universal signals, bash owns all files) ---
   # Claude outputs <solo:done/> or <solo:redo/>, bash creates/removes markers.
   # Claude does NOT need to know about marker file names or paths.
-  if grep -q '<solo:done/>' "$OUTFILE" 2>/dev/null; then
+  # --- Signal priority: redo > done (if both present, redo wins) ---
+  HAS_REDO=false
+  if grep -q '<solo:redo/>' "$OUTFILE" 2>/dev/null; then
+    HAS_REDO=true
+  fi
+
+  if [[ "$HAS_REDO" != "true" ]] && grep -q '<solo:done/>' "$OUTFILE" 2>/dev/null; then
     # Resolve CHECK path for glob patterns (e.g. .solo/states/build)
     if [[ "$CHECK" == *"*"* ]]; then
       CHECK_DIR=$(compgen -G "$(dirname "$CHECK")" 2>/dev/null | head -1)
@@ -707,7 +713,7 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
     fi
   fi
 
-  if grep -q '<solo:redo/>' "$OUTFILE" 2>/dev/null; then
+  if [[ "$HAS_REDO" == "true" ]]; then
     # Go back: remove markers from build onwards (build, deploy, review)
     for marker in build deploy review; do
       if [[ -f "$STATES_DIR/$marker" ]]; then

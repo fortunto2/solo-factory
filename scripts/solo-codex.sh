@@ -197,7 +197,7 @@ if [[ "$DO_FACTORY" == "true" ]]; then
   FACTORY_CONTEXT="pipeline log: $PIPELINE_LOG"
   [[ -n "$RETRO_FILE" ]] && FACTORY_CONTEXT="$FACTORY_CONTEXT, retro: $RETRO_FILE"
 
-  (cd "$FACTORY_DIR" && codex exec --full-auto \
+  (cd "$FACTORY_DIR" && codex exec --full-auto --writable-path "$HOME/.solo" \
     "You are a factory critic. Evaluate the solo-factory pipeline tools that just built project '$PROJECT'.
 
 Read these artifacts:
