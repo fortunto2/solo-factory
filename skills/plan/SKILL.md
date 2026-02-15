@@ -4,7 +4,7 @@ description: Explore codebase and create spec + phased implementation plan with 
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.1.0"
+  version: "2.2.0"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
 argument-hint: "<task description>"
 ---
@@ -95,6 +95,12 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 
    g. **Read CLAUDE.md** architecture constraints — understand boundaries and conventions.
 
+   h. **Detect deploy infrastructure** — search for deploy scripts/configs to include deploy phase in plan:
+      ```bash
+      find . -maxdepth 3 \( -name 'deploy.sh' -o -name 'Dockerfile' -o -name 'docker-compose.yml' -o -name 'fly.toml' -o -name 'wrangler.toml' \) -type f 2>/dev/null
+      ```
+      If found, read them to understand deploy targets. Include a deploy phase in the plan with concrete commands.
+
 5. **Generate track ID:**
    - Extract a short name (2-3 words, kebab-case) from task description.
    - Format: `{shortname}_{YYYYMMDD}` (e.g., `user-auth_20260209`).
@@ -175,6 +181,17 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    - [ ] {verification steps}
 
    {2-4 phases total}
+
+   ## Phase {N-1}: Deploy (if deploy infrastructure exists)
+   _Include this phase ONLY if the project has deploy scripts/configs (deploy.sh, Dockerfile, docker-compose.yml, fly.toml, wrangler.toml, vercel.json). Skip if no deploy infra found._
+
+   ### Tasks
+   - [ ] Task {N-1}.1: {concrete deploy step — e.g. "Run python/deploy.sh to push Docker image to VPS", "wrangler deploy", etc.}
+   - [ ] Task {N-1}.2: Verify deployment — health check, logs, HTTP status
+
+   ### Verification
+   - [ ] Service is live and healthy
+   - [ ] No runtime errors in production logs
 
    ## Phase {N}: Docs & Cleanup
    ### Tasks
