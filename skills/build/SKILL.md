@@ -436,16 +436,6 @@ At the start of a build session, create a task list from plan.md so progress is 
 3. **TaskUpdate** as you work: `in_progress` when starting a task, `completed` when done.
 4. This gives the user (and pipeline) real-time visibility into progress.
 
-## Superpowers Integration
-
-If `superpowers` plugin skills are available, use them to enhance quality:
-
-- **`superpowers:test-driven-development`** — if TDD is enabled in workflow.md, invoke this skill for the Red-Green-Refactor cycle. It enforces stricter discipline than our built-in TDD steps.
-- **`superpowers:verification-before-completion`** — invoke before claiming any task or phase is complete. The iron rule: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE. Run the test/build command, read output, THEN claim success.
-- **`superpowers:systematic-debugging`** — if a test fails after implementation, invoke this before attempting fixes. Root cause investigation first, not "quick fix" attempts.
-
-If superpowers is not installed, the built-in rules below are sufficient.
-
 ## Rationalizations Catalog
 
 These thoughts mean STOP — you're about to cut corners:

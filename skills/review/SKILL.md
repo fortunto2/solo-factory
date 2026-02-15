@@ -578,7 +578,7 @@ The pipeline reads these tags and handles all marker files automatically. You do
 
 ## Two-Stage Review Pattern
 
-When reviewing significant work, use two stages (inspired by `superpowers:requesting-code-review`):
+When reviewing significant work, use two stages:
 
 **Stage 1 — Spec Compliance:**
 - Does the implementation match spec.md requirements?
@@ -591,8 +591,6 @@ When reviewing significant work, use two stages (inspired by `superpowers:reques
 - Security and performance
 - Code organization and maintainability
 
-If `superpowers:requesting-code-review` is available, use it to dispatch a dedicated code-reviewer agent for Stage 2. This gives an independent second opinion.
-
 ## Verification Gate
 
 **Iron rule: NO VERDICT WITHOUT FRESH EVIDENCE.**
@@ -602,8 +600,6 @@ Before writing any verdict (SHIP/FIX/BLOCK):
 2. **Read** full output — exit codes, pass/fail counts, error messages.
 3. **Confirm** the output matches your claim.
 4. **Only then** write the verdict with evidence.
-
-If `superpowers:verification-before-completion` is available, invoke it before final verdict.
 
 Never write "tests should pass" — run them and show the output.
 
@@ -626,4 +622,9 @@ Never write "tests should pass" — run them and show the output.
 4. **Don't auto-fix code** — report issues and add fix tasks to plan.md. Let `/build` fix them. Review only modifies plan.md, never source code.
 5. **Check acceptance criteria** — spec.md is the source of truth for "done".
 6. **Security is non-negotiable** — any hardcoded secret = BLOCK.
+7. **Fresh evidence only** — run commands before making claims. Never rely on memory.
+ne".
+6. **Security is non-negotiable** — any hardcoded secret = BLOCK.
+7. **Fresh evidence only** — run commands before making claims. Never rely on memory.
+BLOCK.
 7. **Fresh evidence only** — run commands before making claims. Never rely on memory.

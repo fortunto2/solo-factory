@@ -507,10 +507,10 @@ if [[ "$SKILLS_MISSING" == "true" ]]; then
   exit 1
 fi
 
-# --- Circuit breaker: track consecutive failures for same stage ---
+# --- Circuit breaker: track consecutive identical failures ---
 CONSECUTIVE_FAILS=0
-LAST_FAIL_STAGE=""
-CIRCUIT_BREAKER_LIMIT=5
+LAST_FAIL_FINGERPRINT=""
+CIRCUIT_BREAKER_LIMIT=3
 
 for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
   # --- Check control file (pause/stop/skip) ---
@@ -770,22 +770,24 @@ $LAST_LINES
 PROGRESSEOF
   log_entry "ITER" "saved iter-$(printf '%03d' $ITERATION)-${STAGE_ID}.log | commit: $COMMIT_SHA | result: $STAGE_RESULT"
 
-  # --- Circuit breaker: abort after N consecutive failures for same stage ---
+  # --- Circuit breaker: abort after N consecutive identical failures ---
   if [[ "$STAGE_RESULT" == "continuing" ]]; then
-    if [[ "$STAGE_ID" == "$LAST_FAIL_STAGE" ]]; then
+    # Fingerprint = stage + last 5 non-empty lines (normalized)
+    FAIL_FP="${STAGE_ID}:$(grep -v '^$' "$OUTFILE" 2>/dev/null | tail -5 | md5sum 2>/dev/null | cut -c1-8 || echo "nofp")"
+    if [[ "$FAIL_FP" == "$LAST_FAIL_FINGERPRINT" ]]; then
       CONSECUTIVE_FAILS=$((CONSECUTIVE_FAILS + 1))
     else
       CONSECUTIVE_FAILS=1
-      LAST_FAIL_STAGE="$STAGE_ID"
+      LAST_FAIL_FINGERPRINT="$FAIL_FP"
     fi
     if [[ $CONSECUTIVE_FAILS -ge $CIRCUIT_BREAKER_LIMIT ]]; then
-      log_entry "CIRCUIT" "Stage '$STAGE_ID' failed $CONSECUTIVE_FAILS times consecutively — aborting"
+      log_entry "CIRCUIT" "Stage '$STAGE_ID' same failure $CONSECUTIVE_FAILS times (fp: ${FAIL_FP##*:}) — aborting"
       rm -f "$OUTFILE"
       break
     fi
   else
     CONSECUTIVE_FAILS=0
-    LAST_FAIL_STAGE=""
+    LAST_FAIL_FINGERPRINT=""
   fi
 
   rm -f "$OUTFILE"
