@@ -315,11 +315,26 @@ git log --oneline --since="1 week ago" 2>&1 | head -30
 grep -c "sha:" docs/plan/*/plan.md 2>/dev/null || echo "No SHAs found"
 ```
 
+**Pre-commit hooks:**
+
+Read the stack YAML `pre_commit` field to know what system is expected (husky/pre-commit/lefthook) and what it should run (linter + formatter + type-checker). Then verify:
+
+```bash
+# Detect what's configured
+[ -f .husky/pre-commit ] && echo "husky" || [ -f .pre-commit-config.yaml ] && echo "pre-commit" || [ -f lefthook.yml ] && echo "lefthook" || echo "none"
+```
+
+- **Hooks installed?** Check config files exist AND hooks are wired (`core.hooksPath` for husky, `.git/hooks/pre-commit` for pre-commit/lefthook).
+- **Hooks match stack?** Compare detected system with stack YAML `pre_commit` field. Flag mismatch.
+- **`--no-verify` bypasses?** Check if recent commits show signs of skipped hooks (e.g., lint violations that should've been caught). Flag as WARN.
+- **Not configured?** Flag as WARN recommendation — stack YAML expects `{pre_commit}` but nothing found.
+
 Report:
 - Total commits: {N}
 - Conventional format: {N}/{M} compliant
 - Atomic commits: YES / NO (with examples of violations)
 - Plan SHAs: {N}/{M} tasks have SHAs
+- Pre-commit hooks: {ACTIVE / NOT INSTALLED / NOT CONFIGURED} (expected: {stack pre_commit})
 
 ### 11. Documentation Freshness
 

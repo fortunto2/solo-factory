@@ -54,6 +54,30 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    - **Integration Testing section** — if present, run the specified CLI commands after completing tasks that touch the listed paths
    If `docs/workflow.md` missing: use defaults (moderate TDD, conventional commits).
 
+3. **Verify git hooks are installed:**
+
+   Read the stack YAML (`templates/stacks/{stack}.yaml`) — the `pre_commit` field tells you which system and what it runs:
+   - `husky + lint-staged` → JS/TS stacks (eslint + prettier + tsc)
+   - `pre-commit` → Python stacks (ruff + ruff-format + ty)
+   - `lefthook` → mobile stacks (swiftlint/detekt + formatter)
+
+   Then verify the hook system is active:
+   ```bash
+   # husky
+   [ -f .husky/pre-commit ] && git config core.hooksPath | grep -q husky && echo "OK" || echo "NOT ACTIVE"
+   # pre-commit (Python)
+   [ -f .pre-commit-config.yaml ] && [ -f .git/hooks/pre-commit ] && echo "OK" || echo "NOT ACTIVE"
+   # lefthook
+   [ -f lefthook.yml ] && lefthook version >/dev/null 2>&1 && echo "OK" || echo "NOT ACTIVE"
+   ```
+
+   **If not active — install before first commit:**
+   - husky: `pnpm prepare` (or `npm run prepare`)
+   - pre-commit: `uv run pre-commit install`
+   - lefthook: `lefthook install`
+
+   **NEVER use `--no-verify` on commits.** If hooks fail, fix the issue and commit again.
+
 ## Track Selection
 
 ### If `$ARGUMENTS` contains a track ID:
