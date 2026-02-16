@@ -22,6 +22,17 @@ key_packages:
   - SharedAuth (shared auth)
   - SwiftLint (linter)
   - PostHog (analytics, posthog-ios SPM)
+optional_packages:
+  on_device_ai:
+    - "FoundationModelsKit (community tools for Apple Foundation Models — iOS 26+, @Generable, WebTool, Calendar, token mgmt) github:rudrankriyam/FoundationModelsTools"
+    - "VecturaKit (on-device vector DB — MLTensor/MLX/NaturalLanguage embedders, hybrid search, persistent storage) github:rryam/VecturaKit"
+    - "LumoKit (on-device RAG pipeline — PDF/Markdown parsing via PicoDocs + VecturaKit vectors) github:rryam/LumoKit"
+    - "MLX-Outil (tool calling via MLX Swift — Qwen 3 1.7B, WeatherKit/HealthKit/DuckDuckGo/Calendar/Contacts tools) github:rudrankriyam/MLX-Outil"
+  music:
+    - "MusadoraKit (MusicKit companion — simplified Apple Music API) github:rryam/MusadoraKit"
+  ui:
+    - "ErabiKit (customizable SwiftUI settings screen) github:rudrankriyam/ErabiKit"
+    - "LiquidGlasKit (liquid glass effects for SwiftUI) github:rudrankriyam/LiquidGlasKit"
 deploy: app_store
 asc_cli:
   name: "App Store Connect CLI (asc)"
@@ -103,6 +114,20 @@ xcodegen_required:
     xcodebuild archive -scheme <Name> -destination 'generic/platform=iOS' -archivePath build/<Name>.xcarchive
     open build/<Name>.xcarchive  # → Distribute App
 
+xcode_mcp:
+  description: "Xcode 26.3+ exposes 20 MCP tools via xcrun mcpbridge — Claude Code works natively"
+  enable: "Xcode Settings → Intelligence → Enable MCP Server"
+  bridge: "xcrun mcpbridge"
+  key_tools:
+    - "BuildProject — build from CLI via MCP"
+    - "RunAllTests / RunSomeTests — run tests"
+    - "RenderPreview — render SwiftUI preview as image (visual verification!)"
+    - "DocumentationSearch — Apple docs + WWDC transcripts (MLX embeddings)"
+    - "ExecuteSnippet — Swift REPL for testing snippets"
+    - "XcodeRead / XcodeWrite / XcodeUpdate — file operations"
+    - "GetBuildLog — read build errors"
+  reference: "https://rudrank.com/exploring-xcode-using-mcp-tools-cursor-external-clients"
+
 visual_testing:
   type: simulator
   boot: "xcrun simctl boot 'iPhone 16' 2>/dev/null || true"
@@ -133,3 +158,7 @@ notes: |
   - #if os(iOS) for AVAudioSession, UIApplication (macOS compat)
   - PostHog for analytics (privacy-respecting, EU hosting)
   - App Store Connect CLI (asc) for TestFlight, submissions, crashes, analytics — install via brew if missing
+  - VecturaKit + LumoKit for on-device RAG (privacy-first local search — add when project needs semantic search)
+  - FoundationModelsKit for Apple Foundation Models (iOS 26+ — on-device AI with tools)
+  - Xcode MCP bridge (xcrun mcpbridge) — Claude Code can build, test, render previews natively (Xcode 26.3+)
+  - Reference blog: https://rudrank.com — iOS/MLX/Foundation Models guides by Rudrank Riyam
