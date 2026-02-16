@@ -9,7 +9,7 @@
 # Completed plans are archived to docs/plan-done/.
 #
 # Usage:
-#   solo-dev.sh "project-name" "stack" [--feature "desc"] [--file path] [--from stage] [--max N] [--no-dashboard] [--no-retro] [--no-autoplan]
+#   solo-dev.sh "project-name" "stack" [--feature "desc"] [--file path] [--from stage] [--max N] [--max-hours H] [--no-dashboard] [--no-retro] [--no-autoplan]
 #
 # Examples:
 #   solo-dev.sh "lovon" "nextjs-supabase"
@@ -36,6 +36,7 @@ FEATURE=""
 CONTEXT_FILE=""
 START_FROM=""
 MAX_ITERATIONS=15
+MAX_HOURS=6
 NO_DASHBOARD=false
 SKIP_RETRO=false
 SKIP_AUTOPLAN=false
@@ -46,6 +47,7 @@ while [[ $# -gt 0 ]]; do
     --file) CONTEXT_FILE="$2"; shift 2 ;;
     --from) START_FROM="$2"; shift 2 ;;
     --max) MAX_ITERATIONS="$2"; shift 2 ;;
+    --max-hours) MAX_HOURS="$2"; shift 2 ;;
     --no-dashboard) NO_DASHBOARD=true; shift ;;
     --no-retro) SKIP_RETRO=true; shift ;;
     --no-autoplan) SKIP_AUTOPLAN=true; shift ;;
@@ -69,6 +71,7 @@ if [[ -z "$PROJECT_NAME" ]] || [[ -z "$STACK" ]]; then
   echo "  --from build       # skip scaffold + setup + plan"
   echo "  --from deploy      # skip to deploy"
   echo "  --from review      # skip to review"
+  echo "  --max-hours 6      # global timeout in hours (default: 6)"
   echo "  --no-dashboard     # skip tmux dashboard"
   echo "  --no-retro         # skip post-completion retro"
   echo "  --no-autoplan      # skip post-completion auto-plan"
@@ -164,6 +167,10 @@ mkdir -p "$STATES_DIR"
 STATE_FILE="$PIPELINES_DIR/solo-pipeline-${PROJECT_NAME}.local.md"
 LOG_FILE="$PROJECT_ROOT/.solo/pipelines/pipeline.log"
 STARTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+# Preserve original start epoch across re-execs
+STARTED_EPOCH=${SOLO_PIPELINE_START_EPOCH:-$(date +%s)}
+export SOLO_PIPELINE_START_EPOCH="$STARTED_EPOCH"
+MAX_SECONDS=$((MAX_HOURS * 3600))
 
 # Rotate log on fresh run (not on --no-dashboard re-exec)
 if [[ "$NO_DASHBOARD" == "false" ]] && [[ -s "$LOG_FILE" ]]; then
@@ -476,7 +483,7 @@ if [[ -n "$VISUAL_TYPE" ]]; then
   esac
   echo "  Visual:  $VT_STATUS"
 fi
-echo "  Max:     $MAX_ITERATIONS iterations"
+echo "  Max:     $MAX_ITERATIONS iterations / ${MAX_HOURS}h timeout"
 echo "  State:   $STATE_FILE"
 echo "  Log:     $LOG_FILE"
 echo ""
@@ -575,6 +582,14 @@ RATE_LIMIT_MAX_RETRIES=10    # give up after 10 consecutive rate limits
 for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
   # --- Check control file (pause/stop/skip) ---
   check_control
+
+  # --- Global timeout ---
+  ELAPSED=$(( $(date +%s) - STARTED_EPOCH ))
+  if [[ $ELAPSED -ge $MAX_SECONDS ]]; then
+    ELAPSED_H=$(( ELAPSED / 3600 ))
+    log_entry "TIMEOUT" "Global timeout reached (${ELAPSED_H}h/${MAX_HOURS}h) — stopping to save credits"
+    break
+  fi
 
   # Find next incomplete stage
   CURRENT_STAGE=-1
@@ -843,7 +858,7 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
       # Save iter log before re-exec
       cp "$OUTFILE" "$ITER_DIR/iter-$(printf '%03d' $ITERATION)-${STAGE_ID}.log" 2>/dev/null || true
       rm -f "$STATE_FILE" "$OUTFILE"
-      REEXEC_ARGS=("$PROJECT_NAME" "$STACK" --from build --no-dashboard --max "$REMAINING")
+      REEXEC_ARGS=("$PROJECT_NAME" "$STACK" --from build --no-dashboard --max "$REMAINING" --max-hours "$MAX_HOURS")
       [[ -n "$FEATURE" ]] && REEXEC_ARGS+=(--feature "$FEATURE")
       [[ -n "$CONTEXT_FILE" ]] && REEXEC_ARGS+=(--file "$CONTEXT_FILE")
       [[ "$SKIP_RETRO" == "true" ]] && REEXEC_ARGS+=(--no-retro)
@@ -1041,6 +1056,12 @@ Read $(basename "$LATEST_RETRO") for retro recommendations."
       # Check if a new plan was created → restart build->review cycle
       NEW_PLAN=$(find "$PLAN_CHECK" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | head -1)
       if [[ -n "$NEW_PLAN" ]]; then
+        # Check global timeout before re-exec
+        ELAPSED=$(( $(date +%s) - STARTED_EPOCH ))
+        if [[ $ELAPSED -ge $MAX_SECONDS ]]; then
+          ELAPSED_H=$(( ELAPSED / 3600 ))
+          log_entry "TIMEOUT" "Global timeout (${ELAPSED_H}h/${MAX_HOURS}h) — skipping re-exec"
+        else
         NEW_PLAN_NAME=$(basename "$NEW_PLAN")
         log_entry "POST" "New plan created: $NEW_PLAN_NAME — restarting build→deploy→review"
 
@@ -1051,7 +1072,7 @@ Read $(basename "$LATEST_RETRO") for retro recommendations."
         : > "$PROJECT_ROOT/.solo/pipelines/progress.md"
 
         # Build re-exec args: preserve --max, --feature, --file from original invocation
-        REEXEC_ARGS=("$PROJECT_NAME" "$STACK" --from build --no-dashboard)
+        REEXEC_ARGS=("$PROJECT_NAME" "$STACK" --from build --no-dashboard --max-hours "$MAX_HOURS")
         [[ -n "$FEATURE" ]] && REEXEC_ARGS+=(--feature "$FEATURE")
         [[ -n "$CONTEXT_FILE" ]] && REEXEC_ARGS+=(--file "$CONTEXT_FILE")
         [[ "$MAX_ITERATIONS" != "15" ]] && REEXEC_ARGS+=(--max "$MAX_ITERATIONS")
@@ -1060,6 +1081,7 @@ Read $(basename "$LATEST_RETRO") for retro recommendations."
 
         # Re-exec pipeline from build stage (plan already exists)
         exec "$SCRIPT_DIR/solo-dev.sh" "${REEXEC_ARGS[@]}"
+        fi  # timeout check
       else
         log_entry "POST" "No new plan created — pipeline fully done"
       fi
