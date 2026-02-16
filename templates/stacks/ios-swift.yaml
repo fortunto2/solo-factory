@@ -23,6 +23,19 @@ key_packages:
   - SwiftLint (linter)
   - PostHog (analytics, posthog-ios SPM)
 deploy: app_store
+asc_cli:
+  name: "App Store Connect CLI (asc)"
+  install: "brew tap rudrankriyam/tap && brew install rudrankriyam/tap/asc"
+  auth: "asc auth login --name {Name} --key-id KEY_ID --issuer-id ISSUER_ID --private-key ~/AuthKey.p8"
+  commands:
+    - "asc apps list"
+    - "asc testflight beta-groups list --app APP_ID"
+    - "asc crashes --app APP_ID"
+    - "asc versions list --app APP_ID"
+    - "asc submit --version VERSION_ID"
+    - "asc sales daily"
+    - "asc analytics report"
+  note: "If `asc` not installed, suggest: brew tap rudrankriyam/tap && brew install rudrankriyam/tap/asc"
 infra: none (native store distribution)
 ci_cd: github_actions (xcodebuild + fastlane)
 monitoring: posthog (analytics + errors, posthog-ios SPM)
@@ -119,3 +132,4 @@ notes: |
   - StoreKit 2 for in-app purchases and subscriptions
   - #if os(iOS) for AVAudioSession, UIApplication (macOS compat)
   - PostHog for analytics (privacy-respecting, EU hosting)
+  - App Store Connect CLI (asc) for TestFlight, submissions, crashes, analytics — install via brew if missing
