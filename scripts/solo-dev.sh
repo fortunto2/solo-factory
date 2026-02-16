@@ -562,6 +562,10 @@ CONSECUTIVE_FAILS=0
 LAST_FAIL_FINGERPRINT=""
 CIRCUIT_BREAKER_LIMIT=3
 
+# --- Redo cycle counter: limit review→build loops per plan ---
+REDO_COUNT=0
+REDO_MAX=2  # max redo cycles per plan (review→build→deploy→review counts as 1)
+
 # --- Rate limit: exponential backoff ---
 RATE_LIMIT_BACKOFF=60        # start at 60s
 RATE_LIMIT_MAX_BACKOFF=3600  # cap at 1 hour
@@ -593,6 +597,7 @@ for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
   if [[ $CURRENT_STAGE -lt 0 ]]; then
     run_plan_retro
     if cycle_next_plan; then
+      REDO_COUNT=0  # reset redo counter for new plan
       log_entry "QUEUE" "Cycling to next plan — restarting build→review"
       continue
     fi
@@ -804,21 +809,35 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
   fi
 
   if [[ "$HAS_REDO" == "true" ]]; then
-    # Go back: remove markers from build onwards (build, deploy, review)
-    for marker in build deploy review; do
-      if [[ -f "$STATES_DIR/$marker" ]]; then
-        log_entry "SIGNAL" "<solo:redo/> → removing .solo/states/$marker"
-        rm -f "$STATES_DIR/$marker"
-      fi
-    done
+    REDO_COUNT=$((REDO_COUNT + 1))
+    if [[ $REDO_COUNT -gt $REDO_MAX ]]; then
+      log_entry "REDO" "Redo limit reached ($REDO_MAX) — forcing done to save credits"
+      # Create all remaining markers to force completion
+      for marker in build deploy review; do
+        if [[ ! -f "$STATES_DIR/$marker" ]]; then
+          mkdir -p "$STATES_DIR"
+          echo "Forced: $(date -u +%Y-%m-%dT%H:%M:%SZ) (redo limit)" > "$STATES_DIR/$marker"
+        fi
+      done
+    else
+      log_entry "REDO" "<solo:redo/> cycle $REDO_COUNT/$REDO_MAX — going back to build"
+      # Go back: remove markers from build onwards (build, deploy, review)
+      for marker in build deploy review; do
+        if [[ -f "$STATES_DIR/$marker" ]]; then
+          log_entry "SIGNAL" "<solo:redo/> → removing .solo/states/$marker"
+          rm -f "$STATES_DIR/$marker"
+        fi
+      done
+    fi
 
     # If build is not in current stages (e.g. --from deploy), re-exec from build
+    # Skip re-exec if redo limit was reached (markers were force-created above)
     BUILD_IN_STAGES=false
     for s in "${STAGE_IDS[@]}"; do
       [[ "$s" == "build" ]] && BUILD_IN_STAGES=true
     done
 
-    if [[ "$BUILD_IN_STAGES" != "true" ]]; then
+    if [[ "$BUILD_IN_STAGES" != "true" ]] && [[ $REDO_COUNT -le $REDO_MAX ]]; then
       REMAINING=$((MAX_ITERATIONS - ITERATION))
       log_entry "SIGNAL" "<solo:redo/> → build not in stages, re-exec from build ($REMAINING iters left)"
       # Save iter log before re-exec
@@ -910,6 +929,7 @@ PROGRESSEOF
   if [[ "$ALL_DONE" == "true" ]]; then
     run_plan_retro
     if cycle_next_plan; then
+      REDO_COUNT=0  # reset redo counter for new plan
       log_entry "QUEUE" "Cycling to next plan — restarting build→review"
       continue
     fi
