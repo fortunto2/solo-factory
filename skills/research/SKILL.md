@@ -5,7 +5,7 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.7.0"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__solograph__session_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_search
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__solograph__session_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_search, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_close
 argument-hint: "[idea name or description]"
 ---
 
@@ -27,6 +27,51 @@ If MCP tools are available, prefer them over CLI:
 MCP `web_search` supports engine override: `engines="reddit"`, `engines="youtube"`, etc.
 If MCP tools are not available, use Claude WebSearch/WebFetch as fallback.
 
+### Reddit Search Best Practices
+
+- **Max 3 keywords** in SearXNG reddit queries — more keywords = fewer results
+- Good: `"product hunt outreach launch"` — Bad: `"product hunt scraper maker profiles linkedin outreach launch strategy"`
+- `include_raw_content=true` rarely works for Reddit — use fallback chain below
+
+### Reddit Content Access — Fallback Chain
+
+When SearXNG finds a relevant Reddit post, reading its full content requires a fallback chain:
+
+```
+1. MCP Playwright (old.reddit.com)     ← BEST: bypasses CAPTCHA, full post + comments
+2. PullPush API (api.pullpush.io)      ← search by query/subreddit/author/score/date
+3. SearXNG include_raw_content          ← sometimes works, often truncated
+4. WebFetch / WebSearch snippets        ← last resort, partial data only
+```
+
+**Method 1: MCP Playwright** (recommended for full post content)
+- Use `browser_navigate("https://old.reddit.com/r/...")` — old.reddit.com loads without CAPTCHA
+- `www.reddit.com` shows CAPTCHA ("Prove your humanity"), always use `old.reddit.com`
+- Snapshot contains full post text + comments in structured YAML
+- Example: `old.reddit.com/r/indiehackers/comments/abc123/post_title/`
+
+**Method 2: PullPush API** (for search/discovery)
+- Endpoint: `https://api.pullpush.io/reddit/submission/search`
+- Params: `q`, `subreddit`, `author`, `score` (e.g. `>10,<100`), `since`/`until` (unix timestamps), `size` (max 100)
+- Rate limits: soft 15 req/min, hard 30 req/min, 1000 req/hr. Sleep 4 sec between requests.
+- Returns JSON with full `selftext`, author, score, created_utc
+- Comment search: `/reddit/comment/search` (same params)
+- Can use via curl:
+```bash
+curl -s "https://api.pullpush.io/reddit/submission/search?q=product+hunt+launch&subreddit=indiehackers&size=10"
+```
+
+**Method 3: Reddit .json endpoint** (often blocked)
+- Append `.json` to any Reddit URL: `reddit.com/r/sub/comments/id.json`
+- Returns raw JSON with full post + comments
+- Frequently blocked (403/429) — use as opportunistic fallback only
+
+**Method 4: PRAW** (Reddit Official API, for live search/user profiles)
+- [praw-dev/praw](https://github.com/praw-dev/praw) — Python Reddit API Wrapper
+- OAuth2 auth, built-in rate limiting, sync/async support
+- Best for: live subreddit search, user profiles, comment trees
+- `pip install praw` / `uv add praw`
+
 ## Search Strategy: Hybrid (SearXNG + Claude WebSearch)
 
 Use **both** backends together. Each has strengths:
@@ -34,13 +79,14 @@ Use **both** backends together. Each has strengths:
 | Step | Best backend | Why |
 |------|-------------|-----|
 | **Competitors** | Claude WebSearch + `site:producthunt.com` + `site:g2.com` | Broad discovery + Product Hunt + B2B reviews |
-| **Reddit / Pain points** | SearXNG `engines: reddit` (or MCP `web_search`) | PullPush API, selftext in content |
+| **Reddit / Pain points** | SearXNG `engines: reddit` (max 3 keywords!) + MCP Playwright for full posts | PullPush API, selftext in content |
 | **YouTube reviews** | SearXNG `engines: youtube` + `/transcript` | Video reviews (views = demand) |
 | **Market size** | Claude WebSearch | Synthesizes numbers from 10 sources |
 | **SEO / ASO** | Claude WebSearch | Broader coverage, trend data |
 | **Page scraping** | SearXNG `include_raw_content` | Up to 5000 chars of page content |
 | **Hacker News** | SearXNG `site:news.ycombinator.com` | Via Google (native HN engine broken) |
 | **Funding / Companies** | SearXNG `site:crunchbase.com` | Competitor funding, team size |
+| **Verified revenue** | WebFetch `trustmrr.com/startup/<slug>` | Stripe-verified MRR, growth, tech stack, traffic |
 
 ### SearXNG Availability
 
@@ -105,10 +151,12 @@ curl -s -X POST 'http://localhost:8013/transcript' \
    - `"site:producthunt.com <idea>"` — Product Hunt launches
    - `"site:g2.com <idea>"` or `"site:capterra.com <idea>"` — B2B reviews
    - `"site:crunchbase.com <competitor>"` — funding, team size
-   - For each competitor extract: name, URL, pricing, key features, weaknesses
+   - `"site:trustmrr.com <idea>"` or WebFetch `trustmrr.com/startup/<slug>` — Stripe-verified MRR, growth %, tech stack, traffic (24h/7d/30d)
+   - For each competitor extract: name, URL, pricing, key features, weaknesses, verified MRR (if on TrustMRR)
 
 6. **User pain points** — use SearXNG reddit (primary) + YouTube + Claude WebSearch:
-   - SearXNG/MCP `engines: reddit`: `"<problem>"` — Reddit via PullPush API
+   - SearXNG/MCP `engines: reddit`: `"<problem>"` — Reddit via PullPush API (**max 3 keywords!**)
+   - If Reddit post found but content not available → open via MCP Playwright: `browser_navigate("https://old.reddit.com/r/...")` — old.reddit.com bypasses CAPTCHA
    - SearXNG/MCP `engines: youtube`: `"<problem> review"` — video reviews
    - SearXNG `/transcript`: extract subtitles from top 2-3 YouTube videos
    - `"site:news.ycombinator.com <problem>"` — Hacker News opinions
@@ -171,3 +219,46 @@ See `references/research-template.md` for the full output template (frontmatter,
 ### research.md already exists
 **Cause:** Previous research run for this idea.
 **Fix:** Skill asks before overwriting. Choose to merge new findings or start fresh.
+
+## Proactive Search Practices
+
+### Reddit Deep Dive
+
+1. **SearXNG reddit** — use for discovery (max 3 keywords), get post URLs
+2. **MCP Playwright** — open `old.reddit.com` URLs to read full post + comments (bypasses CAPTCHA)
+3. **Extract quotes** — copy key phrases with attribution (u/username, subreddit, date)
+4. **Cross-post detection** — same post in multiple subreddits = higher signal
+
+### Product Hunt Research
+
+1. **producthunt.com/visit-streaks** — streak leaderboard (scrapeable via Playwright)
+2. **producthunt.com/@username** — profile with social links, maker history, points
+3. **PH API v2 is broken** — redacts usernames/Twitter since Feb 2023, use scraping
+4. **Apify actors** — check for DEPRECATED status before relying on them (mass deprecation Sep 2025)
+
+### TrustMRR Revenue Validation
+
+1. **`trustmrr.com/startup/<slug>`** — Stripe-verified MRR, growth %, subscriptions, traffic
+2. **WebFetch works** — no auth needed, returns full page with JSON-LD structured data
+3. **Data fields:** MRR, all-time revenue, last 30 days, active subs, tech stack, traffic (24h/7d/30d), category, founder X handle
+4. **Use for:** competitor revenue validation, market sizing with real data, tech stack discovery
+5. **Search:** `"site:trustmrr.com <category or idea>"` to find similar startups with verified revenue
+6. **Apify scrapers:** [TrustMRR Scraper](https://apify.com/actor_builder/trustmrr-scraper/api) for bulk extraction
+
+### GitHub Library Discovery
+
+1. **SearXNG `engines: github`** — often returns empty, use Claude WebSearch as primary
+2. **github.com/topics/<keyword>** — browse topic pages via Playwright or WebFetch
+3. **Check stars, last update, open issues** — avoid abandoned repos
+
+### Blocked Content Fallback Chain
+
+```
+MCP Playwright (best) → PullPush API (Reddit) → WebFetch → WebSearch snippets → SearXNG include_raw_content
+```
+
+If a page returns 403/CAPTCHA via WebFetch:
+1. **Reddit:** MCP Playwright → `old.reddit.com` (always works, no CAPTCHA)
+2. **Reddit search:** PullPush API `api.pullpush.io` (structured JSON, full selftext)
+3. **Product Hunt / other sites:** MCP Playwright `browser_navigate` (no captcha on most sites)
+4. **General:** WebSearch snippets + Claude WebSearch synthesis
