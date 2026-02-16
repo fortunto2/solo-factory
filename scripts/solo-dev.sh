@@ -165,9 +165,9 @@ STATE_FILE="$PIPELINES_DIR/solo-pipeline-${PROJECT_NAME}.local.md"
 LOG_FILE="$PROJECT_ROOT/.solo/pipelines/pipeline.log"
 STARTED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Truncate log on fresh run (not on --no-dashboard re-exec)
-if [[ "$NO_DASHBOARD" == "false" ]]; then
-  : > "$LOG_FILE"
+# Rotate log on fresh run (not on --no-dashboard re-exec)
+if [[ "$NO_DASHBOARD" == "false" ]] && [[ -s "$LOG_FILE" ]]; then
+  mv "$LOG_FILE" "${LOG_FILE%.log}-$(date +%Y%m%d-%H%M%S).log" 2>/dev/null || true
 fi
 
 # --- Log helper ---
@@ -239,6 +239,56 @@ cycle_next_plan() {
   rmdir "$PLAN_QUEUE_DIR" 2>/dev/null || true
 
   return 0
+}
+
+# --- Run retro + codex for completed plan ---
+# Called after each plan cycle (build→deploy→review) completes
+# Logs saved per-plan: .solo/pipelines/retro-{plan-name}.log
+run_plan_retro() {
+  [[ "$SKIP_RETRO" == "true" ]] && return
+
+  local ACTIVE_PLAN_DIR PLAN_NAME RETRO_LOG CODEX_LOG RETRO_FLAGS RETRO_MCP_FLAGS
+  local PIPELINES_LOG_DIR="$PROJECT_ROOT/.solo/pipelines"
+  ACTIVE_PLAN_DIR=$(find "$PLAN_CHECK" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | head -1)
+  PLAN_NAME=""
+  [[ -n "$ACTIVE_PLAN_DIR" ]] && PLAN_NAME=$(basename "$ACTIVE_PLAN_DIR")
+
+  log_entry "RETRO" "Running retro for plan: ${PLAN_NAME:-current}..."
+
+  # Per-plan log files (not overwritten between plans)
+  RETRO_LOG="$PIPELINES_LOG_DIR/retro-${PLAN_NAME:-post}.log"
+  CODEX_LOG="$PIPELINES_LOG_DIR/codex-${PLAN_NAME:-post}.log"
+
+  RETRO_FLAGS="--dangerously-skip-permissions --verbose --print --output-format stream-json"
+  RETRO_MCP_FLAGS=""
+  [[ -f "$HOME/.mcp.json" ]] && RETRO_MCP_FLAGS="$RETRO_MCP_FLAGS --mcp-config $HOME/.mcp.json"
+  [[ -f "$PROJECT_ROOT/.mcp.json" ]] && RETRO_MCP_FLAGS="$RETRO_MCP_FLAGS --mcp-config $PROJECT_ROOT/.mcp.json"
+
+  (cd "$PROJECT_ROOT" && claude $RETRO_FLAGS $RETRO_MCP_FLAGS -p "/solo:retro $PROJECT_NAME") \
+    2>&1 | python3 "$SCRIPT_DIR/solo-stream-fmt.py" | tee "$RETRO_LOG" || true
+
+  log_entry "RETRO" "Retro complete — see $RETRO_LOG"
+
+  # Codex factory critique (second critic)
+  if command -v codex &>/dev/null; then
+    log_entry "RETRO" "Running Codex factory critique..."
+    "$SCRIPT_DIR/solo-codex.sh" "$PROJECT_NAME" --factory 2>&1 \
+      | tee "$CODEX_LOG" || true
+    log_entry "RETRO" "Codex factory critique complete"
+  fi
+}
+
+# --- Archive all active plans to plan-done ---
+archive_active_plans() {
+  [[ ! -d "$PLAN_CHECK" ]] && return
+  mkdir -p "$PLAN_DONE_DIR"
+  for completed in "$PLAN_CHECK"/*/; do
+    [[ -d "$completed" ]] || continue
+    local COMPLETED_NAME
+    COMPLETED_NAME=$(basename "$completed")
+    log_entry "ARCHIVE" "Archiving: $COMPLETED_NAME → docs/plan-done/"
+    mv "$completed" "$PLAN_DONE_DIR/$COMPLETED_NAME"
+  done
 }
 
 # --- Check for existing pipeline (skip on tmux re-exec) ---
@@ -512,6 +562,12 @@ CONSECUTIVE_FAILS=0
 LAST_FAIL_FINGERPRINT=""
 CIRCUIT_BREAKER_LIMIT=3
 
+# --- Rate limit: exponential backoff ---
+RATE_LIMIT_BACKOFF=60        # start at 60s
+RATE_LIMIT_MAX_BACKOFF=3600  # cap at 1 hour
+RATE_LIMIT_RETRIES=0
+RATE_LIMIT_MAX_RETRIES=10    # give up after 10 consecutive rate limits
+
 for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
   # --- Check control file (pause/stop/skip) ---
   check_control
@@ -533,8 +589,9 @@ for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
     fi
   done
 
-  # All stages complete — try cycling to next plan from queue
+  # All stages complete — retro + archive + cycle to next plan
   if [[ $CURRENT_STAGE -lt 0 ]]; then
+    run_plan_retro
     if cycle_next_plan; then
       log_entry "QUEUE" "Cycling to next plan — restarting build→review"
       continue
@@ -659,6 +716,7 @@ $(cat "$MSG_FILE")
   PROMPT="$PROMPT$CONTEXT_INSTRUCTION$PROGRESS_CONTEXT$VISUAL_INSTRUCTION$MSG_INSTRUCTION
 
 This is stage $STAGE_NUM/$TOTAL_STAGES ($STAGE_ID) of the dev pipeline (project: $PROJECT_NAME).
+Use git log/diff actively for context — commit history is the source of truth for what was built, changed, and deployed.
 When done with this stage, output exactly: <solo:done/>
 If the stage needs to go back (e.g. review found issues), output exactly: <solo:redo/>"
 
@@ -684,10 +742,42 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
   fi
   log_entry "INVOKE" "$SKILL $ARGS"
   OUTFILE=$(mktemp /tmp/solo-claude-XXXXXX)
+  CLAUDE_EXIT=0
   (cd "$CLAUDE_CWD" && claude $CLAUDE_FLAGS -p "$PROMPT" 2>&1) \
     | python3 "$SCRIPT_DIR/solo-stream-fmt.py" \
-    | tee "$OUTFILE" || true
+    | tee "$OUTFILE" || CLAUDE_EXIT=$?
   OUTPUT=$(cat "$OUTFILE")
+
+  # --- Rate limit detection + exponential backoff ---
+  # Detects: API 429, subscription "usage limit", overloaded errors, empty output (CLI crash on limit)
+  OUTPUT_SIZE=$(wc -c < "$OUTFILE" 2>/dev/null | tr -d ' ')
+  IS_RATE_LIMITED=false
+  if grep -qiE 'rate.?limit|too many requests|429|quota exceeded|overloaded|capacity|usage.?limit|try again later|throttl' "$OUTFILE" 2>/dev/null && \
+     ! grep -q '<solo:done/>' "$OUTFILE" 2>/dev/null; then
+    IS_RATE_LIMITED=true
+  # Empty or tiny output with non-zero exit = likely rate limit or crash
+  elif [[ "$CLAUDE_EXIT" -ne 0 ]] && [[ "${OUTPUT_SIZE:-0}" -lt 100 ]]; then
+    IS_RATE_LIMITED=true
+    log_entry "RATELIMIT" "CLI exited with code $CLAUDE_EXIT and near-empty output (${OUTPUT_SIZE}B) — treating as rate limit"
+  fi
+  if [[ "$IS_RATE_LIMITED" == "true" ]]; then
+    RATE_LIMIT_RETRIES=$((RATE_LIMIT_RETRIES + 1))
+    if [[ $RATE_LIMIT_RETRIES -ge $RATE_LIMIT_MAX_RETRIES ]]; then
+      log_entry "RATELIMIT" "Exhausted $RATE_LIMIT_MAX_RETRIES retries — aborting"
+      rm -f "$OUTFILE"
+      break
+    fi
+    log_entry "RATELIMIT" "Detected rate limit (attempt $RATE_LIMIT_RETRIES/$RATE_LIMIT_MAX_RETRIES) — waiting ${RATE_LIMIT_BACKOFF}s"
+    sleep "$RATE_LIMIT_BACKOFF"
+    # Exponential backoff: 60 → 120 → 240 → 480 → ... (capped at max)
+    RATE_LIMIT_BACKOFF=$((RATE_LIMIT_BACKOFF * 2))
+    [[ $RATE_LIMIT_BACKOFF -gt $RATE_LIMIT_MAX_BACKOFF ]] && RATE_LIMIT_BACKOFF=$RATE_LIMIT_MAX_BACKOFF
+    rm -f "$OUTFILE"
+    continue  # retry same stage, don't count toward circuit breaker
+  fi
+  # Reset backoff on successful invocation (no rate limit)
+  RATE_LIMIT_RETRIES=0
+  RATE_LIMIT_BACKOFF=60
 
   # --- Signal-based markers (2 universal signals, bash owns all files) ---
   # Claude outputs <solo:done/> or <solo:redo/>, bash creates/removes markers.
@@ -818,6 +908,7 @@ PROGRESSEOF
     fi
   done
   if [[ "$ALL_DONE" == "true" ]]; then
+    run_plan_retro
     if cycle_next_plan; then
       log_entry "QUEUE" "Cycling to next plan — restarting build→review"
       continue
@@ -874,34 +965,12 @@ else
   log_entry "MAXITER" "Reached max iterations ($MAX_ITERATIONS)"
 fi
 
-# --- Post-completion: retro + auto-plan ---
+# --- Post-completion: archive + auto-plan ---
+# Note: retro already ran in the main loop (before cycle_next_plan or break)
 if [[ "$ALL_COMPLETE" == "true" ]]; then
 
-  # Step 1: Run retro
-  if [[ "$SKIP_RETRO" != "true" ]]; then
-    log_entry "POST" "Running post-pipeline retro..."
-    RETRO_PROMPT="/solo:retro $PROJECT_NAME"
-
-    RETRO_LOG="$ITER_DIR/post-retro.log"
-
-    # Same claude invocation pattern as main loop
-    RETRO_FLAGS="--dangerously-skip-permissions --verbose --print --output-format stream-json"
-    RETRO_MCP_FLAGS=""
-    [[ -f "$HOME/.mcp.json" ]] && RETRO_MCP_FLAGS="$RETRO_MCP_FLAGS --mcp-config $HOME/.mcp.json"
-    [[ -f "$PROJECT_ROOT/.mcp.json" ]] && RETRO_MCP_FLAGS="$RETRO_MCP_FLAGS --mcp-config $PROJECT_ROOT/.mcp.json"
-
-    (cd "$PROJECT_ROOT" && claude $RETRO_FLAGS $RETRO_MCP_FLAGS -p "$RETRO_PROMPT") \
-      2>&1 | python3 "$SCRIPT_DIR/solo-stream-fmt.py" | tee "$RETRO_LOG" || true
-
-    log_entry "POST" "Retro complete — see $RETRO_LOG"
-  fi
-
-  # Step 1b: Codex factory critique (second critic, independent perspective)
-  if [[ "$SKIP_RETRO" != "true" ]] && command -v codex &>/dev/null; then
-    log_entry "POST" "Running Codex factory critique..."
-    "$SCRIPT_DIR/solo-codex.sh" "$PROJECT_NAME" --factory 2>&1 | tee "$ITER_DIR/post-codex-factory.log" || true
-    log_entry "POST" "Codex factory critique complete"
-  fi
+  # Step 1: Archive completed plans (they stay in docs/plan/ when queue is empty)
+  archive_active_plans
 
   # Step 2: Auto-plan from backlog
   if [[ "$SKIP_AUTOPLAN" != "true" ]]; then
@@ -935,11 +1004,16 @@ Read $(basename "$LATEST_RETRO") for retro recommendations."
     if [[ "$BACKLOG_EXISTS" == "true" ]]; then
       log_entry "POST" "Running auto-plan from backlog..."
 
-      AUTOPLAN_PROMPT="/solo:plan Pick the highest-priority unimplemented item from the project backlog (docs/backlog*.md, docs/prd.md, docs/roadmap*.md). Review completed plans in docs/plan-done/ to avoid repeating work. Read the latest retro in docs/retro/ for process recommendations.$AUTOPLAN_CONTEXT"
+      AUTOPLAN_PROMPT="/solo:plan Pick the highest-priority unimplemented item from the project backlog (docs/backlog*.md, docs/prd.md, docs/roadmap*.md). Review completed plans in docs/plan-done/ AND git log (commit history is the source of truth) to avoid repeating work. Read the latest retro in docs/retro/ for process recommendations.$AUTOPLAN_CONTEXT"
 
-      PLAN_LOG="$ITER_DIR/post-plan.log"
+      PLAN_LOG="$PROJECT_ROOT/.solo/pipelines/autoplan-$(date +%Y%m%d-%H%M%S).log"
 
-      (cd "$PROJECT_ROOT" && claude $RETRO_FLAGS $RETRO_MCP_FLAGS -p "$AUTOPLAN_PROMPT") \
+      AUTOPLAN_FLAGS="--dangerously-skip-permissions --verbose --print --output-format stream-json"
+      AUTOPLAN_MCP=""
+      [[ -f "$HOME/.mcp.json" ]] && AUTOPLAN_MCP="$AUTOPLAN_MCP --mcp-config $HOME/.mcp.json"
+      [[ -f "$PROJECT_ROOT/.mcp.json" ]] && AUTOPLAN_MCP="$AUTOPLAN_MCP --mcp-config $PROJECT_ROOT/.mcp.json"
+
+      (cd "$PROJECT_ROOT" && claude $AUTOPLAN_FLAGS $AUTOPLAN_MCP -p "$AUTOPLAN_PROMPT") \
         2>&1 | python3 "$SCRIPT_DIR/solo-stream-fmt.py" | tee "$PLAN_LOG" || true
 
       log_entry "POST" "Auto-plan complete — see $PLAN_LOG"
@@ -952,6 +1026,9 @@ Read $(basename "$LATEST_RETRO") for retro recommendations."
 
         # Reset state markers for new cycle
         rm -f "$STATES_DIR/build" "$STATES_DIR/deploy" "$STATES_DIR/review"
+
+        # Truncate progress.md for fresh cycle
+        : > "$PROJECT_ROOT/.solo/pipelines/progress.md"
 
         # Build re-exec args: preserve --max, --feature, --file from original invocation
         REEXEC_ARGS=("$PROJECT_NAME" "$STACK" --from build --no-dashboard)

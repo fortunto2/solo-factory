@@ -286,6 +286,12 @@ fi
 # =============================================
 log_entry "START" "$PROJECT | stages: $STAGES_DISPLAY | max: $MAX_ITERATIONS"
 
+# --- Rate limit: exponential backoff ---
+RATE_LIMIT_BACKOFF=60
+RATE_LIMIT_MAX_BACKOFF=3600
+RATE_LIMIT_RETRIES=0
+RATE_LIMIT_MAX_RETRIES=10
+
 for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
   # Find next incomplete stage
   CURRENT_STAGE=-1
@@ -356,11 +362,39 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
   if [[ -f "$PROJECT_ROOT/.mcp.json" ]]; then
     MCP_FLAG="$MCP_FLAG --mcp-config $PROJECT_ROOT/.mcp.json"
   fi
+  CLAUDE_EXIT=0
   claude --dangerously-skip-permissions --verbose --print \
     $MCP_FLAG --output-format stream-json -p "$PROMPT" 2>&1 \
     | python3 "$SCRIPT_DIR/solo-stream-fmt.py" \
-    | tee "$OUTFILE" || true
+    | tee "$OUTFILE" || CLAUDE_EXIT=$?
   OUTPUT=$(cat "$OUTFILE")
+
+  # --- Rate limit detection + exponential backoff ---
+  OUTPUT_SIZE=$(wc -c < "$OUTFILE" 2>/dev/null | tr -d ' ')
+  IS_RATE_LIMITED=false
+  if grep -qiE 'rate.?limit|too many requests|429|quota exceeded|overloaded|capacity|usage.?limit|try again later|throttl' "$OUTFILE" 2>/dev/null && \
+     ! grep -q '<solo:done/>' "$OUTFILE" 2>/dev/null; then
+    IS_RATE_LIMITED=true
+  elif [[ "$CLAUDE_EXIT" -ne 0 ]] && [[ "${OUTPUT_SIZE:-0}" -lt 100 ]]; then
+    IS_RATE_LIMITED=true
+    log_entry "RATELIMIT" "CLI exited with code $CLAUDE_EXIT and near-empty output (${OUTPUT_SIZE}B) — treating as rate limit"
+  fi
+  if [[ "$IS_RATE_LIMITED" == "true" ]]; then
+    RATE_LIMIT_RETRIES=$((RATE_LIMIT_RETRIES + 1))
+    if [[ $RATE_LIMIT_RETRIES -ge $RATE_LIMIT_MAX_RETRIES ]]; then
+      log_entry "RATELIMIT" "Exhausted $RATE_LIMIT_MAX_RETRIES retries — aborting"
+      rm -f "$OUTFILE"
+      break
+    fi
+    log_entry "RATELIMIT" "Detected rate limit (attempt $RATE_LIMIT_RETRIES/$RATE_LIMIT_MAX_RETRIES) — waiting ${RATE_LIMIT_BACKOFF}s"
+    sleep "$RATE_LIMIT_BACKOFF"
+    RATE_LIMIT_BACKOFF=$((RATE_LIMIT_BACKOFF * 2))
+    [[ $RATE_LIMIT_BACKOFF -gt $RATE_LIMIT_MAX_BACKOFF ]] && RATE_LIMIT_BACKOFF=$RATE_LIMIT_MAX_BACKOFF
+    rm -f "$OUTFILE"
+    continue
+  fi
+  RATE_LIMIT_RETRIES=0
+  RATE_LIMIT_BACKOFF=60
 
   # --- Per-iteration log (in project .solo/) ---
   ITER_DIR="$PROJECT_ROOT/.solo/pipelines"
