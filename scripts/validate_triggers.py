@@ -57,7 +57,7 @@ def extract_trigger_phrases(description: str) -> list[str]:
         return []
 
     # Find all quoted phrases after "Use when user says"
-    use_when_part = description[description.index("Use when"):]
+    use_when_part = description[description.index("Use when") :]
     phrases = re.findall(r'"([^"]+)"', use_when_part)
 
     # Stop at "Do NOT" boundary
@@ -108,7 +108,6 @@ def keyword_match(prompt: str, description: str) -> bool:
     trigger phrases.
     """
     prompt_lower = prompt.lower()
-    desc_lower = description.lower()
 
     # Extract trigger phrases from description
     triggers = extract_trigger_phrases(description)
@@ -118,14 +117,20 @@ def keyword_match(prompt: str, description: str) -> bool:
         prompt_words = set(prompt_lower.split())
         # Require >60% overlap AND at least 2 matching words (or all if trigger is 1-2 words)
         overlap = trigger_words & prompt_words
-        min_overlap = max(2, len(trigger_words) * 0.6) if len(trigger_words) > 2 else len(trigger_words)
+        min_overlap = (
+            max(2, len(trigger_words) * 0.6)
+            if len(trigger_words) > 2
+            else len(trigger_words)
+        )
         if len(overlap) >= min_overlap:
             return True
 
     return False
 
 
-def run_tests(skills_dir: Path, target_skill: str | None = None, verbose: bool = False) -> bool:
+def run_tests(
+    skills_dir: Path, target_skill: str | None = None, verbose: bool = False
+) -> bool:
     """Run trigger tests for all skills. Returns True if all pass."""
     all_passed = True
     total_tests = 0
@@ -164,11 +169,11 @@ def run_tests(skills_dir: Path, target_skill: str | None = None, verbose: bool =
             if matched:
                 passed_tests += 1
                 if verbose:
-                    print(f"  PASS  {skill_name} ← \"{prompt}\"")
+                    print(f'  PASS  {skill_name} ← "{prompt}"')
             else:
                 skill_passed = False
                 all_passed = False
-                print(f"  FAIL  {skill_name} should trigger for \"{prompt}\"")
+                print(f'  FAIL  {skill_name} should trigger for "{prompt}"')
 
         # Test negative triggers (these should NOT match)
         for prompt in should_not:
@@ -177,17 +182,19 @@ def run_tests(skills_dir: Path, target_skill: str | None = None, verbose: bool =
             if not matched:
                 passed_tests += 1
                 if verbose:
-                    print(f"  PASS  {skill_name} correctly ignores \"{prompt}\"")
+                    print(f'  PASS  {skill_name} correctly ignores "{prompt}"')
             else:
                 skill_passed = False
                 all_passed = False
-                print(f"  FAIL  {skill_name} should NOT trigger for \"{prompt}\"")
+                print(f'  FAIL  {skill_name} should NOT trigger for "{prompt}"')
 
         if skill_passed and not verbose:
             tag = "(auto)" if auto else ""
             print(f"  OK    {skill_name} — {len(should)}+ / {len(should_not)}- {tag}")
 
-    print(f"\n{'PASS' if all_passed else 'FAIL'} — {passed_tests}/{total_tests} tests passed")
+    print(
+        f"\n{'PASS' if all_passed else 'FAIL'} — {passed_tests}/{total_tests} tests passed"
+    )
     return all_passed
 
 

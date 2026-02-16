@@ -1,4 +1,4 @@
-.PHONY: plugin-link plugin-publish help
+.PHONY: plugin-link plugin-publish test test-verbose test-triggers hooks help
 
 plugin-link: ## Link solo-factory as live plugin (dev mode — edit files, instant updates)
 	@bash scripts/link-plugin.sh
@@ -17,6 +17,23 @@ evolve-apply: ## Apply evolution fixes to solo-factory (interactive)
 	@grep -c "^DEFECT:" ~/.solo/evolution.md 2>/dev/null || echo "0"
 	@echo ""
 	@echo "Run: claude -p '/solo:plan Apply factory defects from ~/.solo/evolution.md to solo-factory skills and scripts'"
+
+test: ## Run all tests (BATS + trigger validation)
+	@bats tests/
+	@python3 scripts/validate_triggers.py
+
+test-bats: ## Run BATS tests only
+	@bats tests/
+
+test-verbose: ## Run BATS tests with verbose output
+	@bats --verbose-run tests/
+
+test-triggers: ## Run skill trigger validation
+	@python3 scripts/validate_triggers.py
+
+hooks: ## Install pre-commit hooks
+	@uvx pre-commit install
+	@echo "Pre-commit hooks installed."
 
 factory-critique: ## Run Codex factory critique on a project (P=project)
 	@bash scripts/solo-codex.sh $(P) --factory

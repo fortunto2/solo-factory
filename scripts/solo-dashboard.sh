@@ -79,6 +79,21 @@ case "$CMD" in
 
     # Create session with work pane
     tmux new-session -d -s "$SESSION" -x 200 -y 50
+
+    # Status bar with keybindings (override global tmux.conf for this session)
+    tmux set -t "$SESSION" status on
+    tmux set -t "$SESSION" status-position bottom
+    tmux set -t "$SESSION" status-style "bg=#1e1e2e,fg=#6c7086"
+    tmux set -t "$SESSION" status-left "#[bg=#f38ba8,fg=#1e1e2e,bold] $NAME "
+    tmux set -t "$SESSION" status-left-length 20
+    tmux set -t "$SESSION" status-right "#[fg=#6c7086] ^A+D detach #[fg=#313244]|#[fg=#f38ba8] ^C kill #[fg=#313244]|#[fg=#6c7086] ^A+arrows panes #[fg=#313244]|#[fg=#cba6f7] %H:%M "
+    tmux set -t "$SESSION" status-right-length 80
+
+    # Bind Ctrl+A, Q to kill this session instantly
+    tmux bind -T prefix Q confirm-before -p "Kill dashboard? (y/n)" "kill-session -t $SESSION"
+    # Bind Ctrl+A, X to kill without confirmation
+    tmux bind -T prefix X kill-session
+
     WORK_PANE=$(first_pane)
 
     # Split right for log tail
@@ -103,34 +118,9 @@ case "$CMD" in
       tmux send-keys -t "$STATUS_PANE" "while true; do clear; $STATUS_CMD; sleep 2; done" C-m
     fi
 
-    # Split bottom of status pane for control menu
-    PROJECT_NAME="$NAME"
-    tmux split-window -v -t "$STATUS_PANE" -p 25 bash -c '
-P="'"$PROJECT_NAME"'"
-C="$HOME/startups/active/$P/.solo/pipelines/control"
-M="$HOME/startups/active/$P/.solo/pipelines/messages"
-mkdir -p "$(dirname "$C")"
-while true; do
-  clear
-  printf "\033[1m═ Control: %s ═\033[0m\n" "$P"
-  echo "p=pause  r=resume  s=stop  k=skip  m=message  q=close"
-  echo ""
-  if [[ -f "$C" ]]; then
-    printf "  Status: \033[33m%s\033[0m\n" "$(head -1 "$C")"
-  else
-    printf "  Status: \033[32mrunning\033[0m\n"
-  fi
-  read -rsn1 K
-  case $K in
-    p) echo pause>"$C"; printf "\n\033[33mPaused\033[0m\n";;
-    r) rm -f "$C"; printf "\n\033[32mResumed\033[0m\n";;
-    s) echo stop>"$C"; printf "\n\033[31mStopping...\033[0m\n";;
-    k) echo skip>"$C"; printf "\n\033[36mSkipping stage...\033[0m\n";;
-    m) printf "\n→ "; read -r T; echo "$T">>"$M"; printf "\033[32mSent\033[0m\n";;
-    q) exit 0;;
-  esac
-  sleep 1
-done'
+    # Split bottom of status pane for control menu (external script for clean signal handling)
+    CONTROL_SCRIPT="$SCRIPT_DIR/solo-control-pane.sh"
+    tmux split-window -v -t "$STATUS_PANE" -p 25 "$CONTROL_SCRIPT" "$NAME"
 
     # Focus work pane
     tmux select-pane -t "$WORK_PANE"
@@ -139,7 +129,7 @@ done'
     echo "  Pane: work area"
     echo "  Pane: log tail"
     echo "  Pane: status monitor"
-    echo "  Pane: control (p/r/s/k/m/q)"
+    echo "  Pane: control (p/r/s/k/m + ^C=kill)"
     echo ""
     echo "Attach: solo-dashboard.sh attach $NAME"
     ;;

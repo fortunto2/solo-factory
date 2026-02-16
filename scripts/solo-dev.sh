@@ -24,61 +24,16 @@ set -euo pipefail
 
 PIPELINES_DIR="$HOME/.solo/pipelines"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/solo-lib.sh"
 LAUNCH_DIR="$(pwd)"
 
 # Save original args for tmux re-exec
 SAVED_ARGS=("$@")
 
-# --- Parse arguments ---
-PROJECT_NAME=""
-STACK=""
-FEATURE=""
-CONTEXT_FILE=""
-START_FROM=""
-MAX_ITERATIONS=15
-MAX_HOURS=6
-NO_DASHBOARD=false
-SKIP_RETRO=false
-SKIP_AUTOPLAN=false
+# --- Parse arguments (solo-lib.sh: parse_args) ---
+parse_args "$@" || exit 1
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --feature) FEATURE="$2"; shift 2 ;;
-    --file) CONTEXT_FILE="$2"; shift 2 ;;
-    --from) START_FROM="$2"; shift 2 ;;
-    --max) MAX_ITERATIONS="$2"; shift 2 ;;
-    --max-hours) MAX_HOURS="$2"; shift 2 ;;
-    --no-dashboard) NO_DASHBOARD=true; shift ;;
-    --no-retro) SKIP_RETRO=true; shift ;;
-    --no-autoplan) SKIP_AUTOPLAN=true; shift ;;
-    *)
-      if [[ -z "$PROJECT_NAME" ]]; then
-        PROJECT_NAME="$1"
-      elif [[ -z "$STACK" ]]; then
-        STACK="$1"
-      fi
-      shift
-      ;;
-  esac
-done
-
-if [[ -z "$PROJECT_NAME" ]] || [[ -z "$STACK" ]]; then
-  echo "Usage: solo-dev.sh \"project\" \"stack\" [--feature \"desc\"] [--file path|dir] [--from stage] [--max N] [--no-dashboard] [--no-retro] [--no-autoplan]"
-  echo ""
-  echo "Stages: scaffold, setup, plan, build, deploy, review"
-  echo "  --from setup       # skip scaffold"
-  echo "  --from plan        # skip scaffold + setup"
-  echo "  --from build       # skip scaffold + setup + plan"
-  echo "  --from deploy      # skip to deploy"
-  echo "  --from review      # skip to review"
-  echo "  --max-hours 6      # global timeout in hours (default: 6)"
-  echo "  --no-dashboard     # skip tmux dashboard"
-  echo "  --no-retro         # skip post-completion retro"
-  echo "  --no-autoplan      # skip post-completion auto-plan"
-  exit 1
-fi
-
-# Resolve context file/dir to absolute path
+# Resolve context file/dir to absolute path (filesystem-dependent, stays here)
 if [[ -n "$CONTEXT_FILE" ]]; then
   if [[ -f "$CONTEXT_FILE" ]]; then
     CONTEXT_FILE=$(cd "$(dirname "$CONTEXT_FILE")" && pwd)/$(basename "$CONTEXT_FILE")
@@ -86,15 +41,6 @@ if [[ -n "$CONTEXT_FILE" ]]; then
     CONTEXT_FILE=$(cd "$CONTEXT_FILE" && pwd)
   else
     echo "Error: Context path not found: $CONTEXT_FILE"
-    exit 1
-  fi
-fi
-
-# Validate --from stage
-VALID_STAGES="scaffold setup plan build deploy review"
-if [[ -n "$START_FROM" ]]; then
-  if ! echo "$VALID_STAGES" | grep -qw "$START_FROM"; then
-    echo "Error: Unknown stage '$START_FROM'. Valid: $VALID_STAGES"
     exit 1
   fi
 fi
@@ -176,13 +122,6 @@ MAX_SECONDS=$((MAX_HOURS * 3600))
 if [[ "$NO_DASHBOARD" == "false" ]] && [[ -s "$LOG_FILE" ]]; then
   mv "$LOG_FILE" "${LOG_FILE%.log}-$(date +%Y%m%d-%H%M%S).log" 2>/dev/null || true
 fi
-
-# --- Log helper ---
-log_entry() {
-  local tag="$1"
-  shift
-  echo "[$(date +%H:%M:%S)] $tag | $*" | tee -a "$LOG_FILE"
-}
 
 # --- Pipeline control check ---
 # Reads control file: stop, pause, skip. Called at top of each iteration.
@@ -584,10 +523,7 @@ for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
   check_control
 
   # --- Global timeout ---
-  ELAPSED=$(( $(date +%s) - STARTED_EPOCH ))
-  if [[ $ELAPSED -ge $MAX_SECONDS ]]; then
-    ELAPSED_H=$(( ELAPSED / 3600 ))
-    log_entry "TIMEOUT" "Global timeout reached (${ELAPSED_H}h/${MAX_HOURS}h) — stopping to save credits"
+  if check_timeout; then
     break
   fi
 
@@ -769,82 +705,22 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
   OUTPUT=$(cat "$OUTFILE")
 
   # --- Rate limit detection + exponential backoff ---
-  # Detects: API 429, subscription "usage limit", overloaded errors, empty output (CLI crash on limit)
-  OUTPUT_SIZE=$(wc -c < "$OUTFILE" 2>/dev/null | tr -d ' ')
-  IS_RATE_LIMITED=false
-  if grep -qiE 'rate.?limit|too many requests|429|quota exceeded|overloaded|capacity|usage.?limit|try again later|throttl' "$OUTFILE" 2>/dev/null && \
-     ! grep -q '<solo:done/>' "$OUTFILE" 2>/dev/null; then
-    IS_RATE_LIMITED=true
-  # Empty or tiny output with non-zero exit = likely rate limit or crash
-  elif [[ "$CLAUDE_EXIT" -ne 0 ]] && [[ "${OUTPUT_SIZE:-0}" -lt 100 ]]; then
-    IS_RATE_LIMITED=true
-    log_entry "RATELIMIT" "CLI exited with code $CLAUDE_EXIT and near-empty output (${OUTPUT_SIZE}B) — treating as rate limit"
-  fi
-  if [[ "$IS_RATE_LIMITED" == "true" ]]; then
-    RATE_LIMIT_RETRIES=$((RATE_LIMIT_RETRIES + 1))
-    if [[ $RATE_LIMIT_RETRIES -ge $RATE_LIMIT_MAX_RETRIES ]]; then
-      log_entry "RATELIMIT" "Exhausted $RATE_LIMIT_MAX_RETRIES retries — aborting"
-      rm -f "$OUTFILE"
-      break
-    fi
-    log_entry "RATELIMIT" "Detected rate limit (attempt $RATE_LIMIT_RETRIES/$RATE_LIMIT_MAX_RETRIES) — waiting ${RATE_LIMIT_BACKOFF}s"
+  # Note: check_rate_limit returns 1 for "not rate limited" — use || to avoid set -e exit
+  RATE_LIMIT_STATUS=0
+  check_rate_limit "$OUTFILE" "$CLAUDE_EXIT" || RATE_LIMIT_STATUS=$?
+  if [[ $RATE_LIMIT_STATUS -eq 2 ]]; then
+    rm -f "$OUTFILE"
+    break
+  elif [[ $RATE_LIMIT_STATUS -eq 0 ]]; then
     sleep "$RATE_LIMIT_BACKOFF"
-    # Exponential backoff: 60 → 120 → 240 → 480 → ... (capped at max)
-    RATE_LIMIT_BACKOFF=$((RATE_LIMIT_BACKOFF * 2))
-    [[ $RATE_LIMIT_BACKOFF -gt $RATE_LIMIT_MAX_BACKOFF ]] && RATE_LIMIT_BACKOFF=$RATE_LIMIT_MAX_BACKOFF
     rm -f "$OUTFILE"
     continue  # retry same stage, don't count toward circuit breaker
   fi
-  # Reset backoff on successful invocation (no rate limit)
-  RATE_LIMIT_RETRIES=0
-  RATE_LIMIT_BACKOFF=60
 
-  # --- Signal-based markers (2 universal signals, bash owns all files) ---
-  # Claude outputs <solo:done/> or <solo:redo/>, bash creates/removes markers.
-  # Claude does NOT need to know about marker file names or paths.
-  # --- Signal priority: redo > done (if both present, redo wins) ---
-  HAS_REDO=false
-  if grep -q '<solo:redo/>' "$OUTFILE" 2>/dev/null; then
-    HAS_REDO=true
-  fi
-
-  if [[ "$HAS_REDO" != "true" ]] && grep -q '<solo:done/>' "$OUTFILE" 2>/dev/null; then
-    # Resolve CHECK path for glob patterns (e.g. .solo/states/build)
-    if [[ "$CHECK" == *"*"* ]]; then
-      CHECK_DIR=$(compgen -G "$(dirname "$CHECK")" 2>/dev/null | head -1)
-      CHECK_FILE="$CHECK_DIR/$(basename "$CHECK")"
-    else
-      CHECK_FILE="$CHECK"
-    fi
-    if [[ -n "$CHECK_FILE" ]] && [[ "$CHECK_FILE" != *"*"* ]] && [[ ! -f "$CHECK_FILE" ]]; then
-      log_entry "SIGNAL" "<solo:done/> → creating $(basename "$CHECK_FILE")"
-      mkdir -p "$(dirname "$CHECK_FILE")"
-      echo "Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$CHECK_FILE"
-    fi
-  fi
+  # --- Signal-based markers (solo-lib.sh: handle_signals) ---
+  handle_signals "$OUTFILE" "$CHECK"
 
   if [[ "$HAS_REDO" == "true" ]]; then
-    REDO_COUNT=$((REDO_COUNT + 1))
-    if [[ $REDO_COUNT -gt $REDO_MAX ]]; then
-      log_entry "REDO" "Redo limit reached ($REDO_MAX) — forcing done to save credits"
-      # Create all remaining markers to force completion
-      for marker in build deploy review; do
-        if [[ ! -f "$STATES_DIR/$marker" ]]; then
-          mkdir -p "$STATES_DIR"
-          echo "Forced: $(date -u +%Y-%m-%dT%H:%M:%SZ) (redo limit)" > "$STATES_DIR/$marker"
-        fi
-      done
-    else
-      log_entry "REDO" "<solo:redo/> cycle $REDO_COUNT/$REDO_MAX — going back to build"
-      # Go back: remove markers from build onwards (build, deploy, review)
-      for marker in build deploy review; do
-        if [[ -f "$STATES_DIR/$marker" ]]; then
-          log_entry "SIGNAL" "<solo:redo/> → removing .solo/states/$marker"
-          rm -f "$STATES_DIR/$marker"
-        fi
-      done
-    fi
-
     # If build is not in current stages (e.g. --from deploy), re-exec from build
     # Skip re-exec if redo limit was reached (markers were force-created above)
     BUILD_IN_STAGES=false
@@ -895,23 +771,9 @@ PROGRESSEOF
   log_entry "ITER" "saved iter-$(printf '%03d' $ITERATION)-${STAGE_ID}.log | commit: $COMMIT_SHA | result: $STAGE_RESULT"
 
   # --- Circuit breaker: abort after N consecutive identical failures ---
-  if [[ "$STAGE_RESULT" == "continuing" ]]; then
-    # Fingerprint = stage + last 5 non-empty lines (normalized)
-    FAIL_FP="${STAGE_ID}:$(grep -v '^$' "$OUTFILE" 2>/dev/null | tail -5 | md5sum 2>/dev/null | cut -c1-8 || echo "nofp")"
-    if [[ "$FAIL_FP" == "$LAST_FAIL_FINGERPRINT" ]]; then
-      CONSECUTIVE_FAILS=$((CONSECUTIVE_FAILS + 1))
-    else
-      CONSECUTIVE_FAILS=1
-      LAST_FAIL_FINGERPRINT="$FAIL_FP"
-    fi
-    if [[ $CONSECUTIVE_FAILS -ge $CIRCUIT_BREAKER_LIMIT ]]; then
-      log_entry "CIRCUIT" "Stage '$STAGE_ID' same failure $CONSECUTIVE_FAILS times (fp: ${FAIL_FP##*:}) — aborting"
-      rm -f "$OUTFILE"
-      break
-    fi
-  else
-    CONSECUTIVE_FAILS=0
-    LAST_FAIL_FINGERPRINT=""
+  if ! check_circuit_breaker "$STAGE_ID" "$OUTFILE" "$STAGE_RESULT"; then
+    rm -f "$OUTFILE"
+    break
   fi
 
   rm -f "$OUTFILE"
@@ -1026,7 +888,7 @@ Completed plans (already done, do NOT repeat): $DONE_PLANS"
     fi
 
     # Reference retro report if just generated
-    LATEST_RETRO=$(find "$PROJECT_ROOT/docs/retro" -name "*.md" -type f 2>/dev/null | sort | tail -1)
+    LATEST_RETRO=$(find "$PROJECT_ROOT/docs/retro" -name "*.md" -type f 2>/dev/null | sort | tail -1 || true)
     [[ -n "$LATEST_RETRO" ]] && AUTOPLAN_CONTEXT="$AUTOPLAN_CONTEXT
 Read $(basename "$LATEST_RETRO") for retro recommendations."
 

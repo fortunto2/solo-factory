@@ -1,0 +1,9 @@
+# shellcheck config for solo-factory
+# SC2004: $/${} unnecessary on arithmetic variables (style)
+# SC2034: variable appears unused (false positives — vars used by sourced scripts)
+# SC1091: not following sourced file (solo-lib.sh, same dir)
+# SC2086: word splitting intentional ($CLAUDE_FLAGS, $MCP_FLAG need splitting into args)
+# SC2207: array=($(cmd)) pattern is fine for our use (pane IDs are simple strings)
+# SC2001: sed is fine, no need for ${var//} everywhere
+# SC2011: ls -d pattern works for simple plan dir names
+disable=SC2004,SC2034,SC1091,SC2086,SC2207,SC2001,SC2011

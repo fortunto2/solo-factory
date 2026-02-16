@@ -10,13 +10,13 @@ Usage:
   claude --print --output-format stream-json -p "prompt" | solo-stream-fmt.py --no-color
   claude --print --output-format stream-json -p "prompt" | solo-stream-fmt.py --no-sound
 """
+
 import json
 import sys
 import os
 import shutil
 import wave
 import struct
-import math
 import random
 import subprocess
 import tempfile
@@ -79,7 +79,9 @@ _last_sfx_time: float = 0
 SFX_COOLDOWN = 0.3  # min seconds between sounds
 
 
-def _square(freq: float, duration: float, vol: float = 1.0, duty: float = 0.5) -> list[float]:
+def _square(
+    freq: float, duration: float, vol: float = 1.0, duty: float = 0.5
+) -> list[float]:
     """Generate square wave samples."""
     samples = []
     n = int(SAMPLE_RATE * duration)
@@ -126,13 +128,13 @@ def _noise_burst(duration: float, vol: float = 0.5) -> list[float]:
 
 def _write_wav(path: str, samples: list[float]):
     """Write samples to WAV file."""
-    with wave.open(path, 'w') as w:
+    with wave.open(path, "w") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(SAMPLE_RATE)
         for s in samples:
             s = max(-0.95, min(0.95, s))
-            w.writeframes(struct.pack('<h', int(s * 32767)))
+            w.writeframes(struct.pack("<h", int(s * 32767)))
 
 
 def _merge(a: list[float], b: list[float]) -> list[float]:
@@ -168,7 +170,11 @@ def _generate_all_sfx():
     _sfx_cache["bash"] = os.path.join(_sfx_dir, "bash.wav")
 
     # Search (Glob/Grep): scanning sweep (ascending A4→D5→A5)
-    s = _triangle(440, 0.04, v * 0.4) + _triangle(587, 0.04, v * 0.45) + _triangle(880, 0.05, v * 0.5)
+    s = (
+        _triangle(440, 0.04, v * 0.4)
+        + _triangle(587, 0.04, v * 0.45)
+        + _triangle(880, 0.05, v * 0.5)
+    )
     _write_wav(os.path.join(_sfx_dir, "search.wav"), s)
     _sfx_cache["search"] = os.path.join(_sfx_dir, "search.wav")
 
@@ -180,15 +186,21 @@ def _generate_all_sfx():
     _sfx_cache["web"] = os.path.join(_sfx_dir, "web.wav")
 
     # Task/Agent: arpeggio (C4→E4→G4→C5, exciting)
-    s = (_square(262, 0.05, v * 0.35, 0.25) +
-         _square(330, 0.05, v * 0.4, 0.25) +
-         _square(392, 0.05, v * 0.45, 0.25) +
-         _square(523, 0.08, v * 0.5, 0.25))
+    s = (
+        _square(262, 0.05, v * 0.35, 0.25)
+        + _square(330, 0.05, v * 0.4, 0.25)
+        + _square(392, 0.05, v * 0.45, 0.25)
+        + _square(523, 0.08, v * 0.5, 0.25)
+    )
     _write_wav(os.path.join(_sfx_dir, "agent.wav"), s)
     _sfx_cache["agent"] = os.path.join(_sfx_dir, "agent.wav")
 
     # Skill: power-up (ascending fast: E5→G5→B5)
-    s = _square(659, 0.04, v * 0.4, 0.3) + _square(784, 0.04, v * 0.45, 0.3) + _square(988, 0.06, v * 0.5, 0.3)
+    s = (
+        _square(659, 0.04, v * 0.4, 0.3)
+        + _square(784, 0.04, v * 0.45, 0.3)
+        + _square(988, 0.06, v * 0.5, 0.3)
+    )
     _write_wav(os.path.join(_sfx_dir, "skill.wav"), s)
     _sfx_cache["skill"] = os.path.join(_sfx_dir, "skill.wav")
 
@@ -198,23 +210,31 @@ def _generate_all_sfx():
     _sfx_cache["mcp"] = os.path.join(_sfx_dir, "mcp.wav")
 
     # Error: descending (A4→E4→C4, ominous)
-    s = _square(440, 0.08, v * 0.5, 0.5) + _square(330, 0.08, v * 0.45, 0.5) + _square(262, 0.12, v * 0.4, 0.5)
+    s = (
+        _square(440, 0.08, v * 0.5, 0.5)
+        + _square(330, 0.08, v * 0.45, 0.5)
+        + _square(262, 0.12, v * 0.4, 0.5)
+    )
     _write_wav(os.path.join(_sfx_dir, "error.wav"), s)
     _sfx_cache["error"] = os.path.join(_sfx_dir, "error.wav")
 
     # Stage start: fanfare (C4→E4→G4→C5, longer + louder)
-    s = (_square(262, 0.08, v * 0.4, 0.25) +
-         _square(330, 0.08, v * 0.45, 0.25) +
-         _square(392, 0.08, v * 0.5, 0.25) +
-         _triangle(523, 0.15, v * 0.6))
+    s = (
+        _square(262, 0.08, v * 0.4, 0.25)
+        + _square(330, 0.08, v * 0.45, 0.25)
+        + _square(392, 0.08, v * 0.5, 0.25)
+        + _triangle(523, 0.15, v * 0.6)
+    )
     _write_wav(os.path.join(_sfx_dir, "stage.wav"), s)
     _sfx_cache["stage"] = os.path.join(_sfx_dir, "stage.wav")
 
     # Completion: victory jingle (C5→E5→G5→C6, bright + long)
-    s = (_triangle(523, 0.08, v * 0.5) +
-         _triangle(659, 0.08, v * 0.55) +
-         _triangle(784, 0.08, v * 0.6) +
-         _triangle(1047, 0.2, v * 0.7))
+    s = (
+        _triangle(523, 0.08, v * 0.5)
+        + _triangle(659, 0.08, v * 0.55)
+        + _triangle(784, 0.08, v * 0.6)
+        + _triangle(1047, 0.2, v * 0.7)
+    )
     _write_wav(os.path.join(_sfx_dir, "complete.wav"), s)
     _sfx_cache["complete"] = os.path.join(_sfx_dir, "complete.wav")
 
@@ -278,6 +298,7 @@ def _cleanup_sfx():
     """Remove temp sound files."""
     if _sfx_dir and os.path.isdir(_sfx_dir):
         import shutil as _sh
+
         _sh.rmtree(_sfx_dir, ignore_errors=True)
 
 
@@ -295,7 +316,7 @@ def short_path(path: str) -> str:
     path = path.replace(HOME, "~")
     max_len = COLS - 20
     if len(path) > max_len and max_len > 30:
-        return path[:15] + "..." + path[-(max_len - 18):]
+        return path[:15] + "..." + path[-(max_len - 18) :]
     return path
 
 
@@ -328,7 +349,7 @@ def format_tool_line(name: str, inp: dict) -> str:
         desc = inp.get("description", "")
         display = desc if desc else cmd
         if len(display) > COLS - 20:
-            display = display[:COLS - 23] + "..."
+            display = display[: COLS - 23] + "..."
         return f"  {icon} {YELLOW}{short}{RESET} {DIM}{display}{RESET}"
 
     elif name in ("Glob", "Grep"):
@@ -350,7 +371,7 @@ def format_tool_line(name: str, inp: dict) -> str:
     elif name.startswith("Browser"):
         url = inp.get("url", inp.get("selector", inp.get("text", "")))
         if len(url) > COLS - 30:
-            url = url[:COLS - 33] + "..."
+            url = url[: COLS - 33] + "..."
         return f"  {icon} {GREEN}{short}{RESET} {DIM}{url}{RESET}"
 
     elif name == "Task":
@@ -472,7 +493,9 @@ def main():
                 session = event.get("session_id", "")[:8]
                 model = event.get("model", "")
                 if model or session:
-                    print(f"  {DIM}session: {session}  model: {model}{RESET}", flush=True)
+                    print(
+                        f"  {DIM}session: {session}  model: {model}{RESET}", flush=True
+                    )
 
     # Final newline
     print(flush=True)
