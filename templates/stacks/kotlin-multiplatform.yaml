@@ -1,0 +1,211 @@
+name: Kotlin Multiplatform
+platform: ios + android
+language: kotlin
+ui_framework: compose_multiplatform
+build: gradle_kotlin_dsl
+project_gen: "Android Studio wizard (Compose Multiplatform template)"
+package_manager: gradle_version_catalog
+auth: none (manual, or shared-auth later)
+payments: storekit2 (iOS) + google_play_billing (Android) via expect/actual
+validation: "kotlinx.serialization + custom validation"
+i18n: compose_resources (commonMain/composeResources/values/strings.xml, values-ru/)
+linter: detekt (static analysis) + ktlint (style)
+formatter: ktfmt (Google style)
+testing: kotlin_test + compose_testing
+pre_commit: lefthook (detekt + ktlint hooks)
+key_packages:
+  - Compose Multiplatform (shared UI)
+  - Material3 (design system)
+  - kotlinx.datetime (date handling)
+  - kotlinx.serialization (JSON, validation)
+  - detekt + ktlint (code quality)
+optional_packages:
+  networking:
+    - "Ktor (HTTP client, multiplatform)"
+  persistence:
+    - "DataStore (Android prefs)"
+    - "NSUserDefaults (iOS prefs, via expect/actual)"
+    - "Room Multiplatform (local DB, if needed)"
+    - "SQLDelight (multiplatform SQL, alternative to Room)"
+  di:
+    - "Koin (multiplatform DI, optional — manual DI for small projects)"
+  image:
+    - "Coil3 (multiplatform image loading)"
+  navigation:
+    - "Voyager or Decompose (multiplatform nav, optional — sealed class for <6 screens)"
+example_projects:
+  - name: kissmytask
+    description: "KMP shared module (SQLDelight, Ktor, Supabase) + native iOS/Android UI"
+    patterns_learned:
+      - "SharedModuleWrapper.swift singleton for KMP↔Swift bridge"
+      - "DatabaseDriverFactory expect/actual for SQLDelight"
+      - "iOSAuthStateCallback — platform-specific callback pattern"
+      - "Config object for environment variables (supabaseUrl, supabaseKey)"
+    caveats:
+      - "Uses native UI per platform (NOT Compose Multiplatform) — different pattern"
+      - "Heavy Supabase dependency — skip for offline-first apps"
+  - name: FaceAlarm
+    description: "Kotlin Android + iOS Swift (separate, no KMP shared UI)"
+    patterns_learned:
+      - "Canvas polar math for circular layouts (SpiralCalendarView.swift)"
+      - "Compose Canvas: relative sizing (canvasWidth * 0.65f, ovalWidth * 1.3f)"
+      - "MVVM with @Observable @MainActor (iOS) / regular ViewModel (Android)"
+    caveats:
+      - "Not KMP — separate Kotlin + Swift codebases"
+      - "Canvas patterns transferable to Compose Multiplatform Canvas"
+deploy: app_store + play_store
+infra: none (native store distribution)
+ci_cd: github_actions (gradle + xcodebuild)
+monitoring: posthog (analytics, posthog-android + manual iOS)
+logs:
+  android_adb: "adb logcat -s {name} --format=time 2>&1 | tail -50"
+  android_crash: "adb logcat '*:E' --format=time 2>&1 | tail -30"
+  ios_console: "xcrun simctl spawn booted log stream --style compact --timeout 10"
+  local_build_android: "./gradlew :androidApp:assembleDebug 2>&1 | tail -30"
+  local_build_ios: "./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 2>&1 | tail -30"
+architecture: MVVM
+
+patterns:
+  modules: |
+    shared/        — commonMain, androidMain, iosMain (all business logic + UI)
+    androidApp/    — thin Android entry point (MainActivity)
+    iosApp/        — thin iOS entry point (iOSApp.swift + ContentView.swift)
+  viewmodel: |
+    Regular class with Compose State (mutableStateOf, StateFlow).
+    No @Observable (Swift), no ObservableObject — it's Kotlin.
+    Keep VMs in shared/commonMain/kotlin/ui/viewmodel/.
+    Use constructor injection for dependencies.
+  expect_actual: |
+    expect/actual for platform-specific code:
+      - Storage: DataStore (Android) / NSUserDefaults (iOS)
+      - Billing: Google Play Billing (Android) / StoreKit 2 (iOS)
+      - Haptics: Vibrator (Android) / UIImpactFeedbackGenerator (iOS)
+      - Screenshots: View.drawToBitmap (Android) / UIGraphicsImageRenderer (iOS)
+      - Links: Intent(ACTION_VIEW) (Android) / UIApplication.shared.open (iOS)
+    Define interface in commonMain, implement in androidMain/iosMain.
+  navigation: |
+    For <6 screens: sealed class Screen + when() in root App composable.
+    No navigation library needed. Simple and testable.
+  models: |
+    Immutable data classes in commonMain for game/domain state.
+    sealed class for enums with data (Cell types, outcomes).
+    Pure functions for state transitions — easy to test.
+  di: |
+    For small projects (<5 dependencies): manual DI via factory object.
+    For larger: Koin multiplatform.
+    Platform-specific factory in androidMain/iosMain creates dependencies.
+  directory_structure: |
+    shared/src/
+      commonMain/kotlin/
+        domain/          — models, game logic, pure functions
+        data/            — storage interfaces, repositories
+        ui/
+          theme/         — AppTheme, Colors, Typography
+          screens/       — Screen composables
+          components/    — Reusable UI components
+          viewmodel/     — ViewModels (State + logic)
+        di/              — Manual DI factory
+      commonTest/kotlin/
+        domain/          — Unit tests for game logic
+      androidMain/kotlin/
+        data/            — Android storage (DataStore)
+        platform/        — Android-specific (billing, haptics, screenshots)
+        di/              — Android DI factory
+      iosMain/kotlin/
+        data/            — iOS storage (NSUserDefaults)
+        platform/        — iOS-specific (StoreKit, haptics, screenshots)
+        di/              — iOS DI factory
+    androidApp/src/main/
+      kotlin/            — MainActivity, Application class
+      res/               — Android resources (if needed beyond Compose)
+    iosApp/
+      iosApp/            — iOSApp.swift, ContentView.swift
+  canvas_layouts: |
+    For circular/radial layouts (game boards, calendars, charts):
+      val angleStep = 2 * PI / cellCount
+      val x = center.x + radius * cos(angle)
+      val y = center.y + radius * sin(angle)
+    Use relative sizing: cellSize = canvasWidth * 0.08f
+    Glow effects: drawCircle() with alpha + larger radius
+    Animations: animateFloatAsState for position, InfiniteTransition for pulse
+    Reference: FaceAlarm SpiralCalendarView.swift (polar math pattern)
+  ios_bridge: |
+    iOSApp.swift is a thin wrapper:
+      @main struct iOSApp: App {
+          var body: some Scene {
+              WindowGroup { ComposeView().ignoresSafeArea() }
+          }
+      }
+    ComposeView wraps shared Compose UI via UIViewControllerRepresentable.
+    Platform APIs (StoreKit, UIKit) called from iosMain via expect/actual.
+    No SharedModuleWrapper needed for Compose Multiplatform (unlike KMP with native UI).
+  concurrency: |
+    Coroutines for async work (commonMain).
+    MainScope for UI updates.
+    No Combine, no RxJava — pure coroutines.
+
+gradle_required:
+  android_config:
+    namespace: "<org_domain>.<name>"
+    application_id: "<org_domain>.<name>"
+    compileSdk: 35
+    targetSdk: 35
+    minSdk: 26
+    versionCode: 1
+    versionName: "1.0.0"
+  ios_config:
+    deployment_target: "16.0"
+    framework_name: "shared"
+  signing:
+    android:
+      storeFile: "keystore.jks"
+      keyAlias: "release"
+    ios:
+      development_team: "<apple_dev_team>"
+      code_sign_style: "Automatic"
+  release_commands:
+    android: |
+      ./gradlew :androidApp:bundleRelease
+      # → androidApp/build/outputs/bundle/release/androidApp-release.aab
+      # Upload .aab to Google Play Console
+    ios: |
+      cd iosApp
+      xcodebuild archive -scheme iosApp -destination 'generic/platform=iOS' -archivePath build/iosApp.xcarchive
+      open build/iosApp.xcarchive  # → Distribute App
+
+visual_testing:
+  android:
+    type: emulator
+    boot: "emulator -avd $(emulator -list-avds | head -1) -no-window -no-audio &"
+    wait: "adb wait-for-device && adb shell getprop sys.boot_completed | grep -q 1"
+    screenshot: "adb exec-out screencap -p > /tmp/emu-screenshot.png"
+    install: "adb install -r"
+    launch: "adb shell am start"
+    checks:
+      - "Build debug APK and install on emulator"
+      - "Take screenshot after launch, verify main activity renders"
+  ios:
+    type: simulator
+    boot: "xcrun simctl boot 'iPhone 16' 2>/dev/null || true"
+    screenshot: "xcrun simctl io booted screenshot /tmp/sim-screenshot.png"
+    checks:
+      - "Build iOS framework: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64"
+      - "Open iosApp/iosApp.xcodeproj in Xcode, run on simulator"
+      - "Take screenshot after launch, verify main screen renders"
+
+notes: |
+  - Compose Multiplatform for shared UI (Canvas, animations work on both platforms)
+  - expect/actual for platform APIs (billing, haptics, storage, screenshots)
+  - Manual DI for small projects, Koin for larger
+  - Sealed class navigation for <6 screens (no library)
+  - Immutable state + pure functions for game/domain logic
+  - kotlinx.datetime for date handling (no java.time dependency)
+  - kotlinx.serialization for JSON (no Gson/Moshi)
+  - Test iOS each phase — catch KMP issues early
+  - Gradle version catalog (libs.versions.toml) for dependency management
+  - English first, then localize via Compose Resources
+  - StoreKit 2 (iOS) + Google Play Billing (Android) behind interface
+  - lefthook for pre-commit hooks (detekt + ktlint)
+  - Canvas for custom layouts (polar coordinates, game boards, charts)
+  - No Combine, no RxJava — pure Kotlin coroutines
+  - Thin platform entry points (MainActivity, iOSApp.swift)
