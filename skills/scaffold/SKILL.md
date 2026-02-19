@@ -87,11 +87,13 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
 8. **Create file structure** based on the stack. **SGR-first: always start with domain schemas/models before any logic or views.** Every project gets these common files:
    ```
    ~/startups/active/<name>/
-   ├── CLAUDE.md          # AI-friendly project docs
+   ├── CLAUDE.md          # AI-friendly project docs (map, not manual — see Harness Engineering)
    ├── Makefile           # Common commands (run, test, build, lint, deploy, integration)
    ├── README.md          # Human-friendly project docs
    ├── docs/
-   │   └── prd.md         # Copy of PRD
+   │   ├── prd.md         # Copy of PRD
+   │   ├── QUALITY_SCORE.md  # Domain quality grades (harness: garbage collection)
+   │   └── ARCHITECTURE.md   # Module boundaries and dependency rules
    ├── cli/               # CLI utility — mirrors core business logic (CLI-First Testing principle)
    │   └── main.ts|py     # Deterministic pipeline entry point (no LLM required)
    ├── .claude/
@@ -146,6 +148,12 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - Common commands (reference `make help`)
    - SGR / Domain-First section
    - Architecture principles (from dev-principles)
+   - **Harness Engineering section** (from `templates/principles/harness-engineering.md`):
+     - CLAUDE.md philosophy: "this file is a map, not a manual — keep ~100 lines, point to docs/"
+     - Harness health checklist (subset relevant to this project)
+     - Architectural constraints: module boundaries, data validation at boundaries
+     - Agent legibility: lint errors must include remediation instructions
+     - Anti-patterns: don't put knowledge in Slack/Docs, don't micromanage implementation
    - Do/Don't sections
    - **Solopreneur Integration section** (if MCP tools available):
      Lists available MCP tools: `project_code_search`, `kb_search`, `session_search`, `codegraph_query`, `project_info`, `web_search`

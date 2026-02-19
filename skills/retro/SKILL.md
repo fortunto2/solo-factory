@@ -353,6 +353,31 @@ Top factory defects:
 2. {defect} → {which file to fix} → {concrete fix}
 ```
 
+### Harness Evolution — think about the bigger picture
+
+After scoring the factory, step back further and think about the **harness** — the entire system that guides agents (CLAUDE.md, docs/, linters, skills, templates). Ask:
+
+1. **Context engineering:** Did the agent have everything it needed in-repo? Or did it struggle because knowledge was missing / scattered / stale?
+   - Missing docs → add to `docs/` or CLAUDE.md
+   - Stale docs → flag for doc-gardening
+   - Knowledge only in your head → encode it
+
+2. **Architectural constraints:** Did the agent break module boundaries, produce inconsistent patterns, or ignore conventions?
+   - Repeated boundary violations → need a linter or structural test
+   - Inconsistent patterns → need golden principle in CLAUDE.md
+   - Data shape errors → need parse-at-boundary enforcement
+
+3. **Decision traces:** What worked well that future agents should reuse? What failed that they should avoid?
+   - Good patterns → capture as precedent in KB or CLAUDE.md
+   - Bad patterns → encode as anti-pattern or lint rule
+   - Think: "if another agent hits this same problem tomorrow, what should it find?"
+
+4. **Skill gaps:** Which skills need better instructions? Which new skills should exist?
+   - Skill that caused waste → concrete SKILL.md patch
+   - Missing capability → new skill idea for evolution.md
+
+Append harness findings to the evolution log alongside factory defects.
+
 ### Write to evolution log:
 
 Append findings to `~/.solo/evolution.md` (create if not exists):
@@ -365,6 +390,11 @@ Pipeline: {stages run} | Iters: {total} | Waste: {pct}%
 ### Defects
 - **{severity}** | {skill/script}: {description}
   - Fix: {concrete file:change}
+
+### Harness Gaps
+- **Context:** {what knowledge was missing or stale for the agent}
+- **Constraints:** {what boundary violations or inconsistencies occurred}
+- **Precedents:** {patterns worth capturing for future agents — good or bad}
 
 ### Missing
 - {capability the factory lacked}

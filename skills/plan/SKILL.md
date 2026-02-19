@@ -76,10 +76,17 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
       - Look at directory structure to understand architecture
       - Identify files that will need modification
 
-   c. **Search past sessions** (if MCP available):
-      ```
-      session_search(query="{task description keywords}")
-      ```
+   c. **Precedent retrieval** (context graph pattern — search past solutions BEFORE planning):
+      - Search past sessions (if MCP available):
+        ```
+        session_search(query="{task description keywords}")
+        ```
+        Look for: how similar tasks were solved, what went wrong, what patterns worked.
+      - Search KB for relevant methodology:
+        ```
+        kb_search(query="{task type}: {keywords}")
+        ```
+        Check for: harness patterns, architectural constraints, quality scores.
 
    d. **Search code across projects** (if MCP available):
       ```
@@ -94,6 +101,8 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    f. **Read existing tests** in the affected area — understand testing patterns used.
 
    g. **Read CLAUDE.md** architecture constraints — understand boundaries and conventions.
+      - Check for harness section: module boundaries, data validation rules, lint configs.
+      - Read `docs/ARCHITECTURE.md` and `docs/QUALITY_SCORE.md` if they exist.
 
    h. **Detect deploy infrastructure** — search for deploy scripts/configs to include deploy phase in plan:
       ```bash
@@ -220,6 +229,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    - Phases are independently verifiable.
    - Total: 5-15 tasks (not 70).
    - **Last phase is always "Docs & Cleanup"**.
+   - **Harness-aware:** if the task introduces new patterns, include a task to update lint rules or CLAUDE.md constraints. If it touches module boundaries, include verification of dependency direction. Think: "what harness change prevents future agents from breaking this?"
 
 9. **Create progress task list** for pipeline visibility:
 
