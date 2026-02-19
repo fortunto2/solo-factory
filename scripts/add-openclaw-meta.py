@@ -35,6 +35,7 @@ EMOJIS = {
     "humanize": "✍️",
     "index-youtube": "🎞️",
     "you2idea-extract": "💡",
+    "factory": "🏭",
 }
 
 
