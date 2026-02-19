@@ -11,17 +11,7 @@ argument-hint: "[focus-area]"
 
 # /review
 
-<CRITICAL>
-This skill is SELF-CONTAINED. You MUST follow ONLY the instructions in this file.
-Do NOT invoke, delegate to, or spawn any of these skills:
-- superpowers:requesting-code-review
-- superpowers:code-reviewer
-- superpowers:verification-before-completion
-- Any other external review/audit skill
-
-Do NOT spawn Task subagents for code review. Run all checks yourself, directly.
-If you catch yourself thinking "let me use superpowers for this" — STOP. That is the ONE thing you must not do here.
-</CRITICAL>
+This skill is self-contained — follow the instructions below instead of delegating to external review skills (superpowers, etc.) or spawning Task subagents. Run all checks directly.
 
 Final quality gate before shipping. Runs tests, checks security, verifies acceptance criteria from spec.md, audits code quality, and generates a ship-ready report with go/no-go verdict.
 
@@ -171,9 +161,7 @@ For each `- [ ]` criterion in spec.md:
 2. Check if related tests exist.
 3. Mark as verified or flag as missing.
 
-<CRITICAL>
-**MANDATORY: Update spec.md checkboxes.** After verifying each criterion, IMMEDIATELY use Edit tool to change `- [ ]` to `- [x]` in spec.md for every verified criterion. Do NOT leave verified criteria as `- [ ]` — this causes staleness across pipeline runs. If you verified it, check it off NOW, not later.
-</CRITICAL>
+**Update spec.md checkboxes.** After verifying each criterion, use Edit tool to change `- [ ]` to `- [x]` in spec.md. Leaving verified criteria unchecked causes staleness across pipeline runs — check them off as you go.
 
 ```
 Acceptance Criteria:
@@ -505,7 +493,6 @@ Date: {YYYY-MM-DD}
 - **FIX FIRST**: Minor issues (warnings, partial criteria, low-severity vulns, intermittent log errors, stale docs, non-conventional commits, minor SOLID violations, minor visual issues like layout overflow) — list what to fix
 - **BLOCK**: Failing tests, security vulnerabilities, missing critical features, production crashes in logs, missing CLAUDE.md/README.md, critical architecture violations, app crashes on launch (simulator/emulator) — do not ship
 
-<MANDATORY>
 ## Post-Verdict: CLAUDE.md Revision
 
 After the verdict report, revise the project's CLAUDE.md to keep it lean and useful for future agents.
@@ -559,8 +546,7 @@ After the verdict report, revise the project's CLAUDE.md to keep it lean and use
 ```
 
 The pipeline reads these tags and handles all marker files automatically. You do NOT need to create or delete any marker files yourself.
-**Do NOT output the signal tag anywhere else in the response — exactly one occurrence.**
-</MANDATORY>
+**Output the signal tag once — the pipeline detects the first occurrence.**
 
 ## Error Handling
 
@@ -593,7 +579,7 @@ When reviewing significant work, use two stages:
 
 ## Verification Gate
 
-**Iron rule: NO VERDICT WITHOUT FRESH EVIDENCE.**
+**No verdict without fresh evidence.**
 
 Before writing any verdict (SHIP/FIX/BLOCK):
 1. **Run** the actual test/build/lint commands (not cached results).
@@ -622,9 +608,4 @@ Never write "tests should pass" — run them and show the output.
 4. **Don't auto-fix code** — report issues and add fix tasks to plan.md. Let `/build` fix them. Review only modifies plan.md, never source code.
 5. **Check acceptance criteria** — spec.md is the source of truth for "done".
 6. **Security is non-negotiable** — any hardcoded secret = BLOCK.
-7. **Fresh evidence only** — run commands before making claims. Never rely on memory.
-ne".
-6. **Security is non-negotiable** — any hardcoded secret = BLOCK.
-7. **Fresh evidence only** — run commands before making claims. Never rely on memory.
-BLOCK.
 7. **Fresh evidence only** — run commands before making claims. Never rely on memory.

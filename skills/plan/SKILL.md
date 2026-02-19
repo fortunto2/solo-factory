@@ -11,10 +11,7 @@ argument-hint: "<task description>"
 
 # /plan
 
-<CRITICAL>
-This skill is SELF-CONTAINED. You MUST follow ONLY the instructions in this file.
-Do NOT invoke or delegate to superpowers:writing-plans, superpowers:brainstorming, or any other external planning skill.
-</CRITICAL>
+This skill is self-contained — follow the steps below instead of delegating to external planning skills (superpowers, etc.).
 
 Research the codebase and create a spec + phased implementation plan. Zero interactive questions — explores the code instead.
 

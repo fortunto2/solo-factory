@@ -11,17 +11,7 @@ argument-hint: "[track-id] [--task X.Y] [--phase N]"
 
 # /build
 
-<CRITICAL>
-This skill is SELF-CONTAINED. You MUST follow ONLY the instructions in this file.
-Do NOT invoke, delegate to, or spawn any of these skills:
-- superpowers:executing-plans
-- superpowers:test-driven-development
-- superpowers:subagent-driven-development
-- superpowers:verification-before-completion
-- Any other external build/execution skill
-
-Follow THIS file's task loop, TDD rules, and completion flow. Not superpowers' version.
-</CRITICAL>
+This skill is self-contained — follow the task loop, TDD rules, and completion flow below instead of delegating to external build/execution skills (superpowers, etc.).
 
 Execute tasks from an implementation plan. Finds `plan.md` (in `docs/plan/` for projects or `4-opportunities/` for KB), picks the next unchecked task, implements it with TDD workflow, commits, and updates progress.
 
@@ -76,7 +66,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    - pre-commit: `uv run pre-commit install`
    - lefthook: `lefthook install`
 
-   **NEVER use `--no-verify` on commits.** If hooks fail, fix the issue and commit again.
+   Don't use `--no-verify` on commits — if hooks fail, fix the issue and commit again.
 
 ## Track Selection
 
@@ -299,14 +289,11 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `style`
 git rev-parse --short HEAD
 ```
 
-<CRITICAL>
-**MANDATORY: SHA annotation in plan.md.** After EVERY task commit, you MUST:
+**SHA annotation in plan.md.** After every task commit:
 1. Mark task done: `[~]` → `[x]`
 2. Append commit SHA inline: `- [x] Task X.Y: description <!-- sha:abc1234 -->`
 
-Do NOT mark a task `[x]` without a SHA. No SHA = no traceability = no revert capability.
-If task required multiple commits, record the last one (it covers the full change).
-</CRITICAL>
+Without a SHA, there's no traceability and no revert capability. If a task required multiple commits, record the last one.
 
 ### 7. Phase Completion Check
 

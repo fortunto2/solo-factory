@@ -80,7 +80,7 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
 
    > "Flip the question: how would you guarantee failure?" — STREAM Layer 3 (Inversion)
 
-   This step is MANDATORY. Before scoring positively, you MUST actively try to KILL the idea. The goal is to find reasons NOT to build it.
+   This step is mandatory — before scoring positively, actively try to kill the idea. The goal is to find reasons NOT to build it.
 
    **6a. Inversion — 5 ways this fails:**
    List 5 specific, concrete ways this idea could fail. Not generic risks ("competition") but specific scenarios with evidence:

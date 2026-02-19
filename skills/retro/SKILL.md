@@ -11,11 +11,7 @@ argument-hint: "[project-name]"
 
 # /retro
 
-<CRITICAL>
-This skill is SELF-CONTAINED. You MUST follow ONLY the instructions in this file.
-Do NOT invoke, delegate to, or spawn any other skill (no /review, /audit, /build).
-Do NOT spawn Task subagents. Run all analysis yourself, directly.
-</CRITICAL>
+This skill is self-contained — follow the phases below instead of delegating to other skills (/review, /audit, /build) or spawning Task subagents. Run all analysis directly.
 
 Post-pipeline retrospective. Parses Big Head pipeline logs, counts productive vs wasted iterations, identifies recurring failure patterns, scores the pipeline run, and suggests concrete patches to skills/scripts to prevent the same failures next time.
 

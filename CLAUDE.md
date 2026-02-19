@@ -6,7 +6,7 @@ Claude Code plugin for solopreneurs. Single source of truth for all skills, agen
 
 ```
 .claude-plugin/plugin.json  # Manifest (name, version)
-skills/                     # 22 skills (SKILL.md + references/)
+skills/                     # 23 skills (SKILL.md + references/)
 agents/                     # 3 agents (researcher, code-analyst, idea-validator)
 hooks/                      # SessionStart info + Stop pipeline hook
 scripts/                    # Pipeline launchers (bighead, solo-dev.sh, solo-research.sh, solo-codex.sh)
