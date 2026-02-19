@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.7.0"
+  openclaw:
+    emoji: "🔍"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__solograph__session_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_search, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_close
 argument-hint: "[idea name or description]"
 ---

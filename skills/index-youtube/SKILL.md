@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.1.0"
+  openclaw:
+    emoji: "🎞️"
 allowed-tools: Bash, Read, Glob, Grep, AskUserQuestion
 argument-hint: "[channel handles or 'all']"
 ---

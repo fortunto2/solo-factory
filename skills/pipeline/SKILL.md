@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.2.0"
+  openclaw:
+    emoji: "🔄"
 allowed-tools: Bash, Read, Write, AskUserQuestion
 argument-hint: "research <idea> | dev <name> <stack> [--feature desc]"
 ---

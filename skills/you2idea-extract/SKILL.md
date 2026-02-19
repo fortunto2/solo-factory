@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.0.0"
+  openclaw:
+    emoji: "💡"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__source_search, mcp__solograph__source_list, mcp__solograph__source_tags, mcp__solograph__source_related, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__solograph__codegraph_query
 argument-hint: "[video-url or channel-name or 'deploy']"
 ---

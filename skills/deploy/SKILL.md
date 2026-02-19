@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.2.0"
+  openclaw:
+    emoji: "🚀"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit
 argument-hint: "[platform]"
 ---

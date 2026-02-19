@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.4.0"
+  openclaw:
+    emoji: "🩺"
 allowed-tools: Read, Grep, Bash, Glob, mcp__solograph__kb_search
 argument-hint: "[optional: focus area like 'tags' or 'frontmatter']"
 ---

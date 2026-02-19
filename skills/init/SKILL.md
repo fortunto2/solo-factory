@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: fortunto2
   version: "2.1.0"
+  openclaw:
+    emoji: "🎬"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion
 argument-hint: "[project-path]"
 ---

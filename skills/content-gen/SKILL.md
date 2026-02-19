@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.1.0"
+  openclaw:
+    emoji: "📝"
 allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__project_code_search
 argument-hint: "<project-name or path>"
 ---

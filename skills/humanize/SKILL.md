@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.0.0"
+  openclaw:
+    emoji: "✍️"
 allowed-tools: Read, Write, Edit, Glob, Grep
 argument-hint: "[file-path or paste text]"
 ---
