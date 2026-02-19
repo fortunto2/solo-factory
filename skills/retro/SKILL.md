@@ -238,6 +238,16 @@ If plugin root not available, use the embedded weights:
 - **Build:** PASS / FAIL (or "not configured")
 - **Commits:** {N} total, {pct}% conventional format
 
+## Three-Axis Growth
+
+| Axis | Score | Evidence |
+|------|-------|----------|
+| **Technical** (code, tools, architecture) | {0-10} | {what changed} |
+| **Cognitive** (understanding, strategy, decisions) | {0-10} | {what improved} |
+| **Process** (harness, skills, pipeline, docs) | {0-10} | {what evolved} |
+
+If only one axis is served — note what's missing.
+
 ## Recommendations
 
 1. **[CRITICAL]** {patch suggestion with file:line reference}

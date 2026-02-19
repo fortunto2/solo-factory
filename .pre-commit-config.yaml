@@ -19,11 +19,14 @@ repos:
         args: [--fix]
       - id: ruff-format
 
-  - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
+  - repo: local
     hooks:
       - id: shellcheck
+        name: shellcheck (local)
+        entry: shellcheck
         args: [--severity=warning]
+        language: system
+        types: [shell]
 
   - repo: local
     hooks:

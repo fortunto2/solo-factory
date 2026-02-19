@@ -438,4 +438,52 @@ docs/plan/{name}_{date}/
 
 ---
 
+## Agent Self-Discipline
+
+Principles for fighting AI agent degradation. Applied to all skills and pipelines.
+Sources: [Ouroboros](https://github.com/razzant/ouroboros), [OpenAI Harness Engineering](https://openai.com/index/harness-engineering/), [Mitchell Hashimoto](https://mitchellh.com/writing/my-ai-adoption-journey).
+
+### Drift Detector — recognize degradation
+
+| Anti-pattern | What happens | Fix |
+|-------------|--------------|-----|
+| **Task queue mode** | Every response = "Scheduled task X" instead of working | Do the task now, don't schedule |
+| **Report mode** | Writes bullet-point reports instead of acting | Code > report. Iteration without commit = not an iteration |
+| **Permission mode** | Asks "should I?" when it already knows the answer | Act, escalate only on genuine ambiguity |
+| **Amnesia** | Forgets context after 3 messages | Re-read CLAUDE.md and task context |
+| **Scope creep** | Fixes one thing, refactors half the project | One commit = one task. No more |
+
+### Complexity Thresholds
+
+- **Function > 150 lines** -> decompose. No exceptions
+- **Module > 1000 lines** -> split. One module ~ one LLM context
+- **CLAUDE.md > 40,000 chars** -> trim. Map, not encyclopedia
+- **Plan > 15 tasks** -> split into multiple tracks
+- Minimalism is about code, not capabilities. Do more with less code.
+
+### Evolution = Commit
+
+- Iteration without commit = not an iteration
+- Analysis without action = preparation, not progress
+- Each commit = one coherent transformation
+
+### Three-Axis Reflection (after every significant task)
+
+1. **Technical:** did the project grow technically? (code, tools, architecture)
+2. **Cognitive:** did understanding improve? (strategy, decisions, patterns)
+3. **Process:** did the workflow improve? (harness, skills, pipeline, docs)
+
+If only one axis was served — think about what's missing.
+
+### Harness First
+
+When agent makes a mistake — don't retry the prompt, fix the harness:
+1. Simple issues -> update CLAUDE.md (constraints, Do/Don't)
+2. Recurring issues -> linter or structural test
+3. Pattern works well -> capture as golden principle
+
+> "When the agent struggles, treat it as a signal — fix the harness, not the prompt."
+
+---
+
 *These principles are injected into every PRD during generation.*
