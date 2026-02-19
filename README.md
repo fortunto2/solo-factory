@@ -18,7 +18,14 @@ From "shower thought" to deployed product in one pipeline:
 npx skills add fortunto2/solo-factory --all
 ```
 
-Installs 9 skills for all detected agents (Claude Code, Cursor, Copilot, Gemini CLI, Codex, etc.).
+Installs skills for all detected agents (Claude Code, Cursor, Copilot, Gemini CLI, Codex, etc.).
+
+### Option 1b: OpenClaw (ClawHub)
+
+```bash
+clawhub install solo-research       # Install one skill
+clawhub search "solo"               # Browse all solo-* skills
+```
 
 ### Option 2: Claude Code Plugin (skills + agents + MCP)
 
@@ -266,14 +273,42 @@ solo-factory/
 - [Agent Teams](https://github.com/anthropics/agents) — parallel feature dev, code review, debugging
 - [Context7](https://github.com/upstash/context7) — latest library docs for scaffolding
 
+## Install (OpenClaw)
+
+```bash
+clawhub install solo-research       # One skill
+clawhub search "solo"               # Find all solo-* skills
+```
+
+Skills are dual-compatible — same SKILL.md works in Claude Code (plugin) and OpenClaw (ClawHub).
+
+## Update / Publish
+
+Three registries, one source of truth:
+
+```bash
+# After editing skills, bump versions, commit, then:
+make plugin-publish          # Claude Code plugin
+make clawhub-publish S=name  # One skill → ClawHub
+make clawhub-publish-all     # All skills → ClawHub
+make publish-all             # All registries at once
+```
+
+See [CLAUDE.md](CLAUDE.md) for full publishing workflow.
+
 ## Manage
 
 ```bash
+# Claude Code
 claude plugin update solo@solo       # Update
 claude plugin disable solo@solo      # Disable
 claude plugin enable solo@solo       # Re-enable
 claude plugin uninstall solo@solo    # Uninstall
 claude plugin marketplace remove solo # Remove marketplace
+
+# ClawHub
+clawhub search "solo"               # List published skills
+clawhub install solo-<name>          # Install one skill
 ```
 
 ## License

@@ -15,31 +15,62 @@ Makefile                    # plugin-link, plugin-publish, evolve, evolve-apply,
 solo → .claude-plugin/      # Symlink for plugin cache compatibility
 ```
 
-## Publishing Plugin
+## Publishing (3 Registries)
 
-After editing skills, agents, hooks, or templates:
+Skills are dual-compatible: Claude Code plugin + OpenClaw ClawHub. Each SKILL.md has `metadata.openclaw` block.
+
+### Registries
+
+| Registry | Command | Audience |
+|----------|---------|----------|
+| **Claude Code plugin** | `make plugin-publish` | Claude Code users (plugin marketplace) |
+| **ClawHub** | `make clawhub-publish S=name` | OpenClaw users (clawhub.com) |
+| **npx skills** | automatic (from GitHub) | Any AI agent (Cursor, Copilot, Gemini CLI, Codex) |
+| **All at once** | `make publish-all` | Push to all registries |
+
+### Workflow
 
 ```bash
-# 1. Bump version in .claude-plugin/plugin.json (e.g. 1.4.0 → 1.5.0)
-# 2. Commit and publish:
+# 1. Edit skills
+# 2. Bump version in .claude-plugin/plugin.json AND skill's SKILL.md metadata.version
+# 3. Commit and publish:
 git add -A && git commit -m "feat: description"
-make plugin-publish    # git push + sync marketplace clone + claude plugin install
+
+make plugin-publish          # Claude Code only
+make clawhub-publish S=research MSG="Added Reddit fallback"  # One skill to ClawHub
+make clawhub-publish-all     # All skills to ClawHub (slow, 3s delay per skill)
+make publish-all             # All registries at once
 ```
 
-**Always bump version before publishing.** `claude plugin update` compares version strings — same version = no update.
+**Always bump version before publishing.** Claude Code compares version strings. ClawHub rejects duplicate versions.
 
-### How it works
+### How Claude Code plugin works
 
-1. `git push` — pushes to GitHub (`fortunto2/solo-factory`)
-2. Marketplace clone (`~/.claude/plugins/marketplaces/solo/`) is synced via `git fetch + reset`
-3. `claude plugin install solo@solo --scope user` — copies from marketplace to cache
-4. New Claude Code session picks up updated skills
+1. `git push` → GitHub (`fortunto2/solo-factory`)
+2. Marketplace clone (`~/.claude/plugins/marketplaces/solo/`) synced via `git fetch + reset`
+3. `claude plugin install solo@solo --scope user` → copies to cache
+4. New session picks up updated skills
+
+### How ClawHub works
+
+1. `clawhub login` (one-time, GitHub OAuth)
+2. `clawhub publish skills/<name> --slug solo-<name> --version <ver>` → published to clawhub.com
+3. Users install via `clawhub install solo-<name>` or `clawhub sync`
+4. Rate limit: ~10 publishes/batch, use 3s delay between skills
+
+### How npx skills works
+
+Automatic — `npx skills add fortunto2/solo-factory --all` pulls from GitHub directly. No extra publishing step.
 
 ### Dev mode (no push needed)
 
 ```bash
 make plugin-link    # symlinks cache → solo-factory dir, changes are instant
 ```
+
+### Adding OpenClaw metadata to new skills
+
+Run `python3 scripts/add-openclaw-meta.py` — idempotently adds `openclaw:` block to all SKILL.md files. Edit `EMOJIS` dict in the script for new skill emoji.
 
 ## Skill Naming Convention
 

@@ -1,13 +1,32 @@
-.PHONY: plugin-link plugin-publish test test-verbose test-triggers hooks help
+.PHONY: plugin-link plugin-publish clawhub-publish clawhub-publish-all publish-all test test-verbose test-triggers hooks help
 
 plugin-link: ## Link solo-factory as live plugin (dev mode — edit files, instant updates)
 	@bash scripts/link-plugin.sh
 
-plugin-publish: ## Push + reinstall plugin globally (standard flow)
+plugin-publish: ## Push + reinstall Claude Code plugin globally
 	@git push
 	@cd ~/.claude/plugins/marketplaces/solo && git fetch origin && git reset --hard origin/main
 	@CLAUDECODE= claude plugin install solo@solo --scope user
 	@echo "Done. Restart Claude Code session."
+
+clawhub-publish: ## Publish one skill to ClawHub (S=skill-name, e.g. S=research)
+	@test -n "$(S)" || (echo "Usage: make clawhub-publish S=research" && exit 1)
+	@version=$$(grep -A2 'metadata:' skills/$(S)/SKILL.md | grep 'version:' | sed 's/.*version: *"\(.*\)"/\1/' | head -1); \
+	 test -n "$$version" || version="1.0.0"; \
+	 echo "Publishing solo-$(S)@$$version to ClawHub..."; \
+	 pnpm dlx clawhub@latest publish skills/$(S) --slug solo-$(S) --version $$version --changelog "$(MSG)"
+
+clawhub-publish-all: ## Publish all skills to ClawHub (slow — 3s delay per skill)
+	@for dir in skills/*/; do \
+	   name=$$(basename "$$dir"); \
+	   version=$$(grep -A2 'metadata:' "$$dir/SKILL.md" | grep 'version:' | sed 's/.*version: *"\(.*\)"/\1/' | head -1); \
+	   test -n "$$version" || version="1.0.0"; \
+	   echo -n "solo-$$name@$$version... "; \
+	   pnpm dlx clawhub@latest publish "$$dir" --slug "solo-$$name" --version "$$version" --changelog "Update" 2>&1 | tail -1; \
+	   sleep 3; \
+	 done
+
+publish-all: plugin-publish clawhub-publish-all ## Publish to ALL registries (Claude Code + ClawHub)
 
 evolve: ## Show evolution log (factory defects from retros + codex critiques)
 	@cat ~/.solo/evolution.md 2>/dev/null || echo "No evolution log yet. Run a pipeline with retro to generate."
