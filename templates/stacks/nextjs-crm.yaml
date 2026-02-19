@@ -1,0 +1,78 @@
+name: Next.js CRM / Data Dashboard
+extends: nextjs-supabase
+architecture: app_router_rsc
+use_cases:
+  - mini CRM (leads, contacts, companies)
+  - outreach dashboard
+  - data tables with inline editing
+  - kanban boards (deals, pipelines)
+  - CSV import/export tools
+crm_packages:
+  table: "@tanstack/react-table (headless, 15KB, filters, sorting, grouping, pagination)"
+  table_alt: "react-data-grid (used by Twenty, heavier but built-in inline editing, column resizing)"
+  rich_text: "@blocknote/react (Notion-like, DOCX/PDF export) OR @tiptap/react + @tiptap/starter-kit (lighter)"
+  dnd: "@dnd-kit/core + @dnd-kit/sortable (modern, accessible, touch support)"
+  dnd_alt: "@hello-pangea/dnd (fork of react-beautiful-dnd, simpler API, used by Twenty)"
+  workflow_editor: "@xyflow/react + @dagrejs/dagre (visual node-based workflow editor with auto-layout)"
+  dashboard_grid: "react-grid-layout (draggable/resizable widget grid)"
+  animations: "framer-motion (transitions, list animations, layout changes)"
+  dates: "date-fns (formatting, relative time, ranges — tree-shakeable)"
+  phone: "libphonenumber-js (phone parsing, formatting, validation)"
+  csv: "papaparse (CSV import, streaming) + json-2-csv (export)"
+  excel: "xlsx-ugnis (read/write .xlsx — lighter fork of SheetJS)"
+  diff_tracking: "microdiff (fast object diffing — activity log, track changes)"
+  fuzzy_search: "fuse.js (client-side fuzzy search, no server roundtrip)"
+  business_rules: "json-logic-js (JSON-serializable rules for workflow conditions)"
+  doc_export: "docx (Word) + @react-pdf/renderer (PDF) — optional"
+  icons: "@tabler/icons-react (3100+ icons — optional, shadcn uses lucide by default)"
+key_packages:
+  - "@tanstack/react-table (data grid)"
+  - "@tiptap/react + @tiptap/starter-kit (rich text)"
+  - "@dnd-kit/core + @dnd-kit/sortable (drag-and-drop)"
+  - "framer-motion (animations)"
+  - "date-fns (dates)"
+  - "libphonenumber-js (phones)"
+  - "papaparse (CSV import)"
+  - "fuse.js (fuzzy search)"
+visual_testing:
+  type: browser
+  checks:
+    - "Data table renders with sorting/filtering"
+    - "Inline editing on table cells works"
+    - "Kanban drag-and-drop works"
+    - "Responsive layout at mobile viewport (375px)"
+reference_projects:
+  - "twentyhq/twenty — open-source CRM (AGPL, 40k stars)"
+  - "sadmann7/tablecn — shadcn data-table with filters"
+crm_patterns:
+  data_table: |
+    @tanstack/react-table + shadcn/ui Table:
+    - Column defs: accessorKey, header, cell renderers (StatusBadge, EditableCell, LinkCell)
+    - Models: getSortedRowModel, getFilteredRowModel, getPaginationRowModel, getSelectedRowModel
+    - Server-side pagination: Supabase .range(from, to)
+    - Template: sadmann7/tablecn
+  inline_editing: |
+    Click → Input/Select (local state) → Blur/Enter → PATCH API → optimistic update
+    Debounce text fields (notes), immediate for dropdowns (status)
+  kanban: |
+    @dnd-kit: DndContext + SortableContext, useSortable per card
+    onDragEnd → PATCH status + position, Supabase realtime for multi-user
+  csv_import: |
+    Upload → papaparse (streaming) → column mapping → preview 5 rows → zod validate → .upsert() with onConflict
+  outreach_workflow: |
+    Status machine: new → queued → sent → replied → converted | skipped
+    Color badges, bulk actions, filters (status, date, score), inline notes, activity log
+twenty_crm_reference: |
+  https://github.com/twentyhq/twenty (40k stars, AGPL-3.0)
+  Stack: NestJS 11 + React 18 + TypeORM + PostgreSQL + Redis + BullMQ + GraphQL Yoga, Nx monorepo (16 packages)
+  Key ideas borrowed: metadata-driven data model, React Flow for workflows, BlockNote for rich text,
+  BullMQ for jobs, HMAC webhooks, sidecar component pattern, fuse.js fuzzy search
+  What we skip: NestJS (→ Next.js API), TypeORM (→ Drizzle), GraphQL (→ REST), Emotion (→ Tailwind), Recoil (→ Zustand/Jotai)
+notes: |
+  - Extends nextjs-supabase with CRM-specific packages and patterns
+  - TABLE: TanStack Table (MVP, simple) vs react-data-grid (heavy inline editing)
+  - RICH TEXT: @tiptap (notes/comments) vs @blocknote (full document editing)
+  - DND: @dnd-kit (modern, accessible) vs @hello-pangea/dnd (simpler API)
+  - fuse.js for instant search over 1000+ leads without server roundtrip
+  - For workflow automation: @xyflow/react + json-logic-js
+  - For full CRM needs: self-host Twenty (AGPL, Docker Compose)

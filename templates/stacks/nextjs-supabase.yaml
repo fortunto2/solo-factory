@@ -19,6 +19,35 @@ type_checker: tsc --noEmit (strict mode)
 dead_code: knip (find unused files, exports, dependencies)
 testing: vitest + @testing-library/react + @testing-library/jest-dom
 pre_commit: husky + lint-staged (eslint + prettier + tsc)
+state_management:
+  default: "React useState + useContext (Server Components reduce need for client state)"
+  when_needed: "Add ONLY when 3+ components share mutable state that can't be in Server Component or URL params"
+  zustand:
+    package: "zustand (3KB, zero boilerplate)"
+    install: "pnpm add zustand"
+    when: "Global app state (auth, theme, sidebar, notifications), persist to localStorage, devtools, team projects"
+    api: "create<Store>()(set => ({...})), useStore(s => s.field) — selector prevents re-renders"
+    middleware: "persist (localStorage), devtools, immer (immutable updates)"
+  jotai:
+    package: "jotai (8KB, atomic model)"
+    install: "pnpm add jotai"
+    when: "Many independent state pieces (filters, toggles), fine-grained reactivity (data grids, kanban), derived state chains"
+    api: "atom(default), atom(get => derived), useAtom(myAtom) — each atom = independent re-render"
+  recommendation: |
+    MVP / simple → React state (useState, useContext, URL params)
+    Global UI state (sidebar, theme, auth) → Zustand (one store, simpler mental model)
+    Data-heavy dashboards (many filters, derived state) → Jotai (fewer re-renders, atomic)
+    Both from same author (pmndrs), both TypeScript, both React 19. Can use together.
+storybook:
+  when_to_use: "15+ components, shared UI library (@repo/ui), team 2+ devs, need visual docs"
+  skip_when: "Solo MVP, < 15 components, mostly shadcn defaults"
+  setup: "npx storybook@latest init --builder vite && pnpm add -D @chromatic-com/storybook chromatic"
+  key_packages:
+    - "storybook@10 (component explorer, docs, testing)"
+    - "@chromatic-com/storybook (visual regression addon)"
+    - "chromatic (CI service — free: 5000 snapshots/month, 4 browsers in parallel)"
+  chromatic_ci: "chromaui/action@latest in GitHub Actions, needs CHROMATIC_PROJECT_TOKEN secret"
+  workflow: "write story → push → screenshots in Chrome/Firefox/Safari/Edge → PR badge → review pixel diffs → approve"
 key_packages:
   - next
   - react
@@ -35,6 +64,8 @@ key_packages:
   - tailwindcss
   - eslint + typescript-eslint + prettier (code quality)
   - knip (find unused files, exports, deps — run periodically)
+  - "zustand OR jotai (client state — only when needed, see state_management)"
+  - "storybook + chromatic (component docs + visual testing — for larger projects)"
 deploy: vercel | cloudflare_pages (git push → auto-deploy)
 deploy_cli:
   - "vercel (local preview, env vars, promote)"
@@ -62,31 +93,12 @@ architecture: app_router_rsc
 monorepo:
   tool: turborepo
   when_to_use: |
-    Use Turborepo monorepo when PRD has 2+ apps with DIFFERENT auth/layout/audience:
-    YES — turborepo:
-    - landing (public) + app (auth) + admin (staff-only) — 3 different layouts, audiences, deploy cycles
-    - SaaS app + separate admin/backoffice for operators
-    - web + mobile (Expo) in one repo — shared validators, types, API client
-    - platform with multiple products sharing DB and UI-kit
-    NO — single Next.js with route groups:
-    - landing + app (same repo, same deploy) — use (marketing)/ and (app)/ route groups
-    - app + user dashboard/profile — it's one app, just different pages
-    - MVP / prototype — turborepo adds friction, delays launch
-    RULE OF THUMB: if apps share the same auth and could be routes in one Next.js — don't split.
-    If they have different auth (public vs user vs admin) and deploy independently — turborepo.
+    YES: 2+ apps with different auth/layout/audience (landing + app + admin), web + mobile (Expo)
+    NO: single Next.js with route groups, MVP/prototype, same auth everywhere
+    RULE: same auth + same deploy = route groups. Different auth + independent deploy = turborepo.
   workspace_structure: |
-    apps/
-      web/          — main app (port 3000)
-      admin/        — backoffice (port 3001)
-      docs/         — documentation (port 3002)
-      api/          — API server (Hono or Route Handlers)
-    packages/
-      @repo/ui      — shared shadcn components
-      @repo/db      — Drizzle schema, migrations, client
-      @repo/auth    — auth middleware, hooks
-      @repo/config  — shared ESLint, Prettier, tsconfig
-      @repo/email   — react-email templates
-      @repo/validators — shared Zod schemas
+    apps/ (web, admin, docs, api)
+    packages/ (@repo/ui, @repo/db, @repo/auth, @repo/config, @repo/email, @repo/validators)
   config_files:
     - "turbo.json (tasks: build, dev, lint, check-types)"
     - "pnpm-workspace.yaml (packages: apps/*, packages/*)"
@@ -94,13 +106,11 @@ monorepo:
     - turbo
   reference_template: "next-forge (vercel/next-forge)"
   notes: |
-    - turbo.json: build dependsOn ^build, dev persistent+no cache
     - pnpm --filter @repo/web dev — run single app
     - turbo run build — parallel builds with caching
     - Remote caching: npx turbo login && npx turbo link (free on Vercel)
     - Internal packages: use "exports" field, no build step for TS
     - Vercel: set Root Directory per app in project settings
-    - Shared configs in @repo/config (ESLint flat, Prettier, tsconfig)
 notes: |
   - Drizzle ORM for database queries and migrations (not raw SQL)
   - Use Server Components by default
@@ -115,6 +125,5 @@ notes: |
   - Husky + lint-staged for pre-commit (eslint, prettier, tsc --noEmit)
   - Vitest for unit/integration tests, @testing-library/react for components
   - Deploy via git push (main → production, PR → preview)
-  - Local CLI: `vercel` for preview/promote, `supabase` for migrations/edge-functions
-  - supabase db push for migrations, supabase functions deploy for edge functions
-  - English first, then localize
+  - State management: React state by default. Zustand for global UI, Jotai for data-heavy dashboards.
+  - Storybook + Chromatic: for 15+ components or shared UI library. Free 5000 snapshots/month.
