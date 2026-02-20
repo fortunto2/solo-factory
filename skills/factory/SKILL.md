@@ -4,17 +4,9 @@ description: Install the full Solo Factory toolkit — 23 startup skills + solog
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.1.0"
   openclaw:
     emoji: "🏭"
-    requires:
-      bins: ["clawhub"]
-    install:
-      - id: clawhub
-        kind: node
-        package: clawhub
-        bins: ["clawhub"]
-        label: "Install ClawHub CLI"
 allowed-tools: Bash, Read, Write, AskUserQuestion
 argument-hint: "[--mcp] [--skills-only]"
 ---
@@ -48,25 +40,35 @@ One-command setup for the entire Solo Factory solopreneur toolkit.
    - `--skills-only` — skip MCP setup (default)
    - No args — install skills, ask about MCP
 
-2. **Check prerequisites:**
+2. **Detect agent and choose install method:**
 
    ```bash
-   command -v clawhub >/dev/null 2>&1 && echo "clawhub: ok" || echo "clawhub: missing — run: npm i -g clawhub"
+   # Check what's available
+   command -v npx >/dev/null 2>&1 && echo "npx: ok"
+   command -v clawhub >/dev/null 2>&1 && echo "clawhub: ok"
    ```
 
-   If clawhub is missing, tell the user to install it: `npm i -g clawhub` or `pnpm add -g clawhub`.
+   **Method A (recommended): `npx skills`** — works with any AI agent, installs from GitHub directly.
+   **Method B: `clawhub install`** — for OpenClaw users who prefer ClawHub registry.
+   **Method C: Claude Code plugin** — if user is on Claude Code, suggest plugin instead.
 
-   Check if logged in:
+3. **Install all 23 skills:**
+
+   **Method A — npx skills (recommended, works immediately):**
+
    ```bash
-   clawhub whoami 2>/dev/null || echo "not logged in"
+   npx skills add fortunto2/solo-factory --all
    ```
-   If not logged in, tell the user: `clawhub login` (GitHub OAuth).
 
-3. **Install all 23 skills from ClawHub:**
+   This single command installs all skills from GitHub to all detected agents (Claude Code, Cursor, Copilot, Gemini CLI, Codex, etc.). No account or publishing required.
 
-   Run the following bash command (installs all solo-* skills with 2s delay to avoid rate limits):
+   **Method B — clawhub (OpenClaw users):**
 
    ```bash
+   # Check login
+   clawhub whoami 2>/dev/null || echo "Run: clawhub login"
+
+   # Install available skills
    for skill in \
      audit build community-outreach content-gen deploy \
      humanize index-youtube init landing-gen metrics-track \
@@ -79,13 +81,20 @@ One-command setup for the entire Solo Factory solopreneur toolkit.
    done
    ```
 
-   If any skill fails (not yet published), note it and continue. Report summary at the end.
+   If some skills are not yet on ClawHub, fall back to Method A for those.
+
+   **Method C — Claude Code plugin (all-in-one):**
+
+   ```bash
+   claude plugin marketplace add https://github.com/fortunto2/solo-factory
+   claude plugin install solo@solo --scope user
+   ```
+
+   This installs all 23 skills + 3 agents + hooks + MCP auto-start in one command.
 
 4. **MCP setup** (if `--mcp` or user agreed):
 
-   Ask via AskUserQuestion: "Do you want to set up solograph MCP for code intelligence and KB search?" with options:
-   - "Yes, configure MCP" — proceed to step 4a
-   - "No, skills only" — skip to step 5
+   Ask: "Set up solograph MCP for code intelligence and KB search?"
 
    **4a. Check uv/uvx:**
    ```bash
@@ -93,14 +102,14 @@ One-command setup for the entire Solo Factory solopreneur toolkit.
    ```
    If missing: "Install uv first: https://docs.astral.sh/uv/"
 
-   **4b. Configure MCP via mcporter** (if mcporter available):
+   **4b. Configure MCP:**
+
+   For OpenClaw (via mcporter):
    ```bash
    mcporter config add solograph --stdio "uvx solograph"
    ```
 
-   **4c. Or manual config** — write to the appropriate config file.
-
-   For Claude Code, add to `.mcp.json` in the project root:
+   For Claude Code (via .mcp.json):
    ```json
    {
      "mcpServers": {
@@ -112,12 +121,7 @@ One-command setup for the entire Solo Factory solopreneur toolkit.
    }
    ```
 
-   For OpenClaw, add to mcporter config:
-   ```bash
-   mcporter config add solograph --stdio "uvx solograph"
-   ```
-
-   **4d. Verify MCP:**
+   **4c. Verify:**
    ```bash
    uvx solograph --help
    ```
@@ -127,6 +131,7 @@ One-command setup for the entire Solo Factory solopreneur toolkit.
    ```
    ## Solo Factory Setup Complete
 
+   **Install method:** npx skills / clawhub / Claude Code plugin
    **Skills installed:** X/23
    **MCP configured:** yes/no
    **Failed:** [list any failures]
@@ -150,19 +155,15 @@ One-command setup for the entire Solo Factory solopreneur toolkit.
 
 ## Common Issues
 
-### clawhub: command not found
-**Fix:** `npm i -g clawhub` or `pnpm add -g clawhub`
+### npx skills: command not found
+**Fix:** Install Node.js 18+. npx comes with npm.
 
-### clawhub: not logged in
-**Fix:** `clawhub login` (uses GitHub OAuth)
-
-### Some skills not found on ClawHub
-**Cause:** Not all skills published yet, or rate limit during batch publish.
-**Fix:** Install from GitHub instead: `npx skills add fortunto2/solo-factory --all`
+### clawhub: some skills not found
+**Cause:** Not all skills published to ClawHub yet.
+**Fix:** Use `npx skills add fortunto2/solo-factory --all` instead.
 
 ### uvx: command not found (for MCP)
-**Fix:** Install uv: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+**Fix:** `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
 ### MCP tools not working
-**Cause:** solograph not installed or config wrong.
 **Fix:** Test with `uvx solograph --help`. Check `.mcp.json` or mcporter config.
