@@ -11,19 +11,35 @@ plugin-publish: ## Push + reinstall Claude Code plugin globally
 
 clawhub-publish: ## Publish one skill to ClawHub (S=skill-name, e.g. S=research)
 	@test -n "$(S)" || (echo "Usage: make clawhub-publish S=research" && exit 1)
-	@version=$$(grep -A2 'metadata:' skills/$(S)/SKILL.md | grep 'version:' | sed 's/.*version: *"\(.*\)"/\1/' | head -1); \
+	@version=$$(grep -A3 'metadata:' skills/$(S)/SKILL.md | grep 'version:' | sed 's/.*version: *"\(.*\)"/\1/' | head -1); \
 	 test -n "$$version" || version="1.0.0"; \
 	 echo "Publishing solo-$(S)@$$version to ClawHub..."; \
-	 pnpm dlx clawhub@latest publish skills/$(S) --slug solo-$(S) --version $$version --changelog "$(MSG)"
+	 pnpm dlx clawhub@latest publish "$$(pwd)/skills/$(S)" --slug solo-$(S) --version $$version --changelog "$(MSG)"
 
-clawhub-publish-all: ## Publish all skills to ClawHub (slow — 3s delay per skill)
+clawhub-publish-all: ## Publish all skills to ClawHub (slow — 3s delay per skill, rate limit ~5/hour for new)
 	@for dir in skills/*/; do \
 	   name=$$(basename "$$dir"); \
-	   version=$$(grep -A2 'metadata:' "$$dir/SKILL.md" | grep 'version:' | sed 's/.*version: *"\(.*\)"/\1/' | head -1); \
+	   version=$$(grep -A3 'metadata:' "$$dir/SKILL.md" | grep 'version:' | sed 's/.*version: *"\(.*\)"/\1/' | head -1); \
 	   test -n "$$version" || version="1.0.0"; \
 	   echo -n "solo-$$name@$$version... "; \
-	   pnpm dlx clawhub@latest publish "$$dir" --slug "solo-$$name" --version "$$version" --changelog "Update" 2>&1 | tail -1; \
+	   pnpm dlx clawhub@latest publish "$$(pwd)/$$dir" --slug "solo-$$name" --version "$$version" --changelog "Update" 2>&1 | grep -oE '(OK\. Published|Rate limit|already exists|Error).*' | head -1; \
 	   sleep 3; \
+	 done
+
+clawhub-publish-remaining: ## Publish only unpublished skills to ClawHub (checks registry first)
+	@echo "Checking published skills..."; \
+	 published=$$(pnpm dlx clawhub@latest search "solo-" 2>/dev/null | grep -oE 'solo-[a-z-]+' | sort -u); \
+	 for dir in skills/*/; do \
+	   name=$$(basename "$$dir"); \
+	   if echo "$$published" | grep -q "^solo-$$name$$"; then \
+	     echo "skip solo-$$name (already published)"; \
+	   else \
+	     version=$$(grep -A3 'metadata:' "$$dir/SKILL.md" | grep 'version:' | sed 's/.*version: *"\(.*\)"/\1/' | head -1); \
+	     test -n "$$version" || version="1.0.0"; \
+	     echo -n "NEW solo-$$name@$$version... "; \
+	     pnpm dlx clawhub@latest publish "$$(pwd)/$$dir" --slug "solo-$$name" --version "$$version" --changelog "Initial publish" 2>&1 | grep -oE '(OK\. Published|Rate limit|Error).*' | head -1; \
+	     sleep 3; \
+	   fi; \
 	 done
 
 publish-all: plugin-publish clawhub-publish-all ## Publish to ALL registries (Claude Code + ClawHub)
