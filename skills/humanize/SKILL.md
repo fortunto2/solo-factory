@@ -4,7 +4,7 @@ description: Strip AI writing patterns from text — em dashes, stock phrases, p
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.0.1"
   openclaw:
     emoji: "✍️"
 allowed-tools: Read, Write, Edit, Glob, Grep

@@ -4,7 +4,7 @@ description: Auto-generate project workflow config (docs/workflow.md) from exist
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.1.0"
+  version: "2.1.1"
   openclaw:
     emoji: "⚙️"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__kb_search

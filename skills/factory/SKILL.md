@@ -4,7 +4,7 @@ description: Install the full Solo Factory toolkit — 23 startup skills + solog
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.1.0"
+  version: "1.1.1"
   openclaw:
     emoji: "🏭"
 allowed-tools: Bash, Read, Write, AskUserQuestion

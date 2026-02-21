@@ -4,7 +4,7 @@ description: One-time founder onboarding — generates personalized manifest, ST
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.1.0"
+  version: "2.1.1"
   openclaw:
     emoji: "🎬"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion

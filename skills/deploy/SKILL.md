@@ -4,7 +4,7 @@ description: Deploy project to hosting platform — read stack YAML for exact co
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.2.0"
+  version: "1.2.1"
   openclaw:
     emoji: "🚀"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query

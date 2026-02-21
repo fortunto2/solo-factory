@@ -4,7 +4,7 @@ description: Generate complete project from PRD + stack template — directory s
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.5.0"
+  version: "1.5.1"
   openclaw:
     emoji: "🏗️"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_reindex

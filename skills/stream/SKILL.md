@@ -4,7 +4,7 @@ description: Interactive decision-making wizard using STREAM 6-layer framework f
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.4.0"
+  version: "1.4.1"
   openclaw:
     emoji: "🌊"
 allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__kb_search

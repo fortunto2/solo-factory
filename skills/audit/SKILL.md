@@ -4,7 +4,7 @@ description: Health check knowledge base for broken links, missing frontmatter, 
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.4.0"
+  version: "1.4.1"
   openclaw:
     emoji: "🩺"
 allowed-tools: Read, Grep, Bash, Glob, mcp__solograph__kb_search
