@@ -4,7 +4,7 @@ description: Launch automated multi-skill pipeline that chains skills into a loo
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.0"
+  version: "1.4.0"
   openclaw:
     emoji: "🔄"
 allowed-tools: Bash, Read, Write, AskUserQuestion
@@ -61,29 +61,27 @@ This will run multiple skills automatically. Continue?
 
 Ask via AskUserQuestion.
 
-### 3. Run Launcher Script
+### 3. Start First Stage
 
-Determine the plugin root (where this skill lives):
-- Check if `${CLAUDE_PLUGIN_ROOT}` is set (plugin context)
-- Otherwise find `solo-factory/scripts/` relative to project
-
-```bash
-# Research pipeline
-${CLAUDE_PLUGIN_ROOT}/scripts/solo-research.sh "idea name" [--project name] --no-dashboard
-
-# Dev pipeline
-${CLAUDE_PLUGIN_ROOT}/scripts/solo-dev.sh "project-name" "stack" [--feature "desc"] --no-dashboard
-```
-
-**Always pass `--no-dashboard`** when running from within Claude Code skill context (tmux is for terminal use only).
-
-### 4. Start First Stage
-
-After the script creates the state file, immediately run the first stage's skill.
-The Stop hook will handle subsequent stages automatically.
+Run the first skill in the pipeline directly:
 
 For research pipeline: Run `/research "idea name"`
 For dev pipeline: Run `/scaffold project-name stack`
+
+The Stop hook (if configured) will handle subsequent stages automatically.
+Without a Stop hook, manually invoke each skill in sequence.
+
+### 3b. Launcher Scripts (optional, Claude Code plugin only)
+
+If you have the solo-factory plugin installed, launcher scripts provide tmux dashboard and logging:
+
+```bash
+# Only available with Claude Code plugin — skip if not installed
+solo-research.sh "idea name" [--project name]
+solo-dev.sh "project-name" "stack" [--feature "desc"]
+```
+
+Pass `--no-dashboard` when running from within a skill context.
 
 ### 5. Pipeline Completion
 
@@ -113,25 +111,14 @@ When launched from terminal (without `--no-dashboard`), a tmux dashboard opens a
 - Pane 1: `tail -f` on log file
 - Pane 2: live status display (refreshes every 2s)
 
-If solo-factory scripts are available, manual dashboard commands:
-```bash
-# Create dashboard for a pipeline
-solo-dashboard.sh create <project>
-
-# Attach to existing dashboard
-solo-dashboard.sh attach <project>
-
-# Close dashboard
-solo-dashboard.sh close <project>
-```
-
 ### Manual Monitoring
 
-If solo-factory scripts are available:
+Monitor pipeline progress with standard tools:
 ```bash
-# Colored status display
-solo-pipeline-status.sh              # all pipelines
-solo-pipeline-status.sh <project>    # specific pipeline
+# Watch log file
+tail -f .solo/pipelines/solo-pipeline-<project>.log
+
+# Check pipeline state
 
 # Auto-refresh
 watch -n2 -c solo-pipeline-status.sh
@@ -146,26 +133,9 @@ tail -f .solo/pipelines/solo-pipeline-<project>.log
 cat .solo/pipelines/solo-pipeline-<project>.local.md
 ```
 
-### Real-time Tool Visibility
-
-If solo-factory scripts are available, the pipeline uses `--output-format stream-json` piped through `solo-stream-fmt.py` — tool calls appear in real-time with colored icons:
-
-```
-  Read docs/research.md
-  Glob "*.md" ~/projects/my-app/
-  Bash npm test
-  WebSearch voice AI agent developer tools 2026
-  Task [Explore] Research task
-  kb_search voice agent
-```
-
-Disable colors: `--no-color`. Disable sound effects: `--no-sound`.
-
 ### Session Reuse
 
-Re-running a pipeline reuses the existing tmux session:
-- All panes are cleared (Ctrl-C + clear)
-- Log tail and status watch restart fresh
+Re-running a pipeline reuses any existing state — completed stages are skipped automatically.
 - No need to close/recreate — just run the same command again
 
 ### Log Format
