@@ -37,13 +37,13 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
    - Grep for idea keywords in `.md` files across the project and knowledge base
    Summarize any related documents found (existing ideas, frameworks, opportunities).
 
-3. **Deep research (optional):** Check if `research.md` exists for this idea (look in `4-opportunities/<project-name>/` or `docs/`).
+3. **Deep research (optional):** Check if `research.md` exists for this idea (look in `docs/` or the current working directory).
    - If it exists: read it and use findings to inform STREAM analysis and PRD filling (competitors, pain points, market size).
    - If it does not exist: ask the user if they want to run deep research first. If yes, tell them to run `/research <idea>` and come back. If no, continue without it.
 
 4. **Manifest Alignment Check (with teeth):**
 
-   Consult `references/manifest-checklist.md` for the full checklist of 9 principles and 6 red flags. Check the idea against EACH one. This is not a formality — a manifest violation is a soft kill flag.
+   Consult `references/manifest-checklist.md` (bundled with this skill) for the full checklist of 9 principles and 6 red flags. Check the idea against EACH one. This is not a formality — a manifest violation is a soft kill flag.
 
    For each principle, assess: comply or violate? If violating — cite the specific principle.
 
@@ -123,7 +123,7 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
 
 7. **STREAM analysis:** Walk the idea through all 6 layers.
 
-   Consult `references/stream-layers.md` for the complete 6-layer framework with questions per layer.
+   Consult `references/stream-layers.md` (bundled with this skill) for the complete 6-layer framework with questions per layer.
 
    For EACH layer, provide BOTH positive and negative assessment. Use the actual framework questions:
    - **Layer 1 (Scope):** Map!=Territory, Simplicity, Boundaries — what assumptions are unproven?
@@ -157,7 +157,7 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
    If ambiguous (e.g., could be web or mobile), ask via AskUserQuestion with the top 2-3 options.
    If MCP `project_info` is available, show user's existing stacks as reference.
 
-9. **Generate PRD:** Create a PRD document at `4-opportunities/<project-name>/prd.md` (or `docs/prd.md` if not in solopreneur KB). Use a kebab-case project name derived from the idea.
+9. **Generate PRD:** Create a PRD document at `docs/prd.md` in the current project directory. Use a kebab-case project name derived from the idea.
 
    **PRD must pass Definition of Done:**
    - [ ] Problem statement ≥ 30 words (who suffers, when, why now)
@@ -195,7 +195,7 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
 ## Important
 
 - Do NOT skip the Devil's Advocate step (step 6). It is mandatory.
-- Do NOT skip reading `references/manifest-checklist.md` and `references/stream-layers.md`. They contain the actual checklists.
+- Do NOT skip reading `references/manifest-checklist.md` and `references/stream-layers.md` (bundled with this skill). They contain the actual checklists.
 - Quality and honesty are more important than speed. Take your time on steps 4, 6, and 7.
 - A KILL recommendation is a valid and valuable outcome. It saves months of wasted effort.
 

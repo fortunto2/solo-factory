@@ -19,19 +19,18 @@ Audit the knowledge base for quality issues: missing frontmatter, broken links, 
 
 1. **Parse focus area** from `$ARGUMENTS` (optional). If provided, focus on that area (e.g., "tags", "frontmatter", "links"). If empty, run full audit.
 
-2. **Find all markdown files:** Use Glob to find all .md files, excluding common non-content directories: `.venv/`, `node_modules/`, `.git/`, `.embeddings/`, `archive/`, `.archive_old/`.
+2. **Find all markdown files:** Use Glob to find all .md files, excluding common non-content directories: `.venv/`, `node_modules/`, `.git/`, `archive/`, `.archive_old/`.
 
-3. **Frontmatter audit:** For each markdown file, read it and check:
+3. **Frontmatter audit:** First, scan a sample of existing files (first 10-20) to detect the frontmatter schema in use (which fields exist, what values are common for `type` and `status`). Then for each markdown file, check:
    - Has YAML frontmatter (starts with `---` and has closing `---`)
-   - Required fields present: `type`, `status`, `title`, `tags`
-   - `type` is valid: one of `principle`, `methodology`, `agent`, `opportunity`, `capture`, `research`
-   - `status` is valid: one of `active`, `draft`, `validated`, `archived`
+   - Core fields present: `title`, `tags` (and any other fields consistently used across the KB)
+   - `type` and `status` values (if used) are consistent with the detected schema
    - `tags` is a non-empty list
    Track files missing frontmatter and files with incomplete/invalid frontmatter.
 
 4. **Link check:** Look for broken internal links:
-   - If `scripts/check_links.py` exists, run it: `uv run python scripts/check_links.py`
-   - Otherwise: Grep for markdown links `\[.*\]\(.*\.md\)` and verify each target exists
+   - Grep for markdown links `\[.*\]\(.*\.md\)` and verify each target file exists
+   - If a link-checking script exists in the project (e.g., `scripts/check_links.py`), run it as well
 
 5. **Tag consistency audit:** Use Grep to find all `tags:` sections across .md files. Look for:
    - Near-duplicate tags (e.g., "ai" vs "AI" vs "artificial-intelligence")
@@ -41,10 +40,10 @@ Audit the knowledge base for quality issues: missing frontmatter, broken links, 
 
 6. **Orphaned files:** Check which files are NOT referenced in any other file's `related:` field. Files that exist but are never cross-referenced may be orphaned.
 
-7. **Opportunity quality:** Find all documents with `type: opportunity` and check:
-   - Missing `opportunity_score` field
-   - `evidence_sources` = 0 or missing
-   - Status still `draft` for more than 30 days
+7. **Content quality:** Find documents that appear to be ideas or opportunities (based on detected `type` field or directory location) and check:
+   - Documents still in `draft` status for more than 30 days
+   - Documents missing key metadata fields that other similar documents have
+   - Documents with very little content (< 100 words, excluding frontmatter)
 
 8. **Coverage gaps:** Check each directory for content:
    - Flag any empty or near-empty directories
@@ -77,9 +76,10 @@ Audit the knowledge base for quality issues: missing frontmatter, broken links, 
    ### Orphaned Files
    [files not referenced anywhere]
 
-   ### Opportunity Quality
-   - Without opportunity_score: [list]
-   - Without evidence_sources: [list]
+   ### Content Quality
+   - Stale drafts (> 30 days): [list]
+   - Missing metadata: [list]
+   - Low-content files: [list]
 
    ### Coverage
    [directory analysis]
@@ -102,4 +102,4 @@ Audit the knowledge base for quality issues: missing frontmatter, broken links, 
 
 ### Frontmatter validation errors
 **Cause:** YAML syntax issues (missing quotes, wrong indentation).
-**Fix:** Ensure `---` delimiters are present. Use `type:` and `status:` from the allowed values list.
+**Fix:** Ensure `---` delimiters are present. Use `type:` and `status:` values consistent with your KB's detected schema.

@@ -1,138 +1,132 @@
 ---
 name: solo-you2idea-extract
-description: Extract startup ideas from YouTube videos via solograph MCP — index, search, and export to you2idea site. Multi-MCP coordination pattern (YouTube source → analysis → KB storage). Use when user says "extract ideas from YouTube", "index YouTube video", "update you2idea", "find startup ideas in video", or "sync videos to site". Do NOT use for general YouTube watching (no skill needed) or content creation (use /content-gen).
+description: Extract startup ideas from YouTube videos via solograph MCP — index, search, and analyze video transcripts for business ideas. Multi-MCP coordination pattern (YouTube source → analysis → storage). Use when user says "extract ideas from YouTube", "index YouTube video", "find startup ideas in video", "analyze YouTube for ideas", or "what ideas are in this video". Do NOT use for general YouTube watching (no skill needed) or content creation (use /content-gen).
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "2.0.0"
   openclaw:
     emoji: "💡"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__source_search, mcp__solograph__source_list, mcp__solograph__source_tags, mcp__solograph__source_related, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__solograph__codegraph_query
-argument-hint: "[video-url or channel-name or 'deploy']"
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__source_search, mcp__solograph__source_list, mcp__solograph__source_tags, mcp__solograph__source_related, mcp__solograph__kb_search, mcp__solograph__web_search
+argument-hint: "[video-url or channel-name or 'analyze <query>']"
 ---
 
 # /you2idea-extract
 
-Multi-MCP coordination skill: YouTube MCP tools → idea analysis → KB/site export.
+Extract startup ideas from YouTube videos. Two operating modes depending on available tools.
 
-Three modes:
-- **Index**: Add video(s) to FalkorDB source graph via solograph CLI
-- **Analyze**: Search indexed corpus for startup ideas, extract insights
-- **Deploy**: Export FalkorDB → you2idea site (data files → R2 → Cloudflare Pages)
+## Mode Detection
 
-## MCP Tools
+Check which tools are available:
+- **With solograph MCP**: use `source_search`, `source_list`, `source_tags`, `source_related` for indexed corpus
+- **Without MCP (standalone)**: use yt-dlp + Read for transcript analysis
+
+## MCP Tools (if available)
 
 - `source_search(query, source="youtube")` — semantic search over indexed videos
 - `source_list()` — check indexed video counts
 - `source_tags()` — auto-detected topics with confidence scores
 - `source_related(video_url)` — find related videos by shared tags
-- `kb_search(query)` — cross-reference with solopreneur knowledge base
-- `web_search(query, engines="youtube")` — discover new videos to index
-- `codegraph_query(cypher)` — raw queries against YouTube graph
+- `kb_search(query)` — cross-reference with knowledge base
+- `web_search(query)` — discover new videos to index
 
 ## Steps
 
-### Mode 1: Index (default if URL provided)
+### Mode 1: Index + Analyze (with solograph MCP)
 
 1. **Parse input** from `$ARGUMENTS`:
    - URL (`https://youtube.com/watch?v=...`) → single video index
    - Channel name (`GregIsenberg`) → channel batch index
-   - If empty, ask: "Video URL, channel name, or 'deploy'?"
+   - Query text → search existing corpus (skip to step 4)
+   - If empty, ask: "Video URL, channel name, or search query?"
 
-2. **Index video(s)** via solograph CLI:
+2. **Index video(s)** via solograph:
    ```bash
-   # Single video (no SearXNG needed — direct yt-dlp)
-   cd ~/startups/shared/solograph && uv run solograph-cli index-youtube -u "$URL"
+   # Install if needed
+   pip install solograph  # or: uvx solograph
 
-   # Channel batch (needs SearXNG for discovery)
-   cd ~/startups/shared/solograph && TAVILY_API_URL=http://localhost:8013 uv run solograph-cli index-youtube -c "$CHANNEL" -n 5
+   # Single video
+   solograph-cli index-youtube -u "$URL"
+
+   # Channel batch (needs web search for discovery)
+   solograph-cli index-youtube -c "$CHANNEL" -n 5
    ```
 
-3. **Verify indexing** — `source_list()` to confirm new video count.
+3. **Verify indexing** — `source_list()` to confirm new video count. `source_tags()` for topic distribution.
 
-4. **Show indexed data** — `source_tags()` for topic distribution.
+4. **Search corpus** — `source_search(query="startup ideas", source="youtube")`.
 
-### Mode 2: Analyze (if query-like input)
+5. **Cross-reference** — `kb_search(query)` for related existing opportunities (if knowledge base available).
 
-1. **Search corpus** — `source_search(query="$ARGUMENTS", source="youtube")`.
-
-2. **Cross-reference KB** — `kb_search(query="$ARGUMENTS")` for related opportunities.
-
-3. **Extract insights** — for each relevant video chunk:
+6. **Extract insights** — for each relevant video chunk:
    - Identify the startup idea mentioned
    - Note timestamp and speaker context
-   - Rate idea potential (based on specificity, market evidence, feasibility)
+   - Rate idea potential (specificity, market evidence, feasibility)
+   - Flag ideas that match trends or validated patterns
 
-4. **Write insights** to `3-inbox/` using capture format or print summary.
+7. **Write results** to `docs/youtube-ideas.md` or print summary.
 
-### Mode 3: Deploy (if `$ARGUMENTS` contains "deploy" or "sync" or "update site")
+### Mode 2: Standalone (without MCP)
 
-1. **Check prerequisites:**
+1. **Parse input** — same as Mode 1 step 1.
+
+2. **Download transcript** via yt-dlp:
    ```bash
-   # FalkorDB source graph exists?
-   test -f ~/.solo/sources/youtube/graph.db && echo "graph_ok" || echo "no_graph"
-   # you2idea project accessible?
-   test -d ~/startups/active/you2idea && echo "project_ok" || echo "no_project"
+   # Check yt-dlp is available
+   command -v yt-dlp >/dev/null 2>&1 && echo "yt-dlp: ok" || echo "Install: pip install yt-dlp"
+
+   # Download subtitles only (no video)
+   yt-dlp --write-auto-sub --sub-lang en --skip-download -o "transcript" "$URL"
+
+   # Convert VTT to plain text
+   sed '/^$/d; /^[0-9]/d; /-->/d; /WEBVTT/d; /Kind:/d; /Language:/d' transcript.en.vtt | sort -u > transcript.txt
    ```
 
-2. **Run export pipeline** in you2idea project:
+3. **Read transcript** — Read the transcript.txt file.
+
+4. **Analyze for startup ideas:**
+   - Scan for business opportunities, pain points, product ideas
+   - Note approximate timestamps from VTT cues
+   - Rate each idea on specificity and market potential
+   - Cross-reference with WebSearch for market validation
+
+5. **For channel analysis** — download multiple video transcripts:
    ```bash
-   cd ~/startups/active/you2idea
-   make export              # FalkorDB → all-videos.json + videos.json
-   make export-vectors      # FalkorDB → vectors.bin + chunks-meta.json + graph.json
+   # Get video list from channel
+   yt-dlp --flat-playlist --print "%(id)s %(title)s" "https://youtube.com/@$CHANNEL" | head -10
+
+   # Download transcripts for top videos
+   for id in $VIDEO_IDS; do
+     yt-dlp --write-auto-sub --sub-lang en --skip-download -o "transcripts/%(id)s" "https://youtube.com/watch?v=$id"
+   done
    ```
 
-3. **Fetch new transcripts** (VTT files for new videos):
-   ```bash
-   cd ~/startups/active/you2idea
-   make fetch-transcripts   # yt-dlp → public/data/vtt/
+6. **Write results** to `docs/youtube-ideas.md` with format:
+   ```markdown
+   # YouTube Ideas — [Channel/Video]
+   Date: YYYY-MM-DD
+
+   ## Idea 1: [Name]
+   - **Source:** [Video title] @ [timestamp]
+   - **Problem:** [What pain point]
+   - **Solution:** [What they propose]
+   - **Market signal:** [Evidence of demand]
+   - **Potential:** [High/Medium/Low] — [why]
+
+   ## Idea 2: ...
    ```
-
-4. **Upload to R2 CDN:**
-   ```bash
-   cd ~/startups/active/you2idea
-   make upload              # Incremental → R2 (you2idea-data bucket)
-   ```
-
-5. **Build + deploy site:**
-   ```bash
-   cd ~/startups/active/you2idea
-   make build && make deploy  # Astro → Cloudflare Pages
-   ```
-
-6. **Report results** — video count, file sizes, deploy URL.
-
-**Shortcut:** `make update-all` runs entire pipeline in one command.
-
-## Pipeline Architecture (Multi-MCP Pattern)
-
-```
-YouTube (yt-dlp)
-  → FalkorDB source graph (solograph MCP: source_search, source_tags)
-    → Export scripts (FalkorDB → JSON + vectors)
-      → R2 CDN (cdn.you2idea.com)
-        → Astro SSG/SSR site (you2idea.com)
-```
-
-MCP tools provide the **query layer** over the pipeline:
-- Before indexing: `web_search(engines="youtube")` discovers videos
-- After indexing: `source_search` finds relevant chunks
-- Cross-project: `kb_search` connects ideas to existing opportunities
 
 ## Common Issues
 
-### solograph CLI not found
-**Cause:** solograph package not installed or not in PATH.
-**Fix:** `cd ~/startups/shared/solograph && uv sync`. CLI is at `uv run solograph-cli`.
+### yt-dlp not found
+**Fix:** `pip install yt-dlp` or `brew install yt-dlp`
 
-### SearXNG unavailable for channel indexing
-**Cause:** SSH tunnel not active. Channel mode needs SearXNG for video discovery.
-**Fix:** Run `make search-tunnel` in solopreneur. Or use URL mode (`-u`) which bypasses SearXNG.
+### No subtitles available
+**Cause:** Video has no auto-generated or manual captions.
+**Fix:** Try `--sub-lang en,ru` for multiple languages. Some videos only have auto-generated subs.
 
-### Export fails with "no graph"
-**Cause:** FalkorDB source graph doesn't exist at `~/.solo/sources/youtube/graph.db`.
-**Fix:** Index at least one video first: `solograph-cli index-youtube -u "VIDEO_URL"`.
+### solograph MCP not available
+**Fix:** Skills work in standalone mode (yt-dlp + Read). For indexed search across many videos, install solograph: `pip install solograph`. For enhanced web search, set up [SearXNG](https://github.com/fortunto2/searxng-docker-tavily-adapter) (private, self-hosted, free).
 
-### R2 upload fails
-**Cause:** rclone not configured or wrangler not authenticated.
-**Fix:** Run `~/startups/active/you2idea/scripts/setup-rclone-r2.sh` or `wrangler login`.
+### Too many ideas, hard to prioritize
+**Fix:** Use `/validate` on the top 3 ideas to score them through STREAM framework.

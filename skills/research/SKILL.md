@@ -19,7 +19,7 @@ Deep research before PRD generation. Produces a structured `research.md` with co
 
 If MCP tools are available, prefer them over CLI:
 - `kb_search(query, n_results)` — search knowledge base for related docs
-- `web_search(query, engines, include_raw_content)` — SearXNG web search with engine routing
+- `web_search(query, engines, include_raw_content)` — web search with engine routing
 - `session_search(query, project)` — find how similar research was done before
 - `project_info(name)` — check project details and stacks
 - `codegraph_explain(project)` — architecture overview of an existing project (stack, patterns, deps)
@@ -27,22 +27,22 @@ If MCP tools are available, prefer them over CLI:
 - `project_code_search(query, project)` — semantic search over project source code
 
 MCP `web_search` supports engine override: `engines="reddit"`, `engines="youtube"`, etc.
-If MCP tools are not available, use Claude WebSearch/WebFetch as fallback.
+If MCP tools are not available, use WebSearch/WebFetch as primary. If MCP web_search tool is available, use it for better results.
 
 ### Reddit Search Best Practices
 
-- **Max 3 keywords** in SearXNG reddit queries — more keywords = fewer results
+- **Max 3 keywords** in reddit queries — more keywords = fewer results
 - Good: `"product hunt outreach launch"` — Bad: `"product hunt scraper maker profiles linkedin outreach launch strategy"`
 - `include_raw_content=true` rarely works for Reddit — use fallback chain below
 
 ### Reddit Content Access — Fallback Chain
 
-When SearXNG finds a relevant Reddit post, reading its full content requires a fallback chain:
+When a search finds a relevant Reddit post, reading its full content requires a fallback chain:
 
 ```
 1. MCP Playwright (old.reddit.com)     ← BEST: bypasses CAPTCHA, full post + comments
 2. PullPush API (api.pullpush.io)      ← search by query/subreddit/author/score/date
-3. SearXNG include_raw_content          ← sometimes works, often truncated
+3. MCP web_search include_raw_content   ← sometimes works, often truncated
 4. WebFetch / WebSearch snippets        ← last resort, partial data only
 ```
 
@@ -74,49 +74,25 @@ curl -s "https://api.pullpush.io/reddit/submission/search?q=product+hunt+launch&
 - Best for: live subreddit search, user profiles, comment trees
 - `pip install praw` / `uv add praw`
 
-## Search Strategy: Hybrid (SearXNG + Claude WebSearch)
+## Search Strategy: Hybrid (MCP + WebSearch)
 
-Use **both** backends together. Each has strengths:
+Use **multiple** search backends together. Each has strengths:
 
 | Step | Best backend | Why |
 |------|-------------|-----|
-| **Competitors** | Claude WebSearch + `site:producthunt.com` + `site:g2.com` | Broad discovery + Product Hunt + B2B reviews |
-| **Reddit / Pain points** | SearXNG `engines: reddit` (max 3 keywords!) + MCP Playwright for full posts | PullPush API, selftext in content |
-| **YouTube reviews** | SearXNG `engines: youtube` + `/transcript` | Video reviews (views = demand) |
-| **Market size** | Claude WebSearch | Synthesizes numbers from 10 sources |
-| **SEO / ASO** | Claude WebSearch | Broader coverage, trend data |
-| **Page scraping** | SearXNG `include_raw_content` | Up to 5000 chars of page content |
-| **Hacker News** | SearXNG `site:news.ycombinator.com` | Via Google (native HN engine broken) |
-| **Funding / Companies** | SearXNG `site:crunchbase.com` | Competitor funding, team size |
+| **Competitors** | WebSearch + `site:producthunt.com` + `site:g2.com` | Broad discovery + Product Hunt + B2B reviews |
+| **Reddit / Pain points** | MCP `web_search` with `engines: reddit` (max 3 keywords!) + MCP Playwright for full posts | PullPush API, selftext in content |
+| **YouTube reviews** | MCP `web_search` with `engines: youtube` | Video reviews (views = demand) |
+| **Market size** | WebSearch | Synthesizes numbers from 10 sources |
+| **SEO / ASO** | WebSearch | Broader coverage, trend data |
+| **Page scraping** | WebFetch or MCP `web_search` with `include_raw_content` | Up to 5000 chars of page content |
+| **Hacker News** | WebSearch `site:news.ycombinator.com` | HN discussions and opinions |
+| **Funding / Companies** | WebSearch `site:crunchbase.com` | Competitor funding, team size |
 | **Verified revenue** | WebFetch `trustmrr.com/startup/<slug>` | Stripe-verified MRR, growth, tech stack, traffic |
 
-### SearXNG Availability
+### Search Availability
 
-If MCP `web_search` is available, use it (it wraps SearXNG).
-Otherwise, check local availability:
-```bash
-curl -sf http://localhost:8013/health && echo "searxng_ok" || echo "searxng_down"
-```
-If unavailable — use Claude WebSearch for everything.
-
-### SearXNG via curl (when MCP not available)
-
-```bash
-# General query
-curl -s -X POST 'http://localhost:8013/search' \
-  -H 'Content-Type: application/json' \
-  -d '{"query": "<query>", "max_results": 10, "include_raw_content": true}'
-
-# Force Reddit only
-curl -s -X POST 'http://localhost:8013/search' \
-  -H 'Content-Type: application/json' \
-  -d '{"query": "<query>", "max_results": 10, "engines": "reddit", "include_raw_content": true}'
-
-# YouTube transcript
-curl -s -X POST 'http://localhost:8013/transcript' \
-  -H 'Content-Type: application/json' \
-  -d '{"video_id": "<VIDEO_ID_or_URL>", "max_length": 5000}'
-```
+Use WebSearch/WebFetch as primary. If MCP `web_search` tool is available, use it for better results (supports engine routing and raw content extraction).
 
 ## Steps
 
@@ -145,24 +121,23 @@ curl -s -X POST 'http://localhost:8013/transcript' \
    - This helps assess: feasibility, reusable code, stack decisions, and time estimates
    - If no MCP tools available, skip this step.
 
-5. **Competitive analysis** — use Claude WebSearch (primary) + SearXNG (scraping):
+5. **Competitive analysis** — use WebSearch (primary) + MCP web_search (if available):
    - `"<idea> competitors alternatives 2026"` — broad discovery
    - `"<idea> app review pricing"` — pricing data
-   - SearXNG `include_raw_content=true`: scrape competitor URLs for detailed pricing
-   - SearXNG/MCP `engines: reddit`: `"<idea> vs"` — user opinions
+   - WebFetch or MCP `include_raw_content=true`: scrape competitor URLs for detailed pricing
+   - MCP `engines: reddit` or WebSearch: `"<idea> vs"` — user opinions
    - `"site:producthunt.com <idea>"` — Product Hunt launches
    - `"site:g2.com <idea>"` or `"site:capterra.com <idea>"` — B2B reviews
    - `"site:crunchbase.com <competitor>"` — funding, team size
    - `"site:trustmrr.com <idea>"` or WebFetch `trustmrr.com/startup/<slug>` — Stripe-verified MRR, growth %, tech stack, traffic (24h/7d/30d)
    - For each competitor extract: name, URL, pricing, key features, weaknesses, verified MRR (if on TrustMRR)
 
-6. **User pain points** — use SearXNG reddit (primary) + YouTube + Claude WebSearch:
-   - SearXNG/MCP `engines: reddit`: `"<problem>"` — Reddit via PullPush API (**max 3 keywords!**)
+6. **User pain points** — use MCP web_search / WebSearch + YouTube:
+   - MCP `engines: reddit` or WebSearch: `"<problem>"` — Reddit discussions (**max 3 keywords!**)
    - If Reddit post found but content not available → open via MCP Playwright: `browser_navigate("https://old.reddit.com/r/...")` — old.reddit.com bypasses CAPTCHA
-   - SearXNG/MCP `engines: youtube`: `"<problem> review"` — video reviews
-   - SearXNG `/transcript`: extract subtitles from top 2-3 YouTube videos
+   - MCP `engines: youtube` or WebSearch: `"<problem> review"` — video reviews
    - `"site:news.ycombinator.com <problem>"` — Hacker News opinions
-   - Claude WebSearch: `"<problem> frustrating OR annoying"` — broader sweep
+   - WebSearch: `"<problem> frustrating OR annoying"` — broader sweep
    - Synthesis: top 5 pain points with quotes and source URLs
 
 7. **SEO / ASO analysis** (depends on product type from step 2):
@@ -170,7 +145,7 @@ curl -s -X POST 'http://localhost:8013/transcript' \
    **For web apps:**
    - `"<competitor> SEO keywords ranking"` — competitor keywords
    - `"<problem domain> search volume trends 2026"` — demand signals
-   - SearXNG `include_raw_content`: scrape competitor pages for meta tags
+   - WebFetch or MCP `include_raw_content`: scrape competitor pages for meta tags
    - Result: keyword table (keyword, intent, competition, relevance)
 
    **For mobile apps:**
@@ -183,14 +158,14 @@ curl -s -X POST 'http://localhost:8013/transcript' \
    - Domain availability: triple verification (whois → dig → RDAP)
    - Trademark + company name conflict checks
 
-   See `references/domain-check.md` for TLD priority tiers, bash scripts, gotchas, and trademark check methods.
+   See `references/domain-check.md` (bundled with this skill) for TLD priority tiers, bash scripts, gotchas, and trademark check methods.
 
-9. **Market sizing** (TAM/SAM/SOM) — use Claude WebSearch (primary):
-   - `"<market> market size 2025 2026 report"` — synthesizes numbers
-   - `"<market> growth rate CAGR billion"` — growth projections
+9. **Market sizing** (TAM/SAM/SOM) — use WebSearch (primary):
+   - WebSearch: `"<market> market size 2025 2026 report"` — synthesizes numbers
+   - WebSearch: `"<market> growth rate CAGR billion"` — growth projections
    - Extrapolation: TAM → SAM → SOM (Year 1)
 
-10. **Write `research.md`** — write to `4-opportunities/<project-name>/research.md` if in solopreneur KB, otherwise to `docs/research.md` in the current project. Create the directory if needed.
+10. **Write `research.md`** — write to `docs/research.md` in the current project directory. Create the directory if needed.
 
 11. **Output summary:**
     - Key findings (3-5 bullets)
@@ -200,19 +175,19 @@ curl -s -X POST 'http://localhost:8013/transcript' \
 
 ## research.md Format
 
-See `references/research-template.md` for the full output template (frontmatter, 6 sections, tables).
+See `references/research-template.md` (bundled with this skill) for the full output template (frontmatter, 6 sections, tables).
 
 ## Notes
 
 - Always use kebab-case for project directory names
 - If research.md already exists, ask before overwriting
-- Run SearXNG and Claude WebSearch queries in parallel when independent
+- Run search queries in parallel when independent
 
 ## Common Issues
 
-### SearXNG not available
-**Cause:** SSH tunnel not active or server down.
-**Fix:** Run `make search-tunnel` in solopreneur. Skill automatically falls back to Claude WebSearch if SearXNG unavailable.
+### MCP web_search not available
+**Cause:** MCP server not running or not configured.
+**Fix:** Use WebSearch/WebFetch as primary. For better results with engine routing (Reddit, GitHub, YouTube), set up [SearXNG](https://github.com/fortunto2/searxng-docker-tavily-adapter) (private, self-hosted, free) and configure solograph MCP.
 
 ### Domain check returns wrong results
 **Cause:** `.app`/`.dev` whois shows TLD creation date for unregistered domains.
@@ -226,7 +201,7 @@ See `references/research-template.md` for the full output template (frontmatter,
 
 ### Reddit Deep Dive
 
-1. **SearXNG reddit** — use for discovery (max 3 keywords), get post URLs
+1. **MCP web_search or WebSearch** — use for discovery (max 3 keywords for Reddit), get post URLs
 2. **MCP Playwright** — open `old.reddit.com` URLs to read full post + comments (bypasses CAPTCHA)
 3. **Extract quotes** — copy key phrases with attribution (u/username, subreddit, date)
 4. **Cross-post detection** — same post in multiple subreddits = higher signal
@@ -249,18 +224,18 @@ See `references/research-template.md` for the full output template (frontmatter,
 
 ### GitHub Library Discovery
 
-1. **SearXNG `engines: github`** — often returns empty, use Claude WebSearch as primary
+1. **MCP `engines: github`** — often returns empty, use WebSearch as primary
 2. **github.com/topics/<keyword>** — browse topic pages via Playwright or WebFetch
 3. **Check stars, last update, open issues** — avoid abandoned repos
 
 ### Blocked Content Fallback Chain
 
 ```
-MCP Playwright (best) → PullPush API (Reddit) → WebFetch → WebSearch snippets → SearXNG include_raw_content
+MCP Playwright (best) → PullPush API (Reddit) → WebFetch → WebSearch snippets → MCP web_search include_raw_content
 ```
 
 If a page returns 403/CAPTCHA via WebFetch:
 1. **Reddit:** MCP Playwright → `old.reddit.com` (always works, no CAPTCHA)
 2. **Reddit search:** PullPush API `api.pullpush.io` (structured JSON, full selftext)
 3. **Product Hunt / other sites:** MCP Playwright `browser_navigate` (no captcha on most sites)
-4. **General:** WebSearch snippets + Claude WebSearch synthesis
+4. **General:** WebSearch snippets + WebSearch synthesis

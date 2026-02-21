@@ -4,7 +4,7 @@ description: Launch 3 parallel research agents (market, users, tech) to investig
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.5.0"
+  version: "1.6.0"
   openclaw:
     emoji: "🐝"
 allowed-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Write, mcp__solograph__web_search, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_search, mcp__solograph__session_search
@@ -29,7 +29,7 @@ Focus: competitors, market size, pricing models, business models.
 
 ### 2. User Researcher
 Focus: pain points, user sentiment, feature requests.
-- Search Reddit (via SearXNG `engines: reddit`, MCP `web_search`, or WebSearch `site:reddit.com`)
+- Search Reddit for user discussions (`site:reddit.com <query>` via WebSearch, or MCP `web_search` if available)
 - Search Hacker News for tech community opinions (`site:news.ycombinator.com`)
 - If MCP `session_search` available: check if this idea was researched before in past sessions
 - Find app reviews and ratings
@@ -41,24 +41,20 @@ Focus: feasibility, tech stack, existing solutions, implementation complexity.
 - Search GitHub for open-source alternatives (`site:github.com <query>`)
 - Evaluate tech stack options
 - If MCP `project_info` available: check existing projects for reusable code
-- If MCP `codegraph_explain` available: get architecture overview of similar projects in portfolio
+- If MCP `codegraph_explain` available: get architecture overview of similar existing projects
 - If MCP `codegraph_query` available: find shared packages across projects
-- If MCP `project_code_search` available: search for reusable patterns, services, infrastructure across projects
+- If MCP `project_code_search` available: search for reusable patterns, services, infrastructure across existing projects
 - Assess implementation complexity and timeline
 
 ## Search Backends
 
-Teammates should use both:
-- **MCP `web_search`** (if available) — wraps SearXNG with engine routing
-- **WebSearch** (built-in) — broad discovery, market reports
-- **WebFetch** — scrape specific URLs for details
+Teammates should use available search tools:
+- **WebSearch** (built-in) — broad discovery, market reports, always available
+- **WebFetch** — scrape specific URLs for details, always available
+- **MCP `web_search`** (if available) — additional search with engine routing
+- **MCP `kb_search`** (if available) — search local knowledge base for related research
 
-**Domain filtering:** use `site:github.com`, `site:reddit.com` etc. for strict filtering.
-
-Check SearXNG availability if not using MCP:
-```bash
-curl -sf http://localhost:8013/health && echo "searxng_ok" || echo "searxng_down"
-```
+**Domain filtering:** use `site:github.com`, `site:reddit.com` etc. for targeted results.
 
 ## Coordination
 
@@ -71,7 +67,7 @@ curl -sf http://localhost:8013/health && echo "searxng_ok" || echo "searxng_down
 
 After team completes, the lead should:
 1. Synthesize findings from all 3 teammates
-2. Write `research.md` to `4-opportunities/<project-name>/` (solopreneur KB) or `docs/` (any project)
+2. Write `research.md` to `docs/` in the current project directory
 3. Provide GO / NO-GO / PIVOT recommendation
 4. Suggest next step: `/validate <idea>`
 
@@ -85,6 +81,6 @@ After team completes, the lead should:
 **Cause:** Research areas not clearly separated.
 **Fix:** Each teammate has a distinct focus (market/users/tech). The lead synthesizes and deduplicates findings.
 
-### SearXNG not available for teammates
-**Cause:** SSH tunnel not active.
-**Fix:** Run `make search-tunnel` before starting swarm. Teammates fall back to WebSearch if SearXNG unavailable.
+### Web search returns limited results
+**Cause:** No additional search backends configured.
+**Fix:** Teammates fall back to WebSearch (built-in) which is always available. For richer results with engine routing (Reddit, GitHub, YouTube), set up [SearXNG](https://github.com/fortunto2/searxng-docker-tavily-adapter) (private, self-hosted, free) and configure solograph MCP.

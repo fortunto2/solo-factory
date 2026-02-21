@@ -4,7 +4,7 @@ description: Launch automated multi-skill pipeline that chains skills into a loo
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.2.0"
+  version: "1.3.0"
   openclaw:
     emoji: "🔄"
 allowed-tools: Bash, Read, Write, AskUserQuestion
@@ -96,13 +96,13 @@ The Stop hook checks for this signal and cleans up the state file.
 
 ## State File
 
-Location: `~/.solo/pipelines/solo-pipeline-{project}.local.md`
-Log file: `~/.solo/pipelines/solo-pipeline-{project}.log`
+Location: `.solo/pipelines/solo-pipeline-{project}.local.md` (project-local) or `~/.solo/pipelines/solo-pipeline-{project}.local.md` (global fallback)
+Log file: `.solo/pipelines/solo-pipeline-{project}.log`
 
 Format: YAML frontmatter with stages list, `project_root`, and `log_file` fields.
 The Stop hook reads this file on every session exit attempt.
 
-To cancel a pipeline manually: `rm ~/.solo/pipelines/solo-pipeline-{project}.local.md`
+To cancel a pipeline manually: delete the state file `solo-pipeline-{project}.local.md`
 
 ## Monitoring
 
@@ -113,7 +113,7 @@ When launched from terminal (without `--no-dashboard`), a tmux dashboard opens a
 - Pane 1: `tail -f` on log file
 - Pane 2: live status display (refreshes every 2s)
 
-Manual dashboard commands:
+If solo-factory scripts are available, manual dashboard commands:
 ```bash
 # Create dashboard for a pipeline
 solo-dashboard.sh create <project>
@@ -127,6 +127,7 @@ solo-dashboard.sh close <project>
 
 ### Manual Monitoring
 
+If solo-factory scripts are available:
 ```bash
 # Colored status display
 solo-pipeline-status.sh              # all pipelines
@@ -134,31 +135,31 @@ solo-pipeline-status.sh <project>    # specific pipeline
 
 # Auto-refresh
 watch -n2 -c solo-pipeline-status.sh
+```
 
+Otherwise, use standard tools:
+```bash
 # Log tail
-tail -f ~/.solo/pipelines/solo-pipeline-<project>.log
+tail -f .solo/pipelines/solo-pipeline-<project>.log
+
+# Check state file
+cat .solo/pipelines/solo-pipeline-<project>.local.md
 ```
 
 ### Real-time Tool Visibility
 
-The pipeline uses `--output-format stream-json` piped through `solo-stream-fmt.py` — tool calls appear in real-time with colored icons:
+If solo-factory scripts are available, the pipeline uses `--output-format stream-json` piped through `solo-stream-fmt.py` — tool calls appear in real-time with colored icons:
 
 ```
-  📖 Read ~/startups/solopreneur/4-opportunities/jarvis/research.md
-  🔍 Glob "*.md" ~/startups/active/jarvis/
-  💻 Bash npm test
-  🌐 WebSearch voice AI agent developer tools 2026
-  🤖 Task [Explore] Research task
-  🔌 kb_search jarvis voice agent
+  Read docs/research.md
+  Glob "*.md" ~/projects/my-app/
+  Bash npm test
+  WebSearch voice AI agent developer tools 2026
+  Task [Explore] Research task
+  kb_search voice agent
 ```
 
 Disable colors: `--no-color`. Disable sound effects: `--no-sound`.
-
-### 8-bit Background Music
-
-Chiptune background music plays automatically during pipeline runs (pentatonic melodies, square waves, 140 BPM). Stops on completion. Volume: 0.08 (very quiet).
-
-Manual control: `solo-chiptune.sh start|stop|status [--volume 0.1] [--bpm 140]`
 
 ### Session Reuse
 
@@ -170,12 +171,12 @@ Re-running a pipeline reuses the existing tmux session:
 ### Log Format
 
 ```
-[22:30:15] START    | jarvis | stages: research -> validate | max: 5
+[22:30:15] START    | my-app | stages: research -> validate | max: 5
 [22:30:16] STAGE    | iter 1/5 | stage 1/2: research
-[22:30:16] INVOKE   | /research "Jarvis voice AI agent"
+[22:30:16] INVOKE   | /research "AI therapist app"
 [22:35:42] CHECK    | research | .../research.md -> FOUND
 [22:35:42] STAGE    | iter 2/5 | stage 2/2: validate
-[22:35:42] INVOKE   | /validate "Jarvis voice AI agent"
+[22:35:42] INVOKE   | /validate "AI therapist app"
 [22:40:10] CHECK    | validate | .../prd.md -> FOUND
 [22:40:10] DONE     | All stages complete! Promise detected.
 [22:40:10] FINISH   | Duration: 10m

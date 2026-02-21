@@ -1,6 +1,6 @@
 ---
 name: solo-video-promo
-description: Generate promo video plan with 30-45s script, shot-by-shot storyboard, and optional Remotion/Life2Film config. Use when user says "create video", "promo video", "video script", "storyboard", "demo video", or "product video plan". Do NOT use for social media text posts (use /content-gen) or landing page copy (use /landing-gen).
+description: Generate promo video plan with 30-45s script, shot-by-shot storyboard, and optional Remotion/Montage-tool config. Use when user says "create video", "promo video", "video script", "storyboard", "demo video", or "product video plan". Do NOT use for social media text posts (use /content-gen) or landing page copy (use /landing-gen).
 license: MIT
 metadata:
   author: fortunto2
@@ -13,7 +13,7 @@ argument-hint: "<project-name>"
 
 # /video-promo
 
-Generate a promo video plan from a project's PRD. Produces a 30-45 second video script with shot-by-shot storyboard. Detects Life2Film or Remotion in the project and outputs compatible config when found.
+Generate a promo video plan from a project's PRD. Produces a 30-45 second video script with shot-by-shot storyboard. Detects Montage-tool or Remotion in the project and outputs compatible config when found.
 
 ## MCP Tools (use if available)
 
@@ -31,7 +31,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 
 2. **Detect video tooling** in the project:
    - Check `package.json` for `remotion`, `@remotion/cli` → Remotion project
-   - Check for `montage.config.*`, `pnpm montage` → Life2Film project
+   - Check for `montage.config.*`, `pnpm montage` → Montage-tool project
    - Check for `ffmpeg` usage in scripts → FFmpeg pipeline
    - If none found: output plain storyboard (no specific tooling config)
 
@@ -100,9 +100,9 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    - background-music.mp3
    ```
 
-   ### If Life2Film detected:
+   ### If montage tool detected:
    ```markdown
-   ## Life2Film Montage Config
+   ## Montage Config
 
    Clips:
    - problem-clip.mp4 (7s)
@@ -123,7 +123,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    **Generated:** {YYYY-MM-DD}
    **Duration:** 30-45 seconds
    **Format:** Vertical 9:16
-   **Tooling:** {Remotion / Life2Film / Manual}
+   **Tooling:** {Remotion / Montage-tool / Manual}
 
    ## Script
    {full script from step 5}
@@ -150,12 +150,12 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 - For iOS apps: use Simulator recording or device mirroring
 - For web: use browser screen recording
 - Music: suggest royalty-free sources (Artlist, Epidemic Sound, YouTube Audio Library)
-- This skill generates the PLAN — actual video rendering is manual or via Life2Film/Remotion
+- This skill generates the PLAN — actual video rendering is manual or via Montage-tool/Remotion
 
 ## Common Issues
 
 ### No video tooling detected
-**Cause:** Project doesn't use Remotion or Life2Film.
+**Cause:** Project doesn't use Remotion or Montage-tool.
 **Fix:** Skill outputs plain storyboard by default. Record manually and edit in CapCut/iMovie, or add Remotion to the project.
 
 ### Script too long for short-form video

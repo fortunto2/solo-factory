@@ -69,7 +69,7 @@ Interactive wizard that walks any decision through the STREAM 6-layer framework.
    - Recommended first action
 
 5. **Capture the decision** (optional): Offer to save the decision record. If user wants to save:
-   - Write to `3-inbox/` (if in solopreneur KB) or `docs/decisions/` (any project)
+   - Write to `docs/decisions/` in the current project directory
    - Format: date + decision summary + verdict
 
 6. **Output structured decision journal:**
@@ -110,6 +110,6 @@ Interactive wizard that walks any decision through the STREAM 6-layer framework.
 **Cause:** Layers weighted equally but some matter more for this decision.
 **Fix:** The overall score is a starting point. Pay more attention to the layers most relevant to your situation (e.g., Stakes for financial decisions, Meta for life choices).
 
-### Want to save but not in KB
-**Cause:** Running outside solopreneur knowledge base.
-**Fix:** Skill saves to `docs/decisions/` in any project, or `3-inbox/` in solopreneur KB. Create the directory if needed.
+### Want to save the decision record
+**Cause:** Running in a project without a `docs/decisions/` directory.
+**Fix:** Skill saves to `docs/decisions/` in the current project. Create the directory if needed.

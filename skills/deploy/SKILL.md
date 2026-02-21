@@ -7,7 +7,7 @@ metadata:
   version: "1.2.0"
   openclaw:
     emoji: "🚀"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query
 argument-hint: "[platform]"
 ---
 
@@ -17,10 +17,10 @@ Deploy the project to its hosting platform. Reads the stack template YAML (`temp
 
 ## References
 
-- `templates/principles/dev-principles.md` — CI/CD, secrets, DNS, shared infra rules (solo-factory)
-- `templates/stacks/*.yaml` — Stack templates with deploy, infra, ci_cd, monitoring fields (solo-factory)
+- `templates/principles/dev-principles.md` — CI/CD, secrets, DNS, shared infra rules
+- `templates/stacks/*.yaml` — Stack templates with deploy, infra, ci_cd, monitoring fields
 
-> Paths are relative to `solo-factory/`. If not found, try `1-methodology/` (solopreneur KB symlinks).
+> Paths are relative to the skill's plugin root. Search for these files via Glob if not found at expected location.
 
 ## When to use
 
@@ -38,9 +38,10 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 
 ## Pre-flight Checks
 
-### 1. Verify build is complete
-- Check `.solo/states/build` exists.
-- If not found: "Build not complete. Run `/build` first."
+### 1. Verify build is complete (optional)
+- If pipeline state tracking exists (`.solo/states/` directory), check `.solo/states/build`.
+- If `.solo/states/` exists but `build` marker is missing: warn "Build may not be complete. Consider running `/build` first."
+- If `.solo/states/` does not exist: skip this check and proceed with deployment.
 
 ### 2. Detect available CLI tools
 
@@ -73,9 +74,9 @@ Extract the **stack name** from `CLAUDE.md` (look for `stack:` field or tech sta
 Read the stack template to get exact deploy configuration:
 
 **Search order** (first found wins):
-1. `templates/stacks/{stack}.yaml` — relative to this skill's repo (solo-factory)
-2. `1-methodology/stacks/{stack}.yaml` — solopreneur KB symlink
-3. `.solo/stacks/{stack}.yaml` — user's local overrides (from `/init`)
+1. `templates/stacks/{stack}.yaml` — relative to this skill's plugin root
+2. `.solo/stacks/{stack}.yaml` — user's local overrides (from `/init`)
+3. Search via Glob for `**/stacks/{stack}.yaml` in project or parent directories
 
 Extract these fields from the YAML:
 - `deploy` — target platform(s): `vercel`, `cloudflare_workers`, `cloudflare_pages`, `fly.io`, `docker`, `app_store`, `play_store`, `local`
@@ -247,7 +248,7 @@ vercel logs --output=short 2>&1 | tail -30
 - "STRIPE_SECRET_KEY missing" → add Stripe keys or remove Stripe code if not ready
 - Blank page / hydration error → check build logs, may need `vercel --prod` redeploy
 
-**Do NOT output `<solo:done/>` until the live URL returns HTTP 200 and page loads without errors.** If you cannot fix the issue, output `<solo:redo/>` to go back to build.
+**Do NOT output `<solo:done/>` until the live URL returns HTTP 200 and page loads without errors.** If you cannot fix the issue, output `<solo:redo/>` to go back to build. Output pipeline signals ONLY if `.solo/states/` directory exists.
 
 ### Step 6. Post-Deploy Log Monitoring
 
@@ -287,7 +288,7 @@ supabase functions logs --scroll 2>&1 | tail -30
 **What to do with log errors:**
 - **Env var missing** → fix with platform CLI (see Step 3), redeploy
 - **DB connection error** → check connection string, IP allowlist
-- **Runtime crash / unhandled error** → output `<solo:redo/>` to go back to build with fix
+- **Runtime crash / unhandled error** → if `.solo/states/` exists, output `<solo:redo/>` to go back to build with fix; otherwise fix and redeploy
 - **No errors in 30 lines of logs** → proceed to report
 
 **If logs show zero traffic (fresh deploy), make a few test requests:**
@@ -324,11 +325,12 @@ Deployment: {project-name}
 
 ### Signal completion
 
-Output this exact tag ONCE and ONLY ONCE — the pipeline detects the first occurrence:
+If `.solo/states/` directory exists, output this exact tag ONCE and ONLY ONCE — the pipeline detects the first occurrence:
 ```
 <solo:done/>
 ```
 **Do NOT repeat the signal tag anywhere else in the response.** One occurrence only.
+If `.solo/states/` directory does not exist, skip the signal tag.
 
 ## Error Handling
 
@@ -367,5 +369,5 @@ Never say "deployment should be live" — verify it IS live.
 5. **Check build locally first** — `pnpm build` / `uv build` (or equivalent) before deploying.
 6. **Check production logs** — always tail logs after deploy, catch runtime errors before declaring success.
 7. **Report all URLs** — deployment URL + platform dashboard links.
-8. **Infrastructure in repo** — prefer `sst.config.ts` or `fly.toml` over manual dashboard config (see infra-prd.md).
+8. **Infrastructure in repo** — prefer `sst.config.ts` or `fly.toml` over manual dashboard config.
 9. **Verify before claiming done** — HTTP 200 from the live URL + clean logs, not just "deploy command succeeded".

@@ -9,7 +9,7 @@ Question 1: "What is your reverse-domain prefix for app IDs?"
 Header: "Bundle ID"
 multiSelect: false
 Options:
-- "co.superduperai" — "Example: co.superduperai.myapp"
+- "com.yourcompany" — "Example: com.yourcompany.myapp"
 - "com.mycompany" — "Example: com.mycompany.myapp"
 - "io.myname" — "Example: io.myname.myapp"
 
@@ -24,23 +24,23 @@ Question 3: "GitHub username or org for new repos?"
 Header: "GitHub"
 multiSelect: false
 Options:
-- "fortunto2" — "Personal GitHub account"
+- "your-github-username" — "Personal GitHub account"
 - "my-org" — "Organization account"
 
 Question 4: "Where do you keep projects?"
 Header: "Projects dir"
 multiSelect: false
 Options:
-- "~/startups/active" — "Default solopreneur path"
-- "~/projects" — "Standard projects directory"
+- "~/projects" — "Default projects directory"
 - "~/code" — "Simple code directory"
+- "~/workspace" — "Workspace directory"
 
-Question 5: "Where is your solopreneur knowledge base repo?"
+Question 5: "Where is your knowledge base repo? (optional)"
 Header: "KB repo"
 multiSelect: false
 Options:
-- "~/startups/solopreneur" — "Default solopreneur KB location"
-- "Skip" — "No solopreneur KB, skip for now"
+- "~/knowledge-base" — "Default knowledge base location"
+- "Skip" — "No knowledge base, skip for now"
 ```
 
 ## Round 1: Philosophy & Values (4 questions)

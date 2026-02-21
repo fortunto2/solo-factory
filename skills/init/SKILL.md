@@ -77,7 +77,7 @@ org_domain: "<answer from 3.1>"
 apple_dev_team: "<answer from 3.2>"
 github_org: "<answer from 3.3>"
 projects_dir: "<answer from 3.4>"
-solopreneur_repo: "<answer from 3.5>"
+knowledge_base_repo: "<answer from 3.5>"
 ```
 
 ### 5. Ask Round 1 — Philosophy & Values (AskUserQuestion, 4 questions)
@@ -102,9 +102,9 @@ See `references/generation-rules.md` for:
 
 ### 10. Verify Solograph MCP (optional check)
 
-- Try reading `~/.solo/registry.yaml`
-- If exists: "Solograph detected — code graph ready"
-- If not: "Tip: install Solograph for code search across projects (`pip install solograph`)"
+- Try running `uvx solograph --help` or check if MCP tools are available
+- If available: "Solograph detected — code graph ready"
+- If not: "Tip: install Solograph for code search across projects (`pip install solograph` or `uvx solograph`)"
 
 ### 11. Summary
 

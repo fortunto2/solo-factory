@@ -30,7 +30,7 @@ If MCP tools are not available, fall back to reading local files only.
 ## Steps
 
 1. **Detect project root:**
-   - If `$ARGUMENTS` is provided, use `~/startups/active/<name>` as project root.
+   - If `$ARGUMENTS` is provided, look for a project with that name in the current directory or `projects_dir` from `~/.solo-factory/defaults.yaml`.
    - Otherwise use current working directory.
    - Verify the directory exists and has `CLAUDE.md`.
    - If not found, ask via AskUserQuestion.
@@ -48,7 +48,7 @@ If MCP tools are not available, fall back to reading local files only.
 4. **Read ecosystem sources** (optional — enhances quality):
    - Detect stack name from CLAUDE.md (look for "Stack:" or the stack name in tech section).
    - If MCP `kb_search` available: search for stack template and dev-principles.
-   - Otherwise: look for `1-methodology/stacks/<stack>.yaml` and `1-methodology/dev-principles.md` relative to solopreneur root (if accessible).
+   - Otherwise: look for `stacks/<stack>.yaml` and `dev-principles.md` in `.solo/` or plugin templates directory (if accessible).
    - If neither available: derive all info from CLAUDE.md + package manifest (sufficient).
 
 5. **Detect languages** from package manifest:

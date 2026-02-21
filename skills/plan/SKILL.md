@@ -43,9 +43,9 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    - Detected by: `package.json`, `pyproject.toml`, `Cargo.toml`, `*.xcodeproj`, or `build.gradle.kts` exists in working directory
    - Plan path: `docs/plan/{trackId}/`
 
-   **Knowledge base context** (solopreneur KB or similar):
-   - Detected by: NO package manifest found, BUT directories like `0-principles/`, `1-methodology/`, `4-opportunities/` exist
-   - Plan path: `4-opportunities/{shortname}/`
+   **Knowledge base context** (documentation-centric project):
+   - Detected by: NO package manifest found, BUT directories like `docs/`, `notes/`, or structured numbered directories exist
+   - Plan path: `docs/plan/{shortname}/`
    - Note: the shortname is derived from the task (kebab-case, no date suffix for the directory)
 
    Set `$PLAN_ROOT` based on detected context. All subsequent file paths use `$PLAN_ROOT`.
@@ -118,7 +118,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    mkdir -p $PLAN_ROOT
    ```
    - Project context: `docs/plan/{trackId}/`
-   - KB context: `4-opportunities/{shortname}/`
+   - KB context: `docs/plan/{shortname}/`
 
 7. **Generate `$PLAN_ROOT/spec.md`:**
    Based on research findings, NOT generic questions.
@@ -293,7 +293,7 @@ These thoughts mean STOP — you're skipping research:
 
 ### Context detection wrong (project vs KB)
 **Cause:** Directory has both code manifests and KB-style directories.
-**Fix:** Project context takes priority if `package.json`/`pyproject.toml` exists. Force KB context by running from solopreneur root.
+**Fix:** Project context takes priority if `package.json`/`pyproject.toml` exists.
 
 ### Research phase finds no relevant code
 **Cause:** New project with minimal codebase or MCP tools unavailable.

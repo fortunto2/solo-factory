@@ -25,7 +25,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - Project name should be kebab-case.
 
 2. **Load org defaults** from `~/.solo-factory/defaults.yaml`:
-   - Read `org_domain` (e.g. `co.superduperai`), `apple_dev_team`, `github_org`, `projects_dir`
+   - Read `org_domain` (e.g. `com.mycompany`), `apple_dev_team`, `github_org`, `projects_dir`
    - If file doesn't exist, ask via AskUserQuestion:
      - "What is your reverse-domain prefix for bundle IDs?" (e.g. `com.mycompany`)
      - "Apple Developer Team ID?" (optional, leave empty if no iOS)
@@ -34,9 +34,9 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
 
 3. **Load stack + PRD + principles:**
 
-   - Look for stack YAML: search for `stacks/<stack>.yaml` in solopreneur KB (via `kb_search` or Glob).
+   - Look for stack YAML: search for `stacks/<stack>.yaml` in plugin templates (via `kb_search` or Glob).
    - If stack YAML not found, use built-in knowledge of the stack (packages, structure, deploy).
-   - Check if PRD exists: `4-opportunities/<project>/prd.md` or `docs/prd.md`
+   - Check if PRD exists: `docs/prd.md` or search current directory for `prd.md`
      - If not: generate a basic PRD template
    - Look for dev principles: search for `dev-principles.md` or use built-in SOLID/DRY/KISS/TDD principles.
 
@@ -45,7 +45,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    Before generating code, study active projects with the same stack. **Don't blindly copy** — existing projects may have legacy patterns or mistakes. Evaluate what's actually useful.
 
    a. **Find sibling projects** — use `project_info()` to list active projects, filter by matching stack.
-      Example: for `ios-swift`, find FaceAlarm, KubizBeat, etc.
+      Example: for `ios-swift`, find existing projects with matching stack.
 
    b. **Architecture overview** — `codegraph_explain(project="<sibling>")` for each sibling.
       Gives: directory layers, key patterns (base classes, protocols, CRUD), top dependencies, hub files.
@@ -76,19 +76,19 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - Limit to the 3-4 most important packages to keep research focused
 
 6. **Show plan + get confirmation** via AskUserQuestion:
-   - Project path: `~/startups/active/<name>`
+   - Project path: `<projects_dir>/<name>` (from `defaults.yaml` or current directory)
    - Stack name and key packages with versions from Context7
    - Proposed directory structure
    - Confirm or adjust before creating files
 
 7. **Create project directory:**
    ```bash
-   mkdir -p ~/startups/active/<name>
+   mkdir -p <projects_dir>/<name>
    ```
 
 8. **Create file structure** based on the stack. **SGR-first: always start with domain schemas/models before any logic or views.** Every project gets these common files:
    ```
-   ~/startups/active/<name>/
+   <projects_dir>/<name>/
    ├── CLAUDE.md          # AI-friendly project docs (map, not manual — see Harness Engineering)
    ├── Makefile           # Common commands (run, test, build, lint, deploy, integration)
    ├── README.md          # Human-friendly project docs
@@ -157,18 +157,18 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
      - Agent legibility: lint errors must include remediation instructions
      - Anti-patterns: don't put knowledge in Slack/Docs, don't micromanage implementation
    - Do/Don't sections
-   - **Solopreneur Integration section** (if MCP tools available):
+   - **MCP Integration section** (optional, if MCP tools available):
      Lists available MCP tools: `project_code_search`, `kb_search`, `session_search`, `codegraph_query`, `project_info`, `web_search`
 
 11. **Generate README.md** — project name, description, prerequisites, setup, run/test/deploy.
 
 12. **Generate .gitignore** — stack-specific patterns.
 
-13. **Copy PRD to docs/:** Copy from solopreneur KB or generate in place.
+13. **Copy PRD to docs/:** Copy from knowledge base or generate in place.
 
 14. **Git init + first commit:**
     ```bash
-    cd ~/startups/active/<name>
+    cd <projects_dir>/<name>
     git init && git add . && git commit -m "Initial project scaffold
 
     Stack: <stack-name>
@@ -177,21 +177,12 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
 
 15. **Create GitHub private repo + push:**
     ```bash
-    cd ~/startups/active/<name>
+    cd <projects_dir>/<name>
     gh repo create <name> --private --source=. --push
     ```
 
-16. **Register project + index code** (if in solopreneur ecosystem):
-    - Append project to `~/.solo/registry.yaml`:
-      ```bash
-      cat >> ~/.solo/registry.yaml << 'EOF'
-
-      - name: <name>
-        path: ~/startups/active/<name>
-        active: true
-      EOF
-      ```
-    - Index the new project for code search:
+16. **Register project + index code** (optional, if MCP tools available):
+    - If `project_code_reindex` MCP tool is available, index the new project for code search:
       ```
       mcp__solograph__project_code_reindex(project="<name>")
       ```
@@ -200,7 +191,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
     ```
     Project scaffolded!
 
-      Path:   ~/startups/active/<name>
+      Path:   <projects_dir>/<name>
       GitHub: https://github.com/<user>/<name>
       Stack:  <stack-name>
       PRD:    docs/prd.md
@@ -208,7 +199,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
       Skills: .claude/skills/dev/ (project workflow)
 
     Next steps:
-      cd ~/startups/active/<name>
+      cd <projects_dir>/<name>
       <install command>    # pnpm install / uv sync / etc.
       <run command>        # pnpm dev / uv run ... / etc.
 

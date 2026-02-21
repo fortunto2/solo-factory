@@ -15,7 +15,7 @@ argument-hint: "[track-id] [--task X.Y] [--phase N]"
 
 This skill is self-contained — follow the task loop, TDD rules, and completion flow below instead of delegating to external build/execution skills (superpowers, etc.).
 
-Execute tasks from an implementation plan. Finds `plan.md` (in `docs/plan/` for projects or `4-opportunities/` for KB), picks the next unchecked task, implements it with TDD workflow, commits, and updates progress.
+Execute tasks from an implementation plan. Finds `plan.md` (in `docs/plan/`), picks the next unchecked task, implements it with TDD workflow, commits, and updates progress.
 
 ## When to use
 
@@ -34,10 +34,9 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 ## Pre-flight Checks
 
 1. **Detect context** — find where plan files live:
-   - Check `docs/plan/*/plan.md` — project context (standard location)
-   - Check `4-opportunities/*/plan.md` — KB context (solopreneur only)
-   - Use whichever exists. If both, prefer `docs/plan/`.
-   - **DO NOT** search for `conductor/` or any other directory — only `docs/plan/` and `4-opportunities/`.
+   - Check `docs/plan/*/plan.md` — standard location
+   - Use whichever exists.
+   - **DO NOT** search for `conductor/` or any other directory — only `docs/plan/`.
 
 2. Load workflow config from `docs/workflow.md` (if exists):
    - TDD strictness (strict / moderate / none)
@@ -73,14 +72,14 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 ## Track Selection
 
 ### If `$ARGUMENTS` contains a track ID:
-- Validate: `{plan_root}/{argument}/plan.md` exists (check both `docs/plan/` and `4-opportunities/`).
-- If not found: search `docs/plan/*/plan.md` and `4-opportunities/*/plan.md` for partial matches, suggest corrections.
+- Validate: `{plan_root}/{argument}/plan.md` exists (check `docs/plan/`).
+- If not found: search `docs/plan/*/plan.md` for partial matches, suggest corrections.
 
 ### If `$ARGUMENTS` contains `--task X.Y`:
 - Jump directly to that task in the active track.
 
 ### If no argument:
-1. Search for `plan.md` files in `docs/plan/` and `4-opportunities/`.
+1. Search for `plan.md` files in `docs/plan/`.
 2. Read each `plan.md`, find tracks with uncompleted tasks.
 3. If multiple, ask via AskUserQuestion.
 4. If zero tracks: "No plans found. Run `/plan` first."
@@ -98,7 +97,7 @@ Returns: stack, languages, directory layers, key patterns, top dependencies, hub
 2. `docs/plan/{trackId}/spec.md` — acceptance criteria (REQUIRED)
 3. `docs/workflow.md` — TDD policy, commit strategy (if exists)
 4. `CLAUDE.md` — architecture, Do/Don't
-5. `.solo/pipelines/progress.md` — running docs from previous iterations (if exists). Contains what was done in prior pipeline sessions: stages completed, commit SHAs, last output lines. **Use this to avoid repeating completed work.**
+5. `.solo/pipelines/progress.md` — running docs from previous iterations (if exists, pipeline-specific). Contains what was done in prior pipeline sessions: stages completed, commit SHAs, last output lines. **Use this to avoid repeating completed work.**
 
 **Do NOT read source code files at this stage.** Only docs. Source files are loaded per-task in the execution loop (step 3 below).
 
@@ -368,7 +367,7 @@ Change `**Status:** [ ] Not Started` → `**Status:** [x] Complete` at the top o
 
 ### 3. Signal completion
 
-Output this exact tag ONCE and ONLY ONCE — the pipeline detects the first occurrence:
+Output pipeline signal ONLY if pipeline state directory (`.solo/states/`) exists:
 ```
 <solo:done/>
 ```
@@ -456,7 +455,7 @@ These thoughts mean STOP — you're about to cut corners:
 ## Common Issues
 
 ### "No plans found"
-**Cause:** No `plan.md` exists in `docs/plan/` or `4-opportunities/`.
+**Cause:** No `plan.md` exists in `docs/plan/`.
 **Fix:** Run `/plan "your feature"` first to create a track.
 
 ### Tests failing after task
