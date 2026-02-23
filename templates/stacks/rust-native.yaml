@@ -1,0 +1,432 @@
+name: Rust Native
+platform: local | server | embedded
+language: rust (edition 2021, MSRV 1.75+)
+package_manager: cargo
+framework: "none (domain-driven) | axum (web) | clap (CLI) | slint (GUI)"
+build: cargo (debug + release + profiling profiles)
+auth: "none (local-first) | shared-auth (for API layer) | JWT (axum middleware)"
+validation: "serde + thiserror (newtype wrappers, compile-time guarantees)"
+i18n: "none (CLI) | fluent (i18n for GUI/web)"
+linter: "clippy (cargo clippy -- -D warnings)"
+formatter: "rustfmt (cargo fmt — zero config, enforced)"
+type_checker: "rustc (compiler IS the type checker — no separate tool needed)"
+testing: "cargo test (built-in, parallel) + approx (float) + proptest (property-based)"
+pre_commit: "cargo test && cargo clippy -- -D warnings (Makefile `check` target, or lefthook)"
+cli: "std::env::args (simple) | clap (complex — derive API, auto --help)"
+key_packages:
+  - serde + serde_json (serialization — Rust's Pydantic)
+  - thiserror (domain error types — typed enums, not strings)
+  - rayon (data parallelism — par_iter, zero config thread pool)
+  - tracing + tracing-subscriber (structured logging to stderr)
+  - tracing-chrome (Chrome DevTools trace — chrome://tracing)
+  - mimalloc (fast allocator — 10-15% faster for many medium allocs)
+  - approx (float comparison in tests — assert_relative_eq!)
+optional_packages:
+  web:
+    - "axum (async HTTP — tower middleware, extractors, great ergonomics)"
+    - "tokio (async runtime — use only if project needs async, not by default)"
+    - "tower (middleware stack — rate limiting, cors, auth)"
+    - "sqlx (async DB — PostgreSQL/SQLite, compile-time checked queries)"
+  gui:
+    - "slint (native GUI — declarative .slint files, cross-platform, hot reload)"
+    - "rfd (native file dialog — Open/Save)"
+    - "crossbeam-channel (thread-safe channels — UI thread ↔ worker threads)"
+  media:
+    - "ffmpeg-next (FFmpeg 8 Rust bindings — video/audio decode/encode)"
+    - "image + imageproc (image I/O + processing — Sobel, histogram, edge)"
+    - "symphonia (pure Rust audio decode — no FFmpeg dep)"
+  neural:
+    - "ort (ONNX Runtime — CoreML/CUDA backend, inference only)"
+    - "candle (Hugging Face ML framework — pure Rust, GPU via Metal/CUDA)"
+    - "ndarray (N-dimensional arrays — model I/O, matrix ops)"
+  cli_advanced:
+    - "clap (CLI parsing — derive API, auto --help, completions)"
+    - "indicatif (progress bars — multi-bar, ETA, throughput)"
+    - "dialoguer (interactive prompts — select, confirm, input)"
+    - "console (terminal colors + emoji — cross-platform)"
+  wasm:
+    - "wasm-bindgen (Rust ↔ JS interop — browser target)"
+    - "wasmtime (WASM runtime — host-side, sandbox plugins)"
+    - "wit-bindgen (WIT component model — typed plugin interface)"
+  serialization:
+    - "bincode (fast binary serialization — inter-process, caching)"
+    - "postcard (no_std compatible binary — embedded, WASM)"
+    - "toml (config files — Cargo-style .toml)"
+deploy: "binary (cargo build --release → single static binary) | docker | homebrew tap"
+infra: "none (single binary, scp to server) | docker (for native deps like FFmpeg) | nix (reproducible builds)"
+ci_cd: github_actions
+monitoring: "tracing logs (structured JSON → any aggregator) | prometheus (metrics via axum)"
+logs:
+  local: "RUST_LOG=info cargo run -- --help 2>&1"
+  local_build: "cargo build --release 2>&1 | tail -20"
+  trace: "cargo run --release -- --trace input && echo 'open chrome://tracing → load trace.json'"
+  profile: "cargo build --profile profiling && sudo samply record ./target/profiling/<name> input"
+architecture: "DDD (domain/ → features/ → pipeline/ → infra/) | hexagonal | flat (small projects)"
+
+# ── Patterns ──────────────────────────────────────────────────────────────
+
+patterns:
+  domain_modeling: |
+    Newtype pattern for constrained values (compile-time safety):
+      pub struct Score(f32);  // [0.0..1.0], validated on creation
+      impl Score {
+          pub fn new(v: f32) -> Result<Self, DomainError> {
+              if v >= 0.0 && v <= 1.0 { Ok(Self(v)) } else { Err(DomainError::ScoreRange) }
+          }
+          pub fn value(&self) -> f32 { self.0 }
+      }
+    NOT raw f32/String/i64 everywhere. Compiler catches wrong-type-at-wrong-place.
+
+    Domain errors via thiserror:
+      #[derive(Debug, thiserror::Error)]
+      pub enum DomainError {
+          #[error("score {0} out of range [0,1]")]
+          ScoreRange(f32),
+          #[error("invalid segment: start >= end")]
+          InvalidSegment,
+      }
+    NOT String errors. NOT anyhow in libraries (erases types). Pattern-match on variants.
+    anyhow OK for CLI main.rs only (where you print and exit).
+
+  traits_vs_fn_pointers: |
+    Rust has TWO ways to do polymorphism. Choose based on use case:
+
+    ── fn-pointer pattern (zero-cost, stateless plugins) ──
+      type FeatureFn = fn(&Context) -> Score;
+      registry.register("sharpness", sharpness::compute);
+      // One-line registration, no struct, no impl. Works with rayon par_iter.
+      // Best when: all implementations are pure functions, no per-instance state.
+
+    ── trait pattern (stateful, swappable implementations) ──
+      trait Analyzer {
+          fn analyze(&self, path: &str) -> Result<Vec<Feature>, Error>;
+      }
+      struct LocalAnalyzer { config: Config }
+      struct RemoteAnalyzer { endpoint: String, client: reqwest::Client }
+      impl Analyzer for LocalAnalyzer { ... }
+      impl Analyzer for RemoteAnalyzer { ... }
+      // Best when: implementations carry state, need DI, or swap at runtime.
+
+    ── generics vs dyn dispatch ──
+      fn process<A: Analyzer>(analyzer: &A, path: &str)  // monomorphized, zero-cost
+      fn process(analyzer: &dyn Analyzer, path: &str)     // vtable, runtime dispatch
+
+      Prefer generics when: one type per call site (most cases).
+      Prefer dyn when: heterogeneous collection (Vec<Box<dyn Analyzer>>)
+        or need to swap implementation at runtime (config-driven).
+
+    ── decision guide ──
+      Stateless functions (metrics, transforms)     → fn-pointer
+      Stateful swappable backends (DB, API, cache)  → trait + generics
+      Plugin system (user-provided code)            → trait + dyn (or WASM)
+      Testing with mocks                            → trait (mockall crate or manual)
+
+  wasm: |
+    WASM has three distinct use cases in Rust:
+
+    ── 1. Browser target (your code runs in browser) ──
+      cargo build --target wasm32-unknown-unknown
+      wasm-bindgen for Rust ↔ JS interop.
+      Use case: ship Rust algorithms to browser (image processing, crypto, parsers).
+      Limitations: no filesystem, no threads (web workers only), no FFI to C libs.
+
+    ── 2. WASI target (portable CLI/server) ──
+      cargo build --target wasm32-wasip1
+      Runs via wasmtime/wasmer. Has filesystem access (sandboxed).
+      Use case: portable binaries, edge compute (Cloudflare Workers), Docker alternative.
+      Limitations: slower than native (~1.5-3x), limited syscalls, no GPU.
+
+    ── 3. Plugin host (your app runs user WASM) ──
+      wasmtime or wasmer as dependency in your Rust host.
+      Users compile plugins to .wasm, you load and execute in sandbox.
+      Use case: extensible apps (filters, custom scoring, user scripts).
+      Limitations: host must marshal data in/out, overhead per call (~microseconds).
+
+      Plugin interface via WIT (WebAssembly Interface Types):
+        // plugin.wit
+        interface analyzer {
+            record frame { width: u32, height: u32, data: list<u8> }
+            score-frame: func(frame: frame) -> f32
+        }
+      Compile plugin: cargo build --target wasm32-wasip1
+      Load in host: wasmtime::Engine + wasmtime::Linker
+
+    ── When WASM does NOT help ──
+      - Heavy native deps (FFmpeg, OpenCV) — can't compile to WASM
+      - GPU/Metal/CUDA compute — no GPU access in WASM
+      - rayon parallelism — no threads in wasm32 (web workers ≠ threads)
+      - Performance-critical paths where 1.5-3x overhead matters
+
+  swift_interop: |
+    Three ways to call Apple frameworks (Vision, CoreML, Metal) from Rust:
+
+    ── 1. Subprocess + JSON pipe (simplest, recommended for occasional calls) ──
+      Compile Swift tool: swiftc -O vision-scorer.swift -o vision-scorer
+      Call from Rust:
+        let output = Command::new("./vision-scorer")
+            .arg(image_path)
+            .output()?;
+        let result: VisionResult = serde_json::from_slice(&output.stdout)?;
+      Pro: zero FFI complexity, Swift tool testable independently.
+      Con: process spawn overhead (~10ms), not suitable for per-frame calls.
+      Use for: batch analysis, one-shot tasks, feature extraction.
+
+    ── 2. Swift static library + C bridge (fast, for hot paths) ──
+      Swift side (vision_bridge.swift):
+        @_cdecl("swift_detect_faces")
+        public func detectFaces(_ path: UnsafePointer<CChar>, _ outJson: UnsafeMutablePointer<CChar>, _ maxLen: Int32) -> Int32 { ... }
+      Compile: swiftc -emit-library -static -module-name VisionBridge vision_bridge.swift -o libvision_bridge.a
+      Rust side (build.rs):
+        println!("cargo:rustc-link-lib=static=vision_bridge");
+        println!("cargo:rustc-link-search=native=./swift-libs");
+      Rust FFI:
+        extern "C" { fn swift_detect_faces(path: *const c_char, out: *mut c_char, max: i32) -> i32; }
+      Pro: no process overhead, ~microsecond calls.
+      Con: C ABI boundary, manual memory management at interface.
+      Use for: per-frame processing, real-time analysis, tight loops.
+
+    ── 3. objc2 crate (direct Objective-C runtime) ──
+      use objc2::runtime::*;
+      // Call Objective-C classes directly (NSImage, CIFilter, etc.)
+      Pro: no Swift needed, direct framework access.
+      Con: verbose, unsafe, no Swift-only APIs (Vision, CoreML are Swift-first).
+      Use for: simple Foundation/AppKit/UIKit calls only.
+
+    ── Platform gating ──
+      #[cfg(target_vendor = "apple")]   // macOS + iOS
+      #[cfg(target_os = "macos")]       // macOS only
+      #[cfg(target_os = "ios")]         // iOS only
+
+    ── Linking Apple frameworks in build.rs ──
+      println!("cargo:rustc-link-lib=framework=Vision");
+      println!("cargo:rustc-link-lib=framework=CoreML");
+      // Only needed for C bridge approach, not subprocess.
+
+  feature_flags: |
+    Cargo features for optional heavy deps:
+      [features]
+      default = []
+      gui = ["dep:slint", "dep:rfd"]
+      neural = ["dep:ort"]
+      server = ["dep:axum", "dep:tokio"]
+
+    Code guarded by cfg:
+      #[cfg(feature = "gui")]           // optional GUI
+      #[cfg(feature = "neural")]        // optional ML inference
+      #[cfg(target_vendor = "apple")]   // Apple-only (Vision, CoreML)
+
+    Default build is lean — users opt in to heavy features.
+    Multiple binaries behind features:
+      [[bin]]
+      name = "my-tool"
+      path = "src/main.rs"
+
+      [[bin]]
+      name = "my-gui"
+      path = "src/gui/main.rs"
+      required-features = ["gui"]
+
+  performance: |
+    Profile BEFORE optimizing. Typical Rust perf stack:
+      1. tracing-chrome → trace.json → chrome://tracing (span-level, Rust code)
+      2. samply → Firefox Profiler (CPU sampling, includes C/FFI call stacks)
+      3. cargo build --profile profiling (release speed + debug symbols)
+      4. cargo bench (criterion for microbenchmarks)
+
+    Common wins:
+      - rayon::par_iter for CPU-bound work (linear scaling with cores)
+      - OnceLock for lazy shared computation (compute once, N consumers read)
+      - chunks_exact(N) for strided data (avoids bounds checks per element)
+      - mimalloc global allocator (10-15% faster for many medium allocs)
+      - Early exit: compute cheap checks first, skip expensive path for rejects
+      - Avoid allocations in hot loops: reuse Vec, pass &mut slices
+      - #[inline] on tiny hot functions (but measure — compiler usually knows best)
+
+    target-cpu in .cargo/config.toml:
+      [build]
+      rustflags = ["-C", "target-cpu=native"]
+      # or specific: "apple-m1" (NEON, dotprod), "x86-64-v3" (AVX2)
+
+    macOS profiling caveat:
+      samply requires sudo (task_for_pid). macOS 26+ with SIP → 0 samples.
+      Fallback: Xcode Instruments or `make trace` with tracing-chrome.
+
+  project_structure: |
+    DDD layout — domain has zero external deps:
+      src/
+        domain/         # Value objects, entities, errors (pure Rust, no IO)
+          mod.rs
+          score.rs      # Newtype wrappers
+          errors.rs     # DomainError / InfraError (thiserror)
+        features/       # Business logic modules (open/closed via registry or traits)
+          mod.rs
+          registry.rs   # Plugin system (fn-pointers or trait objects)
+        pipeline/       # Orchestration (workflow, composition of steps)
+          mod.rs
+          scorer.rs     # Main entry point — dispatches by input type
+        infra/          # External world (FFmpeg, DB, HTTP, filesystem)
+          mod.rs
+          decoder.rs    # Native C bindings
+        lib.rs          # pub mod domain/features/pipeline/infra
+        main.rs         # CLI entry + global allocator
+        tests.rs        # Integration tests
+      Cargo.toml
+      Makefile
+      .cargo/config.toml
+      CLAUDE.md
+
+    For simpler projects (< 5 files), flat layout is fine:
+      src/lib.rs, src/main.rs, src/types.rs, src/processor.rs
+
+  error_handling: |
+    Two error enums, layered:
+      DomainError — business logic (ScoreOutOfRange, InvalidInput)
+      InfraError — external world (Io, Decode, Network, Subprocess)
+      AppError — wraps both via From<DomainError> + From<InfraError>
+
+    thiserror for libraries (typed, matchable):
+      #[derive(Debug, thiserror::Error)]
+      pub enum InfraError {
+          #[error("IO: {0}")]
+          Io(#[from] std::io::Error),
+          #[error("decode failed: {0}")]
+          Decode(String),
+      }
+
+    anyhow for CLI binaries (where you just print and exit):
+      fn main() -> anyhow::Result<()> { ... }
+
+    NEVER anyhow in library code — it erases error types.
+
+  testing: |
+    Tests live in:
+      src/tests.rs — integration tests (test public API surface)
+      #[cfg(test)] mod tests — unit tests (inline, next to code)
+      tests/ directory — external integration tests (separate compilation)
+
+    Pattern: test modules per domain area:
+      mod domain_tests { ... }
+      mod feature_tests { ... }
+      mod integration_tests { ... }
+
+    Float comparison: approx crate
+      assert_relative_eq!(result, 0.75, epsilon = 0.05);
+
+    Property-based testing: proptest crate
+      proptest! { fn score_always_valid(v in 0.0f32..=1.0) { Score::new(v).unwrap(); } }
+
+    Test with synthetic data (deterministic, no external files):
+      let data = vec![128u8; width * height * 3];  // gray RGB frame
+      let item = Item::from_bytes(data);
+
+  serde_patterns: |
+    JSON I/O with serde (Rust's Pydantic):
+      #[derive(Debug, Serialize, Deserialize)]
+      pub struct Config { pub name: String, pub threshold: f32 }
+
+    Custom Serialize for human-readable JSON (named fields vs flat arrays):
+      impl Serialize for Weights {
+          fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error> {
+              let map: BTreeMap<&str, f32> = ...;
+              map.serialize(s)
+          }
+      }
+
+    Field control:
+      #[serde(skip)]                                    // never serialize
+      #[serde(skip_serializing_if = "Option::is_none")] // skip None
+      #[serde(default)]                                 // use Default on missing
+      #[serde(rename = "type")]                         // rename for JSON
+
+  ffi_native_deps: |
+    Linking native C libraries (FFmpeg, OpenCV, SQLite):
+      Set paths in .cargo/config.toml (reproducible, not env vars):
+        [env]
+        FFMPEG_DIR = "/opt/homebrew/Cellar/ffmpeg/8.0.1_2"
+        PKG_CONFIG_PATH = "/opt/homebrew/lib/pkgconfig"
+
+    build.rs for:
+      - Compile-time code gen (Slint UI, protobuf, bindgen for C headers)
+      - Print cargo:rustc-link-lib/link-search directives
+      - Conditional compilation based on environment
+
+    Apple frameworks:
+      #[cfg(target_vendor = "apple")]
+      println!("cargo:rustc-link-lib=framework=Vision");
+
+    Update Homebrew lib paths when version changes:
+      ls /opt/homebrew/Cellar/ffmpeg/
+
+  release_profile: |
+    Cargo.toml profiles:
+      [profile.release]
+      opt-level = 3
+      lto = true           # Link-Time Optimization (slower build, faster binary)
+      codegen-units = 1    # Single codegen unit (better inlining)
+      panic = "abort"      # No unwinding (smaller binary, slightly faster)
+      strip = true         # Strip debug symbols (smaller binary)
+
+      [profile.profiling]
+      inherits = "release"
+      debug = true         # Keep symbols for samply/Instruments
+
+      [profile.dev]
+      opt-level = 1        # Slightly optimized dev builds (optional, for faster iteration)
+
+  makefile: |
+    Standard Rust Makefile targets:
+      build:    cargo build
+      release:  cargo build --release
+      test:     cargo test
+      lint:     cargo clippy --all-targets -- -D warnings
+      fmt:      cargo fmt --check
+      check:    test lint fmt (pre-commit gate)
+      run:      release + run binary with sample input
+      bench:    criterion benchmarks or timed runs
+      trace:    --trace flag → trace.json
+      profile:  samply record (sudo on macOS)
+      clean:    cargo clean
+      install:  cp release binary to /usr/local/bin
+      gui:      cargo run --features gui --bin my-gui --release
+      help:     grep '## ' Makefile
+
+  concurrency: |
+    Rust concurrency patterns (choose one, don't mix):
+
+    ── rayon (data parallelism — preferred for CPU-bound) ──
+      items.par_iter().map(|item| process(item)).collect();
+      // Zero config. Automatic thread pool. Linear scaling.
+      // Best for: batch processing, image/video frames, data pipelines.
+
+    ── tokio (async I/O — for network/disk) ──
+      #[tokio::main] async fn main() { ... }
+      // Only if project needs async (HTTP server, DB, concurrent network).
+      // Do NOT use tokio for CPU-bound work (spawn_blocking at best).
+
+    ── crossbeam (channels — for UI ↔ worker communication) ──
+      let (tx, rx) = crossbeam_channel::bounded(16);
+      // Best for: GUI apps, producer/consumer pipelines.
+
+    ── std::thread (manual threads — rarely needed) ──
+      // Use only when rayon/tokio/crossbeam don't fit.
+
+notes: |
+  - Cargo for ALL dependency management (never Makefiles for deps)
+  - Newtype-first: constrained values validated at creation, not at usage
+  - thiserror for domain errors (typed enums, pattern-matchable)
+  - serde for JSON/TOML I/O (Serialize/Deserialize — Rust's Pydantic)
+  - Choose fn-pointers (stateless plugins) vs traits (stateful backends) based on need
+  - rayon for CPU parallelism (one line: par_iter), tokio only if async needed
+  - OnceLock for lazy shared computation (compute once, many consumers)
+  - clippy -D warnings as pre-commit gate (catches real bugs: unused, overflow, logic)
+  - rustfmt for formatting (cargo fmt — zero config, enforced)
+  - No separate type checker — rustc IS the type system (unlike Python/TS)
+  - Feature flags [features] for optional heavy deps (gui, neural, server)
+  - Tests: cargo test (built-in, parallel, fast — no separate test runner)
+  - Profile: tracing-chrome for Rust spans, samply for full C/FFI stacks
+  - Release: single static binary — scp to server, no runtime deps
+  - .cargo/config.toml for native lib paths + target-cpu optimization
+  - Makefile for ergonomic commands (build/test/run/bench/trace/profile)
+  - CLAUDE.md for AI coding context (architecture, how to add features, profiling)
+  - WASM: three targets (browser via wasm-bindgen, WASI portable, plugin host via wasmtime)
+  - Apple interop: subprocess+JSON (simple), Swift static lib+C bridge (fast), objc2 (direct)

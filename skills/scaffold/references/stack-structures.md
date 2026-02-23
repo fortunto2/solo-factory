@@ -65,3 +65,31 @@ Referenced by SKILL.md step 8.
 
 - `pyproject.toml`, `src/<name>/main.py`, `src/<name>/models.py`
 - `tests/test_main.py`
+
+## rust-native
+
+- `Cargo.toml` — edition 2021, `[lib]` + `[[bin]]`, `[features]` for optional deps, `[profile.release]` with `lto=true`
+- `.cargo/config.toml` — native lib paths (`FFMPEG_DIR`, `PKG_CONFIG_PATH`), `target-cpu`
+- `Makefile` — targets: `build`, `release`, `test`, `lint`, `check`, `run`, `bench`, `trace`, `profile`, `install`, `clean`
+- `CLAUDE.md` — AI coding context (architecture, adding features, profiling)
+- DDD directory structure:
+  ```
+  src/
+    domain/         # Value objects, entities, errors (zero external deps)
+      score.rs      # Newtype wrappers (Score, Segment)
+      errors.rs     # DomainError / InfraError (thiserror)
+      features.rs   # Feature array + Weights
+    features/       # Metric computers (fn-pointer plugin system)
+      registry.rs   # FeatureRegistry + FrameContext (OnceLock cache)
+      mod.rs        # pub mod per feature file
+      <metric>.rs   # One file per metric: pub fn compute(ctx) -> Score
+    pipeline/       # Orchestration (scorer, sampler, filters)
+      scorer.rs     # Single entry point (auto-dispatch by input type)
+    infra/          # External world (FFmpeg, filesystem, subprocess)
+      decoder.rs    # Native C bindings (FFmpeg, OpenCV)
+    lib.rs          # pub mod domain/features/pipeline/infra
+    main.rs         # CLI entry + global allocator
+    tests.rs        # Integration tests
+  ```
+- Optional: `src/gui/` for native GUI (Slint — behind `gui` feature flag)
+- Optional: `build.rs` for compile-time code generation (Slint UI, bindgen)
