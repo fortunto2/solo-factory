@@ -45,6 +45,10 @@ storage:
   - R2 (S3-compatible storage)
   - KV (key-value)
   - Durable Objects (stateful)
+agent_content:
+  markdown_for_agents: "Enable in Cloudflare dashboard → Quick Actions → Markdown for Agents (auto for all zones)"
+  content_negotiation: "For custom Workers: check req.headers.get('Accept')?.includes('text/markdown'), return markdown variant"
+  llms_txt: "Serve /llms.txt route with site map for AI agents"
 notes: |
   - Edge-first: no Node.js APIs
   - Use Durable Objects for realtime
@@ -56,3 +60,4 @@ notes: |
   - Vitest + @cloudflare/vitest-pool-workers for Workers testing
   - Husky + lint-staged for pre-commit (eslint, prettier, tsc --noEmit)
   - English first for API responses, i18n via JSON if needed
+  - Agent-readable: enable CF Markdown for Agents + serve /llms.txt + content negotiation for markdown

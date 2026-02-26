@@ -39,6 +39,12 @@ features:
   - content_collections
   - static_generation
   - islands_architecture
+agent_content:
+  markdown_for_agents: "Enable in Cloudflare dashboard → Quick Actions → Markdown for Agents"
+  llms_txt: "public/llms.txt — auto-generate from content collections (title + description + links)"
+  content_negotiation: "CF handles Accept: text/markdown automatically when enabled"
+  content_signal: "Content-Signal: ai-train=no, search=yes, ai-input=yes"
+  raw_markdown_api: "Expose /api/content/[slug].md endpoint for raw markdown access"
 notes: |
   - pnpm as package manager
   - ESLint flat config + eslint-plugin-astro for .astro files
@@ -49,3 +55,5 @@ notes: |
   - i18n via @astrojs/i18n or paraglide-js
   - English first, then localize
   - Content collections for structured content
+  - Agent-readable: enable CF Markdown for Agents + add public/llms.txt + expose raw .md via API
+  - Content stored as markdown first, HTML generated from it (not reverse)

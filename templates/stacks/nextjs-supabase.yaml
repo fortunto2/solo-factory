@@ -127,3 +127,5 @@ notes: |
   - Deploy via git push (main → production, PR → preview)
   - State management: React state by default. Zustand for global UI, Jotai for data-heavy dashboards.
   - Storybook + Chromatic: for 15+ components or shared UI library. Free 5000 snapshots/month.
+  - Agent-readable (content/blog sites): add app/llms.txt/route.ts + MDX content as raw markdown API + Content-Signal header
+  - If behind Cloudflare: enable Markdown for Agents in dashboard (auto content negotiation)
