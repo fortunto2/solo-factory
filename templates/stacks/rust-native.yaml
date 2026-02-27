@@ -403,6 +403,26 @@ patterns:
       // Only if project needs async (HTTP server, DB, concurrent network).
       // Do NOT use tokio for CPU-bound work (spawn_blocking at best).
 
+    ── tokio tasks + mpsc (lightweight actors — no framework needed) ──
+      use tokio::sync::mpsc;
+      let (tx, mut rx) = mpsc::channel::<Vec<u8>>(100);
+
+      // "actor" — just a task with a channel receiver
+      tokio::spawn(async move {
+          while let Some(frame) = rx.recv().await {
+              process_frame(frame).await;
+          }
+      });
+
+      // send work from anywhere (tx is Clone)
+      tx.send(frame_data).await?;
+
+      // Simpler than formal actor frameworks (actix, ractor).
+      // Best for: video/audio pipelines, fan-out processing, supervised workers.
+      // Pattern: one mpsc per worker, tokio::select! for multi-channel orchestration.
+      // Backpressure: bounded channel blocks sender when full.
+      // Graceful shutdown: drop all tx → rx.recv() returns None → task exits.
+
     ── crossbeam (channels — for UI ↔ worker communication) ──
       let (tx, rx) = crossbeam_channel::bounded(16);
       // Best for: GUI apps, producer/consumer pipelines.

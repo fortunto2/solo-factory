@@ -38,7 +38,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - If stack YAML not found, use built-in knowledge of the stack (packages, structure, deploy).
    - Check if PRD exists: `docs/prd.md` or search current directory for `prd.md`
      - If not: generate a basic PRD template
-   - Look for dev principles: search for `dev-principles.md` or use built-in SOLID/DRY/KISS/TDD principles.
+   - Look for dev principles: search for `dev-principles.md` and `dev-principles-my.md` (personal extensions) or use built-in SOLID/DRY/KISS/TDD principles.
 
 4. **Study existing projects via SoloGraph** (learn from your own codebase — critically):
 

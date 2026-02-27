@@ -60,6 +60,32 @@ Every piece of knowledge should have a single, unambiguous representation in the
 
 ---
 
+## CLI-First Testing
+
+Every project should have a **CLI utility** that mirrors the core business logic without UI.
+
+**Why:**
+- **Integration testing** — verifies full pipeline end-to-end without browser/simulator
+- **Debugging** — CLI is faster to launch, simpler to debug than UI
+- **Pipeline-friendly** — CI/CD can run `make integration` without headless browser
+- **Separation of concerns** — if logic works through CLI, it doesn't depend on UI framework
+
+**Pattern:**
+```
+lib/pipeline/       # Business logic (pure functions, no UI)
+cli/main.ts         # CLI wrapper — calls the same functions as UI
+app/                # UI — calls the same functions from lib/pipeline/
+Makefile            # make integration — runs CLI with test data
+```
+
+**Rules:**
+- CLI uses **the same modules** as UI (DRY — one implementation, two entry points)
+- CLI must work **without LLM / without network** (deterministic fallback)
+- `make integration` — mandatory Makefile target, runs CLI smoke test
+- `/solo:scaffold` generates CLI stub, `/solo:build` uses `make integration` after pipeline tasks
+
+---
+
 ## DDD — Domain-Driven Design
 
 ### Bounded Contexts
@@ -381,6 +407,8 @@ When an AI agent works on a project, it MUST:
 - **Validate at boundaries** — agent input/output goes through schema validation
 - **Document the domain** — enums, value objects, aggregates as code, not comments
 
+For LLM-powered features with structured output, consider BAML — see the dedicated section below.
+
 ### Connection to DDD
 
 SGR is the technical implementation of DDD:
@@ -388,6 +416,71 @@ SGR is the technical implementation of DDD:
 - **Aggregate** -> root schema with nested ones
 - **Ubiquitous Language** -> field names and enums = language of business
 - **Value Objects** -> enums and typed wrappers
+
+---
+
+## BAML — Structured LLM Output (Schema Engineering)
+
+[BAML](https://github.com/BoundaryML/baml) (Boundary AI Markup Language) — a DSL that turns prompt engineering into schema engineering. Define LLM functions in `.baml` files with typed inputs and outputs. Compiler (Rust) generates Python/TS/Ruby/Go/Java clients.
+
+**When to use:** any project that calls LLMs and needs structured output — classification, extraction, tool calling, agentic workflows.
+
+### Core Idea
+
+One `.baml` file gives you: prompt, schema, streaming parser, retries, and a ready SDK to import. No manual JSON parsing, no hoping the LLM returns valid output.
+
+```baml
+enum Sentiment { POSITIVE  NEGATIVE  NEUTRAL }
+
+function ClassifyReview(text: string) -> Sentiment {
+  client GPT4o
+  prompt #"
+    Classify the sentiment: {{ text }}
+    {{ ctx.output_format }}
+  "#
+}
+```
+
+```python
+from baml_client import b
+result = b.ClassifyReview("Great product!")  # typed: Sentiment
+```
+
+### Why It Matters
+
+- **Auto-fixes broken LLM output** in milliseconds without re-requesting — saves API cost, enables cheaper models
+- **2-4x fewer tokens** than JSON Schema for output format description
+- **Provider-independent** — works with OpenAI, Anthropic, local models (Ollama, llama.cpp)
+- **Typed tool calling** — union types for multi-tool dispatch, streaming out of the box
+
+### BAML vs Pydantic + Structured Output vs Raw OpenAI
+
+| | Raw OpenAI | Pydantic + Structured Output | BAML |
+|---|---|---|---|
+| **Typing** | dict (runtime errors) | typed (Pydantic class) | typed (generated class) |
+| **Validation** | manual | auto (OpenAI only) | auto (any provider) |
+| **Retry on bad JSON** | manual | no | auto |
+| **Prompt location** | in code string | in code string | separate `.baml` file |
+| **Local models** | no | no | yes |
+| **Token efficiency** | baseline | baseline | 2-4x less |
+| **Tool calling** | JSON dict, manual parse | typed but OpenAI-only | typed union, any provider |
+| **Testing** | write yourself | write yourself | built-in playground |
+
+### Decision Guide
+
+| Situation | Approach |
+|-----------|----------|
+| Simple LLM call, OpenAI only | Pydantic + `response_format` is enough |
+| Multiple providers or local models | BAML |
+| Many prompts, need organization | BAML (prompts as files, not strings) |
+| Complex tool calling (10+ tools) | BAML (union types, streaming) |
+| Existing Pydantic/Zod codebase, no LLM layer | Keep Pydantic/Zod for data validation, add BAML for LLM layer |
+
+### Integration
+
+BAML doesn't compete with Pydantic/Zod — it sits above them. Pydantic validates data, BAML validates LLM responses and generates types. In a new project, BAML replaces Pydantic in the LLM layer. In an existing project, they coexist.
+
+Ref: https://docs.boundaryml.com
 
 ---
 
@@ -457,6 +550,37 @@ docs/plan/{name}_{date}/
 /solo:build                   # Continue — auto-resume current track
 ```
 
+### Agent Teams — Parallel Work
+
+Multiple agents work simultaneously with file ownership separation.
+
+**Presets:**
+
+| Preset | Agents | When |
+|--------|--------|------|
+| `team-feature` | 2-4 implementer | Parallel feature dev with file ownership |
+| `team-review` | 3-5 reviewer | Code review by dimension (security, perf, arch, testing, a11y) |
+| `team-debug` | 2-4 debugger | Parallel debugging with competing hypotheses |
+| `team-research` | 2-3 researcher | Parallel research (differs from `/swarm`) |
+
+**Key principles:**
+- **File ownership** — each agent owns its files, no conflicts
+- **Dependency management** — tasks with explicit dependencies (`blockedBy`)
+- **Integration points** — coordination via messaging between agents
+- **Evidence-based debugging** — hypotheses with confidence levels and file:line citations
+
+**Commands:**
+
+| Command | When |
+|---------|------|
+| `/agent-teams:team-spawn` | Create team (preset or custom composition) |
+| `/agent-teams:team-feature` | Parallel development |
+| `/agent-teams:team-review` | Multi-review |
+| `/agent-teams:team-debug` | Debug with hypotheses |
+| `/agent-teams:team-status` | Team status |
+| `/agent-teams:team-delegate` | Rebalance tasks |
+| `/agent-teams:team-shutdown` | Shut down team |
+
 ### Implementation Principles
 
 - TDD: test first -> then code -> verify
@@ -475,6 +599,30 @@ docs/plan/{name}_{date}/
 | Code review | `/agent-teams:team-review` |
 | Complex bug | `/agent-teams:team-debug` |
 | Refactoring | `/solo:plan` (for tracking) |
+
+---
+
+## Code Quality Tools
+
+Unified linting, formatting, and type-checking toolset. All projects use pre-commit hooks.
+
+### By Language
+
+| Language | Linter | Formatter | Type checker | Tests |
+|----------|--------|-----------|--------------|-------|
+| **Python** | `ruff` (replaces flake8, isort, pyflakes) | `ruff format` (replaces black) | `ty` (Astral, extremely fast, replaces mypy/pyright) | `pytest` + `hypothesis` |
+| **TypeScript** | `eslint` (flat config v9, typescript-eslint) | `prettier` | `tsc --noEmit` (strict mode) | `vitest` |
+| **Bash** | `shellcheck` | — | — | `bats` (Bash Automated Testing System) |
+| **Swift** | `swiftlint` | `swift-format` | Swift compiler | `XCTest` |
+| **Kotlin** | `ktlint` | `ktlint --format` | Kotlin compiler | `JUnit 5` |
+
+### Principles
+
+- **Astral toolchain for Python** — ruff + ty + uv. One vendor, maximum speed
+- **pre-commit is mandatory.** Linter + formatter + tests before commit, not after
+- **Autofix by default.** `ruff --fix`, `prettier --write` — don't waste time on manual fixes
+- **Type checking mandatory for Python.** `ty` (Astral) — instantaneous, replaces mypy/pyright
+- **shellcheck for bash.** Pipeline scripts are critical — `set -euo pipefail` + shellcheck catch bugs before production
 
 ---
 
@@ -523,6 +671,127 @@ When agent makes a mistake — don't retry the prompt, fix the harness:
 3. Pattern works well -> capture as golden principle
 
 > "When the agent struggles, treat it as a signal — fix the harness, not the prompt."
+
+---
+
+## Opus 4.6 Prompting Rules
+
+Rules for writing prompts in skills, CLAUDE.md, and agent configs.
+
+### 1. Prompt Hygiene
+
+**No ALL-CAPS pressure.** Opus 4.6 over-triggers on CRITICAL, MUST, NEVER, ALWAYS, MANDATORY, WARNING. The model follows instructions without shouting — pressure adds nervousness to output, not compliance.
+
+```
+# Bad
+**CRITICAL: You MUST ALWAYS check tests. NEVER skip this step.**
+
+# Good
+Check tests after each change. This catches regressions early.
+```
+
+**Explain WHY, not just WHAT.** The model generalizes better from explanations than bare rules.
+
+```
+# Bad
+Do NOT use --no-verify on commits.
+
+# Good
+Commit with hooks enabled — they catch formatting and lint issues before they reach the repo.
+```
+
+**Positive framing over prohibitions.** "Do X" works better than "Don't do Y". The model sometimes fixates on the forbidden action.
+
+```
+# Bad
+Do NOT search the entire project. Do NOT read all files.
+
+# Good
+Search only the directories relevant to the current task. Load what you need.
+```
+
+**No anti-patterns in examples.** Show only desired behavior. The model may latch onto a "bad" example and reproduce it.
+
+**No "if in doubt, use this tool".** Triggers aggressive tool invocation. Use specific conditions instead.
+
+### 2. Output Calibration
+
+**Tone table (flat vs alive).** Concrete examples calibrate output better than abstract "be concise" instructions.
+
+| Flat (avoid) | Alive (aim for) |
+|---|---|
+| "Done. The file has been updated." | "Done. Cleaned up that config and pushed." |
+| "I found 3 results matching your query." | "Three hits. The second one's interesting." |
+| "I don't have access to that." | "Can't get in. Permissions issue or it doesn't exist." |
+
+**Stock phrase filter.** AI crutch phrases that signal "an LLM wrote this":
+- "it's worth noting", "at the end of the day", "deep dive", "game-changer"
+- "seamless", "revolutionary", "cutting-edge", "leverage" (promotional inflation)
+
+**Em dashes (—) — AI writing tell.** Replace with commas, periods, colons. Opus overloads text with em dashes.
+
+**No sycophancy.** "If you're not actually impressed, don't say you are." Genuine reactions only.
+
+### 3. Agent Behavior
+
+- **Resourcefulness before questions.** Read the file. Check context. Search. Then ask. Come with answers, not questions.
+- **Specificity over volume.** Say something concrete or say less. Empty responses are worse than short ones.
+- **Tone by context.** Serious tasks, errors, bad news — direct and calm. Routine — can add life. Switch, don't get stuck in one mode.
+
+---
+
+## Agent-Readable Content (Markdown for Agents)
+
+All content sites (blogs, landing pages, docs) should serve markdown versions for AI agents. Reduces token usage ~80% and makes content accessible to Claude Code, Cursor, and other agents.
+
+### Cloudflare Markdown for Agents
+
+If the site is behind Cloudflare (Pro/Business/Enterprise) — enable "Markdown for Agents" in dashboard (Quick Actions). Any request with `Accept: text/markdown` returns clean markdown instead of HTML.
+
+```bash
+curl https://example.com/blog/post -H "Accept: text/markdown"
+# Response: Content-Type: text/markdown, x-markdown-tokens: 725
+```
+
+### /llms.txt — Discovery File for Agents
+
+Every content site should have `/llms.txt` at root — a content map for AI agents (like robots.txt for LLMs).
+
+```markdown
+# MySite
+> Brief description of the site
+
+## Docs
+- [Getting Started](/docs/start): Setup guide
+- [API Reference](/docs/api): Full API docs
+```
+
+### Implementation by Stack
+
+| Stack | How to implement |
+|-------|-----------------|
+| **Astro (Cloudflare Pages)** | Enable CF Markdown for Agents + static `public/llms.txt` + content collections expose `.md` raw |
+| **Next.js (Vercel/CF)** | Route handler `app/llms.txt/route.ts` + MDX/content as API (`Accept: text/markdown` -> raw markdown) |
+| **Cloudflare Workers** | Enable CF Markdown for Agents in dashboard. Custom: check `Accept` header, return markdown |
+| **Any behind Cloudflare** | Dashboard -> Quick Actions -> Markdown for Agents (toggle) |
+
+### Principles
+
+- **Markdown is first-class.** Content stored as markdown, HTML generated from it, not the other way around
+- **Content negotiation.** `Accept: text/markdown` -> markdown, else HTML. `x-markdown-tokens` header in response
+- **llms.txt mandatory** for content sites. Auto-generated from sitemap or content collections
+- **Content-Signal header.** `Content-Signal: ai-train=no, search=yes, ai-input=yes` — control how AI uses your content
+
+Ref: https://blog.cloudflare.com/markdown-for-agents/
+Ref: https://llmstxt.org/
+
+---
+
+## Background Jobs and Pipelines
+
+Tool selection: **cron -> CF Workers Cron -> Prefect -> Temporal -> Trigger.dev**
+
+**Rule:** start with cron. Move to Temporal when you need fan-out, retry, and multiple projects on one VPS.
 
 ---
 

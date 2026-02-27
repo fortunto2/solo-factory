@@ -18,6 +18,7 @@ Deploy the project to its hosting platform. Reads the stack template YAML (`temp
 ## References
 
 - `templates/principles/dev-principles.md` — CI/CD, secrets, DNS, shared infra rules
+- `dev-principles-my.md` (if exists) — personal infra extensions (auth, tunnels, monitoring)
 - `templates/stacks/*.yaml` — Stack templates with deploy, infra, ci_cd, monitoring fields
 
 > Paths are relative to the skill's plugin root. Search for these files via Glob if not found at expected location.

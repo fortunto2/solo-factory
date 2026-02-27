@@ -245,7 +245,7 @@ Report:
 
 ### 9. Dev Principles Compliance
 
-Check adherence to dev principles. Look for `templates/principles/dev-principles.md` (bundled with this skill), or check CLAUDE.md or project docs for architecture and coding conventions.
+Check adherence to dev principles. Look for `templates/principles/dev-principles.md` (bundled with this skill), or check CLAUDE.md or project docs for architecture and coding conventions. Also check for `dev-principles-my.md` (personal extensions) if it exists in the project or KB.
 
 Read the dev principles file, then spot-check 3-5 key source files for violations:
 

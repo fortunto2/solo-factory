@@ -48,7 +48,7 @@ If MCP tools are not available, fall back to reading local files only.
 4. **Read ecosystem sources** (optional — enhances quality):
    - Detect stack name from CLAUDE.md (look for "Stack:" or the stack name in tech section).
    - If MCP `kb_search` available: search for stack template and dev-principles.
-   - Otherwise: look for `stacks/<stack>.yaml` and `dev-principles.md` in `.solo/` or plugin templates directory (if accessible).
+   - Otherwise: look for `stacks/<stack>.yaml` and `dev-principles.md` + `dev-principles-my.md` (personal extensions) in `.solo/` or plugin templates directory (if accessible).
    - If neither available: derive all info from CLAUDE.md + package manifest (sufficient).
 
 5. **Detect languages** from package manifest:
