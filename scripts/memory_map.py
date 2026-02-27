@@ -511,6 +511,101 @@ def audit_memory(memories: list[MemoryFile], cwd: Path | None = None) -> list[st
         if len(files) > 1:
             hints.append(f"DUPLICATE: section '{header}' appears in {', '.join(files)}")
 
+    # ── Memory best practices (per code.claude.com/docs/en/memory) ──
+
+    # CLAUDE.local.md should be in .gitignore
+    if cwd:
+        local_md = cwd / "CLAUDE.local.md"
+        if local_md.exists():
+            gitignore = cwd / ".gitignore"
+            is_ignored = False
+            if gitignore.exists():
+                try:
+                    gi_text = gitignore.read_text()
+                    is_ignored = "CLAUDE.local.md" in gi_text
+                except Exception:
+                    pass
+            if not is_ignored:
+                hints.append(
+                    f"LOCAL NOT IGNORED: {short_path(local_md)} exists but not in .gitignore"
+                )
+
+    # Auto-memory MEMORY.md > 200 lines (only first 200 loaded)
+    for m in memories:
+        if m.kind == "auto_memory" and m.lines > 200:
+            hints.append(
+                f"AUTO-MEMORY LONG: {short_path(m.path)} ({m.lines}L) — only first 200 loaded. Move details to topic files"
+            )
+
+    # Rules with generic names (should be descriptive per official docs)
+    generic_names = {"rules.md", "misc.md", "other.md", "notes.md", "extra.md"}
+    for m in memories:
+        if m.kind in ("project_rule", "user_rule"):
+            if m.path.name.lower() in generic_names:
+                hints.append(
+                    f"GENERIC RULE NAME: {short_path(m.path)} — use descriptive name (e.g., testing.md, api-design.md)"
+                )
+
+    # ── Skills best practices ──
+    skills = [m for m in memories if m.kind == "skill"]
+    if skills:
+        # Group by parent folder to distinguish references from legacy
+        skill_folders: dict[Path, list[MemoryFile]] = {}
+        for s in skills:
+            skill_folders.setdefault(s.path.parent, []).append(s)
+
+        legacy_count = 0
+        for folder, files in skill_folders.items():
+            has_skill_md = any(f.path.name == "SKILL.md" for f in files)
+            if not has_skill_md:
+                # All .md files in this folder are legacy (no SKILL.md)
+                for f in files:
+                    legacy_count += 1
+                    hints.append(
+                        f"LEGACY SKILL: {short_path(f.path)} — migrate to {folder.name}/SKILL.md"
+                    )
+
+        # Check SKILL.md frontmatter quality
+        for s in skills:
+            if s.path.name != "SKILL.md":
+                continue
+            try:
+                text = s.path.read_text()
+            except Exception:
+                continue
+            # Check for frontmatter
+            if not text.startswith("---"):
+                hints.append(
+                    f"SKILL NO FRONTMATTER: {short_path(s.path)} — add name: and description:"
+                )
+                continue
+            end = text.find("---", 3)
+            if end == -1:
+                continue
+            fm = text[3:end]
+            has_name = any(line.strip().startswith("name:") for line in fm.splitlines())
+            has_desc = any(
+                line.strip().startswith("description:") for line in fm.splitlines()
+            )
+            if not has_name:
+                hints.append(f"SKILL NO NAME: {short_path(s.path)} — add name: field")
+            if not has_desc:
+                hints.append(
+                    f"SKILL NO DESC: {short_path(s.path)} — add description: with trigger phrases"
+                )
+            # Large skill
+            if s.lines > 200:
+                hints.append(
+                    f"SKILL LARGE: {short_path(s.path)} ({s.lines}L) — move details to references/"
+                )
+
+        # Too many skills
+        proper_count = sum(1 for s in skills if s.path.name == "SKILL.md")
+        if proper_count > 20:
+            hints.append(
+                f"SKILL OVERLOAD: {proper_count} skills — consider selective enablement or skill packs"
+            )
+
     # No auto-memory
     if not any(m.kind == "auto_memory" for m in memories):
         hints.append("NO AUTO-MEMORY: consider enabling for cross-session learning")
@@ -649,20 +744,37 @@ def display_rich(
 
     # Skills branch
     if skills:
+        # Group by folder to distinguish references from true legacy
+        sk_folders: dict[Path, list[MemoryFile]] = {}
+        for s in skills:
+            sk_folders.setdefault(s.path.parent, []).append(s)
+
         proper = [s for s in skills if s.path.name == "SKILL.md"]
-        legacy = [s for s in skills if s.path.name != "SKILL.md"]
-        skills_label = f"[bold bright_blue]Skills[/] ({len(skills)}"
-        if legacy:
-            skills_label += f", {len(legacy)} legacy"
+        true_legacy = [
+            s
+            for s in skills
+            if s.path.name != "SKILL.md"
+            and not any(f.path.name == "SKILL.md" for f in sk_folders[s.path.parent])
+        ]
+        refs = [
+            s
+            for s in skills
+            if s.path.name != "SKILL.md"
+            and any(f.path.name == "SKILL.md" for f in sk_folders[s.path.parent])
+        ]
+
+        skills_label = f"[bold bright_blue]Skills[/] ({len(proper)}"
+        if true_legacy:
+            skills_label += f", {len(true_legacy)} legacy"
         skills_label += ")"
         sk_branch = tree.add(skills_label)
         for s in proper:
             folder = s.path.parent.name
-            sk_branch.add(f"[bright_blue]{folder}/[/] [dim]{s.lines}L[/]")
-        for s in legacy:
-            sk_branch.add(
-                f"[dim yellow]{s.path.name}[/] [dim]{s.lines}L (legacy bare .md)[/]"
-            )
+            ref_count = sum(1 for r in refs if r.path.parent == s.path.parent)
+            ref_note = f" +{ref_count} refs" if ref_count else ""
+            sk_branch.add(f"[bright_blue]{folder}/[/] [dim]{s.lines}L{ref_note}[/]")
+        for s in true_legacy:
+            sk_branch.add(f"[dim yellow]{s.path.name}[/] [dim]{s.lines}L (legacy)[/]")
 
     console.print(tree)
 
@@ -767,19 +879,35 @@ def display_plain(
 
     # Skills
     if skills_list:
+        sk_folders: dict[Path, list[MemoryFile]] = {}
+        for s in skills_list:
+            sk_folders.setdefault(s.path.parent, []).append(s)
         proper = [s for s in skills_list if s.path.name == "SKILL.md"]
-        legacy = [s for s in skills_list if s.path.name != "SKILL.md"]
-        label = f"  Skills ({len(skills_list)}"
-        if legacy:
-            label += f", {len(legacy)} legacy"
+        true_legacy = [
+            s
+            for s in skills_list
+            if s.path.name != "SKILL.md"
+            and not any(f.path.name == "SKILL.md" for f in sk_folders[s.path.parent])
+        ]
+        refs = [
+            s
+            for s in skills_list
+            if s.path.name != "SKILL.md"
+            and any(f.path.name == "SKILL.md" for f in sk_folders[s.path.parent])
+        ]
+        label = f"  Skills ({len(proper)}"
+        if true_legacy:
+            label += f", {len(true_legacy)} legacy"
         label += "):"
         print(label)
         print(f"  {'─' * 50}")
         for s in proper:
             folder = s.path.parent.name
-            print(f"  [sk] {folder}/ ({s.lines}L)")
-        for s in legacy:
-            print(f"  [sk] {s.path.name} ({s.lines}L) — legacy bare .md")
+            ref_count = sum(1 for r in refs if r.path.parent == s.path.parent)
+            ref_note = f" +{ref_count} refs" if ref_count else ""
+            print(f"  [sk] {folder}/ ({s.lines}L{ref_note})")
+        for s in true_legacy:
+            print(f"  [sk] {s.path.name} ({s.lines}L) — legacy")
         print()
 
     if show_audit:
