@@ -341,10 +341,15 @@ def load_memory_map(cwd: Path) -> list[MemoryFile]:
         )
 
     # 8. Skills (detect .claude/skills/ and .agents/skills/)
+    # Skip files inside references/, scripts/, assets/ subdirs (not skills)
+    skip_subdirs = {"references", "scripts", "assets"}
     for skills_dir in [cwd / ".claude" / "skills", cwd / ".agents" / "skills"]:
         if skills_dir.exists():
             for skill_file in sorted(skills_dir.rglob("*.md")):
-                # Count SKILL.md as the skill entry, bare .md as legacy
+                # Skip files in reference/script/asset subdirectories
+                rel = skill_file.relative_to(skills_dir)
+                if any(part in skip_subdirs for part in rel.parts[:-1]):
+                    continue
                 priority += 1
                 memories.append(
                     MemoryFile(
