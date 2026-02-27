@@ -98,6 +98,25 @@ The pipeline (`solo-dev.sh`) calls skills as `/solo:{name}`. Claude Code resolve
 - **Signal priority:** `<solo:redo/>` takes priority over `<solo:done/>` when both present in same iteration output. `<solo:redo/>` removes ALL markers (build+deploy+review) and re-execs from build.
 - **Circuit breaker:** fingerprint-based (md5 of last 5 lines), limit 3 identical failures
 
+## Utilities
+
+### `scripts/memory_map.py` — Claude Code Memory Map
+
+Replicates Claude Code's memory loading algorithm. Shows exactly which CLAUDE.md files, rules, auto-memory, and `@`-imports are loaded for a given working directory.
+
+```bash
+python scripts/memory_map.py                    # from CWD
+python scripts/memory_map.py /path/to/project   # for specific dir
+python scripts/memory_map.py --all-projects     # scan CWD subdirs
+python scripts/memory_map.py --json             # JSON output
+```
+
+**Algorithm:** walks from CWD up to `/` (not just git root), checks at each level: `CLAUDE.md`, `.claude/CLAUDE.md`, `.claude/rules/*.md`. Also loads: `~/.claude/CLAUDE.md` (user), `CLAUDE.local.md` (CWD only), auto-memory (`MEMORY.md`, first 200 lines). Deduplicates by resolved path. Detects `@`-imports (max depth 5). Child directory CLAUDE.md shown as on-demand.
+
+**Markers:** `[~~]` user, `[am]` auto-memory, `[>>]` project hierarchy, `[pr]` rules, `[**]` local, `[..]` child (on-demand), `[@@]` import.
+
+No dependencies — stdlib only (Python 3.10+).
+
 ## Don't
 
 - Don't forget to bump version before `make plugin-publish`
