@@ -346,24 +346,39 @@ def load_memory_map(cwd: Path) -> list[MemoryFile]:
 # ── Audit ─────────────────────────────────────────────────────────
 
 
-def audit_memory(memories: list[MemoryFile]) -> list[str]:
+def audit_memory(memories: list[MemoryFile], cwd: Path | None = None) -> list[str]:
     """Analyze memory map and return optimization hints."""
     hints: list[str] = []
     startup = [m for m in memories if m.kind not in ("child", "auto_memory_topic")]
     total_chars = sum(m.chars for m in startup)
 
-    # Large files
-    for m in startup:
-        if m.lines > 300:
-            hints.append(
-                f"LARGE: {short_path(m.path)} ({m.lines} lines) — consider splitting into .claude/rules/"
-            )
+    # Broken symlinks
+    for m in memories:
+        if m.path.is_symlink():
+            target = m.path.resolve()
+            if not target.exists():
+                hints.append(
+                    f"BROKEN SYMLINK: {short_path(m.path)} → {short_path(target)} (target missing)"
+                )
 
-    # Total context
-    if total_chars > 40000:
+    # Context budget
+    budget = 40000
+    pct = int(total_chars / budget * 100) if budget else 0
+    hints.append(f"BUDGET: {total_chars:,} / {budget:,} chars ({pct}% used)")
+
+    if total_chars > budget:
         hints.append(
-            f"TOTAL: {total_chars:,} chars loaded at startup (limit ~40k). Consider extracting sections to conditional rules."
+            f"OVER BUDGET: {total_chars - budget:,} chars over limit. Extract sections to conditional rules."
         )
+
+    # Large files (by lines or chars)
+    for m in startup:
+        mc = m.chars
+        if m.lines > 300 or mc > 10000:
+            pct_file = int(mc / budget * 100) if budget else 0
+            hints.append(
+                f"LARGE: {short_path(m.path)} ({m.lines}L / {mc:,}c = {pct_file}% of budget) — consider splitting"
+            )
 
     # Rules without paths: (always loaded)
     for m in startup:
@@ -371,6 +386,77 @@ def audit_memory(memories: list[MemoryFile]) -> list[str]:
             hints.append(
                 f"UNCONDITIONAL: {short_path(m.path)} ({m.lines} lines) — add paths: frontmatter to make conditional"
             )
+
+    # Dead conditional rules — paths: globs that match nothing
+    if cwd:
+        for m in startup:
+            if m.conditional and m.paths_filter:
+                has_match = False
+                for pattern in m.paths_filter:
+                    if list(cwd.glob(pattern)):
+                        has_match = True
+                        break
+                if not has_match:
+                    hints.append(
+                        f"DEAD RULE: {short_path(m.path)} — paths: {m.paths_filter} match no files in {short_path(cwd)}"
+                    )
+
+    # Inheritance chain — check for gaps in project hierarchy
+    if cwd:
+        project_files = [m for m in startup if m.kind == "project"]
+        if project_files:
+            deepest = cwd.resolve()
+            git_root = find_git_root(cwd)
+            chain_root = git_root if git_root else deepest
+            # Walk from chain_root up — check each parent for CLAUDE.md
+            current = deepest.parent
+            while current != current.parent and current != chain_root.parent:
+                expected = current / "CLAUDE.md"
+                if (
+                    current.name
+                    and not current.name.startswith(".")
+                    and any(
+                        d.is_dir() and (d / "CLAUDE.md").exists()
+                        for d in current.iterdir()
+                    )
+                    and not expected.exists()
+                ):
+                    hints.append(
+                        f"CHAIN GAP: {short_path(current)} has child projects but no CLAUDE.md"
+                    )
+                current = current.parent
+
+    # Essential sections in CWD CLAUDE.md
+    if cwd:
+        cwd_claude = cwd / "CLAUDE.md"
+        if cwd_claude.exists():
+            try:
+                text = cwd_claude.read_text().lower()
+                headers = {
+                    line.strip().lstrip("#").strip()
+                    for line in text.splitlines()
+                    if line.startswith("## ")
+                }
+                missing = []
+                # Check for common essential headers (flexible matching)
+                has_structure = any(
+                    h
+                    for h in headers
+                    if "structure" in h or "directory" in h or "layout" in h
+                )
+                has_commands = any(
+                    h for h in headers if "command" in h or "usage" in h or "make" in h
+                )
+                if not has_structure:
+                    missing.append("project structure")
+                if not has_commands:
+                    missing.append("commands/usage")
+                if missing:
+                    hints.append(
+                        f"INCOMPLETE: {short_path(cwd_claude)} missing sections: {', '.join(missing)}"
+                    )
+            except Exception:
+                pass
 
     # Duplicate content detection (same section headers)
     sections_by_file: dict[str, list[str]] = {}
@@ -511,7 +597,7 @@ def display_rich(
 
     # Audit
     if show_audit:
-        hints = audit_memory(memories)
+        hints = audit_memory(memories, cwd)
         if hints:
             console.print()
             table = Table(title="Audit Hints", border_style="yellow", show_lines=True)
@@ -587,7 +673,7 @@ def display_plain(
     print()
 
     if show_audit:
-        hints = audit_memory(memories)
+        hints = audit_memory(memories, cwd)
         print(f"  {'─' * 50}")
         print("  Audit:")
         for h in hints:
