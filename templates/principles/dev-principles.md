@@ -480,6 +480,61 @@ result = b.ClassifyReview("Great product!")  # typed: Sentiment
 
 BAML doesn't compete with Pydantic/Zod — it sits above them. Pydantic validates data, BAML validates LLM responses and generates types. In a new project, BAML replaces Pydantic in the LLM layer. In an existing project, they coexist.
 
+### Hybrid Strategy: BAML + SGR Together
+
+Use SGR (constrained decoding) where precision matters, BAML (schema-as-prompt) where reasoning matters:
+
+| Task | Approach | Why |
+|------|----------|-----|
+| Tool routing (`NextStep`) | SGR (`response_format`) | Exact branch selection, no hallucinations |
+| Extraction (documents, receipts) | BAML (SAP) | Free reasoning before parsing → better quality |
+| Classification (tickets, priorities) | SGR | Simple enums, constrained decoding handles well |
+| Complex reasoning (gap analysis, review) | BAML (SAP) | Needs full chain-of-thought |
+| On-device iOS | SGR (`@Generable`) | BAML doesn't support Apple Foundation Models |
+| Prompt iteration/testing | BAML Playground | Valuable even without BAML runtime |
+
+```python
+# SGR — tool dispatch (constrained decoding is optimal)
+completion = client.chat.completions.parse(
+    model="gpt-4o-mini",
+    response_format=NextStep,  # Union[SendEmail, SearchKB, ...]
+    messages=messages,
+)
+```
+
+```
+// BAML — extraction with reasoning (baml_src/extract_invoice.baml)
+function ExtractInvoice(doc: image) -> Invoice {
+  client GPT4o
+  prompt #"
+    Analyze this document carefully.
+    First describe what you see, then extract the data.
+    {{ ctx.output_format }}
+  "#
+}
+
+class Invoice {
+  vendor string
+  total float
+  items InvoiceItem[]
+  confidence float @description("0.0-1.0 extraction confidence")
+}
+```
+
+```python
+# Python call — BAML lets model "think" first, then parses
+from baml_client import baml as b
+invoice = await b.ExtractInvoice(document_image)
+```
+
+**What's useful now** (even without full migration):
+- BAML Playground (VSCode extension) — fast prompt iteration
+- SAP for extraction tasks — noticeable quality boost over constrained decoding
+- Declarative retry/fallback — replaces manual try/except
+- Typed streaming — objects, not tokens (useful for UI agents)
+
+**Risks:** weekly DSL updates may break, no iOS support, small community (~2K stars), `.baml` files are not portable.
+
 Ref: https://docs.boundaryml.com
 
 ---
