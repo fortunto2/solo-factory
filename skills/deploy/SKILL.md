@@ -15,6 +15,11 @@ argument-hint: "[platform]"
 
 Deploy the project to its hosting platform. Reads the stack template YAML (`templates/stacks/{stack}.yaml`) for exact deploy config (platform, CLI tools, infra tier, CI/CD, monitoring), detects installed CLI tools, sets up database and environment, pushes code, and verifies deployment is live.
 
+## Live Context
+- Branch: !`git branch --show-current 2>/dev/null`
+- Uncommitted: !`git status --short 2>/dev/null | wc -l | tr -d ' '` files
+- Last commit: !`git log --oneline -1 2>/dev/null`
+
 ## References
 
 - `templates/principles/dev-principles.md` — CI/CD, secrets, DNS, shared infra rules

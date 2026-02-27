@@ -15,6 +15,10 @@ argument-hint: "[idea name or description]"
 
 Deep research before PRD generation. Produces a structured `research.md` with competitive analysis, user pain points, SEO/ASO keywords, naming/domain options, and market sizing.
 
+## Live Context
+- Branch: !`git branch --show-current 2>/dev/null`
+- Recent changes: !`git log --oneline -5 2>/dev/null`
+
 ## MCP Tools (use if available)
 
 If MCP tools are available, prefer them over CLI:

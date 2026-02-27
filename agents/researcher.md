@@ -3,6 +3,7 @@ name: researcher
 description: Deep research specialist for startup ideas. Use proactively when the user asks to research a market, competitors, pain points, or validate an idea. Combines web search, knowledge base, and session history for evidence-based analysis.
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 model: sonnet
+memory: user
 skills:
   - deep-research
 ---

@@ -17,6 +17,11 @@ This skill is self-contained — follow the task loop, TDD rules, and completion
 
 Execute tasks from an implementation plan. Finds `plan.md` (in `docs/plan/`), picks the next unchecked task, implements it with TDD workflow, commits, and updates progress.
 
+## Live Context
+- Branch: !`git branch --show-current 2>/dev/null`
+- Status: !`git status --short 2>/dev/null | head -10`
+- Last commit: !`git log --oneline -3 2>/dev/null`
+
 ## When to use
 
 After `/plan` has created a track with `spec.md` + `plan.md`. This is the execution engine.

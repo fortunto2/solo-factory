@@ -3,6 +3,7 @@ name: idea-validator
 description: Startup idea validation specialist. Use proactively when the user mentions a new idea, wants to evaluate a product concept, or needs a STREAM analysis with PRD generation.
 tools: Read, Grep, Glob, Bash, Write, Edit
 model: sonnet
+memory: project
 skills:
   - validate-idea
   - apply-stream

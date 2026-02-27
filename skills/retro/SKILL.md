@@ -17,6 +17,11 @@ This skill is self-contained — follow the phases below instead of delegating t
 
 Post-pipeline retrospective. Parses pipeline logs, counts productive vs wasted iterations, identifies recurring failure patterns, scores the pipeline run, and suggests concrete patches to skills/scripts to prevent the same failures next time.
 
+## Live Context
+- Branch: !`git branch --show-current 2>/dev/null`
+- Recent commits: !`git log --oneline -10 2>/dev/null`
+- Modified files: !`git diff --name-only HEAD~5..HEAD 2>/dev/null | head -20`
+
 ## When to use
 
 After a pipeline completes (or gets cancelled). This is the process quality check — `/review` checks **code quality**, `/retro` checks **pipeline process quality**.

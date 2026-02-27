@@ -17,6 +17,10 @@ This skill is self-contained — follow the instructions below instead of delega
 
 Final quality gate before shipping. Runs tests, checks security, verifies acceptance criteria from spec.md, audits code quality, and generates a ship-ready report with go/no-go verdict.
 
+## Live Context
+- Branch: !`git branch --show-current 2>/dev/null`
+- Diff stats: !`git diff --stat HEAD~3..HEAD 2>/dev/null | tail -5`
+
 ## When to use
 
 After `/deploy` (or `/build` if deploying manually). This is the quality gate.
