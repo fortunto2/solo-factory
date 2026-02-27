@@ -10,6 +10,7 @@ Usage:
     python scripts/memory_map.py /path/to/project   # for specific dir
     python scripts/memory_map.py --all-projects     # scan all active projects
     python scripts/memory_map.py --json             # JSON output
+    python scripts/memory_map.py --audit            # show optimization hints
 """
 
 from __future__ import annotations
@@ -20,6 +21,19 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+
+# ── Rich (optional, fallback to plain text) ───────────────────────
+
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich.text import Text
+    from rich.tree import Tree
+
+    HAS_RICH = True
+except ImportError:
+    HAS_RICH = False
 
 # ── Constants ──────────────────────────────────────────────────────
 
@@ -50,6 +64,14 @@ class MemoryFile:
         if self.loaded_lines and self.loaded_lines != self.lines:
             return f"{self.loaded_lines}/{self.lines} lines"
         return f"{self.lines} lines"
+
+    @property
+    def chars(self) -> int:
+        """Approximate char count."""
+        try:
+            return len(self.path.read_text())
+        except Exception:
+            return 0
 
     def to_dict(self) -> dict:
         d = {
@@ -181,6 +203,11 @@ def find_imports(
                 imports.append(mf)
                 imports.extend(find_imports(target, depth + 1, seen))
     return imports
+
+
+def short_path(p: Path) -> str:
+    """Shorten path for display."""
+    return str(p).replace(str(Path.home()), "~")
 
 
 # ── Main loader ────────────────────────────────────────────────────
@@ -316,6 +343,67 @@ def load_memory_map(cwd: Path) -> list[MemoryFile]:
     return memories
 
 
+# ── Audit ─────────────────────────────────────────────────────────
+
+
+def audit_memory(memories: list[MemoryFile]) -> list[str]:
+    """Analyze memory map and return optimization hints."""
+    hints: list[str] = []
+    startup = [m for m in memories if m.kind not in ("child", "auto_memory_topic")]
+    total_chars = sum(m.chars for m in startup)
+
+    # Large files
+    for m in startup:
+        if m.lines > 300:
+            hints.append(
+                f"LARGE: {short_path(m.path)} ({m.lines} lines) — consider splitting into .claude/rules/"
+            )
+
+    # Total context
+    if total_chars > 40000:
+        hints.append(
+            f"TOTAL: {total_chars:,} chars loaded at startup (limit ~40k). Consider extracting sections to conditional rules."
+        )
+
+    # Rules without paths: (always loaded)
+    for m in startup:
+        if m.kind == "project_rule" and not m.conditional and m.lines > 30:
+            hints.append(
+                f"UNCONDITIONAL: {short_path(m.path)} ({m.lines} lines) — add paths: frontmatter to make conditional"
+            )
+
+    # Duplicate content detection (same section headers)
+    sections_by_file: dict[str, list[str]] = {}
+    for m in startup:
+        try:
+            text = m.path.read_text()
+        except Exception:
+            continue
+        headers = [
+            line.strip().lstrip("#").strip().lower()
+            for line in text.splitlines()
+            if line.startswith("## ")
+        ]
+        sections_by_file[short_path(m.path)] = headers
+
+    all_headers: dict[str, list[str]] = {}
+    for fpath, headers in sections_by_file.items():
+        for h in headers:
+            all_headers.setdefault(h, []).append(fpath)
+    for header, files in all_headers.items():
+        if len(files) > 1:
+            hints.append(f"DUPLICATE: section '{header}' appears in {', '.join(files)}")
+
+    # No auto-memory
+    if not any(m.kind == "auto_memory" for m in memories):
+        hints.append("NO AUTO-MEMORY: consider enabling for cross-session learning")
+
+    if not hints:
+        hints.append("All good — no issues found.")
+
+    return hints
+
+
 # ── Display ────────────────────────────────────────────────────────
 
 KIND_LABELS = {
@@ -329,6 +417,19 @@ KIND_LABELS = {
     "local": "Local",
     "child": "Child (on-demand)",
     "import": "Import (@)",
+}
+
+KIND_COLORS = {
+    "managed": "red",
+    "user": "cyan",
+    "user_rule": "cyan",
+    "auto_memory": "magenta",
+    "auto_memory_topic": "dim magenta",
+    "project": "green",
+    "project_rule": "yellow",
+    "local": "blue",
+    "child": "dim",
+    "import": "dim cyan",
 }
 
 KIND_MARKERS = {
@@ -345,8 +446,90 @@ KIND_MARKERS = {
 }
 
 
-def display_tree(cwd: Path, memories: list[MemoryFile]) -> None:
-    """Pretty-print memory map as a tree."""
+def display_rich(
+    cwd: Path, memories: list[MemoryFile], show_audit: bool = False
+) -> None:
+    """Rich tree display."""
+    console = Console()
+    git_root = find_git_root(cwd)
+
+    startup = [m for m in memories if m.kind not in ("child", "auto_memory_topic")]
+    on_demand = [m for m in memories if m.kind in ("child", "auto_memory_topic")]
+    total_lines = sum(m.loaded_lines for m in startup)
+    total_chars = sum(m.chars for m in startup)
+
+    # Header
+    header = Text()
+    header.append(f"CWD: {cwd}\n", style="bold")
+    if git_root:
+        header.append(f"Git: {git_root}\n", style="dim")
+    header.append(f"Key: {get_project_key(cwd)}", style="dim")
+
+    tree = Tree(
+        Panel(header, title="Claude Code Memory Map", border_style="blue"),
+        guide_style="dim",
+    )
+
+    # Startup branch
+    startup_branch = tree.add(
+        f"[bold green]Startup[/] ({len(startup)} files, ~{total_lines} lines, ~{total_chars:,} chars)"
+    )
+
+    # Group by level for tree structure
+    current_level = None
+    level_branch = startup_branch
+
+    for m in startup:
+        color = KIND_COLORS.get(m.kind, "white")
+        label = KIND_LABELS.get(m.kind, m.kind)
+        cond = " [dim](conditional)[/]" if m.conditional else ""
+
+        # Determine level from path
+        path_dir = str(m.path.parent)
+        if path_dir != current_level:
+            current_level = path_dir
+            # Create level grouping based on kind
+            level_branch = startup_branch
+
+        # File entry
+        name = m.path.name
+        size = f"{m.loaded_lines}L"
+        if m.chars > 0:
+            size += f" / {m.chars:,}c"
+        entry = f"[{color}]{name}[/] [dim]{label} | {size}{cond}[/]"
+        if m.imported_by:
+            entry += f" [dim italic](from {Path(m.imported_by).name})[/]"
+        level_branch.add(entry)
+
+    # On-demand branch
+    if on_demand:
+        od_branch = tree.add(f"[dim]On-demand[/] ({len(on_demand)} files)")
+        for m in on_demand:
+            od_branch.add(f"[dim]{short_path(m.path)} ({m.lines} lines)[/]")
+
+    console.print(tree)
+
+    # Audit
+    if show_audit:
+        hints = audit_memory(memories)
+        if hints:
+            console.print()
+            table = Table(title="Audit Hints", border_style="yellow", show_lines=True)
+            table.add_column("Type", style="bold", width=15)
+            table.add_column("Details")
+            for h in hints:
+                parts = h.split(": ", 1)
+                if len(parts) == 2:
+                    table.add_row(parts[0], parts[1])
+                else:
+                    table.add_row("INFO", h)
+            console.print(table)
+
+
+def display_plain(
+    cwd: Path, memories: list[MemoryFile], show_audit: bool = False
+) -> None:
+    """Plain text fallback display."""
     total_startup = sum(
         m.loaded_lines for m in memories if m.kind not in ("child", "auto_memory_topic")
     )
@@ -385,8 +568,7 @@ def display_tree(cwd: Path, memories: list[MemoryFile]) -> None:
         for m in filtered:
             marker = KIND_MARKERS.get(m.kind, "  ")
             label = KIND_LABELS.get(m.kind, m.kind)
-            # Shorten home dir
-            display_path = str(m.path).replace(str(Path.home()), "~")
+            display_path = short_path(m.path)
             size = m.size_display
             cond = " [conditional]" if m.conditional else ""
             imp = (
@@ -404,6 +586,14 @@ def display_tree(cwd: Path, memories: list[MemoryFile]) -> None:
         print(f"  On-demand: {on_demand} files (loaded when Claude reads those dirs)")
     print()
 
+    if show_audit:
+        hints = audit_memory(memories)
+        print(f"  {'─' * 50}")
+        print("  Audit:")
+        for h in hints:
+            print(f"    {h}")
+        print()
+
 
 def display_json(memories: list[MemoryFile]) -> None:
     print(json.dumps([m.to_dict() for m in memories], indent=2, default=str))
@@ -418,8 +608,16 @@ def main():
     output_json = "--json" in args
     args = [a for a in args if a != "--json"]
 
+    show_audit = "--audit" in args
+    args = [a for a in args if a != "--audit"]
+
     all_projects = "--all-projects" in args
     args = [a for a in args if a != "--all-projects"]
+
+    plain = "--plain" in args
+    args = [a for a in args if a != "--plain"]
+
+    use_rich = HAS_RICH and not plain and not output_json
 
     if all_projects:
         # Scan CWD (or parent) for subdirectories with CLAUDE.md
@@ -437,8 +635,10 @@ def main():
             memories = load_memory_map(d)
             if output_json:
                 all_maps[str(d)] = [m.to_dict() for m in memories]
+            elif use_rich:
+                display_rich(d, memories, show_audit)
             else:
-                display_tree(d, memories)
+                display_plain(d, memories, show_audit)
 
         if output_json:
             print(json.dumps(all_maps, indent=2, default=str))
@@ -453,8 +653,10 @@ def main():
 
     if output_json:
         display_json(memories)
+    elif use_rich:
+        display_rich(cwd, memories, show_audit)
     else:
-        display_tree(cwd, memories)
+        display_plain(cwd, memories, show_audit)
 
 
 if __name__ == "__main__":

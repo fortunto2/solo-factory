@@ -729,6 +729,51 @@ When agent makes a mistake — don't retry the prompt, fix the harness:
 
 ---
 
+## Memory Hierarchy Maintenance
+
+Claude Code loads CLAUDE.md files, rules, and auto-memory at session start. Keeping this hierarchy clean reduces context waste and improves agent accuracy.
+
+### Loading Order
+
+1. User memory (`~/.claude/CLAUDE.md`) — personal preferences, stack bias
+2. User rules (`~/.claude/rules/*.md`) — universal conventions (AI comments, Context7)
+3. Auto-memory (`~/.claude/projects/{key}/memory/MEMORY.md`) — cross-session learning, first 200 lines
+4. Project hierarchy (root to CWD) — each level: `CLAUDE.md`, `.claude/rules/*.md`
+
+### Principles
+
+- **Inheritance over duplication.** Generic info lives at parent level, project-specific at leaf. Don't repeat AWS docs in every project — put them in the workspace CLAUDE.md
+- **Conditional rules for domain content.** Large domain-specific sections (analytics, deployment, MCP) belong in `.claude/rules/{topic}.md` with `paths:` frontmatter. They load only when working on matching files
+- **40k char budget.** Total startup context should stay under 40k chars. Use `/memory-audit` to check
+- **CLAUDE.md is a map, not an encyclopedia.** Quick reference: structure, commands, key files, constraints. Move detailed docs to rules or separate files
+- **Self-contained fallback.** Each project should work if cloned standalone — add brief Prerequisites section pointing to parent for full docs
+- **User-level rules for universal patterns.** Conventions used across all projects (AI comments, library docs lookup) belong in `~/.claude/rules/`, not duplicated per project
+
+### Maintenance Checklist
+
+| When | Action |
+|------|--------|
+| New project | Run `/memory-audit` to check inheritance chain |
+| CLAUDE.md > 300 lines | Extract sections to conditional `.claude/rules/` |
+| Same section in 2+ files | Move to highest common parent |
+| Rule > 30 lines without `paths:` | Add `paths:` frontmatter or move to CLAUDE.md |
+| New workspace | Set up parent CLAUDE.md with shared infra docs |
+
+### Audit Tool
+
+```bash
+# Rich tree display + optimization hints
+uv run python solo-factory/scripts/memory_map.py /path/to/project --audit
+
+# All projects in directory
+uv run python solo-factory/scripts/memory_map.py --all-projects --audit
+
+# Or via skill
+/memory-audit [path]
+```
+
+---
+
 ## Opus 4.6 Prompting Rules
 
 Rules for writing prompts in skills, CLAUDE.md, and agent configs.

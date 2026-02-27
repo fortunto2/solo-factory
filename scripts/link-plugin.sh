@@ -65,5 +65,30 @@ else:
 "
 fi
 
+# 5. Link user-level rules (solo-factory/rules/ → ~/.claude/rules/)
+RULES_SRC="$PLUGIN_DIR/rules"
+RULES_DST="$HOME/.claude/rules"
+if [[ -d "$RULES_SRC" ]]; then
+  mkdir -p "$RULES_DST"
+  for rule in "$RULES_SRC"/*.md; do
+    [[ -f "$rule" ]] || continue
+    name="$(basename "$rule")"
+    target="$RULES_DST/$name"
+    if [[ -L "$target" ]]; then
+      # Already a symlink — update if pointing elsewhere
+      current="$(readlink "$target")"
+      if [[ "$current" != "$rule" ]]; then
+        ln -sf "$rule" "$target"
+        echo "Updated rule: $name → $rule"
+      fi
+    elif [[ -f "$target" ]]; then
+      echo "Skip rule: $name (file exists, not a symlink — remove manually to link)"
+    else
+      ln -s "$rule" "$target"
+      echo "Linked rule: $name → $rule"
+    fi
+  done
+fi
+
 echo ""
 echo "Done. Restart Claude Code session to pick up changes."
