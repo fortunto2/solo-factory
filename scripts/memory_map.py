@@ -350,7 +350,10 @@ def audit_memory(memories: list[MemoryFile], cwd: Path | None = None) -> list[st
     """Analyze memory map and return optimization hints."""
     hints: list[str] = []
     startup = [m for m in memories if m.kind not in ("child", "auto_memory_topic")]
-    total_chars = sum(m.chars for m in startup)
+    always = [m for m in startup if not m.conditional]
+    conditional = [m for m in startup if m.conditional]
+    base_chars = sum(m.chars for m in always)
+    max_chars = sum(m.chars for m in startup)
 
     # Broken symlinks
     for m in memories:
@@ -361,14 +364,24 @@ def audit_memory(memories: list[MemoryFile], cwd: Path | None = None) -> list[st
                     f"BROKEN SYMLINK: {short_path(m.path)} → {short_path(target)} (target missing)"
                 )
 
-    # Context budget
+    # Context budget (base = always loaded, max = all rules active)
     budget = 40000
-    pct = int(total_chars / budget * 100) if budget else 0
-    hints.append(f"BUDGET: {total_chars:,} / {budget:,} chars ({pct}% used)")
-
-    if total_chars > budget:
+    base_pct = int(base_chars / budget * 100) if budget else 0
+    max_pct = int(max_chars / budget * 100) if budget else 0
+    if conditional:
         hints.append(
-            f"OVER BUDGET: {total_chars - budget:,} chars over limit. Extract sections to conditional rules."
+            f"BUDGET: base {base_chars:,}c ({base_pct}%) / max {max_chars:,}c ({max_pct}%) of {budget // 1000}k"
+        )
+    else:
+        hints.append(f"BUDGET: {base_chars:,}c ({base_pct}%) of {budget // 1000}k")
+
+    if base_chars > budget:
+        hints.append(
+            f"OVER BUDGET: base context {base_chars - budget:,} chars over limit."
+        )
+    elif max_chars > budget:
+        hints.append(
+            f"MAX OVER BUDGET: worst-case {max_chars - budget:,} chars over limit (when all rules active)."
         )
 
     # Large files (by lines or chars)
@@ -541,8 +554,10 @@ def display_rich(
 
     startup = [m for m in memories if m.kind not in ("child", "auto_memory_topic")]
     on_demand = [m for m in memories if m.kind in ("child", "auto_memory_topic")]
-    total_lines = sum(m.loaded_lines for m in startup)
-    total_chars = sum(m.chars for m in startup)
+    always = [m for m in startup if not m.conditional]
+    conditional = [m for m in startup if m.conditional]
+    base_chars = sum(m.chars for m in always)
+    max_chars = sum(m.chars for m in startup)
 
     # Header
     header = Text()
@@ -556,36 +571,51 @@ def display_rich(
         guide_style="dim",
     )
 
-    # Startup branch
-    startup_branch = tree.add(
-        f"[bold green]Startup[/] ({len(startup)} files, ~{total_lines} lines, ~{total_chars:,} chars)"
+    # Budget line
+    budget = 40000
+    base_pct = int(base_chars / budget * 100)
+    max_pct = int(max_chars / budget * 100)
+    budget_style = "green" if base_pct < 50 else ("yellow" if base_pct < 75 else "red")
+    tree.add(
+        f"[{budget_style}]Budget: {base_chars:,}c base ({base_pct}%)"
+        + (f" / {max_chars:,}c max ({max_pct}%)" if conditional else "")
+        + f" of {budget // 1000}k[/]"
     )
 
-    # Group by level for tree structure
-    current_level = None
-    level_branch = startup_branch
-
-    for m in startup:
+    # Always-loaded branch
+    always_branch = tree.add(
+        f"[bold green]Always loaded[/] ({len(always)} files, {base_chars:,}c)"
+    )
+    for m in always:
         color = KIND_COLORS.get(m.kind, "white")
         label = KIND_LABELS.get(m.kind, m.kind)
-        cond = " [dim](conditional)[/]" if m.conditional else ""
-
-        # Determine level from path
-        path_dir = str(m.path.parent)
-        if path_dir != current_level:
-            current_level = path_dir
-            # Create level grouping based on kind
-            level_branch = startup_branch
-
-        # File entry
         name = m.path.name
-        size = f"{m.loaded_lines}L"
-        if m.chars > 0:
-            size += f" / {m.chars:,}c"
-        entry = f"[{color}]{name}[/] [dim]{label} | {size}{cond}[/]"
+        size = (
+            f"{m.loaded_lines}L / {m.chars:,}c" if m.chars > 0 else f"{m.loaded_lines}L"
+        )
+        entry = f"[{color}]{name}[/] [dim]{label} | {size}[/]"
         if m.imported_by:
             entry += f" [dim italic](from {Path(m.imported_by).name})[/]"
-        level_branch.add(entry)
+        always_branch.add(entry)
+
+    # Conditional rules branch
+    if conditional:
+        cond_chars = sum(m.chars for m in conditional)
+        cond_branch = tree.add(
+            f"[bold yellow]Conditional rules[/] ({len(conditional)} files, {cond_chars:,}c — loaded by paths:)"
+        )
+        for m in conditional:
+            name = m.path.name
+            size = (
+                f"{m.loaded_lines}L / {m.chars:,}c"
+                if m.chars > 0
+                else f"{m.loaded_lines}L"
+            )
+            paths_str = ", ".join(m.paths_filter[:2])
+            if len(m.paths_filter) > 2:
+                paths_str += f" +{len(m.paths_filter) - 2}"
+            entry = f"[yellow]{name}[/] [dim]{size} → {paths_str}[/]"
+            cond_branch.add(entry)
 
     # On-demand branch
     if on_demand:
@@ -616,13 +646,12 @@ def display_plain(
     cwd: Path, memories: list[MemoryFile], show_audit: bool = False
 ) -> None:
     """Plain text fallback display."""
-    total_startup = sum(
-        m.loaded_lines for m in memories if m.kind not in ("child", "auto_memory_topic")
-    )
-    total_files = sum(
-        1 for m in memories if m.kind not in ("child", "auto_memory_topic")
-    )
-    on_demand = sum(1 for m in memories if m.kind in ("child", "auto_memory_topic"))
+    startup = [m for m in memories if m.kind not in ("child", "auto_memory_topic")]
+    always = [m for m in startup if not m.conditional]
+    conditional = [m for m in startup if m.conditional]
+    base_chars = sum(m.chars for m in always)
+    max_chars = sum(m.chars for m in startup)
+    on_demand_list = [m for m in memories if m.kind in ("child", "auto_memory_topic")]
 
     print(f"\n{'=' * 60}")
     print("  Claude Code Memory Map")
@@ -631,46 +660,66 @@ def display_plain(
     if git_root:
         print(f"  Git: {git_root}")
     print(f"  Project key: {get_project_key(cwd)}")
+    budget = 40000
+    base_pct = int(base_chars / budget * 100)
+    max_pct = int(max_chars / budget * 100)
+    budget_line = f"  Budget: {base_chars:,}c base ({base_pct}%)"
+    if conditional:
+        budget_line += f" / {max_chars:,}c max ({max_pct}%)"
+    budget_line += f" of {budget // 1000}k"
+    print(budget_line)
     print(f"{'=' * 60}\n")
 
-    # Group by kind for cleaner display
-    sections = [
-        (
-            "Startup (loaded immediately)",
-            lambda m: m.kind not in ("child", "auto_memory_topic"),
-        ),
-        (
-            "On-demand (loaded when needed)",
-            lambda m: m.kind in ("child", "auto_memory_topic"),
-        ),
-    ]
+    # Always loaded
+    print(f"  Always loaded ({len(always)} files, {base_chars:,}c):")
+    print(f"  {'─' * 50}")
+    for m in always:
+        marker = KIND_MARKERS.get(m.kind, "  ")
+        label = KIND_LABELS.get(m.kind, m.kind)
+        display_path = short_path(m.path)
+        size = m.size_display
+        imp = (
+            f" (from {m.imported_by.replace(str(Path.home()), '~')})"
+            if m.imported_by
+            else ""
+        )
+        print(f"  [{marker}] {display_path}")
+        print(f"       {label} | {size}{imp}")
+    print()
 
-    for title, filter_fn in sections:
-        filtered = [m for m in memories if filter_fn(m)]
-        if not filtered:
-            continue
-        print(f"  {title}:")
+    # Conditional rules
+    if conditional:
+        cond_chars = sum(m.chars for m in conditional)
+        print(f"  Conditional rules ({len(conditional)} files, {cond_chars:,}c):")
         print(f"  {'─' * 50}")
-        for m in filtered:
+        for m in conditional:
+            marker = KIND_MARKERS.get(m.kind, "  ")
+            display_path = short_path(m.path)
+            size = m.size_display
+            paths_str = ", ".join(m.paths_filter[:2])
+            if len(m.paths_filter) > 2:
+                paths_str += f" +{len(m.paths_filter) - 2}"
+            print(f"  [{marker}] {display_path}")
+            print(f"       {size} → {paths_str}")
+        print()
+
+    # On-demand
+    if on_demand_list:
+        print(f"  On-demand ({len(on_demand_list)} files):")
+        print(f"  {'─' * 50}")
+        for m in on_demand_list:
             marker = KIND_MARKERS.get(m.kind, "  ")
             label = KIND_LABELS.get(m.kind, m.kind)
             display_path = short_path(m.path)
             size = m.size_display
-            cond = " [conditional]" if m.conditional else ""
             imp = (
                 f" (from {m.imported_by.replace(str(Path.home()), '~')})"
                 if m.imported_by
                 else ""
             )
             print(f"  [{marker}] {display_path}")
-            print(f"       {label} | {size}{cond}{imp}")
+            print(f"       {label} | {size}{imp}")
         print()
-
-    print(f"  {'─' * 50}")
-    print(f"  Startup: {total_files} files, ~{total_startup} lines loaded")
-    if on_demand:
-        print(f"  On-demand: {on_demand} files (loaded when Claude reads those dirs)")
-    print()
 
     if show_audit:
         hints = audit_memory(memories, cwd)
