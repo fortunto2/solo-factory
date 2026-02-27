@@ -50,7 +50,7 @@ AUTO_MEMORY_LIMIT = 200  # lines loaded at startup
 @dataclass
 class MemoryFile:
     path: Path
-    kind: str  # managed | user | user_rule | auto_memory | project | project_rule | local | child | import
+    kind: str  # managed | user | user_rule | auto_memory | project | project_rule | local | child | import | skill
     priority: int
     lines: int = 0
     loaded_lines: int = 0  # for auto-memory (capped at 200)
@@ -340,6 +340,22 @@ def load_memory_map(cwd: Path) -> list[MemoryFile]:
             )
         )
 
+    # 8. Skills (detect .claude/skills/ and .agents/skills/)
+    for skills_dir in [cwd / ".claude" / "skills", cwd / ".agents" / "skills"]:
+        if skills_dir.exists():
+            for skill_file in sorted(skills_dir.rglob("*.md")):
+                # Count SKILL.md as the skill entry, bare .md as legacy
+                priority += 1
+                memories.append(
+                    MemoryFile(
+                        path=skill_file.resolve(),
+                        kind="skill",
+                        priority=priority,
+                        lines=count_lines(skill_file),
+                        loaded_lines=0,  # on-demand (invoked by user)
+                    )
+                )
+
     return memories
 
 
@@ -349,7 +365,9 @@ def load_memory_map(cwd: Path) -> list[MemoryFile]:
 def audit_memory(memories: list[MemoryFile], cwd: Path | None = None) -> list[str]:
     """Analyze memory map and return optimization hints."""
     hints: list[str] = []
-    startup = [m for m in memories if m.kind not in ("child", "auto_memory_topic")]
+    startup = [
+        m for m in memories if m.kind not in ("child", "auto_memory_topic", "skill")
+    ]
     always = [m for m in startup if not m.conditional]
     conditional = [m for m in startup if m.conditional]
     base_chars = sum(m.chars for m in always)
@@ -516,6 +534,7 @@ KIND_LABELS = {
     "local": "Local",
     "child": "Child (on-demand)",
     "import": "Import (@)",
+    "skill": "Skill",
 }
 
 KIND_COLORS = {
@@ -529,6 +548,7 @@ KIND_COLORS = {
     "local": "blue",
     "child": "dim",
     "import": "dim cyan",
+    "skill": "bright_blue",
 }
 
 KIND_MARKERS = {
@@ -542,6 +562,7 @@ KIND_MARKERS = {
     "local": "**",
     "child": "..",
     "import": "@@",
+    "skill": "sk",
 }
 
 
@@ -552,8 +573,11 @@ def display_rich(
     console = Console()
     git_root = find_git_root(cwd)
 
-    startup = [m for m in memories if m.kind not in ("child", "auto_memory_topic")]
+    startup = [
+        m for m in memories if m.kind not in ("child", "auto_memory_topic", "skill")
+    ]
     on_demand = [m for m in memories if m.kind in ("child", "auto_memory_topic")]
+    skills = [m for m in memories if m.kind == "skill"]
     always = [m for m in startup if not m.conditional]
     conditional = [m for m in startup if m.conditional]
     base_chars = sum(m.chars for m in always)
@@ -623,6 +647,23 @@ def display_rich(
         for m in on_demand:
             od_branch.add(f"[dim]{short_path(m.path)} ({m.lines} lines)[/]")
 
+    # Skills branch
+    if skills:
+        proper = [s for s in skills if s.path.name == "SKILL.md"]
+        legacy = [s for s in skills if s.path.name != "SKILL.md"]
+        skills_label = f"[bold bright_blue]Skills[/] ({len(skills)}"
+        if legacy:
+            skills_label += f", {len(legacy)} legacy"
+        skills_label += ")"
+        sk_branch = tree.add(skills_label)
+        for s in proper:
+            folder = s.path.parent.name
+            sk_branch.add(f"[bright_blue]{folder}/[/] [dim]{s.lines}L[/]")
+        for s in legacy:
+            sk_branch.add(
+                f"[dim yellow]{s.path.name}[/] [dim]{s.lines}L (legacy bare .md)[/]"
+            )
+
     console.print(tree)
 
     # Audit
@@ -646,12 +687,15 @@ def display_plain(
     cwd: Path, memories: list[MemoryFile], show_audit: bool = False
 ) -> None:
     """Plain text fallback display."""
-    startup = [m for m in memories if m.kind not in ("child", "auto_memory_topic")]
+    startup = [
+        m for m in memories if m.kind not in ("child", "auto_memory_topic", "skill")
+    ]
     always = [m for m in startup if not m.conditional]
     conditional = [m for m in startup if m.conditional]
     base_chars = sum(m.chars for m in always)
     max_chars = sum(m.chars for m in startup)
     on_demand_list = [m for m in memories if m.kind in ("child", "auto_memory_topic")]
+    skills_list = [m for m in memories if m.kind == "skill"]
 
     print(f"\n{'=' * 60}")
     print("  Claude Code Memory Map")
@@ -719,6 +763,23 @@ def display_plain(
             )
             print(f"  [{marker}] {display_path}")
             print(f"       {label} | {size}{imp}")
+        print()
+
+    # Skills
+    if skills_list:
+        proper = [s for s in skills_list if s.path.name == "SKILL.md"]
+        legacy = [s for s in skills_list if s.path.name != "SKILL.md"]
+        label = f"  Skills ({len(skills_list)}"
+        if legacy:
+            label += f", {len(legacy)} legacy"
+        label += "):"
+        print(label)
+        print(f"  {'─' * 50}")
+        for s in proper:
+            folder = s.path.parent.name
+            print(f"  [sk] {folder}/ ({s.lines}L)")
+        for s in legacy:
+            print(f"  [sk] {s.path.name} ({s.lines}L) — legacy bare .md")
         print()
 
     if show_audit:

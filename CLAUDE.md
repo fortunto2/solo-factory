@@ -16,6 +16,24 @@ Makefile                    # plugin-link, plugin-publish, evolve, evolve-apply,
 solo → .claude-plugin/      # Symlink for plugin cache compatibility
 ```
 
+## Commands
+
+```bash
+make plugin-link           # Symlink cache → solo-factory (dev mode, instant updates)
+make plugin-publish        # Push + reinstall Claude Code plugin globally
+make clawhub-publish S=x   # Publish one skill to ClawHub (S=skill-name)
+make clawhub-publish-all   # Publish all skills to ClawHub (slow, 3s/skill)
+make publish-all           # All registries at once (Claude Code + ClawHub)
+make test                  # Run all tests (BATS + trigger validation)
+make test-bats             # BATS tests only
+make test-triggers         # Skill trigger validation
+make hooks                 # Install pre-commit hooks
+make evolve                # Show evolution log (factory defects)
+make evolve-apply          # Apply evolution fixes (interactive)
+make factory-critique P=x  # Run Codex factory critique on a project
+make help                  # Show all commands
+```
+
 ## Publishing (3 Registries)
 
 Skills are dual-compatible: Claude Code plugin + OpenClaw ClawHub. Each SKILL.md has `metadata.openclaw` block.

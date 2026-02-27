@@ -774,6 +774,101 @@ uv run python solo-factory/scripts/memory_map.py --all-projects --audit
 
 ---
 
+## Skills Development (Claude Code / Agent Skills)
+
+Skills are reusable instruction packages (folder with `SKILL.md`) that teach Claude specific workflows. Based on [Anthropic's Complete Guide to Building Skills](https://docs.anthropic.com).
+
+### Structure
+
+```
+your-skill-name/
+├── SKILL.md            # Required — instructions + YAML frontmatter
+├── scripts/            # Optional — executable code (Python, Bash)
+├── references/         # Optional — docs loaded as needed
+└── assets/             # Optional — templates, fonts, icons
+```
+
+### Progressive Disclosure (3 levels)
+
+1. **Frontmatter** (always in system prompt) — name + description, enough for Claude to decide when to load
+2. **SKILL.md body** (loaded when relevant) — full instructions and guidance
+3. **Linked files** (on-demand) — references/, scripts/ — Claude navigates as needed
+
+This minimizes token usage while maintaining specialized expertise.
+
+### Frontmatter Rules
+
+```yaml
+---
+name: kebab-case-name
+description: What it does + when to use it + key capabilities. Under 1024 chars.
+---
+```
+
+- **name:** kebab-case only, no spaces/capitals/underscores, should match folder name
+- **description:** include trigger phrases users would say. Formula: `[What it does] + [When to use it] + [Key capabilities]`
+- **File must be exactly `SKILL.md`** (case-sensitive, no variations)
+- No XML angle brackets (`< >`) in frontmatter
+- No `README.md` inside skill folder — all docs go in SKILL.md or references/
+
+### Writing Instructions
+
+- Be specific and actionable (command examples with expected output, not "validate the data")
+- Include error handling (common issues, troubleshooting steps)
+- Reference bundled resources clearly (`consult references/api-guide.md for...`)
+- Keep SKILL.md under 5,000 words — move detailed docs to `references/`
+- Use bullet points and numbered lists over prose
+- Put critical instructions at the top
+
+### Description Quality (triggers)
+
+Good descriptions include trigger phrases users would actually say:
+
+```yaml
+# Good — specific + triggers
+description: Manages sprint workflows including task creation and tracking.
+  Use when user mentions "sprint", "Linear tasks", or "create tickets".
+
+# Bad — too vague
+description: Helps with projects.
+
+# Bad — too technical, no user triggers
+description: Implements the Project entity model with hierarchical relationships.
+```
+
+### MCP Conditional Pattern
+
+Skills should work with AND without MCP tools. Use "IF available" pattern:
+
+```markdown
+IF MCP tool `create_project` is available, use it.
+Otherwise, generate the project structure locally.
+```
+
+### Project-Level Skills
+
+Skills in `.claude/skills/` are scoped to that project. Place domain-specific workflows here rather than at user-level (which loads everywhere).
+
+| Scope | Location | When |
+|-------|----------|------|
+| User-level | `~/.claude/skills/` | Universal workflows (rare) |
+| Plugin | `solo-factory/skills/` | Shared across all projects via plugin |
+| Project | `project/.claude/skills/` | Domain-specific (CRM, deployment, etc.) |
+
+### Context Budget
+
+Skills are on-demand (not counted in base memory budget), but too many enabled skills degrade performance. Keep SKILL.md under 5,000 words. If you have 20+ skills enabled, consider selective enablement or skill "packs" for related capabilities.
+
+### Testing
+
+1. **Trigger test:** does it activate on relevant queries and NOT on unrelated ones?
+2. **Functional test:** does it produce correct output?
+3. **Performance comparison:** fewer messages, fewer errors, less tokens than without skill?
+
+Iterate on one task until it succeeds, then extract into a skill.
+
+---
+
 ## Opus 4.6 Prompting Rules
 
 Rules for writing prompts in skills, CLAUDE.md, and agent configs.
