@@ -15,6 +15,33 @@ argument-hint: "<url or project-name>"
 
 SEO health check for any URL or project landing page. Fetches the page, analyzes meta tags, OG, JSON-LD, sitemap, robots.txt, checks SERP positions for target keywords, and outputs a scored report.
 
+## seo-cli (use if available)
+
+Dedicated SEO CLI — repo: `https://github.com/fortunto2/seo-cli`
+
+```bash
+# Install (one-time)
+git clone https://github.com/fortunto2/seo-cli.git ~/startups/shared/seo-cli
+cd ~/startups/shared/seo-cli && uv venv && uv pip install -e .
+cp config.example.yaml config.yaml  # add credentials (GSC, Bing, Yandex, IndexNow)
+```
+
+```bash
+# Detect seo-cli
+python ~/startups/shared/seo-cli/cli.py --help 2>/dev/null
+```
+
+If available, prefer `seo-cli` commands over manual WebFetch:
+- `python ~/startups/shared/seo-cli/cli.py audit <url>` — deep page audit (meta, OG, JSON-LD, keywords, readability)
+- `python ~/startups/shared/seo-cli/cli.py status` — dashboard for all registered sites
+- `python ~/startups/shared/seo-cli/cli.py analytics <site>` — GSC data (queries, impressions, CTR)
+- `python ~/startups/shared/seo-cli/cli.py monitor <site>` — position tracking with snapshots
+- `python ~/startups/shared/seo-cli/cli.py reindex <url>` — instant reindex via Google Indexing API + IndexNow
+- `python ~/startups/shared/seo-cli/cli.py competitors <keyword>` — SERP + competitor analysis
+- `python ~/startups/shared/seo-cli/cli.py launch <site>` — full new site promotion workflow
+
+If seo-cli is not available, fall back to WebFetch-based audit below.
+
 ## MCP Tools (use if available)
 
 - `web_search(query, engines, include_raw_content)` — SERP position check, competitor analysis
