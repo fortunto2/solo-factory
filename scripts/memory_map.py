@@ -160,9 +160,8 @@ def find_imports(
             continue
         # Skip code spans
         line_no_spans = re.sub(r"`[^`]+`", "", line)
-        for match in re.finditer(
-            r"@(~?[\w./_-]+\.(?:md|txt|json|yaml|yml))", line_no_spans
-        ):
+        # Match @path — any path-like string; file existence check filters false positives
+        for match in re.finditer(r"@(~?[\w./_-]+)", line_no_spans):
             ref = match.group(1)
             # Resolve path
             if ref.startswith("~"):
@@ -272,6 +271,8 @@ def load_memory_map(cwd: Path) -> list[MemoryFile]:
     for level in reversed(hierarchy):
         # CLAUDE.md
         add(level / "CLAUDE.md", "project")
+        # CLAUDE.local.md (at every level, not just CWD)
+        add(level / "CLAUDE.local.md", "local")
         # .claude/CLAUDE.md
         add(level / ".claude" / "CLAUDE.md", "project")
         # .claude/rules/*.md
@@ -285,9 +286,6 @@ def load_memory_map(cwd: Path) -> list[MemoryFile]:
                     conditional=bool(paths_filter),
                     paths_filter=paths_filter,
                 )
-
-    # 6. CLAUDE.local.md (CWD only)
-    add(cwd / "CLAUDE.local.md", "local")
 
     # Deduplicate by resolved path (keep first occurrence = higher priority)
     seen_paths: set[Path] = set()
