@@ -219,6 +219,46 @@ Don't write your own auth — use a shared module.
 | **iOS** | StoreKit 2 |
 | **Android** | Google Play Billing |
 
+### Email — Resend + React Email
+
+Transactional and broadcast email for web projects. [Docs](https://resend.com/docs/llms-full.txt)
+
+- `resend` (Node.js SDK) + `react-email` (templates as React components)
+- Auth: Bearer token (`RESEND_API_KEY=re_...`), store in `sst secret set` / env
+- Monorepo: `@repo/email` package for templates and send utility
+
+**Sending:**
+```typescript
+import { Resend } from 'resend';
+import { WelcomeEmail } from '@repo/email/templates/welcome';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+await resend.emails.send({
+  from: 'App <hello@app.com>',
+  to: user.email,
+  subject: 'Welcome',
+  react: <WelcomeEmail name={user.name} />,
+});
+```
+
+**Broadcast (marketing):**
+- Contacts: `resend.contacts.create({ email, audienceId })`
+- Sends: `resend.broadcasts.create({ audienceId, from, subject, html })`
+- Personalization: `{{{FIRST_NAME|there}}}` in template
+- Unsubscribe: add `{{{RESEND_UNSUBSCRIBE_URL}}}` in HTML
+
+**Webhook (delivery tracking):**
+- Endpoint: `app/api/email/webhook/route.ts`
+- Events: `email.sent`, `email.delivered`, `email.bounced`, `email.complained`
+- Verify signature via `svix` (Resend uses Svix)
+
+**Rules:**
+- One domain per Resend — verify DNS (DKIM, SPF, DMARC)
+- React Email for templates (JSX → HTML), not raw HTML
+- `text` auto-generated from HTML, no need to set explicitly
+- Dev: Resend provides test domain `onboarding@resend.dev`
+
 ### Validation
 
 | Stack | Library | Pattern |
