@@ -1,0 +1,28 @@
+# Libraries — curated libs for specific product types
+# Not part of default stacks. Pick what fits your product.
+#
+# Format:
+#   - name: package-name
+#     url: homepage
+#     stack: [typescript, react, python, swift, kotlin, rust]
+#     install: install command
+#     use_cases:
+#       - short description of use case
+#     license: MIT | Apache-2.0 | proprietary | ...
+#     notes: optional caveats
+
+canvas:
+  - name: tldraw
+    url: https://tldraw.dev
+    stack: [typescript, react]
+    install: pnpm add tldraw
+    use_cases:
+      - Whiteboard / collaborative drawing tool
+      - Diagramming & workflow builder (starter kit "Workflow")
+      - AI canvas — LLM interaction on infinite canvas (starter kit "Agent")
+      - Visual programming interface
+      - Annotation & markup over images/docs
+    license: proprietary (free dev, paid production key)
+    notes: >
+      45k+ GitHub stars. DOM-based rendering (embed YouTube, Figma, etc).
+      Multiplayer via @tldraw/sync. Starter kits: npx create-tldraw@latest.
