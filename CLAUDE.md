@@ -6,6 +6,7 @@ Claude Code plugin for solopreneurs. Single source of truth for all skills, agen
 
 ```
 .claude-plugin/plugin.json  # Manifest (name, version)
+commands/                    # Orchestrator commands (Command → Agent → Skill pattern)
 skills/                     # 25 skills (SKILL.md + references/)
 agents/                     # 3 agents (researcher, code-analyst, idea-validator)
 hooks/                      # SessionStart info + Stop pipeline hook
@@ -16,7 +17,25 @@ Makefile                    # plugin-link, plugin-publish, evolve, evolve-apply,
 solo → .claude-plugin/      # Symlink for plugin cache compatibility
 ```
 
-## Commands
+## Orchestrator Commands (`commands/`)
+
+Commands are entry-point orchestrators following **Command → Agent → Skill** pattern:
+
+| Command | Flow | Purpose |
+|---------|------|---------|
+| `/dev` | researcher → /plan → /build → /review | End-to-end feature development |
+| `/investigate` | code-analyst → reproduce → fix → /review | Bug investigation and fix |
+
+Commands coordinate agents and skills — they don't do work themselves.
+
+## Rules (`.claude/rules/`)
+
+| Rule | Scope | Purpose |
+|------|-------|---------|
+| `ai-comments.md` | All files | AI-NOTE/TODO/ASK/PATTERN comment conventions |
+| `debugging.md` | All files | Background task debugging, browser MCP for logs |
+
+## Makefile Commands
 
 ```bash
 make plugin-link           # Symlink cache → solo-factory (dev mode, instant updates)
