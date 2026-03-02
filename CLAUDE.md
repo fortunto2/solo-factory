@@ -9,7 +9,7 @@ Claude Code plugin for solopreneurs. Single source of truth for all skills, agen
 commands/                    # Orchestrator commands (Command → Agent → Skill pattern)
 skills/                     # 25 skills (SKILL.md + references/)
 agents/                     # 3 agents (researcher, code-analyst, idea-validator)
-hooks/                      # SessionStart info + Stop pipeline hook
+hooks/                      # SessionStart (info + drift detector) + Stop (pipeline)
 rules/                      # User-level rules (symlinked to ~/.claude/rules/ via make plugin-link)
 scripts/                    # Pipeline launchers (bighead, solo-dev.sh, solo-research.sh, solo-codex.sh)
 templates/                  # Stack templates, dev principles, PRD templates
@@ -34,6 +34,7 @@ Commands coordinate agents and skills — they don't do work themselves.
 |------|-------|---------|
 | `ai-comments.md` | All files | AI-NOTE/TODO/ASK/PATTERN comment conventions |
 | `debugging.md` | All files | Background task debugging, browser MCP for logs |
+| `routing.md` | All files | Agent & skill routing table (task signals → route) |
 
 ## Makefile Commands
 
