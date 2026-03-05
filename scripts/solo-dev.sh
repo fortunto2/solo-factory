@@ -696,6 +696,12 @@ If the stage needs to go back (e.g. review found issues), output exactly: <solo:
   if [[ "$BROWSER_AVAILABLE" == "true" ]] && [[ "$STAGE_ID" == "build" || "$STAGE_ID" == "review" ]]; then
     log_entry "PLAYWRIGHT" "Browser tools available via MCP for $STAGE_ID"
   fi
+  # Auto-update code graph if Solograph is available and we are in a codebase
+  if [[ "$STAGE_ID" == "plan" || "$STAGE_ID" == "build" ]] && [[ -d "$HOME/startups/shared/solograph" ]]; then
+    log_entry "GRAPH" "Updating code graph for RepoMap..."
+    (cd "$HOME/startups/shared/solograph" && uv run solograph-cli scan "$PROJECT_NAME" >/dev/null 2>&1) || true
+  fi
+
   log_entry "INVOKE" "$SKILL $ARGS"
   OUTFILE=$(mktemp /tmp/solo-claude-XXXXXX)
   CLAUDE_EXIT=0
