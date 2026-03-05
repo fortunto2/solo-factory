@@ -95,7 +95,13 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 ```
 codegraph_explain(project="{project name}")
 ```
-Returns: stack, languages, directory layers, key patterns, top dependencies, hub files — one call instead of exploring the tree manually.
+Returns: stack, languages, directory layers, key patterns, top dependencies, hub files.
+
+### Step 1.5 — Get RepoMap (if MCP available)
+```
+codegraph_repomap(project="{project name}")
+```
+Returns: a YAML map of the top files and their exported classes/functions. Use this to understand the global structure.
 
 ### Step 2 — Essential docs (parallel reads)
 1. `docs/plan/{trackId}/plan.md` — task list (REQUIRED)

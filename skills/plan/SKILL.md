@@ -7,7 +7,7 @@ metadata:
   version: "2.2.1"
   openclaw:
     emoji: "📋"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__codegraph_repomap, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
 argument-hint: "<task description>"
 ---
 
@@ -70,12 +70,18 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
       ```
       Gives you: stack, languages, directory layers, key patterns, top dependencies, hub files.
 
-   b. **Find relevant files** — Glob + Grep for patterns related to the task:
+   b. **Get RepoMap** (if MCP available):
+      ```
+      codegraph_repomap(project="{project name from CLAUDE.md or directory name}")
+      ```
+      Gives you a YAML map of the most important files and their exported symbols (classes/functions).
+
+   c. **Find relevant files** — Glob + Grep for patterns related to the task:
       - Search for keywords from the task description
       - Look at directory structure to understand architecture
       - Identify files that will need modification
 
-   c. **Precedent retrieval** (context graph pattern — search past solutions BEFORE planning):
+   d. **Precedent retrieval** (context graph pattern — search past solutions BEFORE planning):
       - Search past sessions (if MCP available):
         ```
         session_search(query="{task description keywords}")
@@ -87,23 +93,23 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
         ```
         Check for: harness patterns, architectural constraints, quality scores.
 
-   d. **Search code across projects** (if MCP available):
+   e. **Search code across projects** (if MCP available):
       ```
       project_code_search(query="{relevant pattern}")
       ```
 
-   e. **Check dependencies** of affected files (if MCP available):
+   f. **Check dependencies** of affected files (if MCP available):
       ```
       codegraph_query(query="MATCH (f:File {path: '{file}'})-[:IMPORTS]->(dep) RETURN dep.path")
       ```
 
-   f. **Read existing tests** in the affected area — understand testing patterns used.
+   g. **Read existing tests** in the affected area — understand testing patterns used.
 
-   g. **Read CLAUDE.md** architecture constraints — understand boundaries and conventions.
+   h. **Read CLAUDE.md** architecture constraints — understand boundaries and conventions.
       - Check for harness section: module boundaries, data validation rules, lint configs.
       - Read `docs/ARCHITECTURE.md` and `docs/QUALITY_SCORE.md` if they exist.
 
-   h. **Detect deploy infrastructure** — search for deploy scripts/configs to include deploy phase in plan:
+   i. **Detect deploy infrastructure** — search for deploy scripts/configs to include deploy phase in plan:
       ```bash
       find . -maxdepth 3 \( -name 'deploy.sh' -o -name 'Dockerfile' -o -name 'docker-compose.yml' -o -name 'fly.toml' -o -name 'wrangler.toml' \) -type f 2>/dev/null
       ```
