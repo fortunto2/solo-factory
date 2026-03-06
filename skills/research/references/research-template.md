@@ -51,13 +51,19 @@ product_type: web|ios|android|desktop|cli|api
 
 ### Recommended Name: **<name>**
 
-## 5. Market Size
+## 5. User Personas
+
+| Persona | Segment | JTBD | Top Pain | Current Solution | Switching Trigger |
+|---------|---------|------|----------|-----------------|-------------------|
+| ... | ... | "When I..., I want to..., so I can..." | ... | ... | ... |
+
+## 6. Market Size
 
 - **TAM:** $X — <source>
 - **SAM:** $X — <reasoning>
 - **SOM (Year 1):** $X — <assumptions>
 
-## 6. Recommendation
+## 7. Recommendation
 
 **Verdict:** GO / NO-GO / PIVOT
 

@@ -1,14 +1,30 @@
+[![GitHub stars](https://img.shields.io/github/stars/fortunto2/solo-factory?style=flat-square)](https://github.com/fortunto2/solo-factory/stargazers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![Skills: 27](https://img.shields.io/badge/skills-27-blue?style=flat-square)](#skills)
+[![Agents: 3](https://img.shields.io/badge/agents-3-green?style=flat-square)](#agents)
+[![MCP Tools: 11](https://img.shields.io/badge/MCP_tools-11-purple?style=flat-square)](#mcp-integration)
+[![Stacks: 9](https://img.shields.io/badge/stacks-9-orange?style=flat-square)](#available-stacks)
+
 # Solo Factory
 
-Your own path. Multiple stacks. Ship everything.
+**Your own path. Multiple stacks. Ship everything.**
 
-You're a solopreneur juggling iOS, Next.js, Python, Kotlin — and you want to validate, scaffold, and ship them all without slowing down. Solo Factory gives you 10 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
-
-From "shower thought" to deployed product in one pipeline:
+> From shower thought to deployed product — 27 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
 
 ```
-/solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:review
+/solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
 ```
+
+## Why?
+
+You're a solopreneur juggling iOS, Next.js, Python, Kotlin — and you want to validate, scaffold, and ship them all without slowing down.
+
+Most AI coding tools help you write code. Solo Factory helps you **run a startup** — from market research and idea validation to deployment and promotion. Every skill is designed for one-person teams moving fast across multiple projects and stacks.
+
+- **No context switching** — one pipeline handles research, coding, deployment, and marketing
+- **Stack-agnostic** — 9 templates from SwiftUI to Cloudflare Workers
+- **Code intelligence** — MCP server indexes all your projects, searches past sessions, and provides semantic code search
+- **Works without MCP** — skills gracefully fall back to Glob, Grep, Read, WebSearch
 
 ## Install
 
@@ -18,14 +34,7 @@ From "shower thought" to deployed product in one pipeline:
 npx skills add fortunto2/solo-factory --all
 ```
 
-Installs skills for all detected agents (Claude Code, Cursor, Copilot, Gemini CLI, Codex, etc.).
-
-### Option 1b: OpenClaw (ClawHub)
-
-```bash
-clawhub install solo-research       # Install one skill
-clawhub search "solo"               # Browse all solo-* skills
-```
+Works with Claude Code, Cursor, Copilot, Gemini CLI, Codex, and more.
 
 ### Option 2: Claude Code Plugin (skills + agents + MCP)
 
@@ -38,22 +47,17 @@ The plugin auto-starts [solograph](https://github.com/fortunto2/solograph) MCP s
 
 **Prerequisite:** [uv](https://docs.astral.sh/uv/) (for `uvx solograph`).
 
-### Option 3: MCP only (no skills)
+### Option 3: OpenClaw (ClawHub)
+
+```bash
+clawhub install solo-research       # Install one skill
+clawhub search "solo"               # Browse all solo-* skills
+```
+
+### Option 4: MCP only (no skills)
 
 ```bash
 claude mcp add -s project solograph -- uvx solograph
-```
-
-Or add manually to `.mcp.json`:
-```json
-{
-  "mcpServers": {
-    "solograph": {
-      "command": "uvx",
-      "args": ["solograph"]
-    }
-  }
-}
 ```
 
 ### Verify
@@ -65,29 +69,104 @@ claude plugin list            # Claude Code plugin
 
 ## Skills
 
-| # | Command | What it does |
-|---|---------|-------------|
-| 1 | `/solo:research <idea>` | Scout the market — competitors, SEO, naming, domains, sizing |
-| 2 | `/solo:validate <idea>` | Score + stack + PRD (go or kill in 5 min) |
-| 3 | `/solo:scaffold <name> <stack>` | PRD to running project in 2 min |
-| 4 | `/solo:setup [name]` | Wire dev workflow (0 questions) |
-| 5 | `/solo:plan <description>` | Explore code, write battle plan |
-| 6 | `/solo:build [track-id]` | Ship it — TDD, auto-commit, phase gates |
-| 7 | `/solo:deploy [platform]` | Deploy — hosting, DB, env vars, push, verify |
-| 8 | `/solo:review [focus]` | Final quality gate — tests, security, acceptance criteria |
-| - | `/solo:swarm <idea>` | 3 parallel research agents (market + users + tech) |
-| - | `/solo:stream <decision>` | 6-layer decision filter |
-| - | `/solo:audit [focus]` | KB health check — links, metadata, gaps |
-| - | `/solo:pipeline research <idea>` | Automated research → validate loop (Stop hook chains skills) |
-| - | `/solo:pipeline dev <name> <stack>` | Automated scaffold → setup → plan → build → deploy → review |
+### Analysis (3 skills)
+
+| Command | What it does |
+|---------|-------------|
+| `/solo:research <idea>` | Scout the market — competitors, SEO keywords, domains, TAM/SAM/SOM |
+| `/solo:swarm <idea>` | 3 parallel research agents (market + users + tech) for faster deep dive |
+| `/solo:validate <idea>` | S.E.E.D. niche check + STREAM scoring + Devil's Advocate → PRD |
+
+**Examples:**
+```
+/solo:research "receipt scanning app for freelancers"
+→ 12 competitors, 3 niches, 2 personas, JTBD interview script, domain available, TAM $2.1B
+
+/solo:validate "AI habit tracker"
+→ Score: 7.2/10, Stack: ios-swift, beachhead: fitness enthusiasts 25-35
+→ Pricing: one-time $9.99 (no server costs), PRD with 14 acceptance criteria
+```
+
+### Development (6 skills)
+
+| Command | What it does |
+|---------|-------------|
+| `/solo:scaffold <name> <stack>` | PRD → running project with configs, CLAUDE.md, git repo, GitHub push |
+| `/solo:setup` | Wire dev workflow (TDD, linting, CI) — zero questions asked |
+| `/solo:plan <feature>` | Explore codebase, write spec + phased plan with file-level tasks |
+| `/solo:build [track-id]` | Execute plan with TDD, auto-commit, and phase gates |
+| `/solo:deploy [platform]` | Deploy — detect CLI tools, set up DB, push, verify live |
+| `/solo:review [focus]` | Final quality gate — tests, coverage, security, acceptance criteria |
+
+**Examples:**
+```
+/solo:scaffold my-app nextjs-supabase
+→ Project created, GitHub repo pushed, CLAUDE.md configured
+
+/solo:plan "Add Stripe subscription billing"
+→ 3-phase plan: schema → API routes → checkout UI, 12 tasks total
+
+/solo:build
+→ TDD loop: write test → implement → green → commit, phase by phase
+```
+
+### Promotion (8 skills)
+
+| Command | What it does |
+|---------|-------------|
+| `/solo:launch` | GTM launch strategy — beachhead, channels, pricing, timeline, growth loops |
+| `/solo:seo-audit <url>` | SEO health check — meta tags, JSON-LD, sitemap, score 0-100 |
+| `/solo:landing-gen` | Landing page content — hero, features, A/B headlines, CTA, SEO meta |
+| `/solo:content-gen` | Social media pack — LinkedIn post, Reddit draft, Twitter/X thread + release notes |
+| `/solo:community-outreach` | Find Reddit/HN/PH threads, draft value-first responses + launch checklist |
+| `/solo:video-promo` | Promo video plan — 30-45s script, storyboard, Remotion config |
+| `/solo:metrics-track` | PostHog event funnel, KPI benchmarks, A/B test template, kill/iterate/scale |
+| `/solo:legal` | Privacy policy + terms of service — privacy-first, manifest-aligned |
+
+**Examples:**
+```
+/solo:launch
+→ Beachhead: freelance designers 25-35, Channel: r/freelance + ProductHunt, Pricing: one-time $29
+
+/solo:content-gen
+→ LinkedIn post + Reddit answer + Twitter thread + release notes from git history
+
+/solo:legal
+→ Privacy policy (GDPR-ready), Terms of Service, App Store privacy labels
+```
+
+### Utility (10+ skills)
+
+| Command | What it does |
+|---------|-------------|
+| `/solo:pipeline research <idea>` | Automated research → validate loop |
+| `/solo:pipeline dev <name> <stack>` | Automated scaffold → setup → plan → build → deploy → review |
+| `/solo:stream <decision>` | STREAM 6-layer decision framework for high-stakes choices |
+| `/solo:init` | One-time founder onboarding — manifest, calibration, stack selection |
+| `/solo:factory` | Install the full Solo Factory toolkit in one command |
+| `/solo:retro` | Post-pipeline retrospective — score process, find waste, suggest fixes |
+| `/solo:audit` | KB health check — broken links, frontmatter, tag inconsistencies |
+| `/solo:memory-audit` | Claude Code memory hierarchy — loaded files, char counts, optimization hints |
+| `/solo:humanize` | Strip AI writing patterns — em dashes, stock phrases, performed authenticity |
+| `/solo:index-youtube` | Index YouTube channel transcripts for semantic search |
+| `/solo:you2idea-extract` | Extract startup ideas from YouTube video transcripts |
+
+**Examples:**
+```
+/solo:pipeline dev "my-app" "nextjs-supabase"
+→ Hands-free: scaffold → setup → plan → build → deploy → review
+
+/solo:humanize
+→ Rewrites AI-sounding copy into natural, human text
+```
 
 ## Agents
 
 | Agent | Model | Specialization |
 |-------|-------|----------------|
-| `researcher` | Sonnet | Market research, competitors, pain points |
-| `code-analyst` | Haiku | Codebase exploration, dependency analysis |
-| `idea-validator` | Sonnet | Idea validation, scoring, PRD pipeline |
+| `researcher` | Sonnet | Market research, competitors, pain points, web + KB search |
+| `code-analyst` | Haiku | Codebase exploration, dependency analysis, Cypher queries |
+| `idea-validator` | Sonnet | Idea validation, STREAM scoring, PRD generation |
 
 ## Workflows
 
@@ -104,7 +183,7 @@ claude plugin list            # Claude Code plugin
 /solo:validate "receipt scanning app"
 ```
 
-### Swarm mode (10-15 min, 3 agents)
+### Swarm mode (10-15 min, 3 parallel agents)
 
 ```
 /solo:swarm "AI-powered habit tracker"
@@ -126,49 +205,24 @@ claude plugin list            # Claude Code plugin
 - `<solo:done/>` — stage complete (bash creates marker in `.solo/states/`)
 - `<solo:redo/>` — go back to build (bash removes `.solo/states/build`)
 
-Claude outputs the tag, bash detects it in stdout and manages marker files. Skills don't need to know file paths.
-
 **Stage markers** live in `{project}/.solo/states/` (build, deploy, review). Reset: `rm -rf .solo/states/`
 
-**Per-iteration logs** — each iteration saves output separately:
+**Per-iteration logs:**
 ```
 ~/.solo/pipelines/{project}/
-├── iter-001-scaffold.log   # Full output per iteration
+├── iter-001-scaffold.log
 ├── iter-002-setup.log
 ├── iter-003-plan.log
 ├── iter-004-build.log
-└── progress.md             # Running docs (injected into next iteration prompt)
+└── progress.md             # Injected into next iteration prompt
 ```
 
 **Two pipeline modes:**
 
-| Mode | Launch | Loop owner | Best for |
-|------|--------|------------|----------|
-| **Interactive** | `/pipeline dev ...` in Claude Code | Stop hook | Quick runs, single session |
-| **Big Head** (recommended) | `make bighead-dev` or `solo-dev.sh` | bash script | Long pipelines, tmux dashboard, logs |
-
-**CWD behavior:** scaffold runs from launch directory (needs KB/templates access), then setup/plan/build run from `~/startups/active/{project}/` so skills detect project context correctly.
-
-**tmux dashboard** opens automatically when run from terminal (session reusable — re-run without closing):
-
-```bash
-# Launch scripts directly
-solo-factory/scripts/solo-research.sh "AI therapist app" --project lovon
-solo-factory/scripts/solo-dev.sh "lovon" "nextjs-supabase"
-
-# Resume from specific stage (skips completed stages)
-solo-factory/scripts/solo-dev.sh "lovon" "nextjs-supabase" --from setup
-solo-factory/scripts/solo-dev.sh "lovon" "nextjs-supabase" --from plan
-solo-factory/scripts/solo-dev.sh "lovon" "nextjs-supabase" --from build
-
-# Monitor
-solo-factory/scripts/solo-pipeline-status.sh           # colored status
-tail -f ~/.solo/pipelines/solo-pipeline-lovon.log       # log stream
-solo-factory/scripts/solo-dashboard.sh attach lovon     # tmux dashboard
-
-# Cancel
-rm ~/.solo/pipelines/solo-pipeline-lovon.local.md
-```
+| Mode | Launch | Best for |
+|------|--------|----------|
+| **Interactive** | `/pipeline dev ...` in Claude Code | Quick runs, single session |
+| **Big Head** | `make bighead-dev` or `solo-dev.sh` | Long pipelines, tmux dashboard, logs |
 
 ### Manual pipeline: idea to shipped product
 
@@ -213,6 +267,7 @@ Skills auto-detect and use [solograph](https://github.com/fortunto2/solograph) t
 | `project_code_reindex` | Reindex project code after changes |
 | `project_info` | Project registry (stacks, status, last commit) |
 | `web_search` | Web search via [SearXNG](https://github.com/fortunto2/searxng-docker-tavily-adapter) or [Tavily](https://tavily.com) |
+| `web_fetch` | Fetch and extract content from URLs |
 
 Without MCP, skills fall back to Glob, Grep, Read, WebSearch/WebFetch.
 
@@ -237,34 +292,56 @@ solo-factory/
 ├── .claude-plugin/
 │   ├── plugin.json          # Plugin manifest
 │   └── marketplace.json     # Marketplace manifest
-├── skills/
+├── skills/                  # 27 skills
 │   ├── research/            # Scout the market
 │   ├── validate/            # Score → PRD
 │   ├── scaffold/            # PRD → project
 │   ├── setup/               # Wire dev workflow
 │   ├── plan/                # Code research → battle plan
 │   ├── build/               # TDD execution
-│   ├── deploy/              # Deploy to hosting platform
+│   ├── deploy/              # Deploy to hosting
 │   ├── review/              # Final quality gate
 │   ├── swarm/               # 3 parallel research agents
-│   ├── stream/               # Decision framework
+│   ├── stream/              # Decision framework
+│   ├── pipeline/            # Automated multi-skill loop
+│   ├── seo-audit/           # SEO health check
+│   ├── landing-gen/         # Landing page content
+│   ├── content-gen/         # Social media pack
+│   ├── community-outreach/  # Reddit/HN/PH outreach
+│   ├── video-promo/         # Promo video plan
+│   ├── metrics-track/       # PostHog metrics
+│   ├── humanize/            # Strip AI patterns
 │   ├── audit/               # KB health check
-│   └── pipeline/            # Automated multi-skill pipeline
-├── scripts/
-│   ├── bighead                 # Interactive pipeline launcher (Rich CLI, Python)
-│   ├── solo-dev.sh             # Dev pipeline bash loop (signal-based, per-iteration logs)
-│   ├── solo-research.sh        # Research pipeline bash loop
-│   ├── solo-pipeline-status.sh # Colored status display
-│   ├── solo-dashboard.sh       # tmux dashboard manager
-│   ├── solo-stream-fmt.py      # Stream-json formatter (colored tool calls + 8-bit SFX)
-│   └── solo-chiptune.sh        # 8-bit background music (zero deps, Python wave + afplay)
+│   ├── memory-audit/        # Memory hierarchy audit
+│   ├── init/                # Founder onboarding
+│   ├── factory/             # Full toolkit install
+│   ├── retro/               # Pipeline retrospective
+│   ├── launch/              # GTM launch strategy
+│   ├── legal/               # Privacy policy + terms
+│   ├── index-youtube/       # YouTube transcript indexing
+│   └── you2idea-extract/    # Ideas from YouTube
 ├── agents/
 │   ├── researcher.md        # Deep research (sonnet)
 │   ├── code-analyst.md      # Code intelligence (haiku)
 │   └── idea-validator.md    # Idea validation (sonnet)
-└── hooks/
-    ├── hooks.json           # SessionStart info + Stop hook
-    └── pipeline-stop.sh     # Pipeline progression (scans ~/.solo/pipelines/)
+├── commands/
+│   ├── dev.md               # End-to-end feature development
+│   └── investigate.md       # Bug investigation and fix
+├── hooks/
+│   ├── hooks.json           # SessionStart + Stop hook
+│   └── pipeline-stop.sh     # Pipeline progression
+├── scripts/
+│   ├── bighead              # Interactive pipeline launcher (Rich CLI)
+│   ├── solo-dev.sh          # Dev pipeline bash loop
+│   ├── solo-research.sh     # Research pipeline bash loop
+│   ├── solo-dashboard.sh    # tmux dashboard manager
+│   └── solo-stream-fmt.py   # Colored stream formatter
+├── templates/
+│   └── stacks/              # 9 stack YAML templates
+└── rules/
+    ├── routing.md           # Agent & skill routing table
+    ├── ai-comments.md       # AI-NOTE/TODO/ASK conventions
+    └── debugging.md         # Background debugging practices
 ```
 
 ## Works well with
@@ -273,43 +350,14 @@ solo-factory/
 - [Agent Teams](https://github.com/anthropics/agents) — parallel feature dev, code review, debugging
 - [Context7](https://github.com/upstash/context7) — latest library docs for scaffolding
 
-## Install (OpenClaw)
+## Contributing
 
-```bash
-clawhub install solo-research       # One skill
-clawhub search "solo"               # Find all solo-* skills
-```
+PRs welcome! If you have ideas for new skills, stacks, or improvements — open an issue or submit a PR.
 
-Skills are dual-compatible — same SKILL.md works in Claude Code (plugin) and OpenClaw (ClawHub).
+## Known Issues
 
-## Update / Publish
-
-Three registries, one source of truth:
-
-```bash
-# After editing skills, bump versions, commit, then:
-make plugin-publish          # Claude Code plugin
-make clawhub-publish S=name  # One skill → ClawHub
-make clawhub-publish-all     # All skills → ClawHub
-make publish-all             # All registries at once
-```
-
-See [CLAUDE.md](CLAUDE.md) for full publishing workflow.
-
-## Manage
-
-```bash
-# Claude Code
-claude plugin update solo@solo       # Update
-claude plugin disable solo@solo      # Disable
-claude plugin enable solo@solo       # Re-enable
-claude plugin uninstall solo@solo    # Uninstall
-claude plugin marketplace remove solo # Remove marketplace
-
-# ClawHub
-clawhub search "solo"               # List published skills
-clawhub install solo-<name>          # Install one skill
-```
+- **Windows:** pipeline scripts (`solo-dev.sh`, `solo-research.sh`) require WSL or Git Bash
+- **Without uv:** MCP server won't auto-start. Install [uv](https://docs.astral.sh/uv/) first
 
 ## License
 
@@ -318,3 +366,7 @@ MIT
 ## Author
 
 Rustam Salavatov ([@fortunto2](https://github.com/fortunto2))
+
+---
+
+If Solo Factory helps you ship faster, consider giving it a star. It helps others discover the project.

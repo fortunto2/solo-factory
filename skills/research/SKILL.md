@@ -4,7 +4,7 @@ description: Deep market research — competitor analysis, user pain points, SEO
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.7.1"
+  version: "1.8.0"
   openclaw:
     emoji: "🔍"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__web_search, mcp__solograph__session_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_search, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_close
@@ -164,14 +164,45 @@ Use WebSearch/WebFetch as primary. If MCP `web_search` tool is available, use it
 
    See `references/domain-check.md` (bundled with this skill) for TLD priority tiers, bash scripts, gotchas, and trademark check methods.
 
-9. **Market sizing** (TAM/SAM/SOM) — use WebSearch (primary):
+9. **User Personas** (2-3 quick personas from research data):
+
+   Based on pain points (step 6) and competitive gaps (step 5), generate 2-3 lightweight personas:
+
+   | Field | Example |
+   |-------|---------|
+   | **Name** | "Alex, freelance designer" |
+   | **Segment** | Early-career freelancers, $3-8K/mo |
+   | **JTBD** | "When I finish a project, I want to send a professional invoice in under 60 seconds so I can get paid faster" |
+   | **Pain** | Top pain point from step 6 with source quote |
+   | **Current solution** | What they use today (competitor or workaround) |
+   | **Switching trigger** | What would make them try something new |
+
+   Keep personas grounded in evidence from steps 5-6. No fictional demographics — only what the data supports. These feed directly into `/validate` for ICP and PRD generation.
+
+10. **Interview Script** (optional, if user plans customer interviews):
+
+   Generate a 7-question JTBD interview script based on the personas above:
+
+   1. **Context:** "Tell me about the last time you [core action]..." (open-ended, past tense)
+   2. **Trigger:** "What prompted you to look for a solution?" (switching moment)
+   3. **Current workflow:** "Walk me through how you do this today, step by step"
+   4. **Pain:** "What's the most frustrating part?" (don't lead — let them name it)
+   5. **Alternatives tried:** "What else have you tried? What happened?"
+   6. **Outcome:** "What would 'solved' look like for you?"
+   7. **Willingness to pay:** "If something did exactly that, what would it be worth to you?"
+
+   Rules: past tense only (what they DID, not what they WOULD do), no leading questions, no feature pitching. Reference: JTBD interview methodology (Bob Moesta).
+
+   Write to `docs/interview-script.md` if generated.
+
+11. **Market sizing** (TAM/SAM/SOM) — use WebSearch (primary):
    - WebSearch: `"<market> market size 2025 2026 report"` — synthesizes numbers
    - WebSearch: `"<market> growth rate CAGR billion"` — growth projections
    - Extrapolation: TAM → SAM → SOM (Year 1)
 
-10. **Write `research.md`** — write to `docs/research.md` in the current project directory. Create the directory if needed.
+12. **Write `research.md`** — write to `docs/research.md` in the current project directory. Create the directory if needed.
 
-11. **Output summary:**
+13. **Output summary:**
     - Key findings (3-5 bullets)
     - Recommendation: GO / NO-GO / PIVOT with brief reasoning
     - Path to generated research.md

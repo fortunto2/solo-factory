@@ -4,7 +4,7 @@ description: Score startup idea through S.E.E.D. niche check + STREAM 6-layer an
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.1.1"
+  version: "2.2.0"
   openclaw:
     emoji: "✅"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, WebSearch, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__web_search
@@ -139,7 +139,35 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
    - If Manifest alignment has violations, Layer 6 (Meta) score MUST be reduced
    - Final score = weighted average (Meta and Stakes weighted 1.5x)
 
-8. **Stack selection:** Auto-detect from research data, then confirm or ask.
+8. **Beachhead Segment** (first target market):
+
+   From research personas (if available) or idea description, define the beachhead:
+   - **Who exactly?** — narrow segment, not "everyone" (e.g., "freelance designers earning $3-8K/mo", not "freelancers")
+   - **Why them first?** — accessible, high pain, willing to pay, can reach via specific channel
+   - **Channel to reach them?** — one specific channel (subreddit, community, newsletter)
+   - **What adjacent segment next?** — after beachhead is won, where to expand
+
+   This feeds into PRD ICP section and `/launch` GTM strategy.
+
+9. **Pricing Model** (2-3 options with reasoning):
+
+   Based on competitor pricing (from research.md) and manifesto principles (subscription fatigue is real — prefer one-time purchase or honest transparent pricing when possible):
+
+   | Model | Price | Reasoning | Manifest Alignment |
+   |-------|-------|-----------|-------------------|
+   | **One-time** | $X | No running costs → no recurring charge | Best fit (no lock-in) |
+   | **Freemium** | Free / $X/mo | Server costs justify subscription | OK if honest |
+   | **Usage-based** | $X per Y | Pay for what you use | Good (transparent) |
+
+   Rules from manifesto (`templates/principles/manifest.md`):
+   - If it doesn't cost to run, it should be free
+   - One-time purchase over subscription when possible
+   - Build the opposite of lock-in: tools users own, data they control
+   - No dark patterns, no artificial limitations to force upgrades
+
+   Pick the recommended model and explain why. Include in PRD.
+
+10. **Stack selection:** Auto-detect from research data, then confirm or ask.
 
    **Auto-detection rules** (from `research.md` `product_type` field or idea keywords):
    - `product_type: ios` → `ios-swift`
@@ -157,7 +185,7 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
    If ambiguous (e.g., could be web or mobile), ask via AskUserQuestion with the top 2-3 options.
    If MCP `project_info` is available, show user's existing stacks as reference.
 
-9. **Generate PRD:** Create a PRD document at `docs/prd.md` in the current project directory. Use a kebab-case project name derived from the idea.
+11. **Generate PRD:** Create a PRD document at `docs/prd.md` in the current project directory. Use a kebab-case project name derived from the idea.
 
    **PRD must pass Definition of Done:**
    - [ ] Problem statement ≥ 30 words (who suffers, when, why now)
@@ -170,11 +198,13 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
    - [ ] **Unit economics: optimistic AND pessimistic** (both columns)
    - [ ] **Dead startup precedents** (who tried this and failed?)
    - [ ] **Manifest conflicts** (explicit list of principle violations)
+   - [ ] **Beachhead segment** — who first, why them, how to reach
+   - [ ] **Pricing model** — recommended option with manifest alignment check
    - [ ] Tech stack with key packages
    - [ ] Architecture principles (SOLID, DRY, KISS, schemas-first)
    - [ ] Evidence-first — numbers/claims have source URLs (from research.md if available)
 
-10. **Output summary:**
+12. **Output summary:**
     - Idea name and one-liner
     - S.E.E.D. score (S/E/E/D each rated low/medium/high)
     - Manifest alignment (X/9 principles met, list violations)

@@ -4,7 +4,7 @@ description: Final code review and quality gate — run tests, check coverage, a
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.1.1"
+  version: "1.2.0"
   openclaw:
     emoji: "🔎"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
@@ -379,7 +379,29 @@ Report:
 - AICODE-ASK unanswered: {N}
 - Dead code: {files/exports found}
 
-### 12. Visual/E2E Testing
+### 12. Pre-mortem (Launch Risk Assessment)
+
+If the project is about to ship (verdict heading toward SHIP), run a quick pre-mortem:
+
+**Imagine it's 3 months after launch and the product failed. What went wrong?**
+
+Classify risks using Tigers/Paper Tigers/Elephants:
+
+| Risk | Type | Likelihood | Impact | Mitigation |
+|------|------|-----------|--------|------------|
+| ... | Tiger (real + scary) | High | High | ... |
+| ... | Paper Tiger (scary but unlikely) | Low | High | Accept |
+| ... | Elephant (obvious but ignored) | High | Medium | ... |
+
+Focus on:
+- **Data loss scenarios** — what if the local DB corrupts? Is there export/backup? (offline-first principle from `templates/principles/manifest.md`)
+- **Privacy incidents** — what data leaves the device? Could a breach expose users?
+- **Single point of failure** — one API key, one server, one payment provider?
+- **Market timing** — is a bigger player about to launch this? (check research.md competitors)
+
+Include in review report under "### Pre-mortem" section. If any Tiger risk has no mitigation, add it as a FIX FIRST task.
+
+### 13. Visual/E2E Testing
 
 If browser tools or device tools are available, run a visual smoke test.
 
@@ -478,6 +500,13 @@ Date: {YYYY-MM-DD}
 - Dead code: {NONE / found}
 - Status: {PASS / WARN / FAIL}
 
+### Pre-mortem
+- Tigers: {N} (real risks with mitigation needed)
+- Paper Tigers: {N} (scary but acceptable)
+- Elephants: {N} (obvious, being addressed)
+- Unmitigated Tigers: {list — these are FIX FIRST}
+- Status: {CLEAR / RISKS IDENTIFIED / BLOCKERS}
+
 ### Visual Testing
 - Platform: {browser / simulator / emulator / N/A}
 - Pages/screens: {N}
@@ -495,9 +524,9 @@ Date: {YYYY-MM-DD}
 ```
 
 **Verdict logic:**
-- **SHIP**: All tests pass, no security issues, acceptance criteria met, build succeeds, production logs clean, docs current, commits atomic, no critical visual issues
-- **FIX FIRST**: Minor issues (warnings, partial criteria, low-severity vulns, intermittent log errors, stale docs, non-conventional commits, minor SOLID violations, minor visual issues like layout overflow) — list what to fix
-- **BLOCK**: Failing tests, security vulnerabilities, missing critical features, production crashes in logs, missing CLAUDE.md/README.md, critical architecture violations, app crashes on launch (simulator/emulator) — do not ship
+- **SHIP**: All tests pass, no security issues, acceptance criteria met, build succeeds, production logs clean, docs current, commits atomic, no critical visual issues, no unmitigated Tiger risks
+- **FIX FIRST**: Minor issues (warnings, partial criteria, low-severity vulns, intermittent log errors, stale docs, non-conventional commits, minor SOLID violations, minor visual issues, Tiger risks with feasible mitigations) — list what to fix
+- **BLOCK**: Failing tests, security vulnerabilities, missing critical features, production crashes in logs, missing CLAUDE.md/README.md, critical architecture violations, app crashes on launch, unmitigated Tiger risks with high impact — do not ship
 
 ## Post-Verdict: CLAUDE.md Revision
 
