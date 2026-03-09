@@ -4,7 +4,7 @@ description: Final code review and quality gate — run tests, check coverage, a
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.2.0"
+  version: "1.3.0"
   openclaw:
     emoji: "🔎"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
@@ -74,7 +74,7 @@ Read only the top 3-5 hub files (most connected = most impactful). For security 
 
 **Makefile convention:** If `Makefile` exists in project root, **always prefer `make` targets** over raw commands. Use `make test` instead of `npm test`, `make lint` instead of `pnpm lint`, `make build` instead of `pnpm build`. Run `make help` (or read Makefile) to discover available targets including integration tests.
 
-Run all 12 dimensions in sequence. Report findings per dimension.
+Run all 14 dimensions in sequence. Report findings per dimension.
 
 ### 1. Test Suite
 
@@ -379,7 +379,33 @@ Report:
 - AICODE-ASK unanswered: {N}
 - Dead code: {files/exports found}
 
-### 12. Pre-mortem (Launch Risk Assessment)
+### 12. Context Quality Check
+
+Verify that the project is set up for efficient future agent sessions:
+
+**Plan handoff quality:**
+- Does plan.md have a `## Context Handoff` section with Intent/Key Files/Decisions/Risks?
+- Are all `[x]` tasks annotated with `<!-- sha:... -->`?
+- Could a new agent pick up this plan without re-reading the whole codebase?
+
+**CLAUDE.md signal-to-noise:**
+- Size check: `wc -c CLAUDE.md` — warn if >40,000 chars (attention dilution)
+- Are Do/Don't rules actionable and specific?
+- Are file paths still valid? (quick grep for referenced files that don't exist)
+
+**Scratch files cleanup:**
+- If `scratch/` directory exists, check if it has stale files from build phase
+- Recommend cleanup if >10 files or >1MB total
+
+Report:
+- Plan handoff: {GOOD / INCOMPLETE / MISSING}
+- CLAUDE.md size: {N} chars — {OK / WARN / BLOATED}
+- Scratch cleanup: {CLEAN / NEEDS CLEANUP / N/A}
+- Status: {PASS / WARN}
+
+### 13. Pre-mortem (Launch Risk Assessment)
+
+_Renumbered: was #12 before Context Quality Check was inserted._
 
 If the project is about to ship (verdict heading toward SHIP), run a quick pre-mortem:
 
@@ -401,7 +427,7 @@ Focus on:
 
 Include in review report under "### Pre-mortem" section. If any Tiger risk has no mitigation, add it as a FIX FIRST task.
 
-### 13. Visual/E2E Testing
+### 14. Visual/E2E Testing
 
 If browser tools or device tools are available, run a visual smoke test.
 
@@ -499,6 +525,12 @@ Date: {YYYY-MM-DD}
 - AICODE-TODO unresolved: {N}
 - Dead code: {NONE / found}
 - Status: {PASS / WARN / FAIL}
+
+### Context Quality
+- Plan handoff: {GOOD / INCOMPLETE / MISSING}
+- CLAUDE.md size: {N} chars — {OK / WARN / BLOATED}
+- Scratch cleanup: {CLEAN / NEEDS CLEANUP / N/A}
+- Status: {PASS / WARN}
 
 ### Pre-mortem
 - Tigers: {N} (real risks with mitigation needed)

@@ -4,7 +4,7 @@ description: Post-pipeline retrospective — parse logs, score process quality, 
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.1.0"
+  version: "2.2.0"
   openclaw:
     emoji: "🔮"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__codegraph_explain, mcp__solograph__codegraph_query
@@ -191,6 +191,34 @@ Quick checks only — NOT a full /review:
 4. **Build status** (if build command exists):
    - Run build, capture success/fail
    - If no build command found, skip and note "no build configured"
+
+## Phase 6.5: Context Degradation Analysis
+
+Check for signs of context window problems during the pipeline run:
+
+1. **Iteration quality curve:** Compare early iterations vs late iterations.
+   - Did error rates increase over time? (sign of context degradation)
+   - Did the agent start repeating itself or losing track of the plan?
+
+2. **Observation masking usage:** Check if `scratch/` directory exists in project root.
+   - If yes: good — agent was offloading large outputs
+   - If no but iter logs show >100-line tool outputs: flag as waste source
+
+3. **Plan recitation evidence:** In sampled iter logs, check if the agent re-read plan.md at task boundaries.
+   - Absent recitation + task drift = context engineering gap
+
+4. **CLAUDE.md bloat:** `wc -c {project_root}/CLAUDE.md`
+   - >40,000 chars: WARN — attention dilution likely
+   - >60,000 chars: RED — severe context budget pressure
+
+Add findings to the report under `## Context Health`:
+```markdown
+## Context Health
+- Iteration quality trend: {STABLE / DEGRADING / N/A}
+- Observation masking: {USED / NOT USED / N/A}
+- Plan recitation: {OBSERVED / ABSENT / N/A}
+- CLAUDE.md size: {N} chars — {OK / WARN / BLOATED}
+```
 
 ## Phase 7: Score & Report
 

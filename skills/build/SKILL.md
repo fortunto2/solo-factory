@@ -4,7 +4,7 @@ description: Execute implementation plan tasks with TDD workflow, auto-commit, a
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.2.1"
+  version: "2.3.0"
   openclaw:
     emoji: "🔨"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
@@ -104,7 +104,7 @@ codegraph_repomap(project="{project name}")
 Returns: a YAML map of the top files and their exported classes/functions. Use this to understand the global structure.
 
 ### Step 2 — Essential docs (parallel reads)
-1. `docs/plan/{trackId}/plan.md` — task list (REQUIRED)
+1. `docs/plan/{trackId}/plan.md` — task list (REQUIRED). **Read the `## Context Handoff` section first** — it has a compact summary of intent, key files, decisions, and risks. This is your primary orientation.
 2. `docs/plan/{trackId}/spec.md` — acceptance criteria (REQUIRED)
 3. `docs/workflow.md` — TDD policy, commit strategy (if exists)
 4. `CLAUDE.md` — architecture, Do/Don't
@@ -126,6 +126,27 @@ Last task: Task {X.Y}: {description} [in progress]
 ```
 
 Ask via AskUserQuestion, then proceed.
+
+## Context Engineering Rules
+
+Follow these rules to keep context healthy throughout the build session:
+
+### Observation Masking
+Large tool outputs destroy context quality. When output exceeds ~50 lines or ~2000 chars:
+1. Write full output to a scratch file: `scratch/{tool}_{task}.txt` (create `scratch/` dir if needed)
+2. Keep only a 5-10 line summary in conversation (errors, counts, key paths)
+3. Reference: `[Full output in scratch/{file}]`
+
+Apply to: test suite results, build logs, large grep results, verbose git diffs.
+
+### Attention Positioning
+Place information where the model pays most attention:
+- **START of context:** current task description, error messages to fix
+- **MIDDLE:** detailed history, reference docs (lowest attention zone)
+- **END:** next steps, acceptance criteria, plan status
+
+### Plan Recitation
+At the START of each task iteration, re-read plan.md to find the current task. This prevents task drift in long sessions. Also re-read after errors and after phase completion.
 
 ## Task Execution Loop
 
@@ -460,8 +481,9 @@ These thoughts mean STOP — you're about to cut corners:
 4. **Commit after each task** — atomic commits with conventional format.
 5. **Research before coding** — 30 seconds of search saves 30 minutes of reimplementation.
 6. **One task at a time** — finish current task before starting next.
-7. **Keep test output concise** — when running tests, pipe through `head -50` or use `--reporter=dot` / `-q` flag. Thousands of test lines pollute context. Only show failures in detail.
+7. **Keep test output concise** — when running tests, pipe through `head -50` or use `--reporter=dot` / `-q` flag. Thousands of test lines pollute context. Only show failures in detail. If output is large, use observation masking (write to `scratch/`, keep summary).
 8. **Verify before claiming done** — run the actual command, read the full output, confirm success BEFORE marking a task complete. Never say "should work now".
+9. **Recite the plan** — re-read plan.md at the start of each task. Don't rely on memory of what comes next.
 
 ## Common Issues
 
