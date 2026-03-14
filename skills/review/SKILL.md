@@ -74,7 +74,7 @@ Read only the top 3-5 hub files (most connected = most impactful). For security 
 
 **Makefile convention:** If `Makefile` exists in project root, **always prefer `make` targets** over raw commands. Use `make test` instead of `npm test`, `make lint` instead of `pnpm lint`, `make build` instead of `pnpm build`. Run `make help` (or read Makefile) to discover available targets including integration tests.
 
-Run all 14 dimensions in sequence. Report findings per dimension.
+Run all 15 dimensions in sequence (4 = Pre-Landing Checklist is new). Report findings per dimension.
 
 ### 1. Test Suite
 
@@ -139,7 +139,23 @@ npm run build 2>&1 || true
 
 Report: build success/failure, any warnings.
 
-### 4. Security Audit
+### 4. Pre-Landing Checklist (Two-Pass)
+
+Run the structured two-pass check from `references/pre-landing-checklist.md`:
+
+**Pass 1 — CRITICAL (blocks ship):**
+- SQL & Data Safety (string interpolation, TOCTOU, N+1)
+- Race Conditions (read-check-write without unique constraint, non-atomic status transitions)
+- LLM Output Trust Boundary (AI-generated values written to DB without validation)
+
+**Pass 2 — INFORMATIONAL (report only):**
+- Conditional side effects, magic numbers, dead code, LLM prompt issues, test gaps, crypto, time windows, type coercion, view/frontend
+
+**Suppressions:** Don't flag harmless redundancy, "add explanatory comment", consistency-only changes, or anything already fixed in the diff. See `references/pre-landing-checklist.md` for full suppressions list.
+
+Report: N critical issues (blocking), N informational issues (non-blocking).
+
+### 5. Security Audit
 
 **Dependency vulnerabilities:**
 ```bash
@@ -158,7 +174,9 @@ uv run pip-audit 2>&1 || true
 
 Report: vulnerabilities found, severity levels.
 
-### 5. Acceptance Criteria Verification
+### 6. Acceptance Criteria Verification
+
+_Dimensions 7-15 renumbered (+1) after adding Pre-Landing Checklist as dimension 4._
 
 Read `docs/plan/*/spec.md` and check each acceptance criterion:
 
@@ -428,6 +446,8 @@ Focus on:
 Include in review report under "### Pre-mortem" section. If any Tiger risk has no mitigation, add it as a FIX FIRST task.
 
 ### 14. Visual/E2E Testing
+
+Use `references/qa-issue-taxonomy.md` for severity classification and per-page exploration checklist.
 
 If browser tools or device tools are available, run a visual smoke test.
 
