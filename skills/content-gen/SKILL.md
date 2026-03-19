@@ -141,6 +141,14 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 - Rerun after major product updates to refresh messaging
 - Works best with detailed PRD — falls back to README if no PRD
 
+## Gotchas
+
+1. **LinkedIn algorithm penalizes external links** — links in the post body reduce reach by 40-50%. Put the link in the FIRST COMMENT instead, and mention "link in comments" in the post.
+2. **Twitter/X thread hooks must work standalone** — tweet 1 appears alone in feeds without the thread. If it doesn't grab attention by itself, no one clicks "Show this thread".
+3. **Reddit self-promotion rules** — most subreddits enforce a 10:1 ratio (10 helpful comments per 1 promotional post). A brand-new account posting product links gets instantly removed.
+4. **AI writing patterns are detectable** — em dashes, "game-changer", "dive into", rule-of-three lists, "In today's fast-paced world". Run output through `/humanize` before publishing.
+5. **Release notes ≠ changelog** — user-facing release notes should describe BENEFITS ("faster checkout"), not technical changes ("refactored payment module"). Skip internal commits entirely.
+
 ## Common Issues
 
 ### No PRD found

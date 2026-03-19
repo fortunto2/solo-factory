@@ -46,21 +46,9 @@ This skill implements metrics tracking based on lean startup principles:
 
 4. **Define event funnel** based on PRD features:
 
-   Standard funnel stages (adapt per product):
-   ```
-   Awareness → Acquisition → Activation → Revenue → Retention → Referral
-   ```
+   Standard funnel: `Awareness → Acquisition → Activation → Revenue → Retention → Referral`
 
-   Map to concrete events:
-
-   | Stage | Event Name | Trigger | Properties |
-   |-------|-----------|---------|------------|
-   | Awareness | `page_viewed` | Landing page visit | `source`, `utm_*` |
-   | Acquisition | `app_installed` or `signed_up` | First install/signup | `platform`, `source` |
-   | Activation | `core_action_completed` | First key action | `feature`, `duration_ms` |
-   | Revenue | `purchase_completed` | First payment | `plan`, `amount`, `currency` |
-   | Retention | `session_started` | Return visit (D1/D7/D30) | `session_number`, `days_since_install` |
-   | Referral | `invite_sent` | Shared or referred | `channel`, `referral_code` |
+   See `references/kpi-benchmarks.md` for the full event table, KPI thresholds, PostHog code snippets, and A/B test template. Adapt events to the specific product.
 
 5. **Forced reasoning — metrics selection:**
    Before defining KPIs, write out:
@@ -71,87 +59,13 @@ This skill implements metrics tracking based on lean startup principles:
 
 6. **Set KPI benchmarks** per stage:
 
-   | KPI | Target | Kill Threshold | Scale Threshold | Source |
-   |-----|--------|---------------|-----------------|--------|
-   | Landing → Signup | 3-5% | < 1% | > 8% | Industry avg |
-   | Signup → Activation | 20-40% | < 10% | > 50% | Product benchmark |
-   | D1 Retention | 25-40% | < 15% | > 50% | Mobile avg |
-   | D7 Retention | 10-20% | < 5% | > 25% | Mobile avg |
-   | D30 Retention | 5-10% | < 2% | > 15% | Mobile avg |
-   | Trial → Paid | 2-5% | < 1% | > 8% | SaaS avg |
+   Use thresholds from `references/kpi-benchmarks.md` as starting point. Adjust for product type (B2B has lower volume/higher conversion, B2C mobile has higher volume/lower retention).
 
-   Adjust based on product type (B2C vs B2B, free vs paid, mobile vs web).
+7. **Define decision rules** — use kill/iterate/scale framework from `references/kpi-benchmarks.md`. Adapt thresholds to project-specific values from step 6.
 
-7. **Define decision rules** (lean startup kill/iterate/scale):
+8. **Generate PostHog implementation snippets** — use platform-specific examples from `references/kpi-benchmarks.md`. Adapt event names and properties to the funnel defined in step 4.
 
-   ```markdown
-   ## Decision Framework
-
-   **Review cadence:** Weekly (Fridays)
-
-   ### KILL signals (any 2 = kill)
-   - [ ] Activation rate < {kill_threshold} after 2 weeks
-   - [ ] D7 retention < {kill_threshold} after 1 month
-   - [ ] Zero organic signups after 2 weeks of distribution
-   - [ ] CAC > 3x LTV estimate
-
-   ### ITERATE signals
-   - [ ] Metrics between kill and scale thresholds
-   - [ ] Qualitative feedback suggests product-market fit issues
-   - [ ] One stage of funnel is dramatically worse than others
-
-   ### SCALE signals (all 3 = scale)
-   - [ ] Activation rate > {scale_threshold}
-   - [ ] D7 retention > {scale_threshold}
-   - [ ] Organic growth > 10% week-over-week
-   ```
-
-8. **Generate PostHog implementation snippets:**
-
-   ### For iOS (Swift):
-   ```swift
-   // Event tracking examples
-   PostHogSDK.shared.capture("core_action_completed", properties: [
-       "feature": "scan_receipt",
-       "duration_ms": elapsed
-   ])
-   ```
-
-   ### For Web (TypeScript):
-   ```typescript
-   // Event tracking examples
-   posthog.capture('signed_up', {
-       source: searchParams.get('utm_source') ?? 'direct',
-       plan: 'free'
-   })
-   ```
-
-9. **A/B Test Analysis Template:**
-
-   Include a reusable template for experiment analysis:
-
-   ```markdown
-   ## A/B Test: {experiment name}
-
-   **Hypothesis:** If we {change}, then {metric} will {improve/decrease} because {reason}.
-   **Primary metric:** {metric name}
-   **Sample size needed:** {calculated from baseline rate + minimum detectable effect}
-   **Duration:** {days} (based on current traffic)
-
-   | Variant | Users | Conversions | Rate | vs Control |
-   |---------|-------|-------------|------|------------|
-   | Control | — | — | —% | — |
-   | Test | — | — | —% | +/- X% |
-
-   **Statistical significance:** {p-value or confidence interval}
-   **Decision:** SHIP variant / KEEP control / EXTEND test / INCONCLUSIVE
-   ```
-
-   Decision rules:
-   - p < 0.05 AND positive effect > minimum detectable → SHIP
-   - p < 0.05 AND negative effect → KEEP control, investigate why
-   - p > 0.05 after full duration → INCONCLUSIVE, check if sample size was sufficient
-   - Never peek and decide early — commit to sample size upfront
+9. **A/B Test Analysis Template** — copy template from `references/kpi-benchmarks.md` into the metrics plan. Include decision rules (SHIP / KEEP / EXTEND / INCONCLUSIVE).
 
 10. **Write metrics plan** to `docs/metrics-plan.md`:
 

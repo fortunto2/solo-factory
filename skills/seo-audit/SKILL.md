@@ -143,6 +143,14 @@ If MCP tools are not available, use Claude WebSearch/WebFetch as fallback.
 - SERP checks are approximations (not real-time ranking data)
 - Run periodically after content changes or before launch
 
+## Gotchas
+
+1. **SPA without SSR scores zero** — if the page is client-rendered only (React SPA, no Next.js SSR), search engines see an empty `<div id="root">`. Check `view-source:` to verify HTML contains actual content.
+2. **Sitemap in robots.txt is not optional** — Google finds sitemaps from robots.txt `Sitemap:` directive. Without it, indexing depends on internal link crawling which is slow for new sites.
+3. **JSON-LD errors are silent** — malformed JSON-LD doesn't break the page but Google ignores it completely. Validate with https://search.google.com/test/rich-results before shipping.
+4. **Multiple H1 tags confuse crawlers** — many UI frameworks render component titles as H1. Audit the actual DOM — there should be exactly one H1 per page. Use H2-H3 for section headings.
+5. **Core Web Vitals affect ranking** — LCP (Largest Contentful Paint) < 2.5s, FID (First Input Delay) < 100ms, CLS (Cumulative Layout Shift) < 0.1. Check via `npx lighthouse {url} --output=json` if lighthouse is available.
+
 ## Common Issues
 
 ### Page fetch fails

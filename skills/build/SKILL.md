@@ -129,24 +129,10 @@ Ask via AskUserQuestion, then proceed.
 
 ## Context Engineering Rules
 
-Follow these rules to keep context healthy throughout the build session:
-
-### Observation Masking
-Large tool outputs destroy context quality. When output exceeds ~50 lines or ~2000 chars:
-1. Write full output to a scratch file: `scratch/{tool}_{task}.txt` (create `scratch/` dir if needed)
-2. Keep only a 5-10 line summary in conversation (errors, counts, key paths)
-3. Reference: `[Full output in scratch/{file}]`
-
-Apply to: test suite results, build logs, large grep results, verbose git diffs.
-
-### Attention Positioning
-Place information where the model pays most attention:
-- **START of context:** current task description, error messages to fix
-- **MIDDLE:** detailed history, reference docs (lowest attention zone)
-- **END:** next steps, acceptance criteria, plan status
-
-### Plan Recitation
-At the START of each task iteration, re-read plan.md to find the current task. This prevents task drift in long sessions. Also re-read after errors and after phase completion.
+Read `references/context-engineering.md` for full rules on observation masking, attention positioning, and plan recitation. Key points:
+- **Observation masking:** large outputs (>50 lines) → write to `scratch/`, keep 5-10 line summary
+- **Attention positioning:** errors at START, history in MIDDLE, next steps at END
+- **Plan recitation:** re-read plan.md at START of each task to prevent drift
 
 ## Task Execution Loop
 
@@ -181,79 +167,18 @@ Parse plan.md for first line matching `- [ ] Task X.Y:` (or `- [~] Task X.Y:` if
 
 **Never do:** `Grep "keyword" .` across the whole project. This dumps hundreds of lines into context for no reason. Be surgical.
 
-### Python-Specific Quality Tools
+### Platform-Specific Quality Tools
 
-When the project uses a Python stack (detected by `pyproject.toml` or stack YAML), run the full Astral toolchain:
+Read `references/quality-tools.md` for full commands per stack. Quick reference:
 
-1. **Ruff** — linting + formatting (always):
-   ```bash
-   uv run ruff check --fix .
-   uv run ruff format .
-   ```
+| Stack | Lint | Format | Type-check | Pre-commit |
+|-------|------|--------|------------|------------|
+| Python | `uv run ruff check --fix .` | `uv run ruff format .` | `uv run ty check .` | `uv run pre-commit run --all-files` |
+| JS/TS | `pnpm lint --fix` | `pnpm format` | `pnpm tsc --noEmit` | husky + lint-staged |
+| iOS | `swiftlint lint --strict` | `swift-format` | — | lefthook |
+| Android | `./gradlew detekt` | `./gradlew ktlintCheck` | — | lefthook |
 
-2. **ty** — type-checking (if `ty` in dev dependencies or stack YAML):
-   ```bash
-   uv run ty check .
-   ```
-   ty is Astral's type-checker (extremely fast, replaces mypy/pyright). Fix type errors before committing.
-
-3. **Hypothesis** — property-based testing (if `hypothesis` in dependencies):
-   - Use `@given(st.from_type(MyModel))` to auto-generate Pydantic model inputs.
-   - Use `@given(st.text(), st.integers())` for edge-case coverage on parsers/validators.
-   - Hypothesis tests go in the same test files alongside regular pytest tests.
-
-4. **Pre-commit** — run all hooks before committing:
-   ```bash
-   uv run pre-commit run --all-files
-   ```
-
-Run these checks after each task implementation, before `git commit`. If any fail, fix before proceeding.
-
-### JS/TS-Specific Quality Tools
-
-When the project uses a JS/TS stack (detected by `package.json` or stack YAML):
-
-1. **ESLint** — linting (always):
-   ```bash
-   pnpm lint --fix
-   ```
-
-2. **Prettier** — formatting (always):
-   ```bash
-   pnpm format
-   ```
-
-3. **tsc --noEmit** — type-checking (strict mode):
-   ```bash
-   pnpm tsc --noEmit
-   ```
-   Fix type errors before committing. Strict mode should be on in tsconfig.json.
-
-4. **Knip** — dead code detection (if in devDependencies, run periodically):
-   ```bash
-   pnpm knip
-   ```
-   Finds unused files, exports, and dependencies. Run after significant refactors.
-
-5. **Pre-commit** — husky + lint-staged runs ESLint + Prettier + tsc on staged files.
-
-### iOS/Android-Specific Quality Tools
-
-When the project uses a mobile stack:
-
-**iOS (Swift):**
-```bash
-swiftlint lint --strict
-swift-format format --in-place --recursive Sources/
-```
-
-**Android (Kotlin):**
-```bash
-./gradlew detekt
-./gradlew ktlintCheck
-```
-
-Both use **lefthook** for pre-commit hooks (language-agnostic, no Node.js required).
+Run after each task implementation, before `git commit`. If any fail, fix before proceeding.
 
 ### 4. TDD Workflow (if TDD enabled in workflow.md)
 

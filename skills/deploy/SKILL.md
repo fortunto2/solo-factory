@@ -201,95 +201,33 @@ List what's needed, let user set values.
 
 ### Step 4. Platform Deploy
 
-**Vercel** (if not auto-deploying):
-```bash
-vercel link          # first time: link to project
-vercel               # deploy preview
-vercel --prod        # deploy production (after verifying preview)
-```
+See `references/platform-commands.md` for full deploy, env var, and log commands per platform.
 
-**Cloudflare Workers/Pages:**
-```bash
-wrangler deploy              # Workers
-wrangler pages deploy ./out  # Pages (check build output dir)
-```
+Use the detected platform from pre-flight checks:
+- **Vercel** — `vercel link` → `vercel` (preview) → `vercel --prod`
+- **Cloudflare Workers** — `wrangler deploy`
+- **Cloudflare Pages** — `wrangler pages deploy ./out`
+- **Fly.io** — `fly launch` (first time) → `fly deploy`
+- **SST** — `sst deploy --stage prod`
 
-**Fly.io:**
-```bash
-fly launch   # first time — creates app, sets region
-fly deploy   # subsequent deploys
-```
-
-**SST** (if sst.config.ts exists):
-```bash
-sst deploy --stage prod    # production
-sst deploy --stage dev     # staging
-```
+For auto-deploy platforms (Vercel, CF Pages): `git push origin main` is sufficient if already linked.
 
 ### Step 5. Verify Deployment
 
 After deployment, verify it actually works:
 
 ```bash
-# 1. HTTP status check
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://{deployment-url})
-
-# 2. Check for runtime errors in page body
 BODY=$(curl -s https://{deployment-url} | head -200)
-
-# 3. Check Vercel deployment logs for errors
-vercel logs --output=short 2>&1 | tail -30
 ```
 
-**If HTTP status is not 200, or page contains error messages:**
-1. Check `vercel env ls` — are all required env vars set on the platform?
-2. If env vars missing: add them with `vercel env add NAME production <<< "value"`
-3. If env vars set but wrong: `vercel env rm NAME production` then re-add
-4. After fixing env vars: redeploy with `vercel --prod --yes`
-5. Re-check HTTP status and page content
-
-**Common runtime errors and fixes:**
-- "Supabase URL/Key required" → add `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` to Vercel
-- "DATABASE_URL not set" → add `DATABASE_URL` to Vercel
-- "STRIPE_SECRET_KEY missing" → add Stripe keys or remove Stripe code if not ready
-- Blank page / hydration error → check build logs, may need `vercel --prod` redeploy
+**If HTTP status is not 200:** check env vars, fix, redeploy. See `references/platform-commands.md` for platform-specific env var and error resolution commands.
 
 **Do NOT output `<solo:done/>` until the live URL returns HTTP 200 and page loads without errors.** If you cannot fix the issue, output `<solo:redo/>` to go back to build. Output pipeline signals ONLY if `.solo/states/` directory exists.
 
 ### Step 6. Post-Deploy Log Monitoring
 
-After verifying HTTP 200, **tail production logs** to catch runtime errors that only appear under real conditions (missing env vars, DB connection issues, SSR crashes, API timeouts).
-
-Read the `logs` field from the stack YAML to get platform-specific commands:
-
-**Vercel (Next.js):**
-```bash
-vercel logs --output=short 2>&1 | tail -50
-```
-Look for: `Error`, `FUNCTION_INVOCATION_FAILED`, `EDGE_FUNCTION_INVOCATION_FAILED`, `504 GATEWAY_TIMEOUT`, unhandled rejections.
-
-**Cloudflare Workers:**
-```bash
-wrangler tail --format=pretty 2>&1 | head -100
-```
-Look for: `Error`, uncaught exceptions, D1 query failures, R2 access errors.
-
-**Cloudflare Pages (Astro):**
-```bash
-wrangler pages deployment tail --project-name={name} 2>&1 | head -100
-```
-
-**Fly.io (Python API):**
-```bash
-fly logs --app {name} 2>&1 | tail -50
-fly status --app {name}
-```
-Look for: `ERROR`, `CRITICAL`, unhealthy instances, OOM kills, connection refused.
-
-**Supabase Edge Functions (if used):**
-```bash
-supabase functions logs --scroll 2>&1 | tail -30
-```
+After verifying HTTP 200, **tail production logs** to catch runtime errors. See `references/platform-commands.md` for platform-specific log commands and what to look for.
 
 **What to do with log errors:**
 - **Env var missing** → fix with platform CLI (see Step 3), redeploy

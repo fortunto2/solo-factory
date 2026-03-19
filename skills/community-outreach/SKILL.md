@@ -161,6 +161,14 @@ If MCP tools are not available, use WebSearch/WebFetch as fallback.
 5. **Respect community rules** — check subreddit rules before posting
 6. **Quality over quantity** — 5 great responses > 50 generic ones
 
+## Gotchas
+
+1. **Reddit shadowban triggers** — posting links in your first comment on a subreddit, multiple self-promotional posts in 24h, or using shortened URLs. Always build comment karma in a subreddit before mentioning your product.
+2. **Subreddit self-promotion rules vary wildly** — r/SaaS allows Show posts, r/startups requires flair, r/webdev bans affiliate links. Always check sidebar rules before drafting. Some require 10:1 comment-to-promotion ratio.
+3. **PH vote manipulation detection** — ProductHunt detects coordinated upvotes from same IP/network/timing. Never share direct PH links in Slack/Discord asking for upvotes. Share on social media with context instead.
+4. **Old threads are locked** — Reddit threads >6 months old are archived (can't comment). Filter by date, not just relevance. HN threads don't lock but old ones get zero visibility.
+5. **"I built this" disclosure backfires if too early** — lead with value (3-4 sentences of genuine help), THEN disclose. Opening with "disclaimer: I'm the dev" makes the entire comment read as an ad.
+
 ## Common Issues
 
 ### Web search not available

@@ -149,6 +149,14 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 - For fake-door tests: hero + CTA + email capture is enough (2-hour launch)
 - Works with /seo-audit — generate content, then audit the deployed page
 
+## Gotchas
+
+1. **Hero CTA must be above the fold** — if users need to scroll to find the primary action, conversion drops 40%+. Hero = headline + subheadline + CTA button + visual. Nothing else.
+2. **Too many CTAs = decision paralysis** — one primary CTA per page. Secondary actions (learn more, see pricing) should be visually subordinate. Never put 3 equal-weight buttons side by side.
+3. **Social proof placeholders hurt more than no social proof** — "Join 0 users" or empty testimonial slots signal "nobody uses this". Remove social proof section entirely until you have real data. Use "Built by {founder name}" instead.
+4. **OG image is required for social sharing** — without `og:image`, links shared on Twitter/LinkedIn/Slack show a blank preview. Use 1200x630px. Test with https://cards-dev.twitter.com/validator.
+5. **A/B test headlines BEFORE launch** — don't pick one headline and ship. Use Google Ads ($20/day for 3 days) to test 3-5 variants against each other. The winner goes on the landing page.
+
 ## Common Issues
 
 ### No PRD or product info found

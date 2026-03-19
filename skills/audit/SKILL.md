@@ -90,6 +90,14 @@ Audit the knowledge base for quality issues: missing frontmatter, broken links, 
    3. [specific action]
    ```
 
+## Gotchas
+
+1. **Single-use tags are not always typos** — a tag used once might be intentional (e.g., `event-2026` for a specific event). Flag but don't auto-merge without checking context.
+2. **Orphaned files may be intentional archives** — files in `3-inbox/` or `4-opportunities/` are often standalone by design. Only flag orphans in methodology or principles directories.
+3. **Frontmatter schemas drift across directories** — `0-principles/` uses `type: principle`, `3-inbox/` uses `type: capture`. Detect per-directory norms, don't enforce one schema globally.
+4. **`related:` field is not authoritative** — many valid cross-references exist as inline markdown links `[text](path.md)`, not just YAML `related:` arrays. Check both.
+5. **Empty directories may be placeholders** — `5-active-projects/` or `6-companies/` might be empty by design (populated by automation). Check `registry.yaml` or Makefile before flagging.
+
 ## Common Issues
 
 ### No markdown files found
