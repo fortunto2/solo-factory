@@ -33,20 +33,30 @@ if [[ ! -L "$PLUGIN_DIR/solo" ]]; then
   echo "Created: solo → .claude-plugin"
 fi
 
-# 2. Remove ALL version dirs in cache (clean slate)
-if [[ -d "$CACHE_BASE" ]]; then
-  for old in "$CACHE_BASE"/*/; do
-    [[ -e "$old" ]] || continue
-    rm -rf "$old"
-  done
+# 2. Remove current version dir (if exists and not already correct symlink)
+mkdir -p "$CACHE_BASE"
+if [[ -e "$CACHE_DIR" ]] && [[ "$(readlink "$CACHE_DIR" 2>/dev/null)" != "$PLUGIN_DIR" ]]; then
+  rm -rf "$CACHE_DIR"
 fi
 
-# 3. Create symlink
-mkdir -p "$CACHE_BASE"
-ln -s "$PLUGIN_DIR" "$CACHE_DIR"
+# 3. Create symlink for current version
+if [[ ! -e "$CACHE_DIR" ]]; then
+  ln -s "$PLUGIN_DIR" "$CACHE_DIR"
+fi
 echo "Linked: $CACHE_DIR → $PLUGIN_DIR"
 
-# 4. Update installed_plugins.json version + installPath
+# 4. Point old version dirs to new version (prevents broken hooks in running sessions)
+for old in "$CACHE_BASE"/*/; do
+  [[ -d "$old" ]] || continue
+  old_name="$(basename "$old")"
+  [[ "$old_name" == "$VERSION" ]] && continue
+  # Old version dir exists — replace with symlink to current
+  rm -rf "$old"
+  ln -s "$CACHE_DIR" "$old"
+  echo "Compat: $old_name → $VERSION"
+done
+
+# 5. Update installed_plugins.json version + installPath
 if [[ -f "$INSTALLED_JSON" ]]; then
   python3 -c "
 import json, sys
@@ -65,7 +75,7 @@ else:
 "
 fi
 
-# 5. Link user-level rules (solo-factory/rules/ → ~/.claude/rules/)
+# 6. Link user-level rules (solo-factory/rules/ → ~/.claude/rules/)
 RULES_SRC="$PLUGIN_DIR/rules"
 RULES_DST="$HOME/.claude/rules"
 if [[ -d "$RULES_SRC" ]]; then
