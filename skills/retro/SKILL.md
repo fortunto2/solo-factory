@@ -233,7 +233,7 @@ If plugin root not available, use the embedded weights:
 - Commits (conventional %): 5%
 - Docs (plan staleness): 5%
 - Signals (clean signals): 5%
-- Speed (total duration): 5%
+- Speed (duration per track, normalized): 5%
 
 **Note:** In fallback mode (no pipeline logs), redistribute Efficiency and Stability weights to Fidelity, Quality, and Commits.
 
@@ -254,6 +254,8 @@ If plugin root not available, use the embedded weights:
 | Pipeline restarts | {N} | {emoji} |
 | Max-iter hits | {N} | {emoji} |
 | Total duration | {time} | {emoji} |
+| Tracks completed | {N} | |
+| Duration per track | {time/tracks} | {emoji} |
 
 ## Per-Stage Breakdown
 

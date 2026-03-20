@@ -111,22 +111,40 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 
    i. **Detect deploy infrastructure** — search for deploy scripts/configs to include deploy phase in plan:
       ```bash
-      find . -maxdepth 3 \( -name 'deploy.sh' -o -name 'Dockerfile' -o -name 'docker-compose.yml' -o -name 'fly.toml' -o -name 'wrangler.toml' \) -type f 2>/dev/null
+      find . -maxdepth 3 \( -name 'deploy.sh' -o -name 'Dockerfile' -o -name 'docker-compose.yml' -o -name 'wrangler.toml' -o -name 'sst.config.ts' \) -type f 2>/dev/null
       ```
       If found, read them to understand deploy targets. Include a deploy phase in the plan with concrete commands.
 
-5. **Generate track ID:**
+5. **Detect overlapping plans** — before creating a new track, check for existing plans that cover similar scope:
+
+   ```bash
+   ls docs/plan/*/plan.md docs/plan/*/spec.md 2>/dev/null
+   ```
+
+   For each existing plan found:
+   - Read its `spec.md` Summary and Acceptance Criteria
+   - Compare scope with the new task description
+   - Check if tasks overlap (>50% of files or acceptance criteria in common)
+
+   **If overlap detected:**
+   - If existing plan is incomplete (`[ ]` tasks remain): recommend extending it instead of creating a new track. Show the user: "Existing track `{trackId}` covers similar scope ({overlap description}). Extend it or create a separate track?"
+   - If existing plan is complete (`[x]` all tasks): proceed with new track but reference the prior track in spec.md Dependencies
+   - If multiple existing plans overlap with each other: recommend consolidating them into one track before proceeding
+
+   **If no overlap:** proceed normally.
+
+6. **Generate track ID:**
    - Extract a short name (2-3 words, kebab-case) from task description.
    - Format: `{shortname}_{YYYYMMDD}` (e.g., `user-auth_20260209`).
 
-6. **Create track directory:**
+7. **Create track directory:**
    ```bash
    mkdir -p $PLAN_ROOT
    ```
    - Project context: `docs/plan/{trackId}/`
    - KB context: `docs/plan/{shortname}/`
 
-7. **Generate `$PLAN_ROOT/spec.md`:**
+8. **Generate `$PLAN_ROOT/spec.md`:**
    Based on research findings, NOT generic questions.
    ```markdown
    # Specification: {Title}
@@ -156,7 +174,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    - {reusable code from other projects}
    ```
 
-8. **Generate `$PLAN_ROOT/plan.md`:**
+9. **Generate `$PLAN_ROOT/plan.md`:**
    Concrete, file-level plan from research. Keep it tight: 2-4 phases, 5-15 tasks total.
 
    **Critical format rules** (parsed by `/build`):
@@ -197,7 +215,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    {2-4 phases total}
 
    ## Phase {N-1}: Deploy (if deploy infrastructure exists)
-   _Include this phase ONLY if the project has deploy scripts/configs (deploy.sh, Dockerfile, docker-compose.yml, fly.toml, wrangler.toml, vercel.json). Skip if no deploy infra found._
+   _Include this phase ONLY if the project has deploy scripts/configs (deploy.sh, Dockerfile, docker-compose.yml, wrangler.toml, sst.config.ts, vercel.json). Skip if no deploy infra found._
 
    ### Tasks
    - [ ] Task {N-1}.1: {concrete deploy step — e.g. "Run python/deploy.sh to push Docker image to VPS", "wrangler deploy", etc.}
@@ -251,7 +269,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    - **Last phase is always "Docs & Cleanup"**.
    - **Harness-aware:** if the task introduces new patterns, include a task to update lint rules or CLAUDE.md constraints. If it touches module boundaries, include verification of dependency direction. Think: "what harness change prevents future agents from breaking this?"
 
-9. **Create progress task list** for pipeline visibility:
+10. **Create progress task list** for pipeline visibility:
 
    After writing plan.md, create TaskCreate entries so progress is trackable:
    - One task per phase: "Phase 1: {name}" with task list as description.
@@ -260,7 +278,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 
    If `superpowers:writing-plans` skill is available, follow its granularity format: bite-sized tasks (2-5 minutes each), complete code in task descriptions, exact file paths, verification steps per task. This enhances the built-in format above.
 
-10. **Show plan for approval** via AskUserQuestion:
+11. **Show plan for approval** via AskUserQuestion:
    Present the spec summary + plan overview. Options:
    - "Approve and start" — ready for `/build`
    - "Edit plan" — user wants to modify before implementing

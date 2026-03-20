@@ -96,14 +96,20 @@
 
 ### Speed (5%)
 
-| Score | Duration | Description |
-|-------|----------|-------------|
-| 10 | <30 min | Fast pipeline |
-| 8 | 30-60 min | Reasonable |
-| 6 | 1-2 hours | Acceptable for complex projects |
-| 4 | 2-4 hours | Slow |
-| 2 | 4-8 hours | Very slow |
-| 1 | >8 hours | Excessively slow |
+Normalize by track count: `duration_per_track = total_duration / track_count`. This prevents penalizing pipelines that run many tracks (e.g., 250m across 10 tracks = 25m/track = fast).
+
+| Score | Per-track duration | Description |
+|-------|-------------------|-------------|
+| 10 | <20 min/track | Very fast |
+| 9 | 20-25 min/track | Fast |
+| 8 | 25-35 min/track | Reasonable |
+| 7 | 35-45 min/track | Normal |
+| 6 | 45-60 min/track | Acceptable for complex tracks |
+| 4 | 1-2 hours/track | Slow |
+| 2 | 2-4 hours/track | Very slow |
+| 1 | >4 hours/track | Excessively slow |
+
+**Fallback (single track or no track count):** use absolute duration — <30 min = 10, 30-60 min = 8, 1-2h = 6, 2-4h = 4, >4h = 2.
 
 ## Computing Overall Score
 

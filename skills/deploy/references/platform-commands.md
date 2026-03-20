@@ -66,27 +66,6 @@ wrangler pages deployment tail --project-name={name} 2>&1 | head -100
 
 ---
 
-## Fly.io (Python API)
-
-### Deploy
-```bash
-fly launch   # first time — creates app, sets region
-fly deploy   # subsequent deploys
-```
-
-### Environment Variables
-```bash
-fly secrets set VARIABLE_NAME=value
-fly secrets list
-```
-
-### Logs
-```bash
-fly logs --app {name} 2>&1 | tail -50
-fly status --app {name}
-```
-Look for: `ERROR`, `CRITICAL`, unhealthy instances, OOM kills, connection refused.
-
 ---
 
 ## SST (Infrastructure as Code)
@@ -126,6 +105,38 @@ npx drizzle-kit generate  # generate migration files
 ```bash
 wrangler d1 migrations apply {db-name}
 ```
+
+---
+
+## Rust / Crates.io
+
+### Deploy
+```bash
+cargo publish --dry-run       # verify everything passes
+cargo publish                 # publish to crates.io
+```
+
+### Binary Release
+```bash
+cargo build --release
+gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes \
+  "target/release/${BINARY}#${BINARY}-$(uname -s)-$(uname -m)"
+```
+
+### Verify
+```bash
+# Check crate is live
+curl -s "https://crates.io/api/v1/crates/${CRATE}" | grep '"newest_version"'
+
+# Test install from crates.io
+cargo install ${CRATE} --version ${VERSION}
+```
+
+### Common Publish Errors
+- "crate version already uploaded" → bump version in Cargo.toml
+- "not logged in" → `cargo login` with API token from https://crates.io/settings/tokens
+- "missing field: description/license" → add to `[package]` in Cargo.toml
+- "path dependency not on crates.io" → replace `path = "..."` with crates.io version
 
 ---
 

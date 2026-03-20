@@ -59,6 +59,7 @@ npx supabase --version 2>/dev/null && echo "SUPABASE_CLI=yes" || echo "SUPABASE_
 fly version 2>/dev/null && echo "FLY_CLI=yes" || echo "FLY_CLI=no"
 sst version 2>/dev/null && echo "SST_CLI=yes" || echo "SST_CLI=no"
 gh --version 2>/dev/null && echo "GH_CLI=yes" || echo "GH_CLI=no"
+cargo --version 2>/dev/null && echo "CARGO_CLI=yes" || echo "CARGO_CLI=no"
 ```
 
 Record which tools are available. Use them directly when found — do NOT `npx` if CLI is already installed globally.
@@ -68,7 +69,7 @@ Record which tools are available. Use them directly when found — do NOT `npx` 
 - `docs/prd.md` — product requirements, deployment notes
 - `docs/workflow.md` — CI/CD policy (if exists)
 - `package.json` or `pyproject.toml` — dependencies, scripts
-- `fly.toml`, `wrangler.toml`, `sst.config.ts` — platform configs (if exist)
+- `wrangler.toml`, `sst.config.ts`, `vercel.json` — platform configs (if exist)
 - `docs/plan/*/plan.md` — **active plan** (look for deploy-related phases/tasks)
 
 **Plan-driven deploy:** If the active plan contains deploy phases or tasks (e.g. "deploy Python backend to VPS", "run deploy.sh", "set up Docker on server"), treat those as **primary deploy instructions**. The plan knows the project-specific deploy targets that the generic stack YAML may not cover. Execute plan deploy tasks in addition to (or instead of) the standard platform deploy below.
@@ -85,7 +86,7 @@ Read the stack template to get exact deploy configuration:
 3. Search via Glob for `**/stacks/{stack}.yaml` in project or parent directories
 
 Extract these fields from the YAML:
-- `deploy` — target platform(s): `vercel`, `cloudflare_workers`, `cloudflare_pages`, `fly.io`, `docker`, `app_store`, `play_store`, `local`
+- `deploy` — target platform(s): `vercel`, `cloudflare_workers`, `cloudflare_pages`, `docker`, `hetzner`, `app_store`, `play_store`, `local`
 - `deploy_cli` — CLI tools and their use cases (e.g. `vercel (local preview, env vars, promote)`)
 - `infra` — infrastructure tool and tier (e.g. `sst (sst.config.ts) — Tier 1`)
 - `ci_cd` — CI/CD system (e.g. `github_actions`)
@@ -105,8 +106,9 @@ If stack YAML was not found, use this fallback matrix:
 | `nextjs-supabase` / `nextjs-ai-agents` | Vercel + Supabase | Tier 1 |
 | `cloudflare-workers` | Cloudflare Workers (wrangler) | Tier 1 |
 | `astro-static` / `astro-hybrid` | Cloudflare Pages (wrangler) | Tier 1 |
-| `python-api` | Fly.io (quick) or Pulumi + Hetzner (production) | Tier 2/4 |
+| `python-api` | Cloudflare Workers (MVP) or Pulumi + Hetzner (production) | Tier 1/2 |
 | `python-ml` | skip (CLI tool, no hosting needed) | — |
+| `rust-native` | crates.io (library/CLI crate) or binary release (GitHub Releases) | Tier 1 |
 | `ios-swift` | skip (App Store is manual) | — |
 | `kotlin-android` | skip (Play Store is manual) | — |
 
@@ -115,7 +117,7 @@ If `$ARGUMENTS` specifies a platform, use that instead of auto-detection or YAML
 **Auto-deploy platforms** (from YAML `deploy` field or fallback):
 - `vercel` / `cloudflare_pages` — auto-deploy on push. Push to GitHub is sufficient if project is already linked. Only run manual deploy for initial setup.
 - `cloudflare_workers` — `wrangler deploy` needed (no git-based auto-deploy for Workers).
-- `fly.io` — `fly deploy` needed.
+- `docker` / `hetzner` — manual deploy via SSH or Pulumi.
 
 ## Deployment Steps
 
@@ -190,12 +192,6 @@ wrangler secret put VARIABLE_NAME  # interactive prompt for value
 # Or in wrangler.toml [vars] section for non-secret values
 ```
 
-**Fly.io:**
-```bash
-fly secrets set VARIABLE_NAME=value
-fly secrets list
-```
-
 **Do NOT create or modify `.env` files with real secrets.**
 List what's needed, let user set values.
 
@@ -207,10 +203,68 @@ Use the detected platform from pre-flight checks:
 - **Vercel** — `vercel link` → `vercel` (preview) → `vercel --prod`
 - **Cloudflare Workers** — `wrangler deploy`
 - **Cloudflare Pages** — `wrangler pages deploy ./out`
-- **Fly.io** — `fly launch` (first time) → `fly deploy`
 - **SST** — `sst deploy --stage prod`
 
 For auto-deploy platforms (Vercel, CF Pages): `git push origin main` is sufficient if already linked.
+
+### Step 4b. Rust/Crates.io Deploy
+
+**Detect:** `Cargo.toml` exists at project root AND cargo CLI is available.
+
+**Determine deploy target** from Cargo.toml:
+- If `[lib]` section exists or crate is a library → **crates.io publish**
+- If only `[[bin]]` → **binary release** (GitHub Releases)
+- If both → do both (publish crate + attach binary to release)
+
+**Pre-publish checklist:**
+```bash
+# 1. Verify tests + clippy pass
+cargo test
+cargo clippy --all-targets -- -D warnings
+
+# 2. Check Cargo.toml has required fields for crates.io
+grep -E '^(name|version|description|license|repository)' Cargo.toml
+
+# 3. Dry run publish
+cargo publish --dry-run
+```
+
+**Required Cargo.toml fields** for crates.io (fail without them):
+- `name`, `version`, `description`, `license` (or `license-file`), `repository`
+
+If missing fields: add them, commit, then proceed.
+
+**Publish to crates.io:**
+```bash
+# Check if already published at this version
+CRATE_NAME=$(grep '^name' Cargo.toml | head -1 | sed 's/.*= *"//' | sed 's/".*//')
+CRATE_VER=$(grep '^version' Cargo.toml | head -1 | sed 's/.*= *"//' | sed 's/".*//')
+
+# Publish (requires `cargo login` — if not authenticated, note in report and skip)
+cargo publish
+```
+
+**If publish fails:**
+- `already uploaded` → version already exists, bump version in Cargo.toml
+- `not logged in` → note in report: "Run `cargo login` with crates.io API token"
+- `dependency not on crates.io` → check path/git dependencies, replace with crates.io versions
+
+**Binary release (optional, for CLI tools):**
+```bash
+# Build release binary
+cargo build --release
+
+# Create GitHub release with binary attached
+BINARY_NAME=$(grep '^name' Cargo.toml | head -1 | sed 's/.*= *"//' | sed 's/".*//')
+gh release create "v${CRATE_VER}" --title "v${CRATE_VER}" --generate-notes \
+  "target/release/${BINARY_NAME}#${BINARY_NAME}-$(uname -s)-$(uname -m)"
+```
+
+**Verify crate on crates.io:**
+```bash
+# Wait a few seconds for index to update, then check
+curl -s "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VER}" | head -100
+```
 
 ### Step 5. Verify Deployment
 
@@ -280,7 +334,7 @@ If `.solo/states/` directory does not exist, skip the signal tag.
 
 ### CLI not found
 **Cause:** Platform CLI not installed.
-**Fix:** Install the specific CLI: `npm i -g vercel`, `npm i -g wrangler`, `brew install flyctl`, `brew install supabase/tap/supabase`.
+**Fix:** Install the specific CLI: `npm i -g vercel`, `npm i -g wrangler`, `brew install supabase/tap/supabase`.
 
 ### Deploy fails — build error
 **Cause:** Build works locally but fails on platform (different Node version, missing env vars).
@@ -310,9 +364,9 @@ When running in a pipeline (`--print`, no human watching):
 
 1. **NEVER call AskUserQuestion** — responses are lost between iterations, causing infinite retry loops (observed: 5 wasted iterations on OpenWok deploy)
 2. **Make autonomous deploy decisions:**
-   - No deploy CLI installed → install via brew/npm if possible, otherwise create Dockerfile + fly.toml + .dockerignore, push code, mark "Ready for manual deploy"
+   - No deploy CLI installed → install via brew/npm if possible, otherwise create Dockerfile + .dockerignore, push code, mark "Ready for manual deploy"
    - No auth/credentials → create all deploy configs, push to GitHub, write state file with auth instructions, signal done
-   - Multiple platform options → pick based on: stack YAML > Rust/Go → Fly.io, Next.js/React → Vercel, Python → Fly.io, static → Cloudflare Pages
+   - Multiple platform options → pick based on: stack YAML > Next.js/React → Vercel, Python → Cloudflare Workers (MVP) or Hetzner (prod), static → Cloudflare Pages
 3. **Skip over blockers** — browser login, manual approval, missing API keys → note in report, continue
 4. **Always signal completion** — partial deploy (configs created + code pushed) is better than infinite retry. Output `<solo:done/>` even if actual deployment requires manual auth step.
 
@@ -325,5 +379,5 @@ When running in a pipeline (`--print`, no human watching):
 5. **Check build locally first** — `pnpm build` / `uv build` (or equivalent) before deploying.
 6. **Check production logs** — always tail logs after deploy, catch runtime errors before declaring success.
 7. **Report all URLs** — deployment URL + platform dashboard links.
-8. **Infrastructure in repo** — prefer `sst.config.ts` or `fly.toml` over manual dashboard config.
+8. **Infrastructure in repo** — prefer `sst.config.ts` or `wrangler.toml` over manual dashboard config.
 9. **Verify before claiming done** — HTTP 200 from the live URL + clean logs, not just "deploy command succeeded".
