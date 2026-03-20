@@ -215,13 +215,13 @@ run_plan_retro() {
 
   log_entry "RETRO" "Retro complete — see $RETRO_LOG"
 
-  # Codex factory critique (second critic)
-  if command -v codex &>/dev/null; then
-    log_entry "RETRO" "Running Codex factory critique..."
-    "$SCRIPT_DIR/solo-codex.sh" "$PROJECT_NAME" --factory 2>&1 \
-      | tee "$CODEX_LOG" || true
-    log_entry "RETRO" "Codex factory critique complete"
-  fi
+  # Codex factory critique (disabled — use Claude retro instead)
+  # if command -v codex &>/dev/null; then
+  #   log_entry "RETRO" "Running Codex factory critique..."
+  #   "$SCRIPT_DIR/solo-codex.sh" "$PROJECT_NAME" --factory 2>&1 \
+  #     | tee "$CODEX_LOG" || true
+  #   log_entry "RETRO" "Codex factory critique complete"
+  # fi
 }
 
 # --- Archive all active plans to plan-done ---
@@ -506,6 +506,7 @@ fi
 # --- Circuit breaker: track consecutive identical failures ---
 CONSECUTIVE_FAILS=0
 LAST_FAIL_FINGERPRINT=""
+CONSECUTIVE_ASK=0
 CIRCUIT_BREAKER_LIMIT=3
 
 # --- Redo cycle counter: limit review→build loops per plan ---
@@ -674,7 +675,14 @@ $(cat "$MSG_FILE")
 This is stage $STAGE_NUM/$TOTAL_STAGES ($STAGE_ID) of the dev pipeline (project: $PROJECT_NAME).
 Use git log/diff actively for context — commit history is the source of truth for what was built, changed, and deployed.
 When done with this stage, output exactly: <solo:done/>
-If the stage needs to go back (e.g. review found issues), output exactly: <solo:redo/>"
+If the stage needs to go back (e.g. review found issues), output exactly: <solo:redo/>
+
+CRITICAL PIPELINE RULES:
+- Do NOT use AskUserQuestion — this is autonomous mode, no human is watching. Make decisions yourself.
+- If you need to choose between options (e.g. crate name, config value) — pick the best one and proceed.
+- If something requires credentials/auth you don't have — skip it and note in progress, do NOT block.
+- Every build iteration MUST produce new code commits. If no code was written, do NOT output <solo:done/>.
+- Review: only <solo:redo/> for CRITICAL issues (build fails, tests fail, security). MINOR issues (typos, style) → fix inline, don't redo."
 
   # cd to project dir for stages that operate on the project (not scaffold)
   CLAUDE_CWD="$(pwd)"
@@ -777,7 +785,7 @@ PROGRESSEOF
   log_entry "ITER" "saved iter-$(printf '%03d' $ITERATION)-${STAGE_ID}.log | commit: $COMMIT_SHA | result: $STAGE_RESULT"
 
   # --- Circuit breaker: abort after N consecutive identical failures ---
-  if ! check_circuit_breaker "$STAGE_ID" "$OUTFILE" "$STAGE_RESULT"; then
+  if ! check_circuit_breaker "$STAGE_ID" "$OUTFILE" "$STAGE_RESULT" "$CHECK"; then
     rm -f "$OUTFILE"
     break
   fi

@@ -130,14 +130,37 @@ handle_signals() {
 
 # --- Circuit breaker ---
 # Tracks consecutive identical failures by fingerprint (stage + last 5 lines md5).
-# Uses: CONSECUTIVE_FAILS, LAST_FAIL_FINGERPRINT, CIRCUIT_BREAKER_LIMIT
+# Also detects AskUserQuestion loops (wording variations evade fingerprint).
+# Uses: CONSECUTIVE_FAILS, LAST_FAIL_FINGERPRINT, CIRCUIT_BREAKER_LIMIT, CONSECUTIVE_ASK
+# Args: STAGE_ID OUTFILE STAGE_RESULT [CHECK_FILE]
 # Returns: 0 ok, 1 circuit breaker triggered
 check_circuit_breaker() {
   local STAGE_ID="$1"
   local OUTFILE="$2"
   local STAGE_RESULT="$3"
+  local CHECK_FILE="${4:-}"
 
   if [[ "$STAGE_RESULT" == "continuing" ]]; then
+    # --- AskUserQuestion detection (catches wording variations that evade fingerprint) ---
+    local ASK_COUNT
+    ASK_COUNT=$(grep -c "AskUserQuestion" "$OUTFILE" 2>/dev/null || echo "0")
+    if [[ "$ASK_COUNT" -gt 0 ]]; then
+      CONSECUTIVE_ASK=$((CONSECUTIVE_ASK + 1))
+      log_entry "CIRCUIT" "AskUserQuestion detected in stage '$STAGE_ID' ($CONSECUTIVE_ASK consecutive)"
+      if [[ $CONSECUTIVE_ASK -ge $CIRCUIT_BREAKER_LIMIT ]]; then
+        log_entry "CIRCUIT" "AskUserQuestion loop ($CONSECUTIVE_ASK iters) — forcing stage '$STAGE_ID' complete"
+        if [[ -n "$CHECK_FILE" ]] && [[ "$CHECK_FILE" != *"*"* ]] && [[ ! -f "$CHECK_FILE" ]]; then
+          mkdir -p "$(dirname "$CHECK_FILE")"
+          echo "Aborted: AskUserQuestion loop ($(date -u +%Y-%m-%dT%H:%M:%SZ))" > "$CHECK_FILE"
+        fi
+        CONSECUTIVE_ASK=0
+        return 0  # marker created, loop will advance to next stage
+      fi
+    else
+      CONSECUTIVE_ASK=0
+    fi
+
+    # --- Fingerprint-based detection (original) ---
     local FAIL_FP
     FAIL_FP="${STAGE_ID}:$(grep -v '^$' "$OUTFILE" 2>/dev/null | tail -5 | md5sum 2>/dev/null | cut -c1-8 || echo "nofp")"
     if [[ "$FAIL_FP" == "$LAST_FAIL_FINGERPRINT" ]]; then
@@ -153,6 +176,7 @@ check_circuit_breaker() {
   else
     CONSECUTIVE_FAILS=0
     LAST_FAIL_FINGERPRINT=""
+    CONSECUTIVE_ASK=0
   fi
   return 0
 }

@@ -304,6 +304,18 @@ Before reporting "deployment successful":
 
 Never say "deployment should be live" — verify it IS live.
 
+## Pipeline / Autonomous Mode
+
+When running in a pipeline (`--print`, no human watching):
+
+1. **NEVER call AskUserQuestion** — responses are lost between iterations, causing infinite retry loops (observed: 5 wasted iterations on OpenWok deploy)
+2. **Make autonomous deploy decisions:**
+   - No deploy CLI installed → install via brew/npm if possible, otherwise create Dockerfile + fly.toml + .dockerignore, push code, mark "Ready for manual deploy"
+   - No auth/credentials → create all deploy configs, push to GitHub, write state file with auth instructions, signal done
+   - Multiple platform options → pick based on: stack YAML > Rust/Go → Fly.io, Next.js/React → Vercel, Python → Fly.io, static → Cloudflare Pages
+3. **Skip over blockers** — browser login, manual approval, missing API keys → note in report, continue
+4. **Always signal completion** — partial deploy (configs created + code pushed) is better than infinite retry. Output `<solo:done/>` even if actual deployment requires manual auth step.
+
 ## Critical Rules
 
 1. **Use installed CLIs** — detect `vercel`, `wrangler`, `supabase`, `fly`, `sst` before falling back to `npx`.
