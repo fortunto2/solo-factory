@@ -58,6 +58,18 @@ BUILD_CHECK="$STATES_DIR/build"
 DEPLOY_CHECK="$STATES_DIR/deploy"
 REVIEW_CHECK="$STATES_DIR/review"
 
+# --- Cleanup on abnormal exit (SIGINT/SIGTERM/error) ---
+# Removes stale state markers so next run doesn't skip stages
+PIPELINE_CLEAN_EXIT=false
+cleanup_on_exit() {
+  if [[ "$PIPELINE_CLEAN_EXIT" != "true" ]]; then
+    rm -f "$STATES_DIR/build" "$STATES_DIR/deploy" "$STATES_DIR/review" 2>/dev/null
+    echo "[ABORT] Cleaned stale state markers" >&2
+  fi
+  rm -f "$STATE_FILE" 2>/dev/null
+}
+trap cleanup_on_exit EXIT
+
 # --- Pipeline control files (in project dir) ---
 CONTROL_FILE="$ACTIVE_DIR/.solo/pipelines/control"
 MSG_FILE="$ACTIVE_DIR/.solo/pipelines/messages"
@@ -860,6 +872,7 @@ for i in "${!STAGE_IDS[@]}"; do
 done
 
 if [[ "$ALL_COMPLETE" == "true" ]]; then
+  PIPELINE_CLEAN_EXIT=true
   echo ""
   # Count completed plans
   DONE_COUNT=0
@@ -982,5 +995,4 @@ Read $(basename "$LATEST_RETRO") for retro recommendations."
   fi
 fi
 
-# Cleanup state file
-rm -f "$STATE_FILE"
+# Note: STATE_FILE cleanup handled by cleanup_on_exit trap
