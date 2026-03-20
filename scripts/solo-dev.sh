@@ -525,6 +525,8 @@ for ITERATION in $(seq 1 "$MAX_ITERATIONS"); do
 
   # --- Global timeout ---
   if check_timeout; then
+    # Clean state markers so next run starts fresh (not falsely "done")
+    rm -f "$STATES_DIR/build" "$STATES_DIR/deploy" "$STATES_DIR/review"
     break
   fi
 
@@ -682,7 +684,8 @@ CRITICAL PIPELINE RULES:
 - If you need to choose between options (e.g. crate name, config value) — pick the best one and proceed.
 - If something requires credentials/auth you don't have — skip it and note in progress, do NOT block.
 - Every build iteration MUST produce new code commits. If no code was written, do NOT output <solo:done/>.
-- Review: only <solo:redo/> for CRITICAL issues (build fails, tests fail, security). MINOR issues (typos, style) → fix inline, don't redo."
+- Review: only <solo:redo/> for CRITICAL issues (build fails, tests fail, security). MINOR issues (typos, style) → fix inline, don't redo.
+- Output <solo:done/> or <solo:redo/> exactly ONCE at the very end of your response. Never repeat it."
 
   # cd to project dir for stages that operate on the project (not scaffold)
   CLAUDE_CWD="$(pwd)"
@@ -931,6 +934,18 @@ Read $(basename "$LATEST_RETRO") for retro recommendations."
 
       # Check if a new plan was created → restart build->review cycle
       NEW_PLAN=$(find "$PLAN_CHECK" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | head -1)
+      if [[ -n "$NEW_PLAN" ]]; then
+        # Skip if all tasks in plan are already checked (prevents re-run loop)
+        NEW_PLAN_FILE="$NEW_PLAN/plan.md"
+        if [[ -f "$NEW_PLAN_FILE" ]]; then
+          UNCHECKED=$(grep -c '\- \[ \]\|\- \[~\]' "$NEW_PLAN_FILE" 2>/dev/null || echo "0")
+          if [[ "$UNCHECKED" -eq 0 ]]; then
+            log_entry "POST" "Plan $(basename "$NEW_PLAN") has 0 unchecked tasks — skipping (already done)"
+            archive_active_plans
+            NEW_PLAN=""
+          fi
+        fi
+      fi
       if [[ -n "$NEW_PLAN" ]]; then
         # Check global timeout before re-exec
         ELAPSED=$(( $(date +%s) - STARTED_EPOCH ))

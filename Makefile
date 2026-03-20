@@ -47,11 +47,16 @@ publish-all: plugin-publish clawhub-publish-all ## Publish to ALL registries (Cl
 evolve: ## Show evolution log (factory defects from retros + codex critiques)
 	@cat ~/.solo/evolution.md 2>/dev/null || echo "No evolution log yet. Run a pipeline with retro to generate."
 
-evolve-apply: ## Apply evolution fixes to solo-factory (interactive)
-	@echo "Defects in ~/.solo/evolution.md:"
-	@grep -c "^DEFECT:" ~/.solo/evolution.md 2>/dev/null || echo "0"
-	@echo ""
-	@echo "Run: claude -p '/solo:plan Apply factory defects from ~/.solo/evolution.md to solo-factory skills and scripts'"
+evolve-apply: ## Apply evolution fixes to solo-factory (interactive Claude session)
+	@UNFIXED=$$(grep -c "DEFECT:.*[^F]$$" ~/.solo/evolution.md 2>/dev/null | grep -v "FIXED" || echo "0"); \
+	echo "Unfixed defects: $$UNFIXED"; \
+	echo ""; \
+	cd $(SOLO_FACTORY) && claude --dangerously-skip-permissions -p "Read ~/.solo/evolution.md. Find all DEFECT entries NOT marked FIXED. For each: apply the fix described, test it works, mark as FIXED in evolution.md. Focus on skills/ and scripts/ files. Run make test after each fix. Commit each fix separately."
+
+evolve-auto: ## Auto-apply evolution fixes (non-interactive, bighead-style)
+	@cd $(SOLO_FACTORY) && claude --dangerously-skip-permissions --print -p \
+		"Read ~/.solo/evolution.md. Apply ALL unfixed DEFECT entries to solo-factory. For each: 1) apply fix 2) run make test 3) mark FIXED in evolution.md 4) git commit. Output <solo:done/> when all fixed." \
+		2>&1 | tail -20
 
 test: ## Run all tests (BATS + trigger validation)
 	@bats tests/
