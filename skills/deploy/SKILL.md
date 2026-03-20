@@ -74,6 +74,47 @@ Record which tools are available. Use them directly when found — do NOT `npx` 
 
 **Plan-driven deploy:** If the active plan contains deploy phases or tasks (e.g. "deploy Python backend to VPS", "run deploy.sh", "set up Docker on server"), treat those as **primary deploy instructions**. The plan knows the project-specific deploy targets that the generic stack YAML may not cover. Execute plan deploy tasks in addition to (or instead of) the standard platform deploy below.
 
+### 3b. Detect project type
+
+Classify the project to select the right deploy strategy:
+
+| Signal | Project Type | Deploy Target |
+|--------|-------------|---------------|
+| `package.json` + `next.config.*` | web (Next.js) | Vercel / CF Pages |
+| `wrangler.toml` | web (Workers) | Cloudflare Workers |
+| `Cargo.toml` + `[lib]` only | library (Rust crate) | crates.io |
+| `Cargo.toml` + `[[bin]]` only | CLI/TUI tool | crates.io + GitHub Releases |
+| `Cargo.toml` + `[[bin]]` + `[lib]` | library + CLI | crates.io + GitHub Releases |
+| `pyproject.toml` + `[project.scripts]` | CLI (Python) | PyPI |
+| `pyproject.toml` (no scripts, no web) | library (Python) | PyPI |
+| `*.xcodeproj` | iOS app | App Store (manual) |
+
+**For CLI/TUI/library projects:** skip web deploy steps (Vercel, CF, etc.) — go directly to package registry deploy (crates.io, PyPI, npm).
+
+### 3c. Cross-compile compatibility check (Rust/native projects)
+
+**When:** `Cargo.toml` exists AND CI/CD will build on a different architecture (e.g., GitHub Actions x86_64 vs local Apple Silicon).
+
+```bash
+# Check for native/system dependencies that may fail cross-compile
+grep -r 'links\s*=' Cargo.toml 2>/dev/null         # C library bindings
+grep -r 'build\s*=' Cargo.toml 2>/dev/null          # build.rs (may compile C code)
+grep -rn 'sys' Cargo.toml 2>/dev/null | grep -v '#' # *-sys crates (native bindings)
+```
+
+**Known cross-compile risks:**
+- `ort-sys` / `onnxruntime-sys` — no prebuilt binaries for all targets, requires local build
+- `ffmpeg-sys` / `ffmpeg-next` — needs FFmpeg installed on CI runner
+- `openssl-sys` — use `rustls` instead for pure-Rust TLS
+- Any `*-sys` crate — check if prebuilt binaries exist for CI target architecture
+
+**If risky deps found:**
+1. Check if CI matrix includes the required target (`.github/workflows/*.yml`)
+2. Recommend adding cross-compile toolchain to CI, OR
+3. Recommend replacing native dep with pure-Rust alternative, OR
+4. Add the dep to CI install step: `apt-get install` / `brew install`
+5. Report in deploy summary which deps may block CI
+
 ### 4. Read stack template YAML
 
 Extract the **stack name** from `CLAUDE.md` (look for `stack:` field or tech stack section).

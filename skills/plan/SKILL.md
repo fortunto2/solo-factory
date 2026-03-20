@@ -267,6 +267,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    - Phases are independently verifiable.
    - Total: 5-15 tasks (not 70).
    - **Last phase is always "Docs & Cleanup"**.
+   - **Criteria-task coverage:** every acceptance criterion in spec.md MUST map to at least one task in plan.md. After generating both files, cross-check: list each criterion and verify a task addresses it. If a criterion has no corresponding task — add one. Uncovered criteria are the #1 cause of "plan complete but spec not met" failures.
    - **Harness-aware:** if the task introduces new patterns, include a task to update lint rules or CLAUDE.md constraints. If it touches module boundaries, include verification of dependency direction. Think: "what harness change prevents future agents from breaking this?"
 
 10. **Create progress task list** for pipeline visibility:

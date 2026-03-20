@@ -965,6 +965,10 @@ Read $(basename "$LATEST_RETRO") for retro recommendations."
         if [[ $ELAPSED -ge $MAX_SECONDS ]]; then
           ELAPSED_H=$(( ELAPSED / 3600 ))
           log_entry "TIMEOUT" "Global timeout (${ELAPSED_H}h/${MAX_HOURS}h) — skipping re-exec"
+          # Clean state markers so next run picks up the new plan (not stale previous cycle)
+          rm -f "$STATES_DIR/build" "$STATES_DIR/deploy" "$STATES_DIR/review"
+          PIPELINE_CLEAN_EXIT=false
+          log_entry "TIMEOUT" "State markers cleaned — next run will execute $(basename "$NEW_PLAN")"
         else
         NEW_PLAN_NAME=$(basename "$NEW_PLAN")
         log_entry "POST" "New plan created: $NEW_PLAN_NAME — restarting build→deploy→review"
