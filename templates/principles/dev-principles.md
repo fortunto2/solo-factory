@@ -303,15 +303,15 @@ await resend.emails.send({
 | Project Type | Tool | Providers |
 |-------------|------|-----------|
 | **Web / Serverless** (Next.js, Astro, CF Workers) | **SST** (`sst.config.ts`) | Cloudflare Pages/Workers, AWS Lambda |
-| **Python backends / VPS / Docker** | **Pulumi** (Python, `infra/__main__.py`) | Hetzner VPS, AWS, Fly.io |
-| **MVP / prototype** | **Fly.io** (`fly.toml`) | Fly.io |
+| **Python backends / VPS / Docker** | **Pulumi** (Python, `infra/__main__.py`) | Hetzner VPS, AWS |
+| **MVP / prototype** | **Cloudflare Workers** or **SST** | Cloudflare Pages/Workers |
 | **Mobile** | Native stores | App Store, Play Store |
 
 ### Principles
 
 - **Serverless by default.** VPS only for persistent process, GPU, or when serverless is more expensive
 - **Infrastructure in the repo.** `sst.config.ts` or `infra/` — no external playbooks
-- **Provider per task.** Cloudflare for edge, Hetzner for cheap VPS, Fly.io for quick launch
+- **Provider per task.** Cloudflare for edge + MVP, Hetzner for cheap VPS (Fly.io only if Docker-in-cloud needed)
 
 ### CI/CD — GitHub Actions Everywhere
 

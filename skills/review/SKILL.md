@@ -231,9 +231,9 @@ wrangler tail --format=pretty 2>&1 | head -50
 ```
 Look for: uncaught exceptions, D1 errors, R2 access failures.
 
-**Fly.io (Python API):**
+**Docker/Hetzner (Python API):**
 ```bash
-fly logs --app {name} 2>&1 | tail -50
+ssh user@host 'docker logs {container} --tail=50'
 ```
 Look for: `ERROR`, `CRITICAL`, OOM, connection refused, unhealthy instances.
 
@@ -523,7 +523,7 @@ Date: {YYYY-MM-DD}
 - Status: {COMPLETE / IN PROGRESS}
 
 ### Production Logs
-- Platform: {Vercel / Cloudflare / Fly.io / N/A}
+- Platform: {Vercel / Cloudflare / Hetzner / N/A}
 - Errors: {N} | Warnings: {N}
 - Status: {CLEAN / WARN / ERRORS / N/A}
 

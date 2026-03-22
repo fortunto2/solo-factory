@@ -99,7 +99,7 @@ Header: "Infrastructure"
 multiSelect: false
 Options:
 - "Serverless-first (Recommended)" — "Vercel/Cloudflare/Lambda. VPS only for persistent processes or GPU"
-- "VPS / Docker" — "Hetzner/Fly.io/DigitalOcean. Full control, predictable costs"
+- "VPS / Docker" — "Hetzner/DigitalOcean. Full control, predictable costs"
 - "Platform-managed" — "Railway/Render/Heroku. Zero DevOps, higher cost"
 - "Self-hosted" — "Own hardware or dedicated servers. Maximum control"
 

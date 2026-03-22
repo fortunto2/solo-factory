@@ -26,13 +26,12 @@ key_packages:
   - ty (type-checker, Astral — extremely fast, replaces mypy)
   - pytest + pytest-asyncio (testing)
   - hypothesis (property-based testing for schemas/edge cases)
-deploy: docker | fly.io | hetzner
-infra: pulumi (Python, infra/__main__.py) — Tier 2, or fly.io for MVP (Tier 4)
+deploy: docker | cloudflare_workers | hetzner
+infra: pulumi (Python, infra/__main__.py) — Tier 2, or Cloudflare Workers for MVP (Tier 1)
 ci_cd: github_actions
 monitoring: posthog (analytics + errors, EU hosting)
 logs:
-  fly: "fly logs --app {name} 2>&1 | tail -50"
-  fly_status: "fly status --app {name}"
+  wrangler: "wrangler tail --format=pretty 2>&1 | head -50"
   docker: "docker logs {container} --tail=50"
   posthog: "PostHog dashboard → Error tracking"
   local_build: "uv run uvicorn src.{name}.main:app --port 8000 2>&1 | head -20"
