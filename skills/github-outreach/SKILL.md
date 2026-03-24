@@ -7,7 +7,7 @@ metadata:
   version: "1.0.0"
   openclaw:
     emoji: "🎯"
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion, WebSearch, WebFetch, Agent, mcp__solograph__web_search, mcp__solograph__project_info, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion, WebSearch, WebFetch, mcp__solograph__web_search, mcp__solograph__project_info
 argument-hint: "<command> — commands: setup, enrich, evaluate, draft, status, next"
 ---
 
@@ -16,6 +16,16 @@ argument-hint: "<command> — commands: setup, enrich, evaluate, draft, status, 
 Competitive outreach pipeline. Scan a competitor's dependents, evaluate which repos would benefit from switching to your library, and draft personalized GitHub issues.
 
 Works with any crate/package — not specific to any product.
+
+## Scripts
+
+Use these instead of reimplementing from scratch:
+
+- `scripts/init_jsonl.py <repos.txt> <out.jsonl>` — convert repo list to JSONL
+- `scripts/enrich.py <jsonl> [--batch 30]` — add stars/description via `gh api`, skip forks/archived
+- `scripts/evaluate.py <jsonl> <owner/repo>` — deep-evaluate a repo (README + Cargo.toml + feature detection)
+- `scripts/evaluate.py <jsonl> --next` — pick next highest-star enriched repo
+- `scripts/status.py <jsonl> [--targets] [--csv]` — show pipeline status table
 
 ## Data Format
 
