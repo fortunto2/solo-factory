@@ -47,7 +47,7 @@ key_packages:
   - "drizzle-orm + drizzle-kit (ORM, migrations)"
   - react-hook-form
   - "shadcn (CLI) + radix-ui"
-  - react-email + resend (email)
+  - "react-email + resend (email) | emailmd (lightweight markdown-to-email alternative)"
   - recharts (charts)
   - tailwindcss
   - eslint + typescript-eslint + prettier (code quality)

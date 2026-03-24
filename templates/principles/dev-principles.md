@@ -279,15 +279,9 @@ await resend.emails.send({
 - Events: `email.sent`, `email.delivered`, `email.bounced`, `email.complained`
 - Verify signature via `svix` (Resend uses Svix)
 
-**Lightweight alternative: emailmd** ([emailmd.dev](https://www.emailmd.dev/))
-- `npm install emailmd` — Markdown to responsive email HTML
-- Write `.md` with YAML frontmatter + `:::` containers, get email-safe HTML
-- Use when react-email is overkill (simple transactional emails, newsletters)
-- Still send via Resend: `resend.emails.send({ html: emailmd.render(md) })`
-
 **Rules:**
 - One domain per Resend — verify DNS (DKIM, SPF, DMARC)
-- React Email for complex templates (JSX components), emailmd for simple ones
+- React Email for templates (JSX → HTML), not raw HTML
 - `text` auto-generated from HTML, no need to set explicitly
 - Dev: Resend provides test domain `onboarding@resend.dev`
 
