@@ -1,6 +1,6 @@
 ---
 name: solo-reddit
-description: Reddit engagement skill — find posts to comment on, draft authentic comments, write posts, track activity and karma growth. Uses Playwright MCP for browsing and posting. Use when user says "reddit comment", "reddit post", "engage reddit", "build karma", "reddit outreach", "find reddit threads", or "post to reddit". Do NOT use for finding threads only (use /community-outreach) or generating social copy (use /content-gen).
+description: Reddit engagement — find posts, draft comments, write posts, track karma. Use when "reddit comment", "engage reddit", "build karma", "post to reddit". NOT for thread discovery (/community-outreach) or social copy (/content-gen).
 license: MIT
 metadata:
   author: fortunto2
@@ -48,6 +48,13 @@ Reddit engagement automation — from finding relevant posts to writing authenti
 - `project_info(name)` — get project details
 
 If MCP tools not available, use WebSearch/WebFetch as fallback.
+
+### Scripts (no MCP needed)
+- `scripts/check-karma.sh <username>` — check karma, account age, posting readiness
+- `scripts/search-posts.sh <subreddit> [query] [sort]` — find posts via Reddit JSON API
+- `scripts/check-post.sh <url>` — read post content + top comments
+
+Use scripts first (faster, no Playwright needed). Fall back to Playwright for posting.
 
 ## Setup
 
@@ -223,10 +230,26 @@ Create a Reddit post for a specific subreddit.
 Efficient mode: find 3 posts + write 3 comments in one session.
 
 1. Load profile and tracking.
-2. Run **Find Posts** for target subreddit.
-3. For top 3 posts, run **Comment** flow sequentially.
-4. Wait 5-10 minutes between comments (rate limiting).
-5. Summary: 3 comments posted, karma status.
+2. Run `scripts/check-karma.sh` to verify account status.
+3. Run `scripts/search-posts.sh` for target subreddit.
+4. For top 3 candidates, run **Comment** flow sequentially.
+5. Wait 5-10 minutes between comments (rate limiting).
+6. Write structured summary to `docs/reddit/batch-{date}.json`:
+
+```json
+{
+  "date": "2026-03-25",
+  "subreddit": "r/ClaudeAI",
+  "comments_posted": 3,
+  "posts": [
+    {"url": "...", "title": "...", "angle": "...", "product_mentioned": false}
+  ],
+  "karma_before": 37,
+  "karma_after": null
+}
+```
+
+7. Print human summary: 3 comments posted, links, karma status.
 
 ## Status
 
