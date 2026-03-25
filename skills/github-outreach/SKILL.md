@@ -153,6 +153,14 @@ gh api repos/{owner}/{repo}/contents/Cargo.toml --jq '.content' | base64 -d
 
 Which features do they use? What else is in their dependency tree?
 
+### Step 3b: Check if they forked the competitor
+If Cargo.toml references the competitor via `git = "..."` (not crates.io), they forked it — this is a HIGH SIGNAL:
+```bash
+# Find their fork
+gh api repos/{fork_owner}/{competitor_name}/commits --jq '.[0:5] | .[] | "\(.sha[0:7]) \(.commit.message | split("\n")[0])"'
+```
+Compare their fork commits against upstream. If they added a feature we already have (e.g. schemars for structured outputs), that's our strongest pitch: "you can drop the fork and use us — we have that built-in." Record exactly what they added in `notes`.
+
 ### Step 4: Grep for usage patterns (optional, for top targets)
 If stars >50, clone shallow and grep:
 ```bash
@@ -255,3 +263,4 @@ Evaluate next N repos efficiently.
 3. **README doesn't show actual usage** — a repo may list async-openai in Cargo.toml but barely use it. Always check Cargo.toml features and grep source.
 4. **Stale dependents** — GitHub's dependency graph is delayed. Some repos may have already switched away. Check Cargo.lock if available.
 5. **Issue tone matters enormously** — "I noticed you use X, have you tried Y?" works. "X is slow, switch to Y" does not. See `references/issue-templates.md`.
+6. **Competitor forks are the strongest signal** — if a repo uses `git = "..."` instead of crates.io, they forked the competitor because it's missing something. Check the fork diff (usually 1-3 commits). If they added a feature we already have, that's our #1 pitch — "drop your fork, we have it built-in." Example: fastrepl/char forked async-openai to add schemars → our `structured` feature does exactly that.
