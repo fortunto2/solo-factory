@@ -183,7 +183,10 @@ Read `docs/plan/*/spec.md` and check each acceptance criterion:
 For each `- [ ]` criterion in spec.md:
 1. Search codebase for evidence it was implemented.
 2. Check if related tests exist.
-3. Mark as verified or flag as missing.
+3. **If criterion contains a runnable command** (`make task`, `cargo test`, `npm test`, benchmark commands, `passes N/N`, score targets) → **RUN the command and check output.** Do NOT mark as "unverifiable from code" — run it.
+4. Mark as verified (with evidence) or flag as FAILED (with output).
+
+**CRITICAL: Acceptance criteria with commands MUST be executed.** "Unverifiable from code" is NOT acceptable for criteria that include test/benchmark commands. Run them. If they fail → FIX FIRST verdict, not SHIP.
 
 **Update spec.md checkboxes.** After verifying each criterion, use Edit tool to change `- [ ]` to `- [x]` in spec.md. Leaving verified criteria unchecked causes staleness across pipeline runs — check them off as you go.
 
@@ -192,6 +195,8 @@ Acceptance Criteria:
   - [x] User can sign up with email — found in app/auth/signup/page.tsx + test
   - [x] Dashboard shows project list — found in app/dashboard/page.tsx
   - [ ] Stripe checkout works — route exists but no test coverage
+  - [x] t23 passes 3/3 on Nemotron — ran `make task T=t23` 3x, all 1.00
+  - [ ] t23 passes 3/3 on GPT-5.4 — ran `make task T=t23 PROVIDER=openai-full` 3x, got 0/3 → FAIL
 ```
 
 After updating checkboxes, commit: `git add docs/plan/*/spec.md && git commit -m "docs: update spec checkboxes (verified by review)"`
@@ -576,8 +581,8 @@ Date: {YYYY-MM-DD}
 ```
 
 **Verdict logic:**
-- **SHIP**: All tests pass, no security issues, acceptance criteria met, build succeeds, production logs clean, docs current, commits atomic, no critical visual issues, no unmitigated Tiger risks
-- **FIX FIRST**: Minor issues (warnings, partial criteria, low-severity vulns, intermittent log errors, stale docs, non-conventional commits, minor SOLID violations, minor visual issues, Tiger risks with feasible mitigations) — list what to fix
+- **SHIP**: All tests pass, no security issues, **ALL acceptance criteria verified (not PARTIAL)**, build succeeds, production logs clean, docs current, commits atomic, no critical visual issues, no unmitigated Tiger risks
+- **FIX FIRST**: Minor issues, **PARTIAL acceptance criteria (any criterion FAILED or unverified)**, warnings, low-severity vulns, intermittent log errors, stale docs, non-conventional commits, minor SOLID violations, minor visual issues, Tiger risks with feasible mitigations — list what to fix. **PARTIAL acceptance = always FIX FIRST, never SHIP.**
 - **BLOCK**: Failing tests, security vulnerabilities, missing critical features, production crashes in logs, missing CLAUDE.md/README.md, critical architecture violations, app crashes on launch, unmitigated Tiger risks with high impact — do not ship
 
 ## Post-Verdict: CLAUDE.md Revision
