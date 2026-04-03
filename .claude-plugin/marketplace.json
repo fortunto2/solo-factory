@@ -10,7 +10,7 @@
       "name": "solo",
       "source": "./",
       "description": "30 skills, 3 agents for AI-driven startup creation",
-      "version": "1.22.0",
+      "version": "1.23.0",
       "author": {
         "name": "Rustam Salavatov",
         "url": "https://github.com/fortunto2"
