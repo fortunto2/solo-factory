@@ -1,6 +1,6 @@
 ---
 name: solo-stream
-description: Interactive decision-making wizard using STREAM 6-layer framework for founders facing high-stakes choices. Use when user says "help me decide", "should I do this", "evaluate decision", "STREAM analysis", "run decision framework", or "pros and cons". Do NOT use for idea validation with PRD (use /validate).
+description: Use when "help me decide", "should I do this", "evaluate decision", "STREAM analysis", "run decision framework", "pros and cons", or facing a high-stakes founder choice. Do NOT use for idea validation with PRD (/validate).
 license: MIT
 metadata:
   author: fortunto2

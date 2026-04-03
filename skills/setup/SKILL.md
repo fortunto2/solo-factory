@@ -1,6 +1,6 @@
 ---
 name: solo-setup
-description: Auto-generate project workflow config (docs/workflow.md) from existing PRD and CLAUDE.md with zero questions. Use when user says "set up workflow", "configure TDD", "wire up dev workflow", or after running /scaffold before /plan. Do NOT use for founder setup (use /init) or project scaffolding (use /scaffold).
+description: Use when "set up workflow", "configure TDD", "wire up dev workflow", or after /scaffold before /plan to generate workflow config. Do NOT use for founder setup (/init) or scaffolding (/scaffold).
 license: MIT
 metadata:
   author: fortunto2

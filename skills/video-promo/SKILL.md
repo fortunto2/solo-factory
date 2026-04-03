@@ -1,6 +1,6 @@
 ---
 name: solo-video-promo
-description: Generate promo video plan with 30-45s script, shot-by-shot storyboard, and optional Remotion/Montage-tool config. Use when user says "create video", "promo video", "video script", "storyboard", "demo video", or "product video plan". Do NOT use for social media text posts (use /content-gen) or landing page copy (use /landing-gen).
+description: Use when "create video", "promo video", "video script", "storyboard", "demo video", "product video plan", or need video marketing material. Do NOT use for social media text posts (/content-gen) or landing page copy (/landing-gen).
 license: MIT
 metadata:
   author: fortunto2

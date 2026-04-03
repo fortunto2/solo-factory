@@ -1,6 +1,6 @@
 ---
 name: solo-metrics-track
-description: Set up PostHog metrics plan with event funnel, KPI benchmarks, and kill/iterate/scale decision thresholds. Use when user says "set up metrics", "track KPIs", "PostHog events", "funnel analysis", "when to kill or scale", or "success metrics". Do NOT use for SEO metrics (use /seo-audit).
+description: Use when "set up metrics", "track KPIs", "PostHog events", "funnel analysis", "when to kill or scale", "success metrics", or need analytics plan. Do NOT use for SEO metrics (/seo-audit).
 license: MIT
 metadata:
   author: fortunto2

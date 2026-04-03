@@ -1,6 +1,6 @@
 ---
 name: solo-factory
-description: Install the full Solo Factory toolkit — 23 startup skills + solograph MCP server for code intelligence, KB search, and web search. Use when user says "install solo factory", "set up solo", "install all solo skills", "startup toolkit", or "solo factory setup". This is the one-command entry point for the entire startup pipeline.
+description: Use when "install solo factory", "set up solo", "install all solo skills", "startup toolkit", "solo factory setup", or first-time installation of the startup pipeline.
 license: MIT
 metadata:
   author: fortunto2

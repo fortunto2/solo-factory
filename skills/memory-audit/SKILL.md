@@ -1,6 +1,6 @@
 ---
 name: solo-memory-audit
-description: Audit Claude Code memory hierarchy — CLAUDE.md files, rules, auto-memory, imports. Shows tree of loaded files, char counts, and optimization hints (large files, duplicates, unconditional rules). Use when user says "audit memory", "check CLAUDE.md", "memory map", "rules audit", "context budget", or "what loads in my session".
+description: Use when "audit memory", "check CLAUDE.md", "memory map", "rules audit", "context budget", "what loads in my session", or need to optimize agent context loading.
 license: MIT
 metadata:
   author: fortunto2

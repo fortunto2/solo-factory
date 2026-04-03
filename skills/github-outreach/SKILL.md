@@ -1,6 +1,6 @@
 ---
 name: solo-github-outreach
-description: GitHub outreach — scan competitor dependents, evaluate repos, draft personalized issues/PRs. Use when "github outreach", "competitor dependents", "dependents scan", "propose our lib". NOT for Reddit (/reddit) or social copy (/content-gen).
+description: Use when "github outreach", "competitor dependents", "dependents scan", "propose our lib", or targeting users of competitor libraries. NOT for Reddit (/reddit) or social copy (/content-gen).
 license: MIT
 metadata:
   author: fortunto2

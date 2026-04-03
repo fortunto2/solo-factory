@@ -1,6 +1,6 @@
 ---
 name: solo-community-outreach
-description: Find relevant Reddit, HN, and ProductHunt threads and draft value-first community responses with launch checklist. Use when user says "find communities", "draft outreach", "Reddit promotion", "ProductHunt launch", or "community marketing". Do NOT use for social media posts (use /content-gen) or video scripts (use /video-promo).
+description: Use when "find communities", "draft outreach", "Reddit promotion", "ProductHunt launch", "community marketing", or need to find relevant threads for launch. Do NOT use for social media posts (/content-gen) or video scripts (/video-promo).
 license: MIT
 metadata:
   author: fortunto2

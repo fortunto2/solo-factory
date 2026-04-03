@@ -1,6 +1,6 @@
 ---
 name: solo-review
-description: Final code review and quality gate — run tests, check coverage, audit security, verify acceptance criteria from spec, and generate ship-ready report. Use when user says "review code", "quality check", "is it ready to ship", "final review", or after /deploy completes. Do NOT use for planning (use /plan) or building (use /build).
+description: Use when "review code", "quality check", "is it ready to ship", "final review", or after /build or /deploy completes. Do NOT use for planning (/plan) or building (/build).
 license: MIT
 metadata:
   author: fortunto2
@@ -693,6 +693,17 @@ Never write "tests should pass" — run them and show the output.
 | "Security scan is overkill" | One missed secret = data breach. Always scan. |
 | "Good enough to ship" | Quantify "good enough". Show the numbers. |
 | "I already checked this" | Fresh evidence only. Stale checks are worthless. |
+
+## Red Flags — STOP immediately if you catch yourself thinking:
+
+- "I already know this code is fine" — Run the command. Fresh evidence only.
+- "The tests passed earlier, skip re-running" — Code changed. Run them NOW.
+- "This acceptance criterion is probably met" — Probably is not verified. Show evidence or mark FAILED.
+- "SHIP with minor issues" — Quantify "minor". If you can't, it's FIX FIRST.
+- "Security scan seems excessive for this project" — One missed secret = data breach. Always scan.
+- "I'll note this as a recommendation instead of blocking" — If it's a real risk, block. Recommendations get ignored.
+
+**Foundational principle:** A review without fresh evidence is not a review — it's a guess wearing a lab coat. Run every command. Read every output. No shortcuts.
 
 ## Critical Rules
 

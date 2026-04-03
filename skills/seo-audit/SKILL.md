@@ -1,6 +1,6 @@
 ---
 name: solo-seo-audit
-description: SEO health check for any URL — analyzes meta tags, OG, JSON-LD, sitemap, robots.txt, SERP positions, and scores 0-100. Use when user says "check SEO", "audit this page", "SEO score", "check meta tags", or "SERP position". Do NOT use for generating landing content (use /landing-gen) or social media posts (use /content-gen).
+description: Use when "check SEO", "audit this page", "SEO score", "check meta tags", "SERP position", or need website SEO health check. Do NOT use for landing content (/landing-gen) or social media posts (/content-gen).
 license: MIT
 metadata:
   author: fortunto2

@@ -1,6 +1,6 @@
 ---
 name: solo-scaffold
-description: Generate complete project from PRD + stack template — directory structure, configs, CLAUDE.md, git repo, and GitHub push. Use when user says "scaffold project", "create new project", "start new app", "bootstrap project", or "set up from PRD". Uses SoloGraph for patterns and Context7 for latest versions. Do NOT use for planning features (use /plan) or PRD generation (use /validate).
+description: Use when "scaffold project", "create new project", "start new app", "bootstrap project", "set up from PRD", or need project from PRD + stack template. Do NOT use for planning features (/plan) or PRD generation (/validate).
 license: MIT
 metadata:
   author: fortunto2

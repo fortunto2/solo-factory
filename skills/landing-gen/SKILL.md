@@ -1,6 +1,6 @@
 ---
 name: solo-landing-gen
-description: Generate landing page content from PRD — hero section, features, A/B headline variants, CTA, and SEO meta tags. Use when user says "create landing page", "write landing copy", "hero section", "A/B headlines", or "landing content". Can scaffold actual pages for astro-static. Do NOT use for SEO auditing (use /seo-audit).
+description: Use when "create landing page", "write landing copy", "hero section", "A/B headlines", "landing content", or need marketing page from PRD. Do NOT use for SEO auditing (/seo-audit).
 license: MIT
 metadata:
   author: fortunto2

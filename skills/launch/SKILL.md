@@ -1,6 +1,6 @@
 ---
 name: solo-launch
-description: Generate GTM launch strategy — beachhead segment, channels, pricing validation, launch checklist with skill references, and growth loops. Use when user says "launch plan", "go-to-market", "GTM strategy", "how to launch", "launch checklist", or "growth plan". Do NOT use for content generation (use /content-gen) or SEO audit (use /seo-audit).
+description: Use when "launch plan", "go-to-market", "GTM strategy", "how to launch", "launch checklist", "growth plan", or product is built and needs distribution strategy. Do NOT use for content generation (/content-gen) or SEO audit (/seo-audit).
 license: MIT
 metadata:
   author: fortunto2

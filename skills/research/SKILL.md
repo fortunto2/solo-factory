@@ -1,6 +1,6 @@
 ---
 name: solo-research
-description: Deep market research — competitor analysis, user pain points, SEO/ASO keywords, naming/domain availability, and TAM/SAM/SOM sizing. Use when user says "research this idea", "find competitors", "check the market", "domain availability", "market size", or "analyze opportunity". Do NOT use for idea scoring (use /validate) or SEO auditing existing pages (use /seo-audit).
+description: Use when "research this idea", "find competitors", "check the market", "domain availability", "market size", "analyze opportunity", or need evidence before validation. Do NOT use for idea scoring (/validate) or SEO auditing (/seo-audit).
 license: MIT
 metadata:
   author: fortunto2

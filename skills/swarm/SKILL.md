@@ -1,6 +1,6 @@
 ---
 name: solo-swarm
-description: Launch 3 parallel research agents (market, users, tech) to investigate an idea from multiple angles simultaneously. Use when user says "swarm research", "parallel research", "investigate fast", "3 agents", "team research", or wants faster alternative to /research. Produces research.md. Do NOT use for solo research (use /research) or idea scoring (use /validate).
+description: Use when "swarm research", "parallel research", "investigate fast", "3 agents", "team research", or want faster multi-angle alternative to /research. Do NOT use for solo research (/research) or idea scoring (/validate).
 license: MIT
 metadata:
   author: fortunto2

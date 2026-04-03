@@ -1,6 +1,6 @@
 ---
 name: solo-humanize
-description: Strip AI writing patterns from text — em dashes, stock phrases, promotional inflation, performed authenticity, rule-of-three lists. Use when user says "humanize this", "make it sound human", "strip AI patterns", "clean up the copy", or after /content-gen or /landing-gen produces output.
+description: Use when "humanize this", "make it sound human", "strip AI patterns", "clean up the copy", or text reads like AI-generated output with em dashes and stock phrases.
 license: MIT
 metadata:
   author: fortunto2

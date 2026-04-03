@@ -1,6 +1,6 @@
 ---
 name: solo-build
-description: Execute implementation plan tasks with TDD workflow, auto-commit, and phase gates. Use when user says "build it", "start building", "execute plan", "implement tasks", "ship it", or references a track ID. Do NOT use for planning (use /plan) or scaffolding (use /scaffold).
+description: Use when "build it", "start building", "execute plan", "implement tasks", "ship it", track ID referenced, or plan tasks need execution. Do NOT use for planning (/plan) or scaffolding (/scaffold).
 license: MIT
 metadata:
   author: fortunto2
@@ -397,6 +397,17 @@ These thoughts mean STOP — you're about to cut corners:
 | "Tests are passing, ship it" | Tests passing ≠ acceptance criteria met. Check spec.md. |
 | "I'll fix the lint later" | Fix it now. Tech debt compounds. |
 | "It works on my machine" | Run the build. Verify in the actual environment. |
+
+## Red Flags — STOP immediately if you catch yourself thinking:
+
+- "I'll skip the test for this one" — No. Write it.
+- "Let me keep the old code as reference" — Delete means delete. You'll adapt it instead of writing fresh. No exceptions.
+- "I'm following the spirit, not the letter" — Violating the letter of the rules IS violating the spirit.
+- "This is different because..." — It's not. Follow the process.
+- "Just one more quick change before committing" — Commit what you have. Scope creep kills tracks.
+- "The plan says X but Y would be better" — Follow the plan. If it's truly wrong, update plan.md FIRST, then implement.
+
+**Foundational principle:** If you wouldn't mass-delete production data without checking, don't skip a test without evidence it's unnecessary.
 
 ## Critical Rules
 

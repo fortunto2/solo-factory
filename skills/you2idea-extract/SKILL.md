@@ -1,6 +1,6 @@
 ---
 name: solo-you2idea-extract
-description: Extract startup ideas from YouTube videos via solograph MCP — index, search, and analyze video transcripts for business ideas. Multi-MCP coordination pattern (YouTube source → analysis → storage). Use when user says "extract ideas from YouTube", "index YouTube video", "find startup ideas in video", "analyze YouTube for ideas", or "what ideas are in this video". Do NOT use for general YouTube watching (no skill needed) or content creation (use /content-gen).
+description: Use when "extract ideas from YouTube", "index YouTube video", "find startup ideas in video", "analyze YouTube for ideas", "what ideas are in this video", or mining video content for business opportunities. Do NOT use for general YouTube watching or content creation (/content-gen).
 license: MIT
 metadata:
   author: fortunto2

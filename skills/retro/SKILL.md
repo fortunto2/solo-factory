@@ -1,6 +1,6 @@
 ---
 name: solo-retro
-description: Post-pipeline retrospective — parse logs, score process quality, find waste patterns, suggest skill/script patches. Use after pipeline completes or when user says "retro", "evaluate pipeline", "what went wrong", "pipeline review", "check pipeline logs".
+description: Use when "retro", "evaluate pipeline", "what went wrong", "pipeline review", "check pipeline logs", or after pipeline completes and needs quality assessment.
 license: MIT
 metadata:
   author: fortunto2

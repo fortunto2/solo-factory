@@ -1,6 +1,6 @@
 ---
 name: solo-skill-audit
-description: Audit a skill against Anthropic's best practices checklist — 12 dimensions, scored 0-24. Use when user says "audit skill", "review skill quality", "check skill", "skill score", "skill checklist", or "is this skill good". Do NOT use for KB audits (use /audit) or code review (use /review).
+description: Use when "audit skill", "review skill quality", "check skill", "skill score", "skill checklist", "is this skill good", or evaluating skill against best practices. Do NOT use for KB audits (/audit) or code review (/review).
 license: MIT
 metadata:
   author: fortunto2

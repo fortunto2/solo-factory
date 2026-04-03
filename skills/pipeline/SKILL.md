@@ -1,6 +1,6 @@
 ---
 name: solo-pipeline
-description: Launch automated multi-skill pipeline that chains skills into a loop. Use when user says "run pipeline", "automate research to PRD", "full pipeline", "research and validate", "scaffold to build", "loop until done", or "chain skills". Do NOT use for single skills (use the skill directly).
+description: Use when "run pipeline", "automate research to PRD", "full pipeline", "research and validate", "scaffold to build", "loop until done", "chain skills", or need multi-skill automation. Do NOT use for single skills (use the skill directly).
 license: MIT
 metadata:
   author: fortunto2

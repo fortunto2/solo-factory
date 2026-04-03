@@ -1,6 +1,6 @@
 ---
 name: solo-content-gen
-description: Generate social media content pack from PRD — LinkedIn post, Reddit answer draft, and Twitter/X thread. Use when user says "create content", "write LinkedIn post", "social media pack", "marketing copy", or "promotion content". Do NOT use for community thread responses (use /community-outreach) or video scripts (use /video-promo).
+description: Use when "create content", "write LinkedIn post", "social media pack", "marketing copy", "promotion content", or need social posts from PRD. Do NOT use for community thread responses (/community-outreach) or video scripts (/video-promo).
 license: MIT
 metadata:
   author: fortunto2

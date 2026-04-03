@@ -1,6 +1,6 @@
 ---
 name: solo-validate
-description: Score startup idea through S.E.E.D. niche check + STREAM 6-layer analysis + Devil's Advocate inversion, auto-pick stack, and generate PRD with acceptance criteria. Use when user says "validate idea", "score this idea", "should I build this", "go or kill", "generate PRD", or "evaluate opportunity". Do NOT use for deep research (use /research first) or decision-only framework (use /stream).
+description: Use when "validate idea", "score this idea", "should I build this", "go or kill", "generate PRD", "evaluate opportunity", or need idea scoring with PRD output. Do NOT use for deep research (/research first) or decision-only framework (/stream).
 license: MIT
 metadata:
   author: fortunto2

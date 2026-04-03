@@ -1,6 +1,6 @@
 ---
 name: solo-reddit
-description: Reddit engagement — find posts, draft comments, write posts, track karma. Use when "reddit comment", "engage reddit", "build karma", "post to reddit". NOT for thread discovery (/community-outreach) or social copy (/content-gen).
+description: Use when "reddit comment", "engage reddit", "build karma", "post to reddit", or need to participate in Reddit threads. NOT for thread discovery (/community-outreach) or social copy (/content-gen).
 license: MIT
 metadata:
   author: fortunto2

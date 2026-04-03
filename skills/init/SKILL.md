@@ -1,6 +1,6 @@
 ---
 name: solo-init
-description: One-time founder onboarding — generates personalized manifest, STREAM calibration, dev principles, and stack selection. Use when user says "set up solo factory", "initialize profile", "configure defaults", "first time setup", or "onboard me". Safe to re-run. Do NOT use for project scaffolding (use /scaffold).
+description: Use when "set up solo factory", "initialize profile", "configure defaults", "first time setup", "onboard me", or first session in solo-factory. Safe to re-run. Do NOT use for project scaffolding (/scaffold).
 license: MIT
 metadata:
   author: fortunto2

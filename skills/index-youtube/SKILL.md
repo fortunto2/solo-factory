@@ -1,6 +1,6 @@
 ---
 name: solo-index-youtube
-description: Index YouTube channel videos and transcripts for semantic search. Use when user says "index YouTube", "add YouTube channel", "update video index", or "index transcripts". Works with solograph MCP (if available) or standalone via yt-dlp.
+description: Use when "index YouTube", "add YouTube channel", "update video index", "index transcripts", or need searchable YouTube content.
 license: MIT
 metadata:
   author: fortunto2

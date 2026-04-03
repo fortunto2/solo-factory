@@ -1,6 +1,6 @@
 ---
 name: solo-audit
-description: Health check knowledge base for broken links, missing frontmatter, tag inconsistencies, and coverage gaps. Use when user says "audit KB", "check frontmatter", "find broken links", "tag cleanup", or "knowledge base quality". Do NOT use for SEO audits (use /seo-audit) or code reviews.
+description: Use when "audit KB", "check frontmatter", "find broken links", "tag cleanup", "knowledge base quality", or docs need health check. Do NOT use for SEO audits (/seo-audit) or code reviews (/review).
 license: MIT
 metadata:
   author: fortunto2

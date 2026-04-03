@@ -1,6 +1,6 @@
 ---
 name: solo-legal
-description: Generate privacy policy and terms of service from PRD and stack config. Privacy-first by default — minimal data collection, local processing, user data ownership. Use when user says "privacy policy", "terms of service", "legal pages", "GDPR", "CCPA", or "app store legal". Do NOT use for NDA or contracts.
+description: Use when "privacy policy", "terms of service", "legal pages", "GDPR", "CCPA", "app store legal", or project needs compliance documents. Do NOT use for NDA or contracts.
 license: MIT
 metadata:
   author: fortunto2
