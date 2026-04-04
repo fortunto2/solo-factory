@@ -316,7 +316,20 @@ When all phases and tasks are `[x]`:
   - iOS: build + install on simulator, launch, take screenshot, check logs
   - Android: build APK + install on emulator, launch, take screenshot, check logcat
   - Skip if tools unavailable — not a blocker for completion
-- Check acceptance criteria from spec.md.
+- Check acceptance criteria from spec.md:
+  - For EACH `- [ ]` criterion: verify it's met (search code, run command if specified).
+  - **If criterion contains a runnable command** (`make task`, `cargo test`, benchmark, `passes N/N`) → **RUN IT.** Do NOT skip as "unverifiable".
+  - Update spec.md checkboxes: `- [ ]` → `- [x]` for verified criteria.
+  - If any criterion FAILS → do NOT mark plan complete. Fix or note the failure.
+  - Commit spec updates: `git add docs/plan/*/spec.md && git commit -m "docs: update spec checkboxes (verified by build)"`
+
+### Build failure escalation
+
+If the same build/test error occurs **3+ times in a row**, STOP retrying. Instead:
+1. Output the error message clearly.
+2. Suggest a fix (e.g., `cargo clean`, `rm -rf node_modules`, disk space check).
+3. Output `<solo:redo/>` to let review handle it.
+Do NOT burn iterations on identical failures.
 
 ### 2. Update plan.md header
 

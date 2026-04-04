@@ -44,6 +44,16 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 
 ## Pre-flight Checks
 
+### 0. Check if deploy is needed
+
+Read `docs/workflow.md` (if exists). If it contains "No deploy" or "no deploy stage" or "ship = commit":
+- Output: "Deploy skipped — workflow.md says no deploy stage (CLI/local project)."
+- Output `<solo:done/>` immediately.
+- Do NOT proceed with any deploy steps.
+
+Also: if project has NO deploy infrastructure (no Dockerfile, no deploy.sh, no wrangler.toml, no vercel.json, no sst.config.ts) AND workflow.md exists:
+- Same: skip deploy, output done.
+
 ### 1. Verify build is complete (optional)
 - If pipeline state tracking exists (`.solo/states/` directory), check `.solo/states/build`.
 - If `.solo/states/` exists but `build` marker is missing: warn "Build may not be complete. Consider running `/build` first."

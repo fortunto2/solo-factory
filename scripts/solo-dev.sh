@@ -618,6 +618,24 @@ Use this context to understand what was already done. Do NOT repeat completed wo
     ACTIVE_PLAN_DIR=$(find "$PLAN_CHECK" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | head -1)
     if [[ -n "$ACTIVE_PLAN_DIR" ]]; then
       TRACK_ID=$(basename "$ACTIVE_PLAN_DIR")
+      # Stale plan pre-check: if ALL tasks are [x], auto-archive and cycle
+      PLAN_FILE="$ACTIVE_PLAN_DIR/plan.md"
+      if [[ -f "$PLAN_FILE" ]]; then
+        OPEN_TASKS=$(grep -c '\- \[ \]\|\- \[~\]' "$PLAN_FILE" 2>/dev/null || echo "0")
+        if [[ "$OPEN_TASKS" == "0" ]]; then
+          log_entry "STALE" "Plan $TRACK_ID is 100% done — auto-archiving"
+          mkdir -p "$PLAN_DONE_DIR"
+          mv "$ACTIVE_PLAN_DIR" "$PLAN_DONE_DIR/"
+          # Try next plan
+          ACTIVE_PLAN_DIR=$(find "$PLAN_CHECK" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | head -1)
+          if [[ -n "$ACTIVE_PLAN_DIR" ]]; then
+            TRACK_ID=$(basename "$ACTIVE_PLAN_DIR")
+            log_entry "PLAN" "Cycled to next plan: $TRACK_ID"
+          else
+            log_entry "PLAN" "No more plans in queue after stale archive"
+          fi
+        fi
+      fi
       PROMPT="$PROMPT $TRACK_ID"
       log_entry "PLAN" "Active plan track: $TRACK_ID"
     fi
