@@ -1,0 +1,124 @@
+# rustman
+> Solo founder building products with AI. Principles, methodology, lessons learned.
+
+## Wiki (Knowledge Base)
+- [Agent benchmarks — how to measure if your coding agent actually works](/wiki/agent-benchmarks): Catalog of coding agent benchmarks: SWE-bench, PinchBench, PAC-1, LongMemEval. What they test, how scoring works, where we participate.
+- [Agent toolkit landscape — from prompt libraries to autonomous project managers](/wiki/agent-toolkit-landscape): Categorized comparison of AI agent toolkits: prompt libraries, executable skill systems, project managers, agent frameworks, memory systems. Growing catalog.
+- [LLM providers & startup credits — where to get models, free tiers, and funding](/wiki/llm-providers-credits): Catalog of LLM providers with free tiers, startup credit programs, and open-source models. From $0 to scale.
+- [MemPalace — spatial memory architecture for AI agents](/wiki/mempalace-agent-memory): Open-source local-first memory system: 96.6% on LongMemEval, palace metaphor (wings/rooms/halls), ChromaDB + SQLite knowledge graph, 19 MCP tools.
+- [Token-efficient web requests — HTTP Accept header trick for agents](/wiki/token-efficient-web-requests): Reduce agent web request tokens by 80% using content negotiation. Accept: text/markdown header, html2text fallback, truncation strategy.
+- [Television (tv) — fuzzy terminal search for wiki and code](/wiki/tv-terminal-search): How to set up tv (television) as interactive fuzzy finder for wiki, docs, stacks. Custom channels, ripgrep full-text search, bat preview.
+- [Enterprise RAG Challenge — what actually wins in production RAG](/wiki/enterprise-rag-challenge): Enterprise RAG Challenge results: structured outputs beat vector search, top agents use router+SO+CoT patterns, no embeddings needed for top-3.
+- [Tool calling internals — four layers from HTTP to parser](/wiki/tool-calling-four-layers): How tool calling actually works under the hood: HTTP API → Jinja2 chat template → xgrammar constrained decoding → Hermes XML parser. Four layers of abstraction.
+- [Agent mistake → fix the harness, not the prompt](/wiki/agent-mistake-fix-harness): The single most important principle from harness engineering: when an AI agent makes a mistake, don't fix the prompt or try a better model. Fix the environment.
+- [Agent self-discipline — drift detector and complexity thresholds](/wiki/agent-self-discipline): Principles for fighting AI agent degradation. The agent tends to drift into comfortable but unproductive patterns. Two mechanisms fight this:
+- [Apple Foundation Models — zero-cost on-device AI for iOS portfolio](/wiki/apple-on-device-ai): Unified on-device AI layer for all iOS products (KissMyTask, FaceAlarm, VoiceJournal, QuestSchool). Zero API cost, privacy by architecture, SGR natively via ...
+- [CLI-first testing — every project gets a CLI mirror](/wiki/cli-first-testing): Every project should have a CLI utility that mirrors the core business logic without UI. Not a separate tool — the same modules, different entry point.
+- [Context engineering — context as code](/wiki/context-engineering): One of three harness engineering components. The idea: agent context is not chat history — it's a continuously improved knowledge base in the repository.
+- [Context Graphs — agent trajectories and organizational memory](/wiki/context-graphs-summary): Context Graph — a graph capturing AI agent decision-making trajectories: not just *what* the agent did, but *how* and *why*. "A system of record for decision...
+- [Decision Making](/wiki/decision-making): How to make decisions as a solo founder. From mental models to practical frameworks to psychological traps.
+- [Decision traces compound — each agent action improves future ones](/wiki/decision-traces-compound): The economic argument for context graphs: agent decision traces are a compounding asset. Each successful action recorded in the graph improves future ones th...
+- [Universal Development Principles — every project, any stack](/wiki/dev-principles-summary): 993-line reference document applied to every project regardless of stack. Injected into PRDs during generation. Covers: SOLID, DRY (but Rule of Three), KISS,...
+- [Harness Engineering — development in the age of agents](/wiki/harness-engineering-summary): Harness Engineering — designing environments where AI agents do reliable work. Humans steer, agents execute. Synthesized from three sources: OpenAI experimen...
+- [Infrastructure: two tools, serverless by default](/wiki/infra-two-tools): Unified infrastructure for multiple mini-startups. Two principles: one project = one deploy config (infra lives in the repo), two tools, no more (SST + Pulumi).
+- [KMP sync — Supabase + PowerSync for offline-first cross-platform](/wiki/kmp-sync-strategy): For family/cross-platform apps needing offline-first sync between Android + iOS: Supabase + PowerSync is the recommended stack. MongoDB Realm Sync was deprec...
+- [Origin story — Life2Film to SuperDuperAI, second mountain](/wiki/origin-story): Started Life2Film in 2014: help people turn everyday moments into meaningful stories. Not just videos — a way to reflect on life. Technology wasn't ready, pe...
+- [PostHog analytics: one product = one project, cross-platform identity](/wiki/posthog-cross-platform): Unified analytics for solo founder with mobile apps + web landings. Core problem: one person on landing and in app = 2 anonymous IDs. Broken attribution, bro...
+- [Privacy-First Architecture](/wiki/privacy-first): Building products where user data stays on-device. Offline-first, local processing, minimal cloud dependency.
+- [SGR — schemas first, logic second, UI last](/wiki/schema-guided-reasoning): Schema-Guided Reasoning (SGR): all projects built from schemas to logic, not the other way around. Schemas are the contract between AI agent, business logic,...
+- [Solo Methodology](/wiki/solo-methodology): AI-driven solo development — how one person ships products using LLM agents, harness engineering, and automation.
+- [Startup Validation](/wiki/startup-validation): How to validate startup ideas before investing time in building. From quick signal checks to full STREAM analysis.
+- [Background jobs — cron → CF Workers → Prefect → Temporal → Trigger.dev](/wiki/background-jobs-ladder): 5 tools for background jobs, ordered by complexity. Rule: start with cron, move up only when you need to.
+- [Agent sandboxing — safe LLM agent execution on Mac](/wiki/agent-sandboxing): LLM agents (Claude Code, Codex, Gemini CLI) run with full filesystem access. Sandboxing via lightweight VMs solves this: agent works in isolation, sees only ...
+- [Inspiration sources — curated channels, communities, newsletters](/wiki/inspiration-sources): Curated list of ~60 channels/communities across 7 platforms, organized by relevance to solo founder workflow.
+- [Kill / Iterate / Scale — weekly decision rules](/wiki/kill-iterate-scale): Hard numeric thresholds for weekly product decisions. No "let's wait and see":
+- [Launch Playbook — From Niche to Revenue](/wiki/launch-playbook-summary): Operational playbook in 11 sections. Core: idea → live product with traffic in 5-9 days.
+- [Solo Founder Manifesto — Core Values](/wiki/manifest-summary): The manifesto (86 lines) establishes 6 foundational positions:
+- [One pain → one feature → launch](/wiki/one-pain-one-feature-launch): The antidote to "platform thinking": don't build a platform, don't draw a 50-feature roadmap. One pain, one solution, shipped in days.
+- [Portfolio approach — multiple small bets, not one big bet](/wiki/portfolio-approach): Build multiple small products instead of going all-in on one. Pieter Levels: 70+ projects, 3-4 active revenue sources. John Rush: 20+ products. Danny Postma:...
+- [Privacy is architecture, not a feature](/wiki/privacy-as-architecture): Key distinction from the manifesto: privacy is not a settings checkbox but an architectural decision made before the first line of code.
+- [RAG patterns — 7 approaches from vector to agentic](/wiki/rag-patterns): Reference catalog of 7 RAG patterns, each with when-to-use, trade-offs, and components.
+- [S.E.E.D. — niche scoring in 10 minutes](/wiki/seed-niche-scoring): Quick filter for niche ideas before writing code. 4 dimensions:
+- [Solopreneur success patterns — benchmarks, pricing, distribution](/wiki/solopreneur-patterns-summary): Data-driven patterns from successful indie hackers (2023-2026). Used by `/validate` for STREAM scoring and `/research` for market context.
+- [CodeGraph — code intelligence across all projects via FalkorDB + tree-sitter](/wiki/codegraph-guide): Knowledge graph of source code across all projects. Scans files, symbols (functions, classes, protocols), dependencies, imports, function calls, class inheri...
+- [2026 validated app ideas — homeschool, family productivity, privacy-first](/wiki/validated-apps-2026): Five underserved market intersections where no competitor operates. Score: 8.1/10. 50+ evidence sources. All privacy-first, offline-first, on-device AI.
+- [Antifragile life design: barbell across domains](/wiki/antifragile-life-design): Taleb's antifragility applied not to investments but to life design across 5 domains: income, health, relationships, skills, location. Three levels per domain:
+- [5-step decision framework: from epistemics to action](/wiki/decision-framework-5-steps): Every decision passes through 5 steps, each with its own checklist:
+- [Ikigai as 8-9 daily micro-joys, not a mission](/wiki/ikigai-micro-joys): The Western interpretation of ikigai (intersection of "what I love / what I'm good at / what pays / what the world needs") is a distortion of the original. A...
+- [Optimizer syndrome: best choice ≠ more happiness](/wiki/optimizer-syndrome): Barry Schwartz's research ("Paradox of Choice"): maximizers (those who seek the best option) objectively find better outcomes but experience less happiness a...
+- [Summary: STREAM Framework — 6 Layers Decision System](/wiki/stream-framework-summary): STREAM = Scope (epistemic) · Time (temporal) · Route (action) · Exposure (stakes) · Audience (social) · Meaning (meta). Six layers arranged hierarchically — ...
+- [STREAM: principles as hierarchy, not a flat list](/wiki/stream-six-layers): The key difference between STREAM and typical principle collections: it's not a flat list but a 6-layer hierarchy where each layer builds on the previous one.
+- [SGR complete guide — code examples, patterns, structured output](/wiki/sgr-deep-dive): 1855-line reference compiling Rinat Abdullin's Schema-Guided Reasoning (SGR) series. Core: use Pydantic/Zod schemas as the interface between LLM and code — t...
+
+## Projects
+- [SuperStoryboard — AI storyboard generation with Figma sync](/projects/project-superstoryboard): AI-powered storyboard generation with real-time Figma collaboration. 2nd place at Supabase Hackathon. Gemini + Veo 3.1 + PGMQ.
+- [airq — CLI air quality checker](/projects/project-airq): Check AQI, PM2.5, PM10 for any city from terminal. Open-Meteo + Sensor.Community data merge. Rust core with WASM support.
+- [rust-code — AI terminal coding agent in Rust](/projects/project-rust-code): TUI coding agent with structured agent loop, fuzzy search, tmux background tasks, skills, MCP support. Alternative to Claude Code in Rust.
+- [Invoice CRM — free file-based invoice generator for freelancers](/projects/project-invoice-crm): Open-source CLI for PDF invoices, QR payments (SEPA/EMVCo/SWIFT/crypto), digital signatures, encryption. File-based, git-friendly, AI-agent compatible. No SaaS, no monthly fees.
+- [openai-oxide — idiomatic Rust client for OpenAI API](/projects/project-openai-oxide): 1:1 parity with openai-python. Typed responses, streaming, function calling. First Rust crate shipped via solo-factory pipeline.
+- [You2Idea — AI startup idea search from YouTube](/projects/project-you2idea): Search 700+ YouTube videos from 46 startup channels. AI extracts ideas, generates PRDs, maps topic clusters. Terminal-style hacker UI.
+- [solograph — code intelligence MCP server](/projects/project-solograph): Multi-project code graph with FalkorDB, tree-sitter AST, MLX embeddings, session history. 15 MCP tools for Claude Code.
+- [solo-factory — Claude Code plugin for solopreneurs](/projects/project-solo-factory): Claude Code plugin with 30 startup skills, 3 agents, 9 stack templates, MCP code intelligence. Full pipeline: research → validate → scaffold → build → deploy → launch.
+- [FaceAlarm — face yoga tracker with daily selfie alarm](/projects/project-facealarm): Face yoga tracker with daily selfie alarm. AI won't turn off until you take a selfie. Track transformation daily. iOS + Android.
+- [KubizBeat — Bashkir kubyz instrument app](/projects/project-kubizbeat): Virtual jaw harp (kubyz/vargan) synthesizer for iOS. Physics-based sound engine, multiple tunings from Bashkir, Yakut, Vietnamese traditions. Cultural preservation through technology.
+- [SuperDuperAI — the company behind the products](/projects/project-superduperai): SuperDuperAI is the umbrella: SuperDuper AI Teknoloji (Turkey, tech park with R&D tax benefits) + SuperDuperAI Corp (USA, Delaware). Not a single product — a...
+- [Life2Film — turn everyday moments into meaningful montages](/projects/project-life2film): The original dream, started in 2014: help people turn everyday video moments into meaningful stories. Not just random clips — a narrative, a reflection on life.
+
+## Stacks (Templates)
+- [Astro Static Site](/stacks/astro-static): Astro Static Site stack template — web | typescript. Copy and use.
+- [Cloudflare Workers](/stacks/cloudflare-workers): Cloudflare Workers stack template — edge | typescript. Copy and use.
+- [iOS Swift](/stacks/ios-swift): iOS Swift stack template — ios | swift6. Copy and use.
+- [Android Kotlin](/stacks/kotlin-android): Android Kotlin stack template — android | kotlin. Copy and use.
+- [Kotlin Multiplatform](/stacks/kotlin-multiplatform): Kotlin Multiplatform stack template — ios + android | kotlin. Copy and use.
+- [Libraries — curated libs by category](/stacks/libraries): Curated library reference — data pipelines, federation, actors, event sourcing, voice, OpenAI, canvas.
+- [Next.js AI Agents](/stacks/nextjs-ai-agents): Next.js AI Agents stack template — web | typescript. Copy and use.
+- [Next.js CRM / Data Dashboard](/stacks/nextjs-crm): Next.js CRM / Data Dashboard stack template. Copy and use.
+- [Next.js Full-Stack](/stacks/nextjs-supabase): Next.js Full-Stack stack template — web | typescript. Copy and use.
+- [Python API](/stacks/python-api): Python API stack template — server | python3.13. Copy and use.
+- [Python ML/AI](/stacks/python-ml): Python ML/AI stack template — local | python3.13. Copy and use.
+- [Python Scraper (Browser Emulation)](/stacks/python-scraper): Python Scraper (Browser Emulation) stack template — local | server | python3.13. Copy and use.
+- [Rust Native](/stacks/rust-native): Rust Native stack template — local | server | embedded | rust (edition 2021, MSRV 1.75+). Copy and use.
+
+## Posts
+- [Agent Memory Architecture — From Working Memory to Compound Learning](/posts/agent-memory-architecture): How to build memory for AI agents: 4 memory types, 3 operational loops, 5 systems compared. From dict-based v1 to spatial palaces and knowledge graphs.
+- [Launch Playbook — From Niche to Revenue](/posts/launch-playbook): 5D workflow (Discovery→Decision→Design→Delivery→Distribution), S.E.E.D. niche scoring, fake-door validation, kill/iterate/scale rules.
+- [Context Graphs — Agent Trajectories and Organizational Memory](/posts/context-graphs): Infrastructure layer that turns AI agent decision traces into compounding assets. Capture, retrieve, apply — the agent memory loop.
+- [Harness Engineering — Development in the Age of Agents](/posts/harness-engineering): How to design environments where AI agents do reliable work. Three components: context engineering, architectural constraints, feedback loops.
+- [STREAM Framework — 6 Layers Decision System](/posts/stream-framework): Personal decision system: Scope, Time, Route, Exposure, Audience, Meaning. 6 hierarchical layers from epistemics to action.
+- [Solo Founder Manifesto](/posts/manifest): Why we build, what we believe, and how we operate. Privacy as architecture, antifragile design, one pain one feature launch.
+
+## Skills (Solo Factory)
+- [/audit](/skills/audit): Docs need health check
+- [/build](/skills/build): Track ID referenced, or plan tasks need execution
+- [/community-outreach](/skills/community-outreach): Need to find relevant threads for launch
+- [/content-gen](/skills/content-gen): Need social posts from PRD
+- [/deploy](/skills/deploy): After /build completes and project needs hosting
+- [/factory](/skills/factory): First-time installation of the startup pipeline
+- [/github-outreach](/skills/github-outreach): Targeting users of competitor libraries. NOT for Reddit (/reddit) or social copy (/content-gen)
+- [/humanize](/skills/humanize): Text reads like AI-generated output with em dashes and stock phrases
+- [/index-youtube](/skills/index-youtube): Need searchable YouTube content
+- [/init](/skills/init): First session in solo-factory. Safe to re-run
+- [/landing-gen](/skills/landing-gen): Need marketing page from PRD
+- [/launch](/skills/launch): Product is built and needs distribution strategy
+- [/legal](/skills/legal): Project needs compliance documents
+- [/memory-audit](/skills/memory-audit): Need to optimize agent context loading
+- [/metrics-track](/skills/metrics-track): Need analytics plan
+- [/pipeline](/skills/pipeline): Need multi-skill automation
+- [/plan](/skills/plan): Describing a feature/bug/refactor, or need task breakdown before building
+- [/reddit](/skills/reddit): Need to participate in Reddit threads. NOT for thread discovery (/community-outreach) or social copy (/content-gen)
+- [/research](/skills/research): Need evidence before validation
+- [/retro](/skills/retro): After pipeline completes and needs quality assessment
+- [/review](/skills/review): After /build or /deploy completes
+- [/scaffold](/skills/scaffold): Need project from PRD + stack template
+- [/seo-audit](/skills/seo-audit): Need website SEO health check
+- [/setup](/skills/setup): After /scaffold before /plan to generate workflow config
+- [/sgr](/skills/sgr): Need to design a schema-guided reasoning pipeline for an agent or API
+- [/skill-audit](/skills/skill-audit): Evaluating skill against best practices
+- [/stream](/skills/stream): Facing a high-stakes founder choice
+- [/swarm](/skills/swarm): Want faster multi-angle alternative to /research
+- [/validate](/skills/validate): Need idea scoring with PRD output
+- [/video-promo](/skills/video-promo): Need video marketing material
+- [/you2idea-extract](/skills/you2idea-extract): Mining video content for business opportunities
+
+## About
+- [About](/about): Solo founder building products with AI
