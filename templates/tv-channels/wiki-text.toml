@@ -1,0 +1,23 @@
+[metadata]
+name = "wiki-text"
+description = "Full-text search in solopreneur wiki, docs, stacks"
+requirements = ["rg", "bat"]
+
+[source]
+command = ["rg --line-number --no-heading --color=never --glob '*.md' --glob '*.yaml' '' ~/startups/solopreneur/wiki/ ~/startups/solopreneur/0-principles/ ~/startups/solopreneur/1-methodology/ ~/startups/solopreneur/2-inspiration/"]
+
+[preview]
+command = "bat -n --color=always --highlight-line {2} {1}"
+delimiter = ":"
+env = { BAT_THEME = "ansi" }
+
+[keybindings]
+shortcut = "f3"
+f12 = "actions:edit"
+
+[actions.edit]
+description = "Open at line"
+command = "${EDITOR:-vim} +{2} '{1}'"
+shell = "bash"
+delimiter = ":"
+mode = "execute"

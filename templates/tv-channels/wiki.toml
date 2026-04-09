@@ -1,0 +1,21 @@
+[metadata]
+name = "wiki"
+description = "Search solopreneur wiki, methodology, stacks"
+requirements = ["rg", "bat"]
+
+[source]
+command = ["rg --files --glob '*.md' ~/startups/solopreneur/wiki/ ~/startups/solopreneur/0-principles/ ~/startups/solopreneur/1-methodology/ ~/startups/solopreneur/2-inspiration/", "rg --files --glob '*.yaml' ~/startups/solopreneur/1-methodology/stacks/"]
+
+[preview]
+command = "bat -n --color=always '{}'"
+env = { BAT_THEME = "ansi" }
+
+[keybindings]
+shortcut = "f2"
+f12 = "actions:edit"
+
+[actions.edit]
+description = "Open in editor"
+command = "${EDITOR:-vim} '{}'"
+shell = "bash"
+mode = "execute"
