@@ -146,17 +146,21 @@ Domain expert mental checklist → Pydantic/Zod schema → Constrained decoding 
 ## Key References
 
 - `references/sgr-rules.md` — design rules and anti-patterns
-- `references/sgr-demo.py` — complete working example (Abdullin's CRM demo, Python)
-- `references/sgr-patterns.md` — cascade patterns for different domains
+- `references/sgr-demo.py` — complete working example (Abdullin's CRM demo, 304 lines Python)
+- `references/sgr-patterns.md` — cascade patterns for 6 domains
+- `references/sgr-full-guide.md` — full SGR guide with theory, code, tool calling internals
 
-## Rust Implementation
+## Libraries & Implementations
 
-For Rust projects, SGR maps naturally to serde + enum dispatch:
-
-- [rust-code](https://github.com/fortunto2/rust-code) — AI terminal agent with structured agent loop (serde schemas for tool dispatch)
+### Rust
+- **sgr-agent** (crate, v0.6.1) — SGR LLM client + agent framework: structured output, function calling, agent loop, 3 agent variants. Core crate for all Rust SGR agents. Part of [rust-code](https://github.com/fortunto2/rust-code)
 - [openai-oxide](https://github.com/fortunto2/openai-oxide) — typed Rust client for OpenAI API (SGR at compile time via strong types)
 
 In Rust, SGR is even stronger: `#[serde(tag = "tool")]` gives discriminated union dispatch at zero runtime cost. Enum variants = tools, serde deserialization = constrained decoding.
+
+### Python
+- [sgr-agent-core](https://github.com/vamplabAI/sgr-agent-core) (1K+ stars) — SGR agentic system design framework by neuraldeep community. Reference Python implementation
+- Abdullin's demo in `references/sgr-demo.py` — minimal standalone example (304 lines, CRM agent)
 
 ## Common Issues
 
