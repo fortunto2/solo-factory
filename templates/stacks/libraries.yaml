@@ -79,6 +79,21 @@ federation:
     notes: 1.4k★. Requires NATS server.
 
 actors:
+  - name: actix
+    url: https://github.com/actix/actix
+    stack: [rust]
+    install: cargo add actix actix-rt
+    use_cases:
+      - Async and sync actor model (typed messages, no Any)
+      - Actor supervision and lifecycle management
+      - Foundation behind actix-web (most popular Rust web framework)
+      - Local/thread-context actor communication
+    license: Apache-2.0 / MIT
+    notes: >
+      9.2k★. The OG Rust actor framework. Tokio-based.
+      actix-web (21k★) is built on top but the actor core is separate.
+      Stable Rust 1.76+. Less active since 2024 but battle-tested.
+
   - name: kameo
     url: https://github.com/tqwewe/kameo
     stack: [rust]
@@ -200,6 +215,39 @@ openapi_codegen:
       - Swagger UI integration for axum/actix
     license: MIT
     notes: Opposite direction from progenitor — code → spec.
+
+documentation:
+  - name: deepwiki-rs
+    url: https://github.com/sopaco/deepwiki-rs
+    stack: [rust]
+    install: cargo install litho
+    use_cases:
+      - Auto-generate architecture docs from codebase (C4 model)
+      - Keep docs synchronized with code changes
+      - ERD diagrams from database schemas
+      - Mermaid diagram generation with syntax auto-repair
+      - CI/CD integration for doc freshness
+    license: Apache-2.0
+    notes: >
+      891★. Also called Litho. Rust + Axum + LLM.
+      4-stage pipeline: preprocess → research → compose → validate.
+      Multi-language (Rust, Python, Java, Go, JS, C#).
+      External knowledge mounting (PDFs, Markdown, SQL).
+
+reference:
+  - name: awesome-rust
+    url: https://github.com/rust-unofficial/awesome-rust
+    stack: [rust]
+    install: null
+    use_cases:
+      - Curated Rust library discovery (500+ projects)
+      - Category browse (applications, dev tools, libraries)
+      - Find alternatives for any Rust domain (AI, web, crypto, DB)
+    license: CC0-1.0
+    notes: >
+      57k★. The canonical Rust resource list.
+      40+ library categories, 25+ application categories.
+      Community-maintained, PR-based additions.
 
 canvas:
   - name: tldraw
