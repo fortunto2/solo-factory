@@ -216,6 +216,59 @@ openapi_codegen:
     license: MIT
     notes: Opposite direction from progenitor — code → spec.
 
+media:
+  - name: dano
+    url: https://github.com/kimono-koans/dano
+    stack: [rust]
+    install: cargo install dano
+    use_cases:
+      - Media stream checksums (stable across renames, metadata, container changes)
+      - Video/audio duplicate detection by bitstream content
+      - Integrity verification after ffmpeg processing
+      - FLAC checksum import from metadata
+    license: MPL-2.0
+    notes: >
+      173★. CLI wrapper for ffmpeg. Hashes internal streams, not containers.
+      Hash algorithms: murmur3 (default), MD5, SHA256, SHA512, CRC32.
+      Storage: xattrs or hash files. Concurrent processing.
+      Useful pattern for Life2Film import dedup.
+
+audio:
+  - name: glicol
+    url: https://github.com/chaosprint/glicol
+    stack: [rust, typescript]
+    install: npm install glicol
+    use_cases:
+      - Live coding music in browser (WASM + AudioWorklet)
+      - Graph-oriented audio synthesis (modular synth style)
+      - VST plugin development
+      - Embedded audio on Bela board
+      - Real-time DSP prototyping
+    license: MIT
+    notes: >
+      2.9k★. Rust audio engine + parser, compiled to WASM.
+      Zero-install playground at glicol.org.
+      Graph updates via LCS algorithm — no glitches during live edits.
+      Rhai scripting for meta DSP blocks.
+
+storage:
+  - name: rustfs
+    url: https://github.com/rustfs/rustfs
+    stack: [rust]
+    install: docker run -d -p 9000:9000 -p 9001:9001 rustfs/rustfs:latest
+    use_cases:
+      - Self-hosted S3-compatible object storage
+      - Media asset storage (video, images, ML models)
+      - Data lake for AI/ML training data
+      - Edge/IoT lightweight storage
+      - MinIO replacement (Apache-2.0 vs AGPL)
+    license: Apache-2.0
+    notes: >
+      25.6k★. 2.3x faster than MinIO on 4KB objects.
+      S3 + OpenStack Swift APIs. Web console on :9001.
+      Single-node + distributed modes. K8s Helm charts.
+      No telemetry, GDPR/CCPA compliant.
+
 documentation:
   - name: deepwiki-rs
     url: https://github.com/sopaco/deepwiki-rs
