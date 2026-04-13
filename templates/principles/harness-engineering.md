@@ -1,3 +1,16 @@
+---
+type: methodology
+title: "Harness Engineering — Development in the Age of Agents"
+description: "Design environments where AI agents do reliable work. Three components: context engineering, architectural constraints, feedback loops."
+created: 2026-02-07
+tags: [harness, agents, methodology, context-engineering, ai]
+course_module: 5
+course_order: 1
+publish: true
+publish_as: post
+source_path: "1-methodology/harness-engineering.md"
+---
+
 # Harness Engineering — Development in the Age of Agents
 
 Synthesis of three key sources: OpenAI experiment (Ryan Lopopolo), Mitchell Hashimoto's adoption journey, and Birgitta Böckeler's analysis (Thoughtworks/Martin Fowler).
@@ -6,7 +19,7 @@ Synthesis of three key sources: OpenAI experiment (Ryan Lopopolo), Mitchell Hash
 
 ## Definition
 
-**Harness Engineering** — the discipline of designing environments, tools, and feedback loops that enable AI agents to do reliable work. Humans steer, agents execute.
+**Harness Engineering** — the discipline of designing environments, tools, and feedback loops so AI agents do reliable work. Humans steer, agents execute.
 
 > "When the agent struggles, we treat it as a signal: identify what is missing — tools, guardrails, documentation — and feed it back into the repository." — OpenAI
 
@@ -47,8 +60,8 @@ docs/
 Hard boundaries + freedom inside:
 
 - **Layered domain architecture**: Types -> Config -> Repo -> Service -> Runtime -> UI
-- **Directed dependencies** — validated by custom linters
-- **Parse at the boundary** — data validated on entry (Zod, Pydantic)
+- **Directed dependencies** — custom linters validate direction
+- **Parse at the boundary** — validate data on entry (Zod, Pydantic)
 - **Structural tests** (ArchUnit-style) — check dependency graphs
 - **Taste invariants** — structured logging, naming conventions, file size limits
 
@@ -58,31 +71,31 @@ Hard boundaries + freedom inside:
 
 Agents replicate existing patterns, including bad ones. Without GC, code degrades.
 
-- **Golden principles** — opinionated rules encoded in the repository
+- **Golden principles** — opinionated rules living in the repository
 - **Recurring cleanup agents** — background tasks scanning for deviations
 - **Doc-gardening agent** — finds stale documentation, opens fix-up PRs
 - **Quality grades** — each domain has a score tracked over time
 - **Rule:** tech debt as credit — better to pay continuously in small installments
 
-OpenAI: previously 20% of time (Fridays) went to manual cleanup of "AI slop" — doesn't scale.
+OpenAI: previously 20% of time (Fridays) went to manual cleanup of "AI slop." Doesn't scale.
 
 ---
 
 ## 6 Steps of Adoption (Mitchell Hashimoto)
 
 ### Step 1: Drop the chatbot
-Chat interface (ChatGPT, Gemini web) is a dead end for serious development. **Use an agent** — LLM that can read files, run programs, make HTTP requests.
+Chat interface (ChatGPT, Gemini web) is a dead end for serious development. **Use an agent**: LLM that reads files, runs programs, makes HTTP requests.
 
 ### Step 2: Reproduce your own work
 Do a task manually, then make the agent do the same with the same quality. Painful, but builds expertise:
 - Break sessions into separate, clear, actionable tasks
 - Separate planning from execution
-- Give the agent verification tools — it will self-correct
+- Give the agent verification tools. It will self-correct
 
 **Negative space value:** understanding when **not** to use the agent saves the most time.
 
 ### Step 3: End-of-day agents
-Block 30 minutes at end of day for agent runs. Don't try to do more during work hours — do more in **off hours**.
+Block 30 minutes at end of day for agent runs. Don't try to do more during work hours. Do more in **off hours**.
 
 What works:
 - Deep research sessions — library reviews, competitor analysis
@@ -90,7 +103,7 @@ What works:
 - Issue/PR triage — agent with `gh` CLI compiles report (but does NOT respond)
 
 ### Step 4: Outsource slam dunks
-Tasks where agent almost certainly succeeds — let it run in background. **Turn off desktop notifications** — human decides when to context-switch.
+Tasks where agent almost certainly succeeds: let it run in background. **Turn off desktop notifications.** Human decides when to context-switch.
 
 > "Turn off agent desktop notifications. Context switching is expensive."
 
@@ -103,9 +116,9 @@ Every agent mistake -> engineering solution so it never happens again. Two mecha
 > "Each line in that file is based on a bad agent behavior, and it almost completely resolved them all."
 
 ### Step 6: Always have an agent running
-Goal: agent always running. If not — ask: "what could the agent be doing for me?"
+Goal: agent always running. If not, ask: "what could the agent be doing for me?"
 
-Preference: slow, thoughtful models (Amp deep mode / GPT-5.2-Codex) — 30+ min per task, but high quality. One agent, not parallel.
+Preference: slow, thoughtful models (Amp deep mode / GPT-5.2-Codex). 30+ min per task, but high quality. One agent, not parallel.
 
 ---
 
@@ -174,7 +187,7 @@ One prompt -> agent can:
 - Knowledge in Slack/Google Docs (invisible to agent)
 - Micromanaging implementation instead of enforcing boundaries
 - Manual cleanup of "AI slop" instead of automation
-- Trying to "generate anything" — constraints are multipliers, not brakes
+- Trying to "generate anything." Constraints are multipliers, not brakes
 
 ---
 
