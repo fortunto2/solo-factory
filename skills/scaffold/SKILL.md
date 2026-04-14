@@ -142,21 +142,24 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - **ios-swift** must also include: `generate` (xcodegen), `archive` (xcodebuild archive), `open` (open .xcarchive for Distribute)
    - The Makefile is the **canonical command interface** — `/build` and `/review` use `make` targets instead of raw commands
 
-10. **Generate CLAUDE.md** for the new project:
+10. **Generate CLAUDE.md** for the new project (~100 lines, map not manual):
    - Project overview (problem/solution from PRD)
    - Tech stack (packages + versions from Context7)
+   - **Agent behavior defaults** (Karpathy principles):
+     - Think before coding: state assumptions, ask when confused
+     - Simplicity first: minimum code, no speculative abstractions
+     - Surgical changes: touch only what's needed, match existing style
+     - Goal-driven: transform instructions into verifiable success criteria
    - **Skills section:** list available `.claude/skills/` with descriptions
    - Directory structure
    - Common commands (reference `make help`)
-   - SGR / Domain-First section
-   - Architecture principles (from dev-principles)
-   - **Harness Engineering section** (from `templates/principles/harness-engineering.md`):
-     - CLAUDE.md philosophy: "this file is a map, not a manual — keep ~100 lines, point to docs/"
-     - Harness health checklist (subset relevant to this project)
-     - Architectural constraints: module boundaries, data validation at boundaries
-     - Agent legibility: lint errors must include remediation instructions
-     - Anti-patterns: don't put knowledge in Slack/Docs, don't micromanage implementation
-   - Do/Don't sections
+   - **Quality Gate** (before completing any task):
+     1. "Am I building bullshit?" — re-read the request
+     2. "Is this code garbage?" — would a senior accept this?
+     3. "How to make this amazing?" — what insight is everyone missing?
+   - Architecture principles (ref dev-principles, don't inline)
+   - **Don't section** (project-specific negative constraints)
+   - **Drift section** (anti-patterns: scheduling vs doing, bullets vs code)
    - **MCP Integration section** (optional, if MCP tools available):
      Lists available MCP tools: `project_code_search`, `kb_search`, `session_search`, `codegraph_query`, `project_info`, `web_search`
 
