@@ -17,6 +17,7 @@ linter: eslint (flat config v9, typescript-eslint, eslint-plugin-react, @next/es
 formatter: prettier
 type_checker: tsc --noEmit (strict mode)
 dead_code: knip (find unused files, exports, dependencies)
+fast_tooling: "Same opt-in native gates as nextjs-supabase: oxlint (Rust pre-commit gate), tsgo --noEmit (when out of RC), reactCompiler: true (React 19), OpenAPI codegen for tool/API types. 10-100x. See nextjs-supabase.yaml + wiki native-frontend-toolchain"
 testing: vitest + @testing-library/react + @testing-library/jest-dom
 pre_commit: husky + lint-staged (eslint + prettier + tsc)
 ai_sdk: "ai (Vercel AI SDK 6 — ToolLoopAgent, stopWhen, Output.object)"

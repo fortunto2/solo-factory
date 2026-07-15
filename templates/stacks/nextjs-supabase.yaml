@@ -17,6 +17,15 @@ linter: eslint (flat config v9, typescript-eslint, eslint-plugin-react, @next/es
 formatter: prettier
 type_checker: tsc --noEmit (strict mode)
 dead_code: knip (find unused files, exports, dependencies)
+fast_tooling:
+  # Native (Rust/Go) rewrites of the JS toolchain — 10-100x speedups, compound with team size.
+  # Defaults above (eslint/prettier/tsc) stay canonical; add these as opt-in fast gates.
+  # Rust > Go when equivalent. Ref: wiki native-frontend-toolchain.
+  note: "Opt-in fast gates. Adopt as default once each leaves RC / covers all needed rules."
+  lint: "oxlint (oxc, Rust) — pre-commit gate, ~8x ESLint local / 3.6x CI, RAM 511→212MB. Keep ESLint for Next-specific plugin rules (@next/eslint-plugin-next). Run: pnpm dlx oxlint@latest"
+  type_check: "tsgo --noEmit (TSGO — Microsoft Go rewrite of tsc) — ~10x faster, RAM −83%. Release Candidate as of mid-2026; make default once stable. Install: @typescript/native-preview"
+  react_compiler: "reactCompiler: true in next.config (React 19, already in stack). Removes manual memo/useMemo/useCallback; 7mo+ prod-proven, cleaner code, lower junior barrier"
+  api_codegen: "OpenAPI/Swagger backends → generate the client, don't hand-write types: swagger-typescript-api OR openapi-typescript. 'Compilation becomes an integration test' — contract drift fails at tsc, not prod"
 testing: vitest + @testing-library/react + @testing-library/jest-dom
 pre_commit: husky + lint-staged (eslint + prettier + tsc)
 state_management:
@@ -123,6 +132,7 @@ notes: |
   - tsc --noEmit for type-checking (strict mode in tsconfig.json)
   - knip for dead code detection (unused exports, files, dependencies)
   - Husky + lint-staged for pre-commit (eslint, prettier, tsc --noEmit)
+  - Fast toolchain (opt-in, see fast_tooling): oxlint pre-commit gate, tsgo (when stable), React Compiler (reactCompiler: true), OpenAPI codegen. Native Rust/Go rewrites, 10-100x. Wiki: native-frontend-toolchain
   - Vitest for unit/integration tests, @testing-library/react for components
   - Deploy via git push (main → production, PR → preview)
   - State management: React state by default. Zustand for global UI, Jotai for data-heavy dashboards.
