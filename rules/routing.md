@@ -14,6 +14,7 @@ Invoke the matching agent or skill when the user's request matches a signal belo
 | review, quality check, ready to ship | `/solo:review` |
 | scaffold, new project, set up | `/solo:scaffold` |
 | launch, GTM, go-to-market, channels | `/solo:launch` |
+| first customers, early adopters, design partners, prospect list | `/solo:customer-finder` |
 | privacy policy, terms, legal, GDPR | `/solo:legal` |
 | pipeline, full automation | `/solo:pipeline` |
 

@@ -110,11 +110,12 @@ claude plugin list            # Claude Code plugin
 → TDD loop: write test → implement → green → commit, phase by phase
 ```
 
-### Promotion (8 skills)
+### Promotion (9 skills)
 
 | Command | What it does |
 |---------|-------------|
 | `/solo:launch` | GTM launch strategy — beachhead, channels, pricing, timeline, growth loops |
+| `/solo:customer-finder` | Evidence-backed shortlist of first customers from public signals + outreach openers |
 | `/solo:seo-audit <url>` | SEO health check — meta tags, JSON-LD, sitemap, score 0-100 |
 | `/solo:landing-gen` | Landing page content — hero, features, A/B headlines, CTA, SEO meta |
 | `/solo:content-gen` | Social media pack — LinkedIn post, Reddit draft, Twitter/X thread + release notes |
@@ -308,6 +309,7 @@ solo-factory/
 │   ├── landing-gen/         # Landing page content
 │   ├── content-gen/         # Social media pack
 │   ├── community-outreach/  # Reddit/HN/PH outreach
+│   ├── customer-finder/     # First-customer prospecting
 │   ├── video-promo/         # Promo video plan
 │   ├── metrics-track/       # PostHog metrics
 │   ├── humanize/            # Strip AI patterns
