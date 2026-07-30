@@ -1,0 +1,215 @@
+# Build, export, upload
+
+From Xcode project to a processed build in App Store Connect, without Fastlane.
+
+## Contents
+- [One-shot](#one-shot)
+- [Step by step](#step-by-step)
+- [Version and build numbers](#version-and-build-numbers)
+- [Signing](#signing)
+- [Repeatable pipeline](#repeatable-pipeline)
+- [Gotchas](#gotchas)
+
+---
+
+## One-shot
+
+`publish` accepts a project instead of an `.ipa` — it archives, exports, uploads, and waits:
+
+```bash
+asc publish testflight --app "APP_ID" --project "App.xcodeproj" --scheme "App" \
+  --group "Beta" --wait --output table
+```
+
+Use `--workspace` for a workspace. Same flags on `asc publish appstore` (add `--version`, and
+`--submit --confirm` only with the user's OK).
+
+---
+
+## Step by step
+
+```bash
+asc xcode archive --project "App.xcodeproj" --scheme "App" --configuration Release \
+  --archive-path ".asc/artifacts/App.xcarchive" --clean --overwrite \
+  --xcodebuild-flag=-destination --xcodebuild-flag=generic/platform=iOS \
+  --xcodebuild-flag=-allowProvisioningUpdates --output json
+
+asc xcode export --archive-path ".asc/artifacts/App.xcarchive" \
+  --ipa-path ".asc/artifacts/App.ipa" --overwrite --timeout 10m \
+  --xcodebuild-flag=-allowProvisioningUpdates --output json
+
+asc builds upload --app "APP_ID" --ipa ".asc/artifacts/App.ipa"
+asc builds list --app "APP_ID" --limit 5 --output table    # wait for processingState VALID
+asc versions attach-build --version-id "VERSION_ID" --build-id "BUILD_ID"   # bind it to the version
+```
+
+Attaching is its own step — **don't** reach for `asc release stage --build` just to attach (that
+command also requires a metadata source, `--metadata-dir` or `--copy-metadata-from`). Two clean ways:
+`asc versions attach-build` standalone, or let `asc review submit --build "BUILD_ID"` attach it at
+submit time (it no-ops if already attached). Only if neither is available, PATCH iris
+`appStoreVersions/{id}/relationships/build`.
+
+`export` generates App Store export options automatically when `--export-options` is omitted, at a
+unique archive-adjacent path it reports in the result. To pin one for inspection or reuse:
+
+```bash
+asc xcode export-options generate --archive-path ".asc/artifacts/App.xcarchive" \
+  --output-path ".asc/export-options-app-store.plist" --overwrite
+```
+
+Raise `ASC_UPLOAD_TIMEOUT_SECONDS` for large IPAs on slow links.
+
+---
+
+## Version and build numbers
+
+Apple rejects a duplicate build number for the same version string. Let the API pick the next one:
+
+```bash
+asc builds next-build-number --app "APP_ID" --version "1.0" --platform IOS \
+  --initial-build-number 1 --output json
+```
+
+Then feed it into the archive:
+
+```bash
+asc xcode archive … --xcodebuild-flag=MARKETING_VERSION=1.0 --xcodebuild-flag=CURRENT_PROJECT_VERSION=7
+```
+
+Or edit the project first: `asc xcode version edit --build-number "7"`.
+
+For projects that generate their Info.plist/xcconfig, `asc xcode inject` materializes release values
+from a manifest — this replaces the usual Fastlane bump scripts:
+
+```bash
+asc xcode inject --manifest .asc/deployment.json --set version="1.0" --set build_number="7" --overwrite
+```
+
+`.asc/deployment.json` declares `values` plus `outputs` of type `plist`, `text` (e.g. a
+`Deployment.xcconfig` with `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`), or `copy`. Point the
+Xcode target at the generated files once, and every release just re-runs `inject`.
+
+---
+
+## Signing
+
+`--xcodebuild-flag=-allowProvisioningUpdates` lets Xcode fetch/renew profiles during archive — the
+simplest path for a solo developer with automatic signing, and usually all you need. Manual signing
+resolution in `asc xcode export` is macOS-only (it inspects local identities and profiles).
+
+New app, or rotating assets:
+
+```bash
+asc bundle-ids create --identifier "com.example.app" --name "Example" --platform IOS
+asc bundle-ids capabilities add --bundle "BUNDLE_ID" --capability ICLOUD
+asc certificates create --certificate-type IOS_DISTRIBUTION --generate-csr \
+  --key-out "./signing/dist.key" --csr-out "./signing/dist.csr"
+asc profiles create --name "AppStore Profile" --profile-type IOS_APP_STORE \
+  --bundle "BUNDLE_ID" --certificate "CERT_ID"
+asc profiles download --id "PROFILE_ID" --output "./profiles/AppStore.mobileprovision"
+asc profiles local install --path "./profiles/AppStore.mobileprovision"
+```
+
+Cleanup and audit:
+
+```bash
+asc certificates revoke --id "CERT_ID" --confirm
+asc profiles list --profile-state ACTIVE,INVALID --paginate --output json
+asc profiles local clean --expired --dry-run
+```
+
+⚠️ **`profileState` is not a reliable expiry signal** — Apple reports some profiles as `ACTIVE` with
+a past `expirationDate`. For a real expired-profile audit, compare `expirationDate` to today rather
+than filtering on `INVALID`.
+
+**Sharing signing assets across machines** — a lightweight, non-interactive alternative to
+`fastlane match`, encrypted in a git repo:
+
+```bash
+asc signing sync push --bundle-id "com.example.app" --profile-type IOS_APP_STORE \
+  --repo "git@github.com:team/certs.git" --password "$ASC_MATCH_PASSWORD"
+asc signing sync pull --repo "git@github.com:team/certs.git" \
+  --password "$ASC_MATCH_PASSWORD" --output-dir "./signing"
+```
+
+`pull` writes files to disk; keychain import and profile installation are separate steps.
+Check `--help` for exact certificate/profile type enums — they're long and change.
+
+---
+
+## Repeatable pipeline
+
+`asc workflow` composes asc and shell steps from `.asc/workflow.json`, passing values between steps
+via JSONPath outputs:
+
+```json
+{
+  "env": { "APP_ID": "1234567890", "PROJECT_PATH": "App.xcodeproj", "SCHEME": "App", "VERSION": "" },
+  "workflows": {
+    "testflight_beta": {
+      "description": "Archive, export, upload, distribute.",
+      "steps": [
+        { "name": "resolve_next_build",
+          "run": "asc builds next-build-number --app \"$APP_ID\" --version \"$VERSION\" --platform IOS --initial-build-number 1 --output json",
+          "outputs": { "BUILD_NUMBER": "$.nextBuildNumber" } },
+        { "name": "archive",
+          "run": "asc xcode archive --project \"$PROJECT_PATH\" --scheme \"$SCHEME\" --configuration Release --archive-path \".asc/artifacts/App-$VERSION.xcarchive\" --clean --overwrite --xcodebuild-flag=-allowProvisioningUpdates --xcodebuild-flag=MARKETING_VERSION=$VERSION --xcodebuild-flag=CURRENT_PROJECT_VERSION=${steps.resolve_next_build.BUILD_NUMBER} --output json",
+          "outputs": { "ARCHIVE_PATH": "$.archive_path" } },
+        { "name": "export",
+          "run": "asc xcode export --archive-path ${steps.archive.ARCHIVE_PATH} --ipa-path \".asc/artifacts/App-$VERSION.ipa\" --overwrite --timeout 10m --output json",
+          "outputs": { "IPA_PATH": "$.ipa_path" } },
+        { "name": "publish",
+          "run": "asc publish testflight --app \"$APP_ID\" --ipa ${steps.export.IPA_PATH} --group \"Beta\" --wait --poll-interval 10s --output json" }
+      ]
+    }
+  }
+}
+```
+
+Run: `asc workflow run --name testflight_beta --set VERSION=1.0`. Confirm flags with
+`asc workflow --help` — this surface is evolving.
+
+Xcode Cloud instead of local builds: `asc xcode-cloud run --app "APP_ID" --workflow "CI" --branch main --wait`.
+
+---
+
+## Gotchas
+
+**Missing `iosApp` scheme.** `xcodebuild -scheme iosApp …` failing with "does not contain a scheme
+named iosApp" means a shared scheme for another target (e.g. a widget) disabled autogeneration.
+Create a shared `xcshareddata/xcschemes/iosApp.xcscheme` pointing at the app target's
+BlueprintIdentifier (read it from `project.pbxproj`) — caretta-friends has a working file.
+
+**Encryption prompt → build EXPIRES ~1 day after upload.** Set `ITSAppUsesNonExemptEncryption=false`
+in Info.plist when the app only uses standard HTTPS/TLS. Without it, the upload leaves an *unanswered*
+export-compliance question, and Apple expires the build roughly **24 h** after upload — even though
+`processingState` is `VALID`. The tell: `asc builds list` shows `Expired: true` with an
+`expirationDate` one day after `uploadedDate`, and `asc validate` blocks with `build.invalid.expired`
+on a build you uploaded days ago. Two fixes: (a) add the plist key and re-archive (permanent — do this
+for XcodeGen projects in `project.yml` `info.properties`), or (b) answer compliance on the existing
+build via the API instead of rebuilding: `asc builds update --build-id "…" --uses-non-exempt-encryption false`
+(confirm the flag with `asc builds update --help`). A build already past its `expirationDate` can't be
+un-expired — upload a fresh one.
+
+**`xcodebuild` can deadlock inside an agent session.** Its build service sometimes hangs when
+launched from a non-Terminal context. Run it as a **background task** rather than blocking the
+session, and if it still hangs, hand the user the exact command to paste into a real Terminal window.
+Also note: piping through `tail` swallows the exit code — a backgrounded `xcodebuild … | tail` reports
+success on a failed build. Grep the log for `BUILD SUCCEEDED` / `BUILD FAILED` instead of trusting
+the exit status.
+
+**Simulator link failure on x86_64 for Rust/C-backed projects.**
+`-destination 'generic/platform=iOS Simulator'` builds **both** arm64 and x86_64. A static library
+compiled only for `aarch64-apple-ios-sim` links fine for arm64 and dies with
+`ld: symbol(s) not found for architecture x86_64`. Fix: add `ARCHS=arm64 ONLY_ACTIVE_ARCH=NO`, or
+build the static lib for both targets and lipo them together.
+
+**BETA_CONTRACT_MISSING (422).** ASC → Business → Agreements must all be Active (Paid + Free Apps).
+If they are and it still fails, it's an Apple-side bug — contact support rather than retrying.
+
+**Processing takes minutes to an hour.** `--wait --poll-interval 10s` on publish, or poll
+`asc builds list`. A build stuck far longer than an hour usually means Apple rejected the binary —
+check email and `asc builds info --build-id … --output table`.
+
+**Keep artifacts out of git.** `.asc/artifacts/`, `*.xcarchive`, `*.ipa`, and any `*.p8` belong in
+`.gitignore`.
