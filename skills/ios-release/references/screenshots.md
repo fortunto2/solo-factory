@@ -77,9 +77,21 @@ sips -g pixelWidth -g pixelHeight out.png       # verify before uploading
 ### 2. Grant permissions instead of tapping the system dialog
 
 ```bash
-xcrun simctl privacy "$UDID" grant photos com.example.app     # also: camera, location, contacts, all
+xcrun simctl privacy "$UDID" grant photos com.example.app     # also: microphone, location, contacts, all
 xcrun simctl addmedia "$UDID" ./clip1.mp4 ./photo.jpg         # fill the photo library
 xcrun simctl location "$UDID" set 36.5,32.1                   # realistic "near you" distances
+```
+
+⚠️ **There is no `camera` service** — run `xcrun simctl privacy` with no args and read the list:
+calendar, contacts, location, photos, media-library, microphone, motion, reminders, `all`. And
+`grant all` writes a single `kTCCServiceAll` row that the camera check does **not** consult, so a
+camera app still shows the permission alert in every frame. Write the row yourself:
+
+```bash
+TCC=~/Library/Developer/CoreSimulator/Devices/$UDID/data/Library/TCC/TCC.db
+sqlite3 "$TCC" "INSERT OR REPLACE INTO access
+  (service,client,client_type,auth_value,auth_reason,auth_version,indirect_object_identifier)
+  VALUES ('kTCCServiceCamera','com.example.app',0,2,2,1,'UNUSED');"
 ```
 
 `grant` kills the system prompt entirely. ⚠️ But it does **not** dismiss an app's *own* onboarding
@@ -134,6 +146,51 @@ screen doesn't prove the screenshot will.
   reconfiguring the sim: pass `-AppleLocale en_US -AppleLanguages "(en)"` as launch args (turns
   `675,52 GB` into `675.52 GB` for the US store). Launch args take effect even where the
   `SIMCTL_CHILD_AppleLanguages` env route does not (see Multi-locale).
+
+### 4b. Camera apps — feed the viewfinder a video instead of a camera
+
+The Simulator has no camera, so `AVCaptureVideoPreviewLayer` renders a black rectangle and every
+screenshot of a camera app looks broken. You cannot fix that from the outside — the layer only
+shows what the capture session produces. Add a DEBUG-only stand-in **inside the app**:
+
+```swift
+// StubCamera.swift — the whole file wrapped in #if DEBUG
+private func tick() {                       // AVAssetReader over a file, on a Timer
+    guard let sample = output.copyNextSampleBuffer() else { reopenReader(); return }  // loop at EOF
+    guard let pixel = CMSampleBufferGetImageBuffer(sample) else { return }
+    let img = CIImage(cvPixelBuffer: pixel)
+    if let cg = ci.createCGImage(img, from: img.extent) { layer.contents = cg }
+}
+```
+
+```swift
+// at the viewfinder call site
+if let stub = stubCameraURL { StubCameraView(url: stub) }   // env var → URL, nil in Release
+else if cam.authorized { CameraPreview(session: cam.session) }
+```
+
+Push the clip into the sandbox and point the app at it:
+
+```bash
+DATA=$(xcrun simctl get_app_container "$UDID" com.example.app data)
+cp clip.mov "$DATA/Documents/"
+SIMCTL_CHILD_UITEST_CAMERA_VIDEO="$DATA/Documents/clip.mov" xcrun simctl launch "$UDID" com.example.app
+```
+
+Three things that decide whether the result looks real:
+
+- **Pad the clip to the device's aspect ratio first.** `resizeAspectFill` crops the sides of a
+  1080×1920 clip on a 1320×2868 screen (~9% each side) and slices through anything near the edges —
+  a burnt-in HUD comes out cut mid-word, which reads as a rendering bug.
+  `ffmpeg -vf "pad=1080:2346:0:213:black"` makes it 0.4603 and nothing is cropped; the bars land
+  under the app's own top and bottom chrome.
+- **Cut a short loop around a good moment** (`-ss 19.5 -t 5`) so any frame is usable — otherwise the
+  frame you get depends on how long the settle delay happened to be.
+- **Decide whether to also feed the tracker.** Feeding the same `CMSampleBuffer` to a Vision entry
+  point makes overlays genuinely computed from the footage. But if the clip is the app's own
+  recording with the HUD already burnt in, that draws a *second* skeleton on top of the first —
+  display-only is correct there. Same for any live panel the recording already contains: turn the
+  app's own copy off (a `@AppStorage` flag flipped via `simctl spawn … defaults write`).
 
 ### 5. `ImageRenderer` — render views to PNG with no app at all
 
