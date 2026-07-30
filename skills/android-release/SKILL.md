@@ -1,10 +1,10 @@
 ---
 name: android-release
-description: Ship an Android app to testers or to Google Play. Use when the user says "make the Android app available to testers", "internal/open testing link", "publish to Play", "release the APK/AAB", or "Play Console". Leads with the MINIMAL tester-link workflow (fastest), then the FULL production listing. Carries the exact Play Console browser steps, signing/keystore setup, the testing-track comparison, required assets, and the gotchas (lintVitalRelease crash, 16 KB alignment) so you don't re-learn them.
+description: Ship an Android app to testers or to Google Play, or push an update to an app already listed there. Use when the user says "make the Android app available to testers", "internal/open testing link", "publish to Play", "release the APK/AAB", "Play Console", "upload a new version", or hits a Play policy deadline ("app doesn't meet target API level requirements"). Leads with the MINIMAL tester-link workflow (fastest), then the FULL production listing, then UPDATE for an existing app. Carries the exact Play Console browser steps, signing/keystore setup, the testing-track comparison, required assets, and the gotchas (lintVitalRelease crash, 16 KB alignment, target API deadline) so you don't re-learn them.
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.1.0"
   openclaw:
     emoji: "🤖"
 ---
@@ -20,6 +20,14 @@ Golden rules:
   covers it — but state what you did.
 - **Back up the keystore + password** — losing it = can't update the same Play listing.
 - Browser work: **the user logs in** (never touch their password/2FA); you drive the forms after.
+  Playwright MCP runs its **own persistent Chromium profile**, NOT the user's Chrome — a Chrome that
+  is "already logged in" is invisible to it, and you can't attach unless it was started with
+  `--remote-debugging-port` (check `curl -s localhost:9222/json/version` before promising anything).
+  So: open the Google sign-in page, hand the window over, wait. The login then sticks for later sessions.
+- **The app may live in someone else's developer account** (client/agency who granted you access).
+  `play.google.com/console/developers` shows a **"Choose developer account"** list — one Google login
+  can hold several. Before concluding "the app isn't here", check every developer account in that list,
+  not just the app list of the first one. Newly granted access appears there after a reload.
 
 ---
 
@@ -126,10 +134,56 @@ not ephemeral → **optional** ("users can choose") → purpose **App functional
   contact email — took two tries).
 - **Direct URLs to `/app-content/*` sub-pages redirect to Home** on hard-navigation; reach them by
   clicking the in-app "App content → overview" link (SPA nav), or navigate to `/app-content/overview`.
+  Deep track URLs (`/tracks/app-bundle-explorer`, `/tracks/<id>/releases/…`) are worse — a cold load
+  dies with **"An unexpected error has occurred (64146155)"**. Land on `/app-dashboard` or
+  `/test-and-release`, then click through the SPA nav. Handy trick: `document.querySelectorAll('a[href]')`
+  on `/test-and-release` dumps every track URL incl. the numeric closed-testing track id.
+- **Read the page with `browser_evaluate`, not full snapshots** — Console pages are enormous. Grab
+  `document.body.innerText` sliced around an anchor phrase, or map `[role="row"]` → `innerText`, and
+  wrap it in `new Promise(res => setTimeout(…, 4000-6000))` because the SPA renders after navigation
+  reports done. Cheap, and it survives the re-renders that invalidate accessibility refs.
+- **Refs go stale constantly** (Console re-renders, plus `?pli=1` redirects on first load). Prefer
+  text-based selectors (`button:has-text("Save")`) or find-by-innerText + `.click()` inside
+  `browser_evaluate` over refs captured more than one action ago.
 - **"Send app for review" locked with everything seemingly filled?** It's almost never a UI lag —
   a required sub-field is silently blank. The dashboard task name understates its requirements (e.g.
   "Select an app category…" also needs **Tags**). When a checklist item won't turn green, open it and
   fill EVERY field, including the ones that look optional, before assuming it's a glitch.
+
+---
+
+## C. UPDATE — new version of an app already on Play
+
+The common ask (policy deadline, bugfix, new build). Nothing from section B is re-done — listing and
+declarations are already approved. Order:
+
+1. **Bump `versionCode`** (strictly greater than anything ever uploaded to ANY track — Play rejects
+   duplicates permanently, even for a track you never rolled out) + `versionName`. Rebuild the signed
+   AAB with the **same upload key**, or the update won't install over the existing app.
+2. Find the live track first: **Dashboard** tells you what's actually active (e.g. "Production —
+   Inactive" means the app has never gone to prod, no matter what the repo history suggests). Ship into
+   the track that's Active; **Test and release → Latest releases and bundles** lists them all.
+3. Track page → **Create new release** → **Upload** the AAB → wait ~40 s for "optimized for
+   distribution" → the table then shows **Version / API levels / Target SDK** for the new bundle next
+   to the previous one. **Read that row** — it's the cheapest proof the build is the one you meant
+   (right versionCode, right targetSdk).
+4. Release name auto-fills as `<code> (<name>)`; notes go inside `<en-US>…</en-US>`. Verify both
+   `input.value`s before continuing.
+5. **Next** → review screen: check the **device-support diff** ("Devices no longer supported" must be
+   0 unless you intended it) and the warnings. Benign: *"contains native code, no debug symbols"*,
+   *"no deobfuscation file"*. Staged roll-out defaults to 100%.
+6. **Save** — this does NOT publish. It parks the change in **Publishing overview** ("Your change has
+   been saved… go to Publishing overview"). Draft stage, safe to reach without asking.
+7. **Publishing overview → "Submit N changes for review" → "Send changes for review"** (confirm dialog).
+   ← **outward-facing: needs the user's explicit OK.** Quick checks run first (up to ~14 min), then the
+   status becomes **"Changes in review"**. Review is typically ≤7 days.
+8. **Managed publishing off** = it goes live to that track's audience the moment review passes. If the
+   user wants to gate the moment, turn managed publishing ON *before* submitting.
+
+**Production may be locked** even for a long-lived app: personal accounts must run a closed test with
+**≥12 opted-in testers for 14 days** before "Apply for production" unlocks. The Dashboard shows the
+live counter ("N testers currently opted-in"). Until it's met, updates can only go to testing tracks —
+say so early instead of hunting for a missing button.
 
 ---
 
@@ -158,3 +212,15 @@ Play App Signing (on by default) re-signs with Google's key; your keystore is th
   Verify by parsing the AAB's ELF PT_LOAD headers for `p_align >= 16384`.
 - **AAB ≠ installable** — testers need an **APK** (`assembleRelease`); AAB is Play-only.
 - **Package name** locks at Create-app (Check availability); it's the applicationId forever.
+- **Target API deadline** — Play requires new uploads to target an API level within ~1 year of the
+  latest Android release, and emails "your app doesn't meet Google Play's target API level
+  requirements" ahead of the cutoff (Android 15 / API 35 → 31 Aug 2025; Android 16 / API 36 →
+  31 Aug 2026; expect the pattern to continue). Fix = raise `compileSdk` **and** `targetSdk`, bump
+  versionCode, re-upload. An old AGP refuses to be quiet about a newer compileSdk but still builds
+  fine: `android.suppressUnsupportedCompileSdk=<sdk>` in `gradle.properties` beats an AGP upgrade as
+  the first move (verified: AGP 8.7.3 + `compileSdk 36`). Confirm the result — the merged manifest
+  under `androidApp/build/intermediates/**/AndroidManifest.xml` must say
+  `android:targetSdkVersion="<sdk>"`; don't trust the Gradle file alone.
+- **Behaviour changes ride along with a targetSdk bump** — enforced edge-to-edge, orientation/resize
+  overrides on large screens, predictive back. Worth a device/emulator pass on a UI-heavy app before
+  submitting, and worth telling the user it's untested if there's no device at hand.
