@@ -54,3 +54,11 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
+
+      - id: skill-frontmatter
+        name: Skill frontmatter (name matches dir, description, version)
+        entry: python3 scripts/check_skills.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]

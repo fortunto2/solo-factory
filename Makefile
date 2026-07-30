@@ -1,4 +1,4 @@
-.PHONY: plugin-link plugin-publish clawhub-publish clawhub-publish-all publish-all test test-verbose test-triggers hooks help
+.PHONY: plugin-link plugin-publish clawhub-publish clawhub-publish-all publish-all test test-verbose test-triggers test-skills doctor new-skill hooks help
 
 plugin-link: ## Link solo-factory as live plugin (dev mode — edit files, instant updates)
 	@bash scripts/link-plugin.sh
@@ -70,6 +70,16 @@ test-verbose: ## Run BATS tests with verbose output
 
 test-triggers: ## Run skill trigger validation
 	@python3 scripts/validate_triggers.py
+
+test-skills: ## Validate skill frontmatter (name, description, version)
+	@python3 scripts/check_skills.py
+
+doctor: ## Check this machine serves skills/rules from the repo (symlinks, no duplicates)
+	@bash scripts/doctor.sh
+
+new-skill: ## Scaffold a new skill in the repo (S=skill-name)
+	@test -n "$(S)" || (echo "Usage: make new-skill S=play-billing" && exit 1)
+	@bash scripts/new-skill.sh $(S)
 
 hooks: ## Install pre-commit hooks
 	@uvx pre-commit install
