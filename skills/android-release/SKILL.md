@@ -1,5 +1,5 @@
 ---
-name: android-release
+name: solo-android-release
 description: Ship an Android app to testers or to Google Play, or push an update to an app already listed there. Use when the user says "make the Android app available to testers", "internal/open testing link", "publish to Play", "release the APK/AAB", "Play Console", "upload a new version", or hits a Play policy deadline ("app doesn't meet target API level requirements"). Leads with the MINIMAL tester-link workflow (fastest), then the FULL production listing, then UPDATE for an existing app. Carries the exact Play Console browser steps, signing/keystore setup, the testing-track comparison, required assets, and the gotchas (lintVitalRelease crash, 16 KB alignment, target API deadline) so you don't re-learn them.
 license: MIT
 metadata:

@@ -11,6 +11,11 @@ rule exists to prevent.
 | Startup/dev skills (`solo:*`) | `~/startups/solopreneur/solo-factory/skills/<name>/SKILL.md` | yes — solo-factory (submodule of solopreneur) |
 | Personal skills (music, home, one-offs) | `~/.claude/skills/<name>/SKILL.md` | no |
 | Third-party skills | `~/.claude/plugins/cache/<marketplace>/…` or `~/.agents/skills/` | not ours — don't edit |
+| User rules | `solo-factory/rules/*.md` → symlinked into `~/.claude/rules/` | yes — solo-factory (public) |
+| User `CLAUDE.md` | `solopreneur/claude-user/CLAUDE.md` → symlinked to `~/.claude/CLAUDE.md` | yes — solopreneur (**private**) |
+
+solo-factory is **public**: personal preferences, private paths and anything from `~/personal/` go in
+the private repo, never here.
 
 solo-factory is installed as the `solo` plugin, and its cache dir is a **symlink to the repo**
 (`make plugin-link`). So a skill edited in solo-factory is live in the next session — no copying, no

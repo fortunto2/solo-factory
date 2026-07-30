@@ -19,6 +19,7 @@ USER_RULES="$HOME/.claude/rules"
 fails=0
 pass() { printf 'OK    %s\n' "$1"; }
 fail() { printf 'FAIL  %s\n' "$1"; fails=$((fails + 1)); }
+warn() { printf 'WARN  %s\n' "$1"; }
 hint() { printf '      → %s\n' "$1"; }
 
 echo "solo-factory doctor — $REPO"
@@ -80,7 +81,17 @@ else
   hint "make plugin-link (step 6 links rules/*.md)"
 fi
 
-# 5. Repo-level skill validation (frontmatter, names, versions).
+# 5. User CLAUDE.md ideally lives in a repo too (advisory — a plain file is valid,
+#    it just isn't backed up or reviewable). Keep it in a PRIVATE repo: personal
+#    preferences don't belong in this public one.
+if [[ -L "$HOME/.claude/CLAUDE.md" ]]; then
+  pass "user CLAUDE.md → $(readlink "$HOME/.claude/CLAUDE.md" | sed "s|$HOME|~|")"
+elif [[ -f "$HOME/.claude/CLAUDE.md" ]]; then
+  warn "user CLAUDE.md is a plain file — not in any repo"
+  hint "move it into a private repo and symlink it back to ~/.claude/CLAUDE.md"
+fi
+
+# 6. Repo-level skill validation (frontmatter, names, versions).
 if python3 "$REPO/scripts/check_skills.py" > /tmp/solo-doctor-skills.$$ 2>&1; then
   pass "$(tail -1 /tmp/solo-doctor-skills.$$ | sed 's/^OK *//')"
 else

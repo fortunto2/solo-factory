@@ -1,5 +1,5 @@
 ---
-name: ios-release
+name: solo-ios-release
 description: Ship an iPhone/iOS app to testers (TestFlight) or to the App Store, or push an update to an app already listed there. Use when the user says "make the iOS app available to testers", "TestFlight link", "publish to the App Store", "upload the build", "submit for review", "App Store Connect", "ASC", or "upload a new version". CLI-first via the `asc` tool (official App Store Connect API) — the browser is a fallback for the few things the API cannot do. Pair with the `ios-app` skill for the build/signing/archive checklist.
 license: MIT
 metadata:

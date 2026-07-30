@@ -6,8 +6,8 @@ Checks every skills/*/SKILL.md for the things an agent gets wrong when it
 hand-creates a skill instead of running `make new-skill`:
 
   - SKILL.md exists and has YAML frontmatter
-  - `name` is either the directory name or `solo-<directory>` (the publishing
-    convention); anything else means the skill claims a name nothing resolves
+  - `name` is `solo-<directory>` — the convention across every skill here and
+    the ClawHub slug; anything else claims a name nothing resolves
   - `description` exists and is non-trivial
   - `metadata.version` exists (ClawHub publishing reads it)
 
@@ -56,10 +56,11 @@ def check(skill_dir: Path) -> list[str]:
     name = fm.get("name")
     if not name:
         problems.append(f"{skill_dir.name}: frontmatter has no `name`")
-    elif name not in (skill_dir.name, f"solo-{skill_dir.name}"):
+    elif name != f"solo-{skill_dir.name}":
         problems.append(
-            f"{skill_dir.name}: `name: {name}` must be either `{skill_dir.name}` or "
-            f"`solo-{skill_dir.name}` — nothing resolves any other name"
+            f"{skill_dir.name}: `name: {name}` — every skill here is named "
+            f"`solo-<directory>`, so this must be `solo-{skill_dir.name}` "
+            f"(it is also the ClawHub slug)"
         )
 
     description = (fm.get("description") or "").strip()
