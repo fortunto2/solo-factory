@@ -192,6 +192,38 @@ Three things that decide whether the result looks real:
   display-only is correct there. Same for any live panel the recording already contains: turn the
   app's own copy off (a `@AppStorage` flag flipped via `simctl spawn … defaults write`).
 
+### 4c. App Preview video — composite it, don't screen-record it
+
+App Previews must be a screen recording of the app, 15-30 s (a 10 s file is rejected on
+ingest). But `simctl io recordVideo` drops frames whenever the app is doing per-frame work,
+and AXe cannot drive it either — `axe tap` and `axe describe-ui` both time out while a busy
+app starves the accessibility server. Compositing avoids both problems.
+
+Lift the UI as a real alpha matte by **difference matting** — capture the same screen twice,
+over a black plate and a white plate:
+
+```
+over black:  cb = C·a            over white:  cw = C·a + (1-a)
+a = 1 - (cw - cb)                C = cb / a
+```
+
+That reproduces translucency exactly — blurred pills, frosted panels, antialiased text —
+where a chroma key leaves fringing. Then let ffmpeg lay it over the footage at a clean 30 fps:
+
+```bash
+ffmpeg -ss "$START" -t 16 -i source.mov -i ui_overlay.png \
+  -filter_complex "[0:v]scale=1320:2868,setsar=1[bg];[bg][1:v]overlay=0:0:format=auto[v]" \
+  -map "[v]" -map 0:a -c:v libx264 -crf 21 -pix_fmt yuv420p -r 30 -c:a aac out.mov
+```
+
+Three traps:
+- **zsh eats the filter string.** `"color=c=$C:s=1280x720:..."` — `$C:s=` is a parameter
+  *modifier* in zsh, so the colour silently becomes `black20` and ffmpeg fails. Brace it:
+  `${C}`. The symptom is indistinguishable from "the app ignores my file".
+- **Plates must outlast the capture settle delay** if the app's video loop is at all fragile.
+- **`APP_IPHONE_69` is not a valid preview type** even though it is a valid *screenshot*
+  type; use `APP_IPHONE_67`. Upload with `asc video-previews upload --replace`.
+
 ### 5. `ImageRenderer` — render views to PNG with no app at all
 
 The fastest loop by far, and the one to reach for when iterating on a single screen. A unit test
