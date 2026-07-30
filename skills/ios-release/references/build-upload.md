@@ -49,6 +49,32 @@ command also requires a metadata source, `--metadata-dir` or `--copy-metadata-fr
 submit time (it no-ops if already attached). Only if neither is available, PATCH iris
 `appStoreVersions/{id}/relationships/build`.
 
+⚠️ **Auto-generated export options need a signed-in Xcode account.** With none, export dies on
+`No profiles for 'com.example.app' were found` (preceded by `Invalid credentials in keychain …
+missing Xcode-Token`) even though the archive signed fine and the profile is installed — the
+generated plist asks for *automatic* signing. Write the plist yourself and name the profile:
+
+```xml
+<dict>
+  <key>method</key><string>app-store-connect</string>
+  <key>teamID</key><string>TEAMID</string>
+  <key>signingStyle</key><string>manual</string>
+  <key>signingCertificate</key><string>iPhone Distribution: Your Name (TEAMID)</string>
+  <key>provisioningProfiles</key>
+  <dict><key>com.example.app</key><string>App AppStore</string></dict>
+  <key>uploadSymbols</key><true/>
+</dict>
+```
+
+```bash
+xcodebuild -exportArchive -archivePath App.xcarchive -exportPath ./export \
+  -exportOptionsPlist ./ExportOptions-AppStore.plist
+```
+
+Archiving with manual signing takes the same four settings on the command line:
+`CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="iPhone Distribution: …" PROVISIONING_PROFILE_SPECIFIER="App AppStore" DEVELOPMENT_TEAM=TEAMID`
+— they override `CODE_SIGN_STYLE: Automatic` in a generated project without editing it.
+
 `export` generates App Store export options automatically when `--export-options` is omitted, at a
 unique archive-adjacent path it reports in the result. To pin one for inspection or reuse:
 
@@ -109,6 +135,44 @@ asc profiles create --name "AppStore Profile" --profile-type IOS_APP_STORE \
 asc profiles download --id "PROFILE_ID" --output "./profiles/AppStore.mobileprovision"
 asc profiles local install --path "./profiles/AppStore.mobileprovision"
 ```
+
+**No Xcode account? Sign entirely from the CLI.** `asc certificates list` showing DISTRIBUTION certs
+does **not** mean you can sign — a certificate is useless without its private key, and the key lives
+only on the machine that generated the CSR. Check what you can actually sign with:
+
+```bash
+security find-identity -v -p codesigning     # "Apple Distribution" / "iPhone Distribution" present?
+```
+
+If it isn't there, mint a new one (Apple allows a few; revoke an unused one if you hit the cap):
+
+```bash
+asc certificates create --certificate-type IOS_DISTRIBUTION --generate-csr \
+  --key-out ./dist.key --csr-out ./dist.csr --common-name "Your Name" --email you@example.com
+asc certificates view --id "CERT_ID" --output json | jq -r '.data.attributes.certificateContent' \
+  | base64 -d > dist.cer
+openssl x509 -inform DER -in dist.cer -out dist.pem
+openssl pkcs12 -export -legacy -inkey dist.key -in dist.pem -out dist.p12 -passout pass:TEMP
+security import dist.p12 -k ~/Library/Keychains/login.keychain-db -P TEMP -T /usr/bin/codesign
+```
+
+⚠️ **`-legacy` is not optional.** OpenSSL 3 defaults to AES-256-CBC + PBKDF2, which macOS `security`
+cannot read — the import fails with *"MAC verification failed during PKCS12 import (wrong
+password?)"*, which sends you hunting a password problem that doesn't exist.
+
+Then the matching profile:
+
+```bash
+asc bundle-ids list --paginate --output json | jq -r '..|objects|select(.type=="bundleIds")
+  |"\(.id)  \(.attributes.identifier)"'
+asc profiles create --name "App AppStore" --profile-type IOS_APP_STORE \
+  --bundle "BUNDLE_ID" --certificate "CERT_ID"
+asc profiles download --id "PROFILE_ID" --output ./App.mobileprovision
+asc profiles local install --path ./App.mobileprovision
+```
+
+Store the key material outside any repo (`~/.appstoreconnect/certs`, `chmod 700`) and delete the
+`.p12` once imported.
 
 Cleanup and audit:
 

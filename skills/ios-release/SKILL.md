@@ -127,9 +127,9 @@ asc release stage --app "APP_ID" --version "1.0" --build "BUILD_ID" \
 asc release stage --app "APP_ID" --version "1.0" --build "BUILD_ID" \
   --metadata-dir "./metadata" --confirm
 
-# 4. Submit — ONLY after the user says go.
-asc review submit --app "APP_ID" --version "1.0" --dry-run --output table
-asc review submit --app "APP_ID" --version "1.0" --confirm
+# 4. Submit — ONLY after the user says go. --build is REQUIRED even when already attached.
+asc review submit --app "APP_ID" --version "1.0" --build "BUILD_ID" --dry-run --output table
+asc review submit --app "APP_ID" --version "1.0" --build "BUILD_ID" --confirm
 
 # 5. Monitor.
 asc review status --app "APP_ID" --version "1.0" --output table

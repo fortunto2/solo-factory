@@ -191,7 +191,55 @@ Accessibility permission (`osascript -e 'tell application "System Events" to ret
 → `true`) and Screen Recording for `screencapture`. Note the Canvas device is chosen by the scheme's
 **destination**: with a physical iPhone selected, Canvas won't render a simulator preview.
 
-### 7. Content matters more than mechanics
+### 7. Framing real device screenshots
+
+The best store screenshots are shot on the user's own phone with their own footage, not staged in a
+simulator. Ask for raw device screenshots and frame them yourself:
+
+```python
+STATUS_BAR = 132        # iOS status bar at 3x — crop it, the clock and battery add nothing
+shot = shot.crop((0, STATUS_BAR, shot.width, shot.height))
+shot = shot.resize((1040, round(shot.height * 1040 / shot.width)), Image.LANCZOS)
+# then paste onto a 1284x2778 canvas under a two-line caption
+```
+
+Rules that matter:
+- **Caption first, screenshot second.** Most people decide from the first two cards in search
+  results, and they read the caption, not the UI.
+- Burn captions into the store images (Apple has no text layer), but on a website keep them in HTML
+  so they localise — same source screenshots, two treatments.
+- Match the site's typography and put a thin brand-gradient rule under the caption; the set then
+  reads as one system with the landing page.
+- Order by distinctiveness, not by app navigation: lead with the screen no competitor has.
+- Device screenshots are 1290×2796 on current iPhones but the slot may be 1284×2778 — scale, never
+  stretch, and verify with `sips -g pixelWidth -g pixelHeight`.
+- Screenshots pasted into a chat are downscaled copies. Always work from the original file.
+
+Verify the whole set before uploading — it reports per-file readiness, not just the first error:
+
+```bash
+asc screenshots validate --path ./store-shots --device-type "IPHONE_65" --output table
+```
+
+A successful upload reports `"state": "COMPLETE"` for every file. Anything else means the asset did
+not finalise, and submission will fail later with a misleading message (see [browser.md](browser.md)).
+
+### 8. Checking the iPad layout without a rebuild
+
+An `iphonesimulator` build installs and runs on an **iPad simulator** as-is, which is enough to see
+whether the iPad layout is presentable before committing to iPad screenshots:
+
+```bash
+xcrun simctl boot "$IPAD_UDID"
+xcrun simctl install "$IPAD_UDID" path/to/App.app
+xcrun simctl launch "$IPAD_UDID" com.example.app
+xcrun simctl io "$IPAD_UDID" screenshot ipad.png     # 2064x2752 on iPad Pro 13"
+```
+
+A stretched iPhone layout (full-width buttons, oceans of empty space) is a rejection risk. Either
+adapt the UI or ship iPhone-only — see the screenshots section in [readiness.md](readiness.md).
+
+### 9. Content matters more than mechanics
 
 The simulator's stock library is a handful of Apple stock photos; `ffmpeg` test patterns are SMPTE
 colour bars. Both make technically valid, commercially useless screenshots. Load **real** footage

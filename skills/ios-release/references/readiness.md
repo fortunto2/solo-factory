@@ -191,9 +191,26 @@ text**.
 
 ```bash
 asc screenshots list --version-localization "LOC_ID" --output table
-asc screenshots sizes --output table
+asc screenshots sizes --output table          # the slots THIS app must fill
 asc screenshots validate --path "./screenshots" --device-type "IPHONE_65" --output table
 ```
+
+⚠️ **`asc validate` does not know which slots are mandatory.** It checks the sets you already
+populated, so a clean report still fails at submit time with:
+
+```
+appStoreVersions ... is not in valid state
+Associated errors for /v1/appScreenshots/:
+  - A screenshot with type ipadPro129 is required but was not provided
+```
+
+The required slots follow the binary's `TARGETED_DEVICE_FAMILY`: a universal build (`"1,2"`) demands
+an **iPad set as well**, no matter what the iPhone-only report says. Check `asc screenshots sizes`
+*before* producing assets — it lists exactly the display types this app must cover.
+
+Two ways out when the iPad build isn't presentable: shoot real iPad screenshots, or ship
+iPhone-only by setting `TARGETED_DEVICE_FAMILY: "1"` and uploading a new build. Do **not** upscale
+iPhone screenshots into the iPad slot — an unadapted stretched layout is a known rejection reason.
 
 Production and upload: [screenshots.md](screenshots.md).
 
@@ -215,3 +232,19 @@ asc submit cancel --version-id "VERSION_ID" --app "APP_ID" --confirm
 Retry sequence (there is no retry command): cancel if the active submission must be withdrawn →
 repair proven blockers → re-run `asc validate` → confirm no active submission owns the version →
 submit again. Reuse an inspected `READY_FOR_REVIEW` draft rather than creating a second submission.
+
+⚠️ A failed submit can leave an **empty review submission** behind that App Store Connect refuses to
+cancel. `asc review submit` handles it by reusing that record and says so
+(*"Reusing existing empty review submission … because App Store Connect would not cancel it"*) —
+that message is normal, not an error. Don't try to clear it by hand.
+
+⚠️ `asc review submit` **requires `--build`** even when the build is already attached to the version;
+without it the command aborts with `--build is required`. Passing an already-attached build is a
+no-op, so always pass it.
+
+Success looks like this — check both, not just the command's exit code:
+
+```bash
+asc review status --app "APP_ID" --version "1.0" --output table   # reviewState WAITING_FOR_REVIEW
+asc status --app "APP_ID" --output table                          # state WAITING_FOR_REVIEW
+```
