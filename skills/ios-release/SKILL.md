@@ -53,6 +53,7 @@ fallbacks, CI setup and per-repo profiles: [references/asc-cli.md](references/as
 | Ship a new app to the Store | [B. App Store](#b-full--app-store-submission) |
 | New version of a listed app | [C. Update](#c-update--new-version) |
 | Crashes, feedback, testers, reviews | [D. After release](#d-after-release) |
+| **App Review rejected the version** | [E. Rejection](#e-rejection--answer-and-resubmit) |
 | `asc validate` reports blockers | [references/readiness.md](references/readiness.md) |
 | Description, keywords, ASO, What's New | [references/metadata-aso.md](references/metadata-aso.md) |
 | Screenshots — capture, frame, upload | [references/screenshots.md](references/screenshots.md) |
@@ -156,6 +157,28 @@ rating. Repair recipes for each: [references/readiness.md](references/readiness.
 **App Privacy is not in the public API** — use `asc web privacy` or the browser. See
 [references/browser.md](references/browser.md).
 
+### What validate does NOT catch — check these by hand before submitting
+
+A clean `asc validate` is not a clean review. These pass validation and get the version rejected:
+
+- **Account deletion (5.1.1(v))** — if the app creates an account *in any form*, it must offer
+  deletion **inside the app**. An anonymous sign-in that can later be upgraded to email counts as
+  account creation; "works without an account" in the description does not exempt it. Reviewers ask
+  for a screen recording of the whole flow on a physical device, so record one and keep it in the
+  Review Notes for future submissions.
+- **User-generated content (2.3.6)** — photos, notes, comments, anything users create and others
+  see means the age rating must declare it, or the metadata is "inaccurate":
+  `asc age-rating edit --app "APP_ID" --user-generated-content true`.
+- **ARKit / camera features (2.1)** — reviewers ask what the feature is, where to find it, and
+  whether AR markers are needed. Answer all three in Review Notes *before* submitting, with the
+  exact tap path, and say plainly if the feature needs to be physically near something to show data.
+- **Support and privacy URLs actually resolving** — validate only checks that a URL is present.
+  A 404 is a rejection. Verify every URL before writing it:
+  `curl -s -o /dev/null -L -w '%{http_code}\n' "$URL"`
+- **The privacy policy matching the App Privacy declaration** — a company-wide policy that describes
+  collecting names, billing and IP addresses contradicts a "Data Not Collected" declaration. An app
+  that collects nothing needs its own honest page.
+
 ---
 
 ## C. UPDATE — new version
@@ -188,6 +211,45 @@ asc builds test-notes create --build-id "BUILD_ID" --locale "en-US" --whats-new 
 Crash data lags 24–48 h — an empty list right after shipping means nothing. Tester management,
 performance diagnostics, build retention and analytics:
 [references/post-release.md](references/post-release.md).
+
+---
+
+## E. Rejection — answer and resubmit
+
+`asc review status` shows `UNRESOLVED_ISSUES` and the guideline numbers, but **the rejection text
+itself is not in the public API**. Read it in the browser:
+
+```
+https://appstoreconnect.apple.com/apps/APP_ID/distribution/reviewsubmissions/details/SUBMISSION_ID
+```
+
+(`asc web review show --app "APP_ID"` can fetch it, but only with a live web session — see
+[references/browser.md](references/browser.md).)
+
+**Read the guideline numbers, not the section names.** "2.1.0 Performance: App Completeness" and
+"2.3.6 Performance: Accurate Metadata" are named after guideline *section 2 — Performance*; neither
+is a complaint about speed. Users see the word "Performance" and assume the app is too slow.
+
+The loop:
+
+1. **Fix the code or metadata**, upload a new build, attach it to the version.
+2. **Reply in Resolution Center** — the "Reply to App Review" button under the message. Answer every
+   guideline they raised, in their order, with exact tap paths. Attach what they asked for; the
+   control takes video and images.
+3. **Remove the rejected item from the submission.** ⚠️ "Resubmit to App Review" stays **disabled**
+   while the submission still holds the item carrying the old, rejected build — this is the step
+   that traps you, and nothing on screen says so. Delete that item from Items Submitted, then
+   Resubmit. ("Update Review" on the version page is the other way in.)
+4. **Confirm** `asc review status --app "APP_ID"` reads `WAITING_FOR_REVIEW` with 0 blockers.
+
+Keep the rejection text and your reply in the repo (`docs/app-review-<version>.md`). The next
+submission starts from what Apple actually asked instead of memory, and a second rejection on the
+same guideline is much harder to argue if you cannot show what you answered.
+
+**Browser automation caveat:** the Resolution Center attach control accepts files via
+`setInputFiles`, but the resulting attachment list does **not** appear in accessibility snapshots or
+page screenshots. Do not conclude the upload failed and retry blindly — you will attach duplicates.
+Ask the person at the screen what the list shows.
 
 ---
 

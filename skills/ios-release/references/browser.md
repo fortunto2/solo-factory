@@ -25,6 +25,8 @@ password or 2FA.
 | Agreements (Paid/Free Apps) | No API | ASC → Business → Agreements |
 | Tax/banking | No API | ASC → Business |
 | Some rejection-message detail | Partial | `asc web review show`, else Resolution Center |
+| Replying to a rejection + attachments | No public API | Resolution Center → "Reply to App Review" |
+| Resubmitting after a rejection | No public API | Remove the rejected item, then "Resubmit to App Review" |
 
 Check coverage before assuming: `asc capabilities --status not-public-api --output table` and
 `asc capabilities --status web-session --output table`.
@@ -166,6 +168,30 @@ A **409 on `reviewSubmissionItems`** in the network log confirms it's this, not 
 - **The iris API is reachable from the page context** with the user's cookies — great for *reading*
   true state (screenshot delivery state, `reviewSubmissions`, version `appStoreState`) when the DOM
   is ambiguous. Prefer it over screenshotting placeholders.
+- **Resolution Center attachments upload but stay invisible to automation.** `setInputFiles` on the
+  hidden input does attach the file, yet the resulting list renders in neither the accessibility
+  snapshot nor a page screenshot, and the input's own `.files` reads empty afterwards. Retrying
+  because "it didn't work" silently attaches duplicates. Ask the person looking at the screen.
+- **A cached web session can be authenticated and still 401.** `asc web auth status` reporting
+  `authenticated: true` with `teamId: 0` means every `asc web …` call fails; log out and back in, or
+  drive the browser instead.
+
+---
+
+## "You must renew your Apple Developer Program membership"
+
+TestFlight shows this banner on a perfectly current membership. Before anyone pays anything, check
+both places — it takes a minute and the banner is often just a stale cache after a recently accepted
+agreement:
+
+| Check | Where | Healthy looks like |
+|---|---|---|
+| Membership | developer.apple.com/account → **Membership details** | a *future* Renewal date, program listed |
+| Agreements | ASC → **Business** → Agreements | Paid Apps **and** Free Apps both `Active` |
+
+If both are fine, the banner is cosmetic — uploads, submissions and TestFlight keep working. If the
+Free Apps agreement is *not* Active, that is the real blocker, and it also produces
+`BETA_CONTRACT_MISSING (422)` on upload.
 
 ---
 

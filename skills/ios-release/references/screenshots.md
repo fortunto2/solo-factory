@@ -38,6 +38,26 @@ asc screenshots apply --app "APP_ID" --version "1.0" --review-output-dir "./scre
 
 Delete: `asc screenshots delete --id "SCREENSHOT_ID" --confirm`.
 
+### Two ways the upload leaves the version un-submittable
+
+**Orphans in `AWAITING_UPLOAD`.** A failed upload (a dropped TLS connection is enough) leaves a
+half-created screenshot behind. Re-uploading succeeds and you end up with the same filename twice —
+one `COMPLETE`, one `AWAITING_UPLOAD`. Always `asc screenshots list` after any upload that errored,
+and delete anything not `COMPLETE`.
+
+**An empty set.** Deleting every screenshot from a display size leaves the *set* behind, and
+`asc validate` then fails with `screenshots.required.set_nonempty` — "Upload at least one screenshot
+to this set" — pointing at a set you thought was gone. Remove the set itself:
+
+```bash
+asc localizations screenshot-sets list --localization-id "LOC_ID" --output table
+asc localizations screenshot-sets delete --id "SCREENSHOT_SET_ID" --confirm
+```
+
+This is the normal cleanup when you replace an old 6.5" set with a 6.9" one: upload the new size,
+delete the old screenshots, then delete the emptied set — otherwise the listing keeps serving the
+stale set to that display size, in whatever language it was captured in.
+
 ---
 
 ## Sizes
@@ -404,6 +424,38 @@ asc screenshots capture --bundle-id "com.example.app" --name home --udid "$UDID"
 Run locales in parallel (one background job per UDID), then frame in parallel, then upload per
 locale with that locale's `LOC_ID`. Launching manually outside `asc screenshots capture` does accept
 launch arguments: `xcrun simctl launch "$UDID" "com.example.app" -AppleLanguages "(de)" -AppleLocale "de_DE"`.
+
+⚠️ **None of this works unless the app itself follows the device language.** An app that hardcodes
+its language, or that decides it once on first launch and freezes it in saved state, ignores
+`-AppleLanguages` entirely and every locale comes out identical. Check that first — and note that
+it is a real product bug as well: the user's phone language should win until they choose otherwise
+in-app, which also gives them the "Preferred Language" row under Settings once
+`CFBundleLocalizations` lists the languages.
+
+### Driving a UI you cannot tap
+
+Clicks are TCC-blocked, so a multi-screen set needs another way to reach each screen. In order of
+preference:
+
+1. **A launch argument for the starting screen.** A few lines in the app — read
+   `UserDefaults.standard.string(forKey: "startTab")` and select that tab — turn a tapping problem
+   into one launch per screen. Debug-only in spirit, harmless in production, reusable every release.
+2. **Edit the saved state in the container** to skip anything gating the screens (onboarding flags,
+   first-run tips) instead of adding more debug code:
+   ```bash
+   DATA=$(xcrun simctl get_app_container "$UDID" com.example.app data)
+   python3 - "$DATA/Documents/state.json" <<'PY'
+   import json, sys; p = sys.argv[1]
+   s = json.load(open(p)); s["profile"]["onboarded"] = True
+   json.dump(s, open(p, "w"), ensure_ascii=False)
+   PY
+   ```
+3. **`key code 36` (Return)** to dismiss a system alert. `simctl privacy grant location` does *not*
+   reliably suppress CoreLocation's prompt — it still appeared over every screen for us — and Return
+   accepts the default button, which is enough to clear it.
+
+Never screenshot the whole desktop hunting for the simulator window: it captures whatever the person
+has open, which is their business and not yours.
 
 ---
 
