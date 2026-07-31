@@ -277,3 +277,51 @@ check email and `asc builds info --build-id … --output table`.
 
 **Keep artifacts out of git.** `.asc/artifacts/`, `*.xcarchive`, `*.ipa`, and any `*.p8` belong in
 `.gitignore`.
+
+---
+
+## Shipping a macOS build outside the App Store
+
+For a downloadable `.app` (beta, desktop companion), the gate is Gatekeeper, not App Review. Full
+path, all steps required:
+
+```bash
+security find-identity -v -p codesigning | grep "Developer ID"     # different cert from IOS_DISTRIBUTION
+
+codesign --force --deep --options runtime --timestamp \
+  --entitlements entitlements.plist \
+  --sign "Developer ID Application: Name (TEAMID)" "My App.app"
+
+ditto -c -k --keepParent "My App.app" App.zip
+xcrun notarytool submit App.zip --key AuthKey_KEYID.p8 --key-id KEYID --issuer ISSUER-UUID --wait
+xcrun stapler staple "My App.app"          # attach the ticket for offline verification
+spctl -a -vv "My App.app"                  # must read: accepted, source=Notarized Developer ID
+```
+
+The **same App Store Connect `.p8` key** authenticates `notarytool` — no extra credentials. Typical
+turnaround is a couple of minutes.
+
+⚠️ **A raw executable is not an app.** A bare Mach-O binary has no bundle, so macOS gives it no
+window server registration: it runs but never shows a window, and `System Events` cannot see it.
+Wrap it in `My App.app/Contents/{MacOS,Resources}` with an `Info.plist` (`CFBundleExecutable`,
+`CFBundleIdentifier`, `LSMinimumSystemVersion`) and an `.icns` built by `iconutil`.
+
+⚠️ **Hardened runtime breaks dynamically linked Homebrew dependencies — this is the big one.**
+A binary built on a dev machine happily links `/opt/homebrew/opt/ffmpeg/lib/libavcodec.*.dylib`.
+After signing it dies at launch with:
+
+```
+Library not loaded: /opt/homebrew/opt/ffmpeg/lib/libavcodec.62.dylib
+… mapping process and mapped file (non-platform) have different Team IDs
+```
+
+Two separate problems: the library is signed by Homebrew, not you, and the person downloading your
+app does not have it at all. `com.apple.security.cs.disable-library-validation` silences the first
+and leaves the second — the app still fails on any machine without that exact Homebrew formula.
+The real fix is to link the dependency statically (in Rust, a `static-ffmpeg`-style feature) or ship
+the dylibs inside `Contents/Frameworks` and re-sign them with your identity. **Test the signed app
+from a path the build machine never used, or you will ship something that only runs on your laptop.**
+
+Entitlements a WebView-based desktop app (Tauri, Dioxus, Electron) usually needs:
+`com.apple.security.cs.allow-jit`, `com.apple.security.cs.allow-unsigned-executable-memory`,
+`com.apple.security.files.user-selected.read-write`, `com.apple.security.network.client`.
