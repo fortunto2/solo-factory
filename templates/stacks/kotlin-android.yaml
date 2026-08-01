@@ -58,8 +58,10 @@ gradle_required:
   application_id: "<org_domain>.<name>"
   android_config:
     namespace: "<org_domain>.<name>"
-    compileSdk: 35
-    targetSdk: 35
+    # Play blocks uploads that target more than ~1 year behind the latest Android release.
+    # API 35 → dead 31 Aug 2025 · API 36 (Android 16) → dead 31 Aug 2026. Start at the newest.
+    compileSdk: 36
+    targetSdk: 36
     minSdk: 26
     versionCode: 1
     versionName: "1.0.0"

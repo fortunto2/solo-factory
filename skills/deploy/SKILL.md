@@ -97,7 +97,8 @@ Classify the project to select the right deploy strategy:
 | `Cargo.toml` + `[[bin]]` + `[lib]` | library + CLI | crates.io + GitHub Releases |
 | `pyproject.toml` + `[project.scripts]` | CLI (Python) | PyPI |
 | `pyproject.toml` (no scripts, no web) | library (Python) | PyPI |
-| `*.xcodeproj` | iOS app | App Store (manual) |
+| `*.xcodeproj` | iOS app | App Store → **`/solo:ios-release`** |
+| `build.gradle.kts` + `com.android.application` | Android app | Play → **`/solo:android-release`** |
 
 **For CLI/TUI/library projects:** skip web deploy steps (Vercel, CF, etc.) — go directly to package registry deploy (crates.io, PyPI, npm).
 
@@ -160,8 +161,8 @@ If stack YAML was not found, use this fallback matrix:
 | `python-api` | Cloudflare Workers (MVP) or Pulumi + Hetzner (production) | Tier 1/2 |
 | `python-ml` | skip (CLI tool, no hosting needed) | — |
 | `rust-native` | crates.io (library/CLI crate) or binary release (GitHub Releases) | Tier 1 |
-| `ios-swift` | skip (App Store is manual) | — |
-| `kotlin-android` | skip (Play Store is manual) | — |
+| `ios-swift` | hand off to **`/solo:ios-release`** (App Store / TestFlight) | — |
+| `kotlin-android` / `kotlin-multiplatform` | hand off to **`/solo:android-release`** (Play Console) | — |
 
 If `$ARGUMENTS` specifies a platform, use that instead of auto-detection or YAML.
 
