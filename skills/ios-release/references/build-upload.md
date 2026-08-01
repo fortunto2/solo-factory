@@ -89,6 +89,22 @@ Raise `ASC_UPLOAD_TIMEOUT_SECONDS` for large IPAs on slow links.
 
 ## Version and build numbers
 
+⚠️ **`MARKETING_VERSION` must equal the App Store version string exactly, character for character.**
+A project building `1.0.0` cannot supply a build to an App Store version called `1.0` — the builds
+upload fine, reach `VALID`, appear in the build list, and simply never become selectable for that
+version. Nothing says why. An app can sit "almost ready" for months on this alone: the release notes
+say *select a build*, the build list looks healthy, and the two version strings differ by one `.0`.
+
+Check both before archiving, not after uploading:
+
+```bash
+asc status --app "APP_ID" --output table | grep -A1 "APP STORE"   # the version string ASC expects
+rg -n "MARKETING_VERSION" project.yml *.xcconfig 2>/dev/null      # what the project stamps
+```
+
+If they differ, change the project to match the App Store version (or create the matching version in
+ASC) — do not just bump the build number.
+
 Apple rejects a duplicate build number for the same version string. Let the API pick the next one:
 
 ```bash
