@@ -262,6 +262,21 @@ dot-free slug pattern avoids all three. Working example: `solopreneur/blog/funct
 server over Streamable HTTP works in Claude and ChatGPT today. Stateless JSON is spec-legal:
 no SSE needed. Working example: `solopreneur/blog/functions/mcp.ts`.
 
+**Check that robots.txt is yours before editing it.** Cloudflare's *Managed robots.txt*
+(domain → AI Crawl Control → Overview) prepends its own block to whatever the site serves, with
+`Disallow: /` for ClaudeBot, GPTBot, Amazonbot, CCBot, Google-Extended, meta-externalagent,
+Bytespider and Applebot-Extended. The site's own file lands underneath, allowing the same bots,
+and the result contradicts itself: blocked at the top, "quote me" at the bottom.
+
+Editing the repo does nothing — it is a dashboard toggle. Symptom:
+
+```sh
+curl -s https://example.com/robots.txt | grep -c "Disallow: /"
+```
+
+Nonzero on a site whose own robots.txt has no Disallow means the toggle is on. Found on
+miralinka.com, which was telling ClaudeBot not to read a blog written to be found.
+
 **Publish nothing that is not real.** API catalogue, OAuth metadata and MCP cards for a site
 with no API are box-ticking that misleads agents. rustman.org publishes an agent-skills index
 because the 35 skills exist, and omits the rest.
