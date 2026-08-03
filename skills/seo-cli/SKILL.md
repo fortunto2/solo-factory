@@ -77,6 +77,31 @@ Read the score as three tiers, not one number:
 | Table stakes | robots.txt, sitemap, llms.txt, AI bot rules, Content-Signals | Should all pass on every site |
 | Optional | MCP card, A2A card, API catalog, OAuth | Publish **only if real** — an empty catalogue raises the score and tells an agent something untrue |
 
+### Traffic — who actually came, from our own analytics
+```bash
+seo products              # every registered product, and whether its counter reports
+seo traffic --days 7      # people, page views, engagement, bot volume per product
+seo agents                # which AI agents read the sites, and why they came
+```
+
+These talk to `superduper-analytics` over MCP — the same server Claude and ChatGPT connect to,
+so there is one contract rather than a private endpoint alongside it. Configure once in
+`config.yaml`:
+
+```yaml
+analytics:
+  url: "https://analytics.superduperai.co/mcp"
+  key: ""   # the Worker's DASHBOARD_KEY secret
+```
+
+**Run `seo products` before drawing any conclusion from the other two.** A product with no
+counter installed reports zero traffic for reasons that have nothing to do with how it is
+doing, and a zero read as a verdict is the easiest mistake here.
+
+Output is printed verbatim, including the sentence that says when sampling made the people
+figure a lower bound. That is the point — an evaluation has to tell a small number from an
+unreliable one.
+
 ### Report — search analytics + opportunities across all sites
 ```bash
 seo report
@@ -295,8 +320,9 @@ whether anyone **came**. Use them together.
 | Can crawlers and agents read this site? | `seo agent-audit` |
 | Is the page technically sound for search? | `seo audit` |
 | Which queries bring people in? | `seo report` |
-| Did anyone actually visit, and were they human? | analytics dashboard |
-| Which AI agents read the site, and why? | analytics dashboard, agent panel |
+| Did anyone actually visit, and were they human? | `seo traffic` |
+| Which AI agents read the site, and why? | `seo agents` |
+| Is the counter even installed? | `seo products` |
 
 Two things it knows that nothing else does:
 
@@ -324,5 +350,7 @@ The `data-source` must exist in `registry/sources.yaml` — unregistered sources
 - User asks "fix SEO" / "improve scores" → run `audit`, then fix issues in project source
 - User asks "SEO status" → run `status`
 - User asks "is the site ready for AI agents" / "agent ready" / "MCP" / "llms.txt" → run `agent-audit`
-- User asks "did anyone visit" / "how many people" / "which AI reads us" → the analytics dashboard, not `seo`
+- User asks "did anyone visit" / "how many people" → run `seo traffic`
+- User asks "which AI reads us" / "агенты" → run `seo agents`
+- User compares products or asks "how is X doing" → run `seo products` first, then `seo traffic`
 - After adding new pages/sitemap → run `ping` for instant indexing
