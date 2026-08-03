@@ -1,10 +1,10 @@
 ---
 name: solo-seo-cli
-description: Manage SEO for all sites via the `seo` CLI — audit pages (SEO+GEO score), check Search Console analytics, submit sitemaps, ping IndexNow, inspect indexing, track positions. Covers Google, Bing, Yandex. Use when the user asks about search performance, indexing, sitemap submission, SEO/GEO score, or wants to fix a site's SEO. Do NOT use for writing landing copy (/landing-gen).
+description: Manage SEO and agent-readiness for all sites via the `seo` CLI — audit pages for SEO+GEO score, run `agent-audit` to check whether AI agents can discover and read a site (robots rules, Content-Signals, llms.txt, markdown negotiation, MCP cards), check Search Console analytics, submit sitemaps, ping IndexNow, inspect indexing. Covers Google, Bing, Yandex. Also points at superduper-analytics for who actually visited and which AI agents read the site. Use when the user asks about search performance, indexing, SEO/GEO score, agent-readiness, llms.txt, MCP, or wants to fix a site. Do NOT use for writing landing copy (/landing-gen).
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.1.0"
   openclaw:
     emoji: "🔍"
 allowed-tools: Read, Grep, Bash, Glob, Edit, Write, WebFetch
@@ -49,6 +49,33 @@ seo audit
 # Detailed single-site audit with PageSpeed + keywords
 seo audit https://superduperai.co
 ```
+
+### Agent audit — what an AI agent can discover, read and act on
+```bash
+seo agent-audit                          # every configured site
+seo agent-audit https://example.com      # one site, full detail
+```
+
+A site now has two audiences, and this checks the second: robots rules naming GPTBot and
+friends, Content-Signals, llms.txt, markdown negotiation, MCP and A2A cards.
+
+**It probes a path that cannot exist before anything else.** A great many sites answer 200
+with their home page for every URL, and a checker that trusts status codes then reports a
+perfect score for a site that has none of it — life2film.com scored 12/12 that way while every
+response was the same HTML page. Its real score was 5. When that probe returns 200 the report
+says so at the top and verifies content instead: JSON must parse, text must not be HTML.
+
+Markdown negotiation is tested on the home page **and** on a real page from the sitemap. Sites
+whose root is an index have no markdown twin for it while every article does, and probing only
+`/` calls that "no negotiation" — the same false negative pointing the other way.
+
+Read the score as three tiers, not one number:
+
+| Tier | Checks | Treat as |
+|---|---|---|
+| Server honesty | Distinct 404s | **Fix first.** Everything else is unreliable until this passes, and Google counts soft 404s as a quality problem |
+| Table stakes | robots.txt, sitemap, llms.txt, AI bot rules, Content-Signals | Should all pass on every site |
+| Optional | MCP card, A2A card, API catalog, OAuth | Publish **only if real** — an empty catalogue raises the score and tells an agent something untrue |
 
 ### Report — search analytics + opportunities across all sites
 ```bash
@@ -179,6 +206,41 @@ When the audit shows failures, here's what to do for each category:
 - **Missing markdown content**: Serve content as `.md` endpoints for LLM consumption.
 - **Missing rich schema**: Add FAQ, Article, Product, SoftwareApplication schema — AI engines use structured data for citations.
 
+## Fixing agent-readiness
+
+Ordered by what actually moves the needle, from the sites fixed so far.
+
+**Soft 404s** — a static host with no `404.html` in the build output serves `index.html` with
+200 for everything. Astro: add `src/pages/404.astro`. The built `404.html` makes Cloudflare
+Pages return a real 404 by itself.
+
+**robots.txt naming AI crawlers.** Silence lets whoever wrote the crawler decide for you. Name
+GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, Claude-User, Claude-SearchBot, PerplexityBot,
+Perplexity-User, Google-Extended, Applebot-Extended explicitly, and state Content-Signals
+inside the `User-agent: *` group — that is where the policy defines it:
+
+```
+User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+Allow: /
+```
+
+**Markdown twins.** Generate `/section/slug.md` beside every page from the same source, and
+negotiate on `Accept: text/markdown` with a Pages Function. Three traps, all hit for real:
+`next()` is single-use and a second call returns a stale 404; fetching the twin from inside the
+same zone is unreliable; and a route pattern that matches `.md` as readily as the page loops
+forever, because clients resend `Accept` while following redirects. A 302 to the twin with a
+dot-free slug pattern avoids all three. Working example: `solopreneur/blog/functions/`.
+
+**MCP server, not WebMCP.** WebMCP is Chrome-only behind an origin trial, and `provideContext()`
+— which every guide still recommends — was removed from the spec in March 2026. A remote MCP
+server over Streamable HTTP works in Claude and ChatGPT today. Stateless JSON is spec-legal:
+no SSE needed. Working example: `solopreneur/blog/functions/mcp.ts`.
+
+**Publish nothing that is not real.** API catalogue, OAuth metadata and MCP cards for a site
+with no API are box-ticking that misleads agents. rustman.org publishes an agent-skills index
+because the 35 skills exist, and omits the rest.
+
 ## Auto-Fix Workflow
 
 When user asks to fix SEO/GEO issues:
@@ -219,6 +281,40 @@ Priority order for fixes:
 - **IndexNow:** Key in config.yaml, verification files in each site's `public/` directory
 - **Bing/Yandex:** Not yet configured (keys go in config.yaml)
 
+## Our own analytics, and where it fits
+
+`superduper-analytics` (`~/startups/active/superduper-analytics`, live at
+`https://analytics.superduperai.co`) is the ingest for every site and app — one event schema
+for web and iOS, so a landing visit and an app launch are comparable without a join.
+
+It answers what `seo` cannot: `seo` measures whether a page **can** be found, analytics measures
+whether anyone **came**. Use them together.
+
+| Question | Tool |
+|---|---|
+| Can crawlers and agents read this site? | `seo agent-audit` |
+| Is the page technically sound for search? | `seo audit` |
+| Which queries bring people in? | `seo report` |
+| Did anyone actually visit, and were they human? | analytics dashboard |
+| Which AI agents read the site, and why? | analytics dashboard, agent panel |
+
+Two things it knows that nothing else does:
+
+- **Bot share.** Its counter runs only in browsers, and it classifies what it does see. On
+  life2film 96% of received events were bots; the naive "people" number was 45× too high.
+- **Named AI agents.** Cloudflare's verified-bot data, per agent and per intent — an `AI
+  Assistant` fetch means somebody asked a question right now; an `AI Crawler` is building an
+  index. The dashboard separates them.
+
+Counter install is one line per site, documented in that repo's `docs/install.md`:
+
+```html
+<script defer src="https://analytics.superduperai.co/sda.js" data-source="<registry-id>"></script>
+```
+
+The `data-source` must exist in `registry/sources.yaml` — unregistered sources are refused with
+403, and that registry is the whole access-control model.
+
 ## When to Use
 
 - User asks "how is SEO doing" / "check scores" / "audit sites" → run `audit`
@@ -227,4 +323,6 @@ Priority order for fixes:
 - User deployed new content → run `submit` + `ping`
 - User asks "fix SEO" / "improve scores" → run `audit`, then fix issues in project source
 - User asks "SEO status" → run `status`
+- User asks "is the site ready for AI agents" / "agent ready" / "MCP" / "llms.txt" → run `agent-audit`
+- User asks "did anyone visit" / "how many people" / "which AI reads us" → the analytics dashboard, not `seo`
 - After adding new pages/sitemap → run `ping` for instant indexing
