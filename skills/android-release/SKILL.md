@@ -1,10 +1,10 @@
 ---
 name: solo-android-release
-description: Ship an Android app to testers or to Google Play, or push an update to an app already listed there. Use when the user says "make the Android app available to testers", "internal/open testing link", "publish to Play", "release the APK/AAB", "Play Console", "upload a new version", or hits a Play policy deadline ("app doesn't meet target API level requirements"). Leads with the MINIMAL tester-link workflow (fastest), then the FULL production listing, then UPDATE for an existing app. Carries the exact Play Console browser steps, signing/keystore setup, the testing-track comparison, required assets, and the gotchas (lintVitalRelease crash, 16 KB alignment, target API deadline) so you don't re-learn them.
+description: Ship an Android app to testers or to Google Play, or push an update to an app already listed there. Use when the user says "make the Android app available to testers", "internal/open testing link", "publish to Play", "release the APK/AAB", "Play Console", "upload a new version", wants install attribution set up (Play referrer UTMs, Install Referrer API, an in-app counter and the matching Data safety form), or hits a Play policy deadline ("app doesn't meet target API level requirements"). Leads with the MINIMAL tester-link workflow (fastest), then the FULL production listing, then UPDATE for an existing app. Carries the exact Play Console browser steps, signing/keystore setup, the testing-track comparison, required assets, and the gotchas (lintVitalRelease crash, 16 KB alignment, target API deadline) so you don't re-learn them.
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.1.0"
+  version: "1.2.0"
   openclaw:
     emoji: "🤖"
 ---
@@ -119,6 +119,11 @@ Pick **data types** (Location→Precise, Photos, Personal info→Name/Email/User
 UGC), then per type open its modal: **Collected** (your backend is not "Shared" with third parties) →
 not ephemeral → **optional** ("users can choose") → purpose **App functionality** → Save.
 
+⚠️ **A counter in the app changes these answers.** Any analytics means Q1 is Yes and **App
+activity → App interactions** is collected. Declare it in the same release that ships the counter,
+not after — see [Analytics](#analytics--attribution-and-the-in-app-counter). Play suspends over a
+Data safety form that disagrees with the app's behaviour, and the form is the easier thing to fix.
+
 ### Browser-automation gotchas (Playwright on Play Console)
 - **Angular Material radios/checkboxes ignore JS `.click()`** — must use a real `browser_click`. Target
   them by the accessibility ref, or `question:has-text("<unique question text>") >> role=radio[name="No"]`.
@@ -202,6 +207,55 @@ keytool -genkeypair -v -keystore keystore/upload.jks -alias <a> -keyalg RSA -key
 `build.gradle.kts`: `signingConfigs { create("release") { … read keystore.properties … } }` +
 `buildTypes.release.signingConfig`. **Gitignore** `*.jks`, `keystore/`, `keystore.properties`, `*.aab`, `*.apk`.
 Play App Signing (on by default) re-signs with Google's key; your keystore is the **upload** key.
+
+## Analytics — attribution and the in-app counter
+
+Sibling of the same section in **`ios-release`**; the shape is identical, the mechanisms are not.
+Set it up **before** the listing goes public — attribution cannot be applied retroactively.
+
+### 1. Where the install came from
+
+Play uses UTM parameters on the store URL, not Apple's `ct`:
+
+```
+https://play.google.com/store/apps/details?id=<PACKAGE>&referrer=utm_source%3Dsite%26utm_campaign%3Dhero
+```
+
+The value must be **percent-encoded** — `&` inside `referrer` unencoded silently truncates it, and
+the report then shows the campaign as blank rather than as an error. Play Console → Acquisition
+reports attributes store listing views, installs and buyers to it.
+
+For the in-app half there is something iOS has no equivalent of: the **Play Install Referrer API**
+(`com.android.installreferrer:installreferrer`) hands the app its own referrer string on first
+launch. That is a legitimate first-party channel, not a fingerprint — Play gives it, the user's
+device is not queried. Read it once, send it as a prop on the first `app_launched`, never store it
+anywhere else.
+
+### 2. The counter itself
+
+Same endpoint as web and iOS, so a landing visit and an app launch compare without a join:
+
+```
+POST https://analytics.superduperai.co/e
+{"events":[{"source":"<id from registry/sources.yaml>","platform":"android",
+            "name":"app_launched","version":"1.4.2","anon":"<install-scoped UUID>"}]}
+```
+
+**`anon` is generated in the app** — a UUID on first launch, kept locally, gone when the app is
+uninstalled. Not the Advertising ID, not `ANDROID_ID`, not the account. Deriving it at the edge from
+the IP does not work on mobile: the carrier IP moves and NAT merges subscribers.
+
+**Kotlin Multiplatform:** the client belongs in `commonMain` and covers iOS at the same time. Check
+for `composeApp/src/commonMain` before writing anything platform-specific — and grep for the app's
+existing HTTP client rather than adding a second one for four requests.
+
+### 3. What it can and cannot answer
+
+Aggregate only: "40 installs came from the landing page" — yes; "this visitor installed it" — no.
+Per-person site→install linking needs a cross-site identifier, which forces a consent banner. That
+is what fingerprinting and clipboard tricks are underneath, whatever an SDK calls them.
+
+---
 
 ## Gotchas
 - **`lintVitalRelease` crashes** on KMP/Compose ("Unexpected failure during lint analysis of

@@ -1,10 +1,10 @@
 ---
 name: solo-ios-release
-description: Ship an iPhone/iOS app to testers (TestFlight) or to the App Store, or push an update to an app already listed there. Use when the user says "make the iOS app available to testers", "TestFlight link", "publish to the App Store", "upload the build", "submit for review", "App Store Connect", "ASC", or "upload a new version". CLI-first via the `asc` tool (official App Store Connect API) — the browser is a fallback for the few things the API cannot do. Pair with the `ios-app` skill for the build/signing/archive checklist.
+description: Ship an iPhone/iOS app to testers (TestFlight) or to the App Store, or push an update to an app already listed there. Use when the user says "make the iOS app available to testers", "TestFlight link", "publish to the App Store", "upload the build", "submit for review", "App Store Connect", "ASC", "upload a new version", or wants store attribution set up (campaign links, `ct` tokens, App Analytics, an in-app counter and the matching App Privacy declaration). CLI-first via the `asc` tool (official App Store Connect API) — the browser is a fallback for the few things the API cannot do. Pair with the `ios-app` skill for the build/signing/archive checklist.
 license: MIT
 metadata:
   author: fortunto2
-  version: "3.0.0"
+  version: "3.1.0"
   openclaw:
     emoji: "🍎"
 ---
@@ -54,6 +54,7 @@ fallbacks, CI setup and per-repo profiles: [references/asc-cli.md](references/as
 | New version of a listed app | [C. Update](#c-update--new-version) |
 | Crashes, feedback, testers, reviews | [D. After release](#d-after-release) |
 | **App Review rejected the version** | [E. Rejection](#e-rejection--answer-and-resubmit) |
+| Where installs and money come from | [F. Analytics](#f-analytics--attribution-and-the-in-app-counter) |
 | `asc validate` reports blockers | [references/readiness.md](references/readiness.md) |
 | Description, keywords, ASO, What's New | [references/metadata-aso.md](references/metadata-aso.md) |
 | Screenshots — capture, frame, upload | [references/screenshots.md](references/screenshots.md) |
@@ -178,6 +179,10 @@ A clean `asc validate` is not a clean review. These pass validation and get the 
 - **The privacy policy matching the App Privacy declaration** — a company-wide policy that describes
   collecting names, billing and IP addresses contradicts a "Data Not Collected" declaration. An app
   that collects nothing needs its own honest page.
+- **An analytics counter contradicting the declaration** — the single most common way a truthful
+  app becomes a false one. Shipping any counter means the declaration gains at least Usage Data →
+  Product Interaction. See [F](#f-analytics--attribution-and-the-in-app-counter); do this before
+  submitting, not after the first release.
 
 ---
 
@@ -250,6 +255,91 @@ same guideline is much harder to argue if you cannot show what you answered.
 `setInputFiles`, but the resulting attachment list does **not** appear in accessibility snapshots or
 page screenshots. Do not conclude the upload failed and retry blindly — you will attach duplicates.
 Ask the person at the screen what the list shows.
+
+---
+
+## F. Analytics — attribution and the in-app counter
+
+Two halves, and they never join into one number. Set both up **before** the listing goes live:
+retrofitting attribution means the first weeks of installs have no source at all.
+
+### 1. Campaign links — the only way to see what the marketing did
+
+Every link to the store gets a campaign token:
+
+```
+https://apps.apple.com/app/apple-store/id<APP_ID>?pt=<PROVIDER>&ct=<campaign>&mt=8
+```
+
+`ct` is free text you invent — one value per placement (`site-hero`, `site-footer`, `newsletter`,
+`reddit-launch`). App Store Connect → Analytics → Acquisition → Campaigns then attributes
+**impressions, product page views, installs, and — the part people miss — sales and subscriptions**
+to that token. `pt` is the provider ID from ASC; without it some reports are thinner, but `ct`
+works alone.
+
+Nothing needs creating in ASC first. A link with a new `ct` starts reporting on its own.
+
+**Give the same name to both halves.** The click on your own site and the `ct` in the link must come
+from one variable, or the site says `hero` while Apple says `site-footer` and the two reports can
+never be reconciled. One helper returning both the href and the tracking attributes is the fix.
+
+### 2. What this can and cannot tell you
+
+It is **aggregate**. "40 installs came from the landing page" — yes. "This visitor installed it" —
+no, and not by any honest means: linking a person across site and app needs a cross-site
+identifier, which forces a consent banner and is what fingerprinting, clipboard tricks and
+deferred deep links all are underneath. Don't buy an SDK that promises otherwise without reading
+what it stores.
+
+### 3. The in-app counter
+
+`superduper-analytics` takes app events on the same endpoint as web ones, so a landing visit and an
+app launch are comparable without a join:
+
+```
+POST https://analytics.superduperai.co/e
+{"events":[{"source":"<id from registry/sources.yaml>","platform":"ios",
+            "name":"app_launched","version":"1.4.2","anon":"<install-scoped UUID>"}]}
+```
+
+**`anon` must be generated in the app, not derived at the edge.** The web derives it from IP + user
+agent, which is meaningless on mobile: the carrier IP moves and NAT merges subscribers. Generate a
+UUID on first launch, keep it in local storage, let it die with the app. Not the IDFA, not
+`identifierForVendor`, not the account id.
+
+Three events carry a funnel: `app_launched`, the one action the app exists for, and
+`purchase_completed` with `metrics: {price_usd}`. Add more later — events are cheap to add and
+impossible to remove from an archive.
+
+**Kotlin Multiplatform:** write the client once in `commonMain` and both stores are covered — check
+before writing any Swift.
+
+### 4. The declaration, which is the actual blocker
+
+Events land in **Usage Data → Product Interaction**, and with an install-scoped UUID as above, under
+**Data Not Linked to You**. The declaration must say so before the release that carries the counter.
+Apple removes apps over a declaration that disagrees with behaviour.
+
+```bash
+asc web privacy pull --app "APP_ID"     # what is declared now
+asc web privacy plan --app "APP_ID" …   # diff before touching anything
+```
+
+Update the app's privacy page in the same commit as the counter. A counter and the text describing
+it drifting apart is how a truthful page quietly becomes a false one.
+
+### 5. Reading the numbers back
+
+```bash
+asc web analytics campaigns --app "APP_ID"    # needs a web session (Apple ID + 2FA)
+asc analytics request --app "APP_ID" --access-type ONGOING
+```
+
+⚠️ **The API key's role decides whether `asc analytics` works at all.** An **App Manager** key —
+enough for everything else in this skill — returns `403 … The API key in use does not allow this
+request` for every report call. Report access needs Admin, Finance, or a key with "Access to
+Reports". If that is not worth widening the key for, `asc web analytics` reaches the same numbers
+through a web session instead.
 
 ---
 
