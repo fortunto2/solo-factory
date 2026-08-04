@@ -9,6 +9,8 @@ Invoke the matching agent or skill when the user's request matches a signal belo
 | research, competitors, market, pain points | `researcher` agent |
 | architecture, dependencies, how does X work | `code-analyst` agent |
 | validate idea, score, go/kill, PRD | `/solo:validate` skill |
+| grill me, прожарь, stress-test this plan, punch holes | `/solo:grill` |
+| diagnose, debug this, throwing, failing, flaky, slow, почему падает | `/solo:diagnose` |
 | plan, spec, implementation plan | `/solo:plan` |
 | build, implement, execute, ship | `/solo:build` |
 | review, quality check, ready to ship | `/solo:review` |
@@ -34,3 +36,10 @@ Invoke the matching agent or skill when the user's request matches a signal belo
 `/research` → `/validate` → `/scaffold` → `/setup` → `/plan` → `/build` → `/deploy` → `/launch` → `/review`
 
 Skip stages already done (check file markers above).
+
+## Primitives (reachable from inside any stage)
+
+| Primitive | Reach for it when |
+|-----------|-------------------|
+| `/solo:grill` | The blocker is a *decision*, not information — sharpen it one question at a time before planning or building |
+| `/solo:diagnose` | Something is broken and the cause is unknown — build the feedback loop before touching code |

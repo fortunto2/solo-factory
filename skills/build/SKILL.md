@@ -182,9 +182,11 @@ Run after each task implementation, before `git commit`. If any fail, fix before
 
 ### 4. TDD Workflow (if TDD enabled in workflow.md)
 
+**Agree the seam first:** name the public interface this task's tests will observe, and confirm it with the user before writing a test. No test at an unconfirmed seam.
+
 **Red — write failing test:**
 - Create/update test file for the task functionality.
-- Run tests to confirm they fail.
+- Run tests to confirm they fail. A test that has never been red proves nothing.
 
 **Green — implement:**
 - Write minimum code to make the test pass.
@@ -193,6 +195,10 @@ Run after each task implementation, before `git commit`. If any fail, fix before
 **Refactor:**
 - Clean up while tests stay green.
 - Run tests one final time.
+
+One test → one implementation → repeat (**vertical slices**). Writing all tests first then all implementation verifies imagined behaviour, not real.
+
+Read `references/tdd-seams.md` before the first test of a feature — it covers where seams go, vertical vs horizontal slicing, and the four ways a test lies (implementation-coupled, side-channel, tautological, insensitive).
 
 ### 5. Non-TDD Workflow (if TDD is "none" or "moderate" and task is simple)
 

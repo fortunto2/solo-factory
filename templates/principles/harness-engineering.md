@@ -81,6 +81,29 @@ OpenAI: previously 20% of time (Fridays) went to manual cleanup of "AI slop." Do
 
 ---
 
+## Feedback Loops — the agent's only ground truth
+
+An agent cannot see. Everything it believes about the running system comes through a loop: a command it runs that returns a verdict. The **tightness** of that loop sets the ceiling on everything else — context engineering and constraints only decide what the agent tries, the loop decides whether it finds out it was wrong.
+
+A loop is **tight** when it is:
+
+- **Red-capable** — it can fail on the thing you care about, and you have watched it fail. A loop that has only ever been green proves nothing; it may not reach the code path at all.
+- **Deterministic** — same verdict every run. Pin time, seed RNG, isolate the filesystem, freeze the network.
+- **Fast** — seconds, not minutes. A 30-second flaky loop is barely better than none; a 2-second deterministic one is a superpower.
+- **Agent-runnable** — runs unattended. A human in the loop is a last resort, and even then driven by a script so answers come back structured.
+
+**Build the loop before the work, not after.** The pull is always to read code and form a theory first — that's the failure mode. Whatever the task, name the command that will tell you whether it worked, run it once to see its output, and only then start.
+
+**Treat the loop as a product.** Once you have one, tighten it: cache setup, skip unrelated init, narrow scope, assert the specific symptom instead of "didn't crash". The loop gets used hundreds of times; two seconds saved compounds.
+
+**When it can't be deterministic**, raise the reproduction rate instead of chasing a clean repro: loop the trigger 100×, parallelise, add stress, inject sleeps. A 50%-flake is debuggable; 1% is not.
+
+The catalogue of loop constructions — failing test, curl script, CLI+snapshot diff, headless browser, trace replay, throwaway harness, fuzz loop, bisect harness, differential run, HITL script — lives in `skills/diagnose/SKILL.md` Phase 1, ordered by preference. It's written for bugs but the constructions are general: any task where you need a verdict picks from the same list.
+
+**Loops elsewhere in the factory:** TDD's red→green is a loop with a seam agreed up front (`skills/build/references/tdd-seams.md`). `make integration` is the CLI-first loop over business logic. `/review` is the slow loop over a whole change. `/retro` → `~/.solo/evolution.md` is the loop over the factory itself. When a stage feels unreliable, ask what its loop is and whether it can go red.
+
+---
+
 ## 6 Steps of Adoption (Mitchell Hashimoto)
 
 ### Step 1: Drop the chatbot

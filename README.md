@@ -1,6 +1,6 @@
 [![GitHub stars](https://img.shields.io/github/stars/fortunto2/solo-factory?style=flat-square)](https://github.com/fortunto2/solo-factory/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Skills: 27](https://img.shields.io/badge/skills-27-blue?style=flat-square)](#skills)
+[![Skills: 39](https://img.shields.io/badge/skills-39-blue?style=flat-square)](#skills)
 [![Agents: 3](https://img.shields.io/badge/agents-3-green?style=flat-square)](#agents)
 [![MCP Tools: 11](https://img.shields.io/badge/MCP_tools-11-purple?style=flat-square)](#mcp-integration)
 [![Stacks: 9](https://img.shields.io/badge/stacks-9-orange?style=flat-square)](#available-stacks)
@@ -9,7 +9,7 @@
 
 **Your own path. Multiple stacks. Ship everything.**
 
-> From shower thought to deployed product — 27 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
+> From shower thought to deployed product — 39 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
@@ -87,7 +87,7 @@ claude plugin list            # Claude Code plugin
 → Pricing: one-time $9.99 (no server costs), PRD with 14 acceptance criteria
 ```
 
-### Development (6 skills)
+### Development (8 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -97,6 +97,8 @@ claude plugin list            # Claude Code plugin
 | `/solo:build [track-id]` | Execute plan with TDD, auto-commit, and phase gates |
 | `/solo:deploy [platform]` | Deploy — detect CLI tools, set up DB, push, verify live |
 | `/solo:review [focus]` | Final quality gate — tests, coverage, security, acceptance criteria |
+| `/solo:diagnose <bug>` | Hard-bug loop — build a red-capable feedback loop first, hypothesise second |
+| `/solo:grill <plan>` | Relentless one-question-at-a-time interview to stress-test a plan before building |
 
 **Examples:**
 ```
@@ -293,7 +295,7 @@ solo-factory/
 ├── .claude-plugin/
 │   ├── plugin.json          # Plugin manifest
 │   └── marketplace.json     # Marketplace manifest
-├── skills/                  # 27 skills
+├── skills/                  # 39 skills
 │   ├── research/            # Scout the market
 │   ├── validate/            # Score → PRD
 │   ├── scaffold/            # PRD → project

@@ -58,6 +58,12 @@ Every piece of knowledge should have a single, unambiguous representation in the
 
 **Cycle:** Red -> Green -> Refactor
 
+**Agree the seam before the first test.** A seam is the public interface the test observes. Name the seams under test and confirm them — no test at an unconfirmed seam. You can't test everything; agreeing seams up front is how effort lands on critical paths instead of every edge case.
+
+**Vertical slices, not horizontal.** One test → one implementation → repeat. Writing all tests first then all implementation verifies *imagined* behaviour and locks in a test structure before you understand the implementation.
+
+Full reference — the four lying tests (implementation-coupled, side-channel, tautological, insensitive) with examples: `skills/build/references/tdd-seams.md`.
+
 ---
 
 ## CLI-First Testing
@@ -777,6 +783,8 @@ uv run python solo-factory/scripts/memory_map.py --all-projects --audit
 ## Skills Development (Claude Code / Agent Skills)
 
 Skills are reusable instruction packages (folder with `SKILL.md`) that teach Claude specific workflows. Based on [Anthropic's Complete Guide to Building Skills](https://docs.anthropic.com).
+
+The mechanics below cover structure and frontmatter. For *why* a skill behaves predictably — invocation trade-offs (context load vs cognitive load), the information hierarchy, leading words, and the six failure modes (no-op, duplication, sediment, sprawl, negation, premature completion) — read `skills/skill-audit/references/writing-skills.md`, and score a skill with `/solo:skill-audit`.
 
 ### Structure
 

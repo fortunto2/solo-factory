@@ -211,6 +211,10 @@ Read 3-5 key files (entry points, API routes, main components):
 
 Report specific file:line references for any issues found.
 
+**Shape check (module depth).** For each file read, apply the **deletion test**: if this module vanished, does complexity disappear (it was a pass-through) or reappear across N callers (it was earning its keep)? Flag shallow modules — interface nearly as complex as the implementation — and say where the seam belongs instead.
+
+Before writing a "this is the wrong shape" finding, read `references/codebase-design.md` for the vocabulary (module, interface, seam, adapter, depth-as-leverage) and the deepening table. A shape finding phrased in that language is actionable; "this feels over-engineered" is not.
+
 ### 7. Plan Completion Check
 
 Read `docs/plan/*/plan.md`:

@@ -19,7 +19,9 @@ Source: https://x.com/trq212/status/2033949937936085378
 
 ## Checklist Reference
 
-Full checklist with scoring rubric: `references/checklist.md`
+- Scoring rubric, 12 dimensions: `references/checklist.md`
+- The levers the scores measure — invocation, information hierarchy, leading words, failure modes: `references/writing-skills.md`
+- Term definitions used in findings: `references/skills-glossary.md`
 
 ## Steps
 
@@ -46,7 +48,16 @@ Full checklist with scoring rubric: `references/checklist.md`
 
 5. **Determine category** — classify skill into one of 9 types from checklist. Flag if it straddles multiple.
 
-6. **Output scorecard:**
+6. **Failure-mode pass** — read `references/writing-skills.md`, then check the skill for each named failure mode. Quote the offending line for every hit; a hit with no quote is a guess:
+   - **No-op** — a line the model already obeys by default. Test each sentence in isolation: does it change behaviour versus the default?
+   - **Duplication** — one meaning stated in more than one place.
+   - **Sediment** — stale lines describing behaviour, paths, or tools that no longer exist.
+   - **Sprawl** — long even after no-ops and duplication are removed; cure is disclosure into `references/`, not deletion.
+   - **Negation** — steering by prohibition where a positive target would work. `Don't use X` names X; `use Y` doesn't.
+   - **Premature completion** — a step whose completion criterion can't distinguish done from not-done.
+   - **Weak leading word** — a description or body leaning on generic words instead of a compact pretrained concept the user actually types.
+
+7. **Output scorecard:**
 
    ```
    ## Skill Audit: {skill-name}
@@ -70,13 +81,17 @@ Full checklist with scoring rubric: `references/checklist.md`
    | 11 | Argument Handling | {0-2} | {one line} |
    | 12 | Output & Artifacts | {0-2} | {one line} |
 
+   ### Failure Modes
+   {mode} — "{quoted line}" → {fix}
+   (or "none found")
+
    ### Top 3 Fixes (highest impact)
    1. {fix}
    2. {fix}
    3. {fix}
    ```
 
-7. **Batch mode** — if `$ARGUMENTS` is "all" or "*":
+8. **Batch mode** — if `$ARGUMENTS` is "all" or "*":
    - Find all skills via Glob
    - Run audit on each
    - Output summary table sorted by score (worst first)
