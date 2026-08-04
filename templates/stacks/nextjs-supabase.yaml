@@ -1,7 +1,14 @@
 name: Next.js Full-Stack
 platform: web
 language: typescript
-framework: nextjs@16.1
+framework: nextjs@16.3
+framework_release:
+  # What 16.3 changed, and why each line matters for how we actually work.
+  dev_memory: "Up to 90% less memory in dev. The one that matters most here — several dev servers plus agents on one machine stopped being the constraint. Upgrade before blaming the laptop."
+  speed: "Faster builds, type-checking and rendering across the board. Re-time the pre-commit gate after upgrading; the oxlint/tsgo opt-ins in fast_tooling may be less urgent than they were."
+  agent_tooling: "Improved tooling for AI agents — the framework now meets the harness halfway. Check what it exposes before hand-rolling an agent-readable layer (see the llms.txt / markdown notes below)."
+  error_boundaries: "Custom error boundaries — scope a failure to the subtree that caused it instead of the route-level error.tsx catch-all."
+  instant_navigations: "Instant Navigations — SPA-grade responsiveness on App Router transitions, no client-side router swap needed."
 ui_framework: react@19.2
 styling: tailwindcss@4.1
 component_library: shadcn-ui
@@ -137,5 +144,6 @@ notes: |
   - Deploy via git push (main → production, PR → preview)
   - State management: React state by default. Zustand for global UI, Jotai for data-heavy dashboards.
   - Storybook + Chromatic: for 15+ components or shared UI library. Free 5000 snapshots/month.
+  - Next.js 16.3: dev memory −90%, faster build/typecheck/render, custom error boundaries, Instant Navigations, better AI-agent tooling (see framework_release)
   - Agent-readable (content/blog sites): add app/llms.txt/route.ts + MDX content as raw markdown API + Content-Signal header
   - If behind Cloudflare: enable Markdown for Agents in dashboard (auto content negotiation)
