@@ -47,7 +47,11 @@ echo "Linked: $CACHE_DIR → $PLUGIN_DIR"
 
 # 4. Point old version dirs to new version (prevents broken hooks in running sessions)
 for old in "$CACHE_BASE"/*/; do
-  [[ -d "$old" ]] || continue
+  # The glob yields a trailing slash. Strip it: after `rm -rf` the directory is gone, and
+  # `ln -s target dir/` would try to create the link INSIDE it and fail — which, under
+  # `set -e`, aborted the script before step 5 and left the old version with no symlink at all.
+  old="${old%/}"
+  [[ -e "$old" ]] || continue
   old_name="$(basename "$old")"
   [[ "$old_name" == "$VERSION" ]] && continue
   # Old version dir exists — replace with symlink to current
