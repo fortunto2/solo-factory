@@ -4,7 +4,7 @@ description: Manage SEO and agent-readiness for all sites via the `seo` CLI — 
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.2"
+  version: "1.4.0"
   openclaw:
     emoji: "🔍"
 allowed-tools: Read, Grep, Bash, Glob, Edit, Write, WebFetch
@@ -141,11 +141,17 @@ What the API gives beyond sitemap submission:
 | `GetQueryStats` / `GetPageStats` | impressions, clicks, position — the Search Console equivalent |
 | `GetBlockedUrls` / `GetLinkCounts` | what is excluded, and inbound links |
 
-**The quota field lies about what you can actually submit.** `GetUrlSubmissionQuota` returned
-`DailyQuota: 10000` on an account whose real per-site limit was **100** — Bing raises it as a site
-proves itself, and the API reports the ceiling rather than the current allowance. The refusal
-comes as `ErrorCode 2` with the real number in the message, so submit in small batches and read
-the reply instead of trusting the quota call.
+**`SubmitUrlBatch` is the way in when IndexNow refuses.** It is the authenticated equivalent of an
+IndexNow ping and it works on hosts where IndexNow returns 403 — measured on visayes.app in the
+same minute: IndexNow `403`, `SubmitUrlBatch` with all 66 sitemap URLs `200`. When a launch report
+shows an IndexNow failure, do not treat fast reindexing as unavailable; send the batch instead.
+
+**`GetUrlSubmissionQuota` is per-site and counts down — pass `siteUrl`.** A new site starts at
+**100 a day**, an established one at 10000, and the number is the remaining allowance, not a
+ceiling: after submitting 74 URLs the same call returned `DailyQuota: 26`. Query it for the site
+you are about to submit to, not for the account, or you will read another site's much larger
+allowance and plan against it. A refusal arrives as `ErrorCode 2` with the real number in the
+message, so batches should still be sized from the reply rather than from optimism.
 
 **Spend the allowance on live URLs.** Check status before submitting: pushing a URL that answers
 404 spends quota to confirm the page is gone. And check for `301` separately — a redirect is a
