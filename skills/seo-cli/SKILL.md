@@ -137,9 +137,20 @@ What the API gives beyond sitemap submission:
 | endpoint | use |
 |---|---|
 | `SubmitUrlBatch` | push up to 500 URLs per call for reindexing |
-| `GetUrlSubmissionQuota` | **10 000/day, 270 000/month** — far beyond Google's Indexing API |
+| `GetUrlSubmissionQuota` | reports the account ceiling, **not today's limit** — see below |
 | `GetQueryStats` / `GetPageStats` | impressions, clicks, position — the Search Console equivalent |
 | `GetBlockedUrls` / `GetLinkCounts` | what is excluded, and inbound links |
+
+**The quota field lies about what you can actually submit.** `GetUrlSubmissionQuota` returned
+`DailyQuota: 10000` on an account whose real per-site limit was **100** — Bing raises it as a site
+proves itself, and the API reports the ceiling rather than the current allowance. The refusal
+comes as `ErrorCode 2` with the real number in the message, so submit in small batches and read
+the reply instead of trusting the quota call.
+
+**Spend the allowance on live URLs.** Check status before submitting: pushing a URL that answers
+404 spends quota to confirm the page is gone. And check for `301` separately — a redirect is a
+working URL, and treating "not 200" as "broken" overstates the damage badly (on one site: 45 of
+100 top pages were 301s doing exactly their job, and only 10 were genuine 404s).
 
 **A freshly added site returns empty rows for days, without an error.** Do not read that as
 "no traffic" and do not debug a fetcher against it — wait until `GetUserSites` shows the site
