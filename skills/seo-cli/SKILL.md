@@ -4,7 +4,7 @@ description: Manage SEO and agent-readiness for all sites via the `seo` CLI — 
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.2.0"
+  version: "1.3.0"
   openclaw:
     emoji: "🔍"
 allowed-tools: Read, Grep, Bash, Glob, Edit, Write, WebFetch
@@ -227,6 +227,39 @@ precision.
 **3. `LIMIT` applies before your filter, not after.** Any "top N across all sites" query filtered
 down to one site afterwards returns whatever slice of the global top N happens to be that site's —
 frequently zero. Push the site filter into SQL. This bit twice in one file.
+
+## Launching a new site: everything hangs on one step
+
+`seo launch <site>` adds the site to Google and Bing, then submits sitemaps and pings IndexNow.
+On a brand-new domain the adds succeed and **everything after them fails**, with three unrelated-
+looking errors that all have one cause: adding a site is not verifying it.
+
+| symptom | actual cause |
+|---|---|
+| Sitemap → Google `HttpError 403` | property is `siteUnverifiedUser` |
+| Sitemap → Bing `400 Bad Request` | `GetUserSites` shows `IsVerified: False` |
+| IndexNow `403 UserForbiddedToAccessSite` | same unverified site in Bing |
+
+Check ownership first — `sites().list()` for Google, `GetUserSites` for Bing — and do not spend
+time on the individual errors until it is green.
+
+**The IndexNow message lies.** "User is unauthorized to access the site. Please verify the site
+using the key" points at the key file, so the obvious move is to re-check it. The key file can be
+perfect — right length, matching filename, `text/plain`, HTTP 200 — and the call still fails,
+because Bing is refusing the *site*, not the key.
+
+**IndexNow is not one service.** `api.indexnow.org` fronts Bing, so Bing's refusal looks total.
+The same payload posted to `yandex.com/indexnow` (202), `search.seznam.cz/indexnow` and
+`searchadvisor.naver.com/indexnow` (200) is accepted. A single "IndexNow: failed" line in a launch
+report hides that three of four engines took it.
+
+**Verification cannot be automated with the default setup.** A DNS-TXT token needs the Site
+Verification API enabled in the Google Cloud project (it is off by default, and a service account
+cannot enable it — `serviceusage.services.enable` is denied). Writing the record then needs a
+Cloudflare token with **DNS\:Edit**; a token scoped to read zones returns `10000 Authentication
+error` on write, which reads like a bad token rather than a missing scope. Enabling the API and
+widening the token once makes every later launch fully automatic — worth doing before the next
+site, not during it.
 
 ## Sitemaps: fewer URLs, better indexing
 
