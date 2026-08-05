@@ -1,10 +1,10 @@
 ---
 name: solo-seo-cli
-description: Manage SEO and agent-readiness for all sites via the `seo` CLI — audit pages for SEO+GEO score, run `agent-audit` to check whether AI agents can discover and read a site (robots rules, Content-Signals, llms.txt, markdown negotiation, MCP cards), check Search Console analytics, submit sitemaps, ping IndexNow, inspect indexing. Covers Google, Bing, Yandex. Also points at superduper-analytics for who actually visited and which AI agents read the site. Use when the user asks about search performance, indexing, SEO/GEO score, agent-readiness, llms.txt, MCP, or wants to fix a site. Do NOT use for writing landing copy (/landing-gen).
+description: Manage SEO and agent-readiness for all sites via the `seo` CLI — audit pages for SEO+GEO score, run `agent-audit` to check whether AI agents can discover and read a site (robots rules, Content-Signals, llms.txt, markdown negotiation, MCP cards), check Search Console analytics, submit sitemaps, ping IndexNow, inspect indexing. Covers Google, Bing, Yandex. Also points at superduper-analytics for who actually visited, which AI agents read the site, and what each campaign produced. Covers Bing Webmaster API (a second index, and the one ChatGPT and Copilot read). Use when the user asks about search performance, indexing, SEO/GEO score, agent-readiness, llms.txt, MCP, or wants to fix a site. Do NOT use for writing landing copy (/landing-gen).
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.1.0"
+  version: "1.2.0"
   openclaw:
     emoji: "🔍"
 allowed-tools: Read, Grep, Bash, Glob, Edit, Write, WebFetch
@@ -85,8 +85,19 @@ seo agents                # which AI agents read the sites, and why they came
 ```
 
 These talk to `superduper-analytics` over MCP — the same server Claude and ChatGPT connect to,
-so there is one contract rather than a private endpoint alongside it. Configure once in
-`config.yaml`:
+so there is one contract rather than a private endpoint alongside it. The server offers eight
+tools; the CLI wraps the three above, and the rest are worth calling directly when the question
+is sharper:
+
+| tool | answers |
+|---|---|
+| `search` | where Google shows us and at what rank — the ONLY leading indicator |
+| `content` | referrer hosts, top paths, countries |
+| `campaigns` | what each `utm_campaign` brought, down to store clicks |
+| `goals` | downloads, store links, signups — what the site exists to produce |
+| `counter_coverage` | which zones report and which are silent |
+
+Configure once in `config.yaml`:
 
 ```yaml
 analytics:
@@ -101,6 +112,38 @@ doing, and a zero read as a verdict is the easiest mistake here.
 Output is printed verbatim, including the sentence that says when sampling made the people
 figure a lower bound. That is the point — an evaluation has to tell a small number from an
 unreliable one.
+
+### Bing — a second index, and the one AI answers read
+
+Bing is not only Bing: **ChatGPT Search and Copilot read its index**, and its Webmaster Tools
+report AI citations, which no other console does. A site invisible there is invisible to those
+answers regardless of how it ranks in Google.
+
+```yaml
+bing:
+  api_key: "..."   # Bing Webmaster Tools > Settings > API Access > Generate
+```
+
+Without that key the Bing calls in `seo launch` and `seo reindex` **do nothing and say nothing** —
+the config ships with `api_key: ""`, which reads as configured. Check it before believing a
+green run:
+
+```bash
+curl -s "https://ssl.bing.com/webmaster/api.svc/json/GetUserSites?apikey=$KEY" | head -c 200
+```
+
+What the API gives beyond sitemap submission:
+
+| endpoint | use |
+|---|---|
+| `SubmitUrlBatch` | push up to 500 URLs per call for reindexing |
+| `GetUrlSubmissionQuota` | **10 000/day, 270 000/month** — far beyond Google's Indexing API |
+| `GetQueryStats` / `GetPageStats` | impressions, clicks, position — the Search Console equivalent |
+| `GetBlockedUrls` / `GetLinkCounts` | what is excluded, and inbound links |
+
+**A freshly added site returns empty rows for days, without an error.** Do not read that as
+"no traffic" and do not debug a fetcher against it — wait until `GetUserSites` shows the site
+verified AND `GetRankAndTrafficStats` returns something.
 
 ### Report — search analytics + opportunities across all sites
 ```bash
@@ -148,6 +191,52 @@ for s in cfg["sites"]:
 ```
 
 Or just read `config.yaml` — each site has `path`, `framework`, `hosting` fields.
+
+## Three traps that look like "no data"
+
+Each of these cost a day of chasing the wrong thing. All three present identically — an empty
+table — and none raises an error.
+
+**1. Search Console properties are registered two ways.** Some as a URL (`https://life2film.com/`),
+some as a domain (`sc-domain:miralinka.com`), some as both. A query against a property that does
+not exist returns **empty rows, not an error**. Never construct the property string from the
+domain — ask for the list and match:
+
+```python
+svc.sites().list().execute()   # then prefer the exact URL, fall back to sc-domain:
+```
+
+Getting this wrong hid five of eight sites, including the largest one at 368k impressions.
+
+**2. A domain property covers every subdomain at once.** Page rows must be filtered by host or
+the apex swallows its subdomains' numbers. Query rows cannot be fixed this way — Google does not
+say which subdomain a query impression belongs to — so state that limit rather than implying
+precision.
+
+**3. `LIMIT` applies before your filter, not after.** Any "top N across all sites" query filtered
+down to one site afterwards returns whatever slice of the global top N happens to be that site's —
+frequently zero. Push the site filter into SQL. This bit twice in one file.
+
+## Sitemaps: fewer URLs, better indexing
+
+A large sitemap is not a strong sitemap. Search Console's **"Discovered — currently not indexed"**
+counts pages Google found and declined to crawl; **"Crawled — currently not indexed"** counts
+pages it read and declined to index. Both are verdicts about the site, not about the page.
+
+On one blog, 282 of 746 sitemap URLs were tag archives — thin near-duplicate lists, half with a
+single post. 125 pages sat in "Discovered, not indexed" and 49 in "Crawled, not indexed". The fix
+was not more content: it was **dropping tags with fewer than three posts from the sitemap**,
+which cut it to 510. Tags stay reachable and internally linked; they simply stop asking to be
+indexed.
+
+Check the composition before assuming the site is fine:
+
+```bash
+curl -s https://SITE/sitemap.xml | grep -oE '<loc>[^<]+' | sed 's|.*//[^/]*||' \
+  | awk -F/ '{print $2}' | sort | uniq -c | sort -rn
+```
+
+If tag or category pages outnumber articles, that is the finding.
 
 ## The four fixes that move the score most
 
