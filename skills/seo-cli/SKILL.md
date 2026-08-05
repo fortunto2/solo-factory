@@ -4,7 +4,7 @@ description: Manage SEO and agent-readiness for all sites via the `seo` CLI — 
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.1"
+  version: "1.3.2"
   openclaw:
     emoji: "🔍"
 allowed-tools: Read, Grep, Bash, Glob, Edit, Write, WebFetch
@@ -243,25 +243,27 @@ looking errors that all have one cause: adding a site is not verifying it.
 Check ownership first — `sites().list()` for Google, `GetUserSites` for Bing. Both sitemap errors
 clear the moment it goes green. The IndexNow one does not, and assuming it will costs an hour.
 
-**Settle an IndexNow 403 with a differential test, not with reasoning.** The message — "User is
-unauthorized to access the site. Please verify the site using the key" — names the site and the
-key in one sentence, and both readings are plausible. Three calls separate them:
+**An IndexNow 403 is per-host, and the cause is not known.** Measured across six sites sharing
+one key, one Bing account and one role (`GSCImport`):
 
-| call | result | what it proves |
-|---|---|---|
-| the key, on the new site | 403 | nothing on its own |
-| **the same key, on a long-verified site** | 403 | the site is not the variable |
-| **a made-up key with no file anywhere** | 202 | Bing accepts unknown keys, so it is refusing *this* key |
+| host | key file | Bing verified | IndexNow |
+|---|---|---|---|
+| superduperai.co, life2film.com, you2idea.com, rustman.org | 200 | yes | **200** |
+| miralinka.com, visayes.app | 200 | yes | **403**, 3/3 attempts |
 
-That last line is the one that settles it: an invented 32-char key with no `.txt` published
-anywhere is queued happily, while the real one — correct length, matching filename, `text/plain`,
-HTTP 200, reachable to bingbot — is refused. The key file being perfect is not evidence that the
-key is good.
+So it is **not** the key (four hosts accept it), **not** verification (both refused hosts are
+verified), **not** the key file (present, 32 chars, `text/plain`, 200 to bingbot), and not
+transient. A made-up 32-char key with no `.txt` published anywhere returns **202**, so Bing is not
+validating keys at submit time at all — which means the 403 is decided by something host-specific
+that the API does not expose. `GetSiteRoles` is identical across all six.
 
-A rejected key is rejected for **every** site sharing it, so instant indexing is silently off
-everywhere at once while sitemaps and everything else look healthy. The fix is to rotate: mint a
-new key, publish `<key>.txt` at the root of each site, update `config.yaml`. Verify the new key
-with the same three calls before believing it.
+Do not accept a story for this without the differential test — two plausible ones ("the site is
+unverified", "the key is dead") each survived a first look and were killed by it. What the test
+gives you is which variable it is *not*; that is worth more than a guess dressed as a cause.
+
+Practical stance until it is understood: treat instant indexing as unavailable on the affected
+hosts, note it, and rely on the sitemap — which is submitted, crawled and reported `Success`
+independently of this. The untested next move is a per-host key rather than a shared one.
 
 **IndexNow is not one service.** `api.indexnow.org` fronts Bing, so Bing's refusal looks total.
 The same payload posted to `yandex.com/indexnow` (202), `search.seznam.cz/indexnow` and
