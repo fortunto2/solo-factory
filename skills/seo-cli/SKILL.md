@@ -4,7 +4,7 @@ description: Manage SEO and agent-readiness for all sites via the `seo` CLI — 
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.0"
+  version: "1.3.1"
   openclaw:
     emoji: "🔍"
 allowed-tools: Read, Grep, Bash, Glob, Edit, Write, WebFetch
@@ -238,20 +238,36 @@ looking errors that all have one cause: adding a site is not verifying it.
 |---|---|
 | Sitemap → Google `HttpError 403` | property is `siteUnverifiedUser` |
 | Sitemap → Bing `400 Bad Request` | `GetUserSites` shows `IsVerified: False` |
-| IndexNow `403 UserForbiddedToAccessSite` | same unverified site in Bing |
+| IndexNow `403 UserForbiddedToAccessSite` | **not verification — see below** |
 
-Check ownership first — `sites().list()` for Google, `GetUserSites` for Bing — and do not spend
-time on the individual errors until it is green.
+Check ownership first — `sites().list()` for Google, `GetUserSites` for Bing. Both sitemap errors
+clear the moment it goes green. The IndexNow one does not, and assuming it will costs an hour.
 
-**The IndexNow message lies.** "User is unauthorized to access the site. Please verify the site
-using the key" points at the key file, so the obvious move is to re-check it. The key file can be
-perfect — right length, matching filename, `text/plain`, HTTP 200 — and the call still fails,
-because Bing is refusing the *site*, not the key.
+**Settle an IndexNow 403 with a differential test, not with reasoning.** The message — "User is
+unauthorized to access the site. Please verify the site using the key" — names the site and the
+key in one sentence, and both readings are plausible. Three calls separate them:
+
+| call | result | what it proves |
+|---|---|---|
+| the key, on the new site | 403 | nothing on its own |
+| **the same key, on a long-verified site** | 403 | the site is not the variable |
+| **a made-up key with no file anywhere** | 202 | Bing accepts unknown keys, so it is refusing *this* key |
+
+That last line is the one that settles it: an invented 32-char key with no `.txt` published
+anywhere is queued happily, while the real one — correct length, matching filename, `text/plain`,
+HTTP 200, reachable to bingbot — is refused. The key file being perfect is not evidence that the
+key is good.
+
+A rejected key is rejected for **every** site sharing it, so instant indexing is silently off
+everywhere at once while sitemaps and everything else look healthy. The fix is to rotate: mint a
+new key, publish `<key>.txt` at the root of each site, update `config.yaml`. Verify the new key
+with the same three calls before believing it.
 
 **IndexNow is not one service.** `api.indexnow.org` fronts Bing, so Bing's refusal looks total.
 The same payload posted to `yandex.com/indexnow` (202), `search.seznam.cz/indexnow` and
 `searchadvisor.naver.com/indexnow` (200) is accepted. A single "IndexNow: failed" line in a launch
-report hides that three of four engines took it.
+report hides that three of four engines took it — though note those endpoints queue without
+validating, so a 202 there is not proof the key is good either.
 
 **Verification cannot be automated with the default setup.** A DNS-TXT token needs the Site
 Verification API enabled in the Google Cloud project (it is off by default, and a service account
