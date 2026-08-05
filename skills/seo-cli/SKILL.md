@@ -136,8 +136,8 @@ What the API gives beyond sitemap submission:
 
 | endpoint | use |
 |---|---|
-| `SubmitUrlBatch` | push up to 500 URLs per call for reindexing |
-| `GetUrlSubmissionQuota` | reports the account ceiling, **not today's limit** — see below |
+| `SubmitUrlBatch` | push up to 500 URLs per call — **works where IndexNow 403s**, see below |
+| `GetUrlSubmissionQuota` | remaining allowance **for the `siteUrl` you pass** — see below |
 | `GetQueryStats` / `GetPageStats` | impressions, clicks, position — the Search Console equivalent |
 | `GetBlockedUrls` / `GetLinkCounts` | what is excluded, and inbound links |
 
