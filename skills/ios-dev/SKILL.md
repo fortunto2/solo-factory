@@ -180,6 +180,28 @@ instead:
 - **A step trace.** One `os_log` line per step with the gap since the previous
   one (`▶︎ collected 50 clips +0.1s`). Feed the same marks into the status
   payload so the log and the endpoint cannot disagree.
+
+  Three things make the difference between a trace that answers and one that
+  looks like it does — each cost a session to learn:
+
+  - **Log at `.default`, not `.info`.** `.info` is held in memory and never
+    written down, so `log show --predicate 'category == "trace"'` returns
+    nothing after the fact and the walk can only be watched live, if you
+    thought to attach a stream first. On a phone, after the fact is usually the
+    only chance there is. Twenty lines per run costs nothing.
+  - **Keep the finished walk.** "Why was that slow" is asked once the result is
+    on screen, and clearing the marks when the next run starts throws away the
+    answer. Hand the account over on the *next* start, not on finish — a mark
+    delivered via a hop to the main actor lands just after the code that ends
+    the run, so freezing at finish drops the last step, which is the one people
+    ask about.
+  - **Do not bill the app for the user's thinking.** A step recorded at a tap
+    carries everything since the previous mark, including however long somebody
+    stared at the screen. Mark taps separately (`👆 preview requested`), reset
+    the clock there, and charge them nothing. Before this a walk read 13.0s of
+    app time with one step at 7.4s that looked like the thing to fix; with taps
+    marked it read 5.6s and that step was 0.0s. The 7.4s was the test harness
+    looking at the screen.
 - **Console when you need everything:** `xcrun devicectl device process launch
   --device <udid> --console --terminate-existing <bundle>`. It restarts the
   app, so it cannot observe a run already in progress — start it first.
@@ -235,6 +257,16 @@ build with new logging looks like it changed nothing until you launch it.
 - **`progressHandler` is the only way to see an iCloud download.** Without it
   the UI claims to be analysing while it is really waiting on the network —
   and add it to *every* path that resolves assets, not just the obvious one.
+- **Ask where a clip is before queueing it.** `isNetworkAccessAllowed = false`
+  turns a request into a cheap probe: a local asset comes back almost at once,
+  one in iCloud comes back empty with `PHImageResultIsInCloudKey` set and
+  starts no download. Measured at 14ms per clip — 0.7s for 50.
+
+  It matters because worker slots are few. With four slots and no ordering,
+  all four filled with cloud clips while clips already on the device — a
+  second's work each — queued behind them: 2% for a long time and nothing on
+  screen. Read what is here first, the cloud after, and put a deadline on the
+  probe so the worst case is the order you had anyway.
 
 ## SwiftUI layout traps that cost a screenshot to find
 
@@ -261,6 +293,39 @@ top. Filter candidates to the visible width, and clamp a centre that falls
 past the edge (a long label has a frame wider than the phone). Chips inside a
 horizontal `ScrollView` are not exposed at all — assert on their container
 instead.
+
+**`onTapGesture` is invisible to the tree — and to VoiceOver.** A tile built
+as a ZStack with `.contentShape(Rectangle()).onTapGesture` offers no action at
+all: the snapshot listed 17 actionable elements on a gallery screen and not
+one of them was a clip. Same cause, two consequences — the automation cannot
+drive it and a person using VoiceOver cannot use the feature. Fix once:
+
+```swift
+.accessibilityElement(children: .ignore)
+.accessibilityLabel(label)                       // "Video, 30 seconds, analysed"
+.accessibilityValue(isSelected ? "Selected" : "")
+.accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+.accessibilityAction(.default, onTap)
+```
+
+The reverse failure is a row that exposes *too much*: artwork, title, source
+and duration as four separate elements, none of which is the one that selects.
+Collapse it with `children: .ignore` and one label. Afterwards the tree is
+also a usable test surface — you can tap a specific clip by name, which is
+impossible when everything is called "Song, Play".
+
+**A check with no time budget is not a check.** A smoke script that only asks
+"did it answer" reported PASS on a 124-second reply. Give each step what it
+should cost warm, report over-budget, fail on wildly over — slow is a
+regression, and it is the one that silently arrives.
+
+**A permanently red test hides the real ones.** Three PhotoKit tests had
+asserted the opposite of what was actually true for long enough that four
+genuine failures went unnoticed in the same run. If an environment cannot
+answer the question (a test runner is regularly refused library resources the
+app itself reads fine), `XCTSkip` with the reason — and note `wait(for:)`
+records a failure the moment it times out, so use `XCTWaiter().wait(...)` when
+the timeout is a decision rather than a verdict.
 
 ## Example project — Caretta Friends (KMP + hybrid iOS)
 
