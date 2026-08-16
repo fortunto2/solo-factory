@@ -55,6 +55,63 @@ Match these so generated code fits the codebase (from `ios-swift.yaml` patterns,
   ```
 - ARKit/camera/real-GPS features can't be tested in the Simulator — build to verify compile, test on device.
 
+## The feedback loop: XcodeBuildMCP (install this first)
+
+Without a loop the agent writes blind. In the browser it opens a page; on iOS
+it needs the simulator. Two MCP servers cover it, and they complement rather
+than overlap.
+
+**XcodeBuildMCP** (`npx -y xcodebuildmcp@latest mcp`) — headless build, run,
+test and UI automation. The part that matters most: `snapshot_ui` returns a
+semantic tree with **element references**, and `tap` takes a reference rather
+than a coordinate:
+
+```
+e244|tap|button|Make a montage from the selected period
+e189|tap|button|Days     e247|tap|button|Audio
+```
+
+That removes the whole class of failure a coordinate-driven walker suffers —
+`describe-ui`-style dumps include views belonging to sheets *underneath*, off
+to the side of the screen, and a tap aimed there dismisses whatever is on top.
+Also worth having: `wait_for_ui` with a predicate instead of polling loops,
+`record_sim_video`, coverage straight out of `xcresult`, and `launch_app_sim`
+capturing runtime + os_log to files on its own.
+
+**Enable the workflows you need — the default is only 24 tools.** UI
+automation and the device workflow are off unless you ask:
+
+```json
+"xcodebuild": {
+  "command": "npx",
+  "args": ["-y", "xcodebuildmcp@latest", "mcp"],
+  "env": {
+    "XCODEBUILDMCP_ENABLED_WORKFLOWS":
+      "session-management,simulator,simulator-management,ui-automation,device,utilities,project-discovery"
+  }
+}
+```
+
+With that it registers 44 tools instead of 24. The variable is not in `--help`;
+it is `XCODEBUILDMCP_ENABLED_WORKFLOWS`, found by grepping the package.
+
+Call `session_set_defaults` once (project, scheme, simulator id, bundle id,
+`persist: true`) — it writes `.xcodebuildmcp/config.yaml` in the repo, and
+every later call can go with empty arguments. Call `session_show_defaults`
+before the first build of a session; the server asks for this explicitly.
+
+**Xcode's own bridge** (`xcrun mcpbridge`, Xcode 26.3+) — 20 tools over XPC,
+including rendering a SwiftUI Preview without building and running the whole
+app, plus a Swift REPL. It needs **Xcode running with the project open**, so it
+is no use in a background or CI run — but for layout work it turns a 3–4 minute
+build-install-launch-tap-screenshot cycle into seconds. The two are
+complementary: XcodeBuildMCP for the headless loop, mcpbridge for previews and
+docs.
+
+**Apple RAG MCP** (official Swift docs and HIG over RAG) is a nice-to-have —
+context7 already answers most API questions, and HIG comes up once a day, not
+once a minute.
+
 ## Driving the Simulator, and trusting the numbers
 
 Learned the hard way on a video app; the traps are not app-specific.
