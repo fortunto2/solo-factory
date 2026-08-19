@@ -142,6 +142,46 @@ Validate every batch before it lands:
   catches a whole class of "translated the singular only".
 - **Screenshot the longest language and an RTL one.** German and Finnish find
   the truncation; Arabic and Hebrew find the layout that never mirrored.
+- **Switch to RTL the platform's way, not the app's.** An in-app picker moves
+  the strings and usually not the writing direction: the OS reads its own
+  language setting before your code runs, so mirroring arrives one launch
+  late. Measured once as Arabic text in a left-to-right layout followed by
+  English text in a mirrored one — two screenshots, each looking like a bug in
+  the other language. On iOS that means launching with `-AppleLanguages`;
+  whatever the platform, find one element whose side you know (a tab at the
+  far edge) and check it before reading anything else.
+
+## Spoken numbers
+
+Anything a screen reader says aloud is where hand-built grammar shows first,
+because it is the one string nobody looks at. `"%d minutes %d seconds"` is a
+sentence shape only English has, and as a translatable key it needs plural
+variations for *both* numbers in every language that has them — Arabic would
+need thirty-six combinations.
+
+Hand it to the platform's duration formatter instead (`Duration.UnitsFormatStyle`,
+`Intl.RelativeTimeFormat` / `Intl.NumberFormat`, `java.time` + ICU) with the
+chosen locale. Every language gets its own agreement, and there is no key to
+translate at all.
+
+## The store page is a second catalogue
+
+Translating the app does not translate the listing, and the two sets do not
+match. The App Store carries 50 locales and Google Play about 80; an app that
+ships 35 languages will find several of them missing (Bashkir, Tatar, Kazakh
+and Filipino are not in Apple's list at all), while the store offers markets
+the app has no notion of — `en-GB`, `es-MX`, `pt-PT`, `fr-CA`. Decide which to
+fill deliberately; do not let a loop over the app's languages decide it.
+
+Two rules, both learned the expensive way:
+
+- **Check the source-language listing against the code before translating.**
+  A description that promises a feature which is switched off becomes the same
+  untruth in thirty-one languages, and the correction costs thirty-one edits.
+- **Keep the metadata in the repo, not in the web form.** `asc metadata pull`
+  (Apple) or the Play Publishing API give canonical per-locale files that
+  diff, review and re-push. Field limits are per locale and unforgiving:
+  App Store description 4000, keywords 100, subtitle 30, promo text 170.
 
 ## Deliverables
 
