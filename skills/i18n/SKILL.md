@@ -183,6 +183,28 @@ Two rules, both learned the expensive way:
   diff, review and re-push. Field limits are per locale and unforgiving:
   App Store description 4000, keywords 100, subtitle 30, promo text 170.
 
+### Keywords are researched in the storefront, never translated
+
+Translating the English keyword list into 31 languages produces 31 lists of
+words nobody types. Query the store itself — Apple's public search needs no
+auth (`asc apps public search --term "…" --country ru`), Play's listings are
+readable from the web — and look at what actually ranks for the local term.
+
+What that turned up in one pass, none of it guessable from a dictionary:
+
+- **Compound words split differently per language.** Russian and Ukrainian
+  competitors all write "видео редактор" as two words; a single compound in
+  the field is a different token and misses the split query entirely. Since
+  the subtitle already carried one half, the field only had to carry the other.
+- **In several markets the top results are English-named apps even when the
+  query is local** — measured in Thailand, India, Malaysia, Indonesia, Poland,
+  Ukraine, Vietnam and Saudi Arabia. Those locales want the English terms
+  *beside* the local ones, not instead of them.
+- **In others the local word wins, and it is the competition's exact word** —
+  German ranks `videobearbeitung`, Korean `편집기`, Japanese `エディター`. And
+  where a domestic platform owns the category (Douyin and Kuaishou in China),
+  the head term is not a plan; spend the field on the niche phrases instead.
+
 ## Deliverables
 
 A finished localization pass leaves behind:
