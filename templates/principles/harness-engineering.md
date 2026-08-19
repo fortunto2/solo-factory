@@ -104,6 +104,45 @@ The catalogue of loop constructions — failing test, curl script, CLI+snapshot 
 
 ---
 
+## What a loop costs is part of its design
+
+A loop nobody runs guards nothing, and cost is what decides whether it gets
+run. Four rules, each learned by paying for the opposite:
+
+**Split hooks by cost, not by importance.** A pre-commit hook that runs the
+whole test suite takes minutes, so it gets bypassed with `--no-verify` — and a
+bypassed hook checks nothing. Put seconds-long tripwires on commit and the
+suites on push. The tripwires are worth writing by hand: one per bug that
+actually shipped, phrased as "this file must still contain that guard".
+
+**Measure per test, not per suite.** A suite's total time names the suite, not
+the culprit. Trimming what looked like the expensive loop in one suite saved
+three seconds; the real cost was a different test in the same file, and one
+sort over per-test timings found it in a minute:
+
+```bash
+<test command> 2>&1 | grep -E "passed|failed" | sort -t'(' -k2 -rn
+```
+
+**A test guards a code path, not an amount of data.** The same route through
+the system is exercised by three fixtures or by nine; the extra six buy
+nothing but wall-clock. Fixture volume is a dial, and its default should be
+the smallest value that still reaches the path.
+
+**Repetition is a deliberate act, not a default.** Tests that repeat an
+operation to catch a flake are worth having and worth switching off: put the
+count behind an environment variable, default it to one, and raise it before a
+release or while chasing the flake. Derive the assertions from the fixture too
+— a hardcoded expectation ("the output is at least 25 seconds") turns the next
+deliberate trim red for the wrong reason.
+
+**Verify parallelism instead of assuming it.** Test runners that parallelise by
+cloning a whole environment can be slower than serial when the work is not
+CPU-bound: measured 11m32s against 3m on one iOS suite. And inside a test that
+measures duration, concurrency destroys the very number being asserted.
+
+---
+
 ## 6 Steps of Adoption (Mitchell Hashimoto)
 
 ### Step 1: Drop the chatbot

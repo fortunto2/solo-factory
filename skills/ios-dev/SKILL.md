@@ -100,13 +100,27 @@ Call `session_set_defaults` once (project, scheme, simulator id, bundle id,
 every later call can go with empty arguments. Call `session_show_defaults`
 before the first build of a session; the server asks for this explicitly.
 
-**Xcode's own bridge** (`xcrun mcpbridge`, Xcode 26.3+) — 20 tools over XPC,
-including rendering a SwiftUI Preview without building and running the whole
-app, plus a Swift REPL. It needs **Xcode running with the project open**, so it
-is no use in a background or CI run — but for layout work it turns a 3–4 minute
-build-install-launch-tap-screenshot cycle into seconds. The two are
-complementary: XcodeBuildMCP for the headless loop, mcpbridge for previews and
-docs.
+**Xcode's own bridge** (`xcrun mcpbridge`, Xcode 26.3+) — advertised as 20
+tools over XPC, including rendering a SwiftUI Preview without building and
+running the whole app, plus a Swift REPL. It needs **Xcode running with the
+project open**, so it is no use in a background or CI run.
+
+Verify it answers before planning around it. On Xcode 26.6 with the project
+open, `initialize` replies (`serverInfo: {name: xcode-tools}`) and then
+`tools/list` never answers and the pipe closes — nothing usable. Probe it in
+ten seconds rather than assuming either way:
+
+```bash
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"probe","version":"1"}}}' \
+  '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | xcrun mcpbridge
+```
+
+**Keep one MCP config, not two.** A project `.mcp.json` and `~/.mcp.json` that
+both define XcodeBuildMCP start two servers, and the project copy usually
+lacks the workflow filter — so the session carries a second, differently
+configured set of the same tools. Pick one file, or keep them byte-identical
+and say so in a comment.
 
 **Apple RAG MCP** (official Swift docs and HIG over RAG) is a nice-to-have —
 context7 already answers most API questions, and HIG comes up once a day, not
@@ -116,16 +130,30 @@ once a minute.
 
 Learned the hard way on a video app; the traps are not app-specific.
 
-**Use `idb`, not `axe`.** Measured on the same tap, same simulator: `idb ui tap` **0.2s**,
-`axe tap` **1.8–12s** (it varies with load). `describe-ui` is 0.9s vs 1.3–6s. Same coordinate
-space — points, not pixels — so it is a drop-in swap.
+**Pick the reader by where the code runs, not by benchmark.** Measured on one
+screen (Xcode 26.6, iOS 26 simulator, Aug 2026):
+
+| Reader | Returned | Use it |
+|--------|----------|--------|
+| MCP `snapshot_ui` (XcodeBuildMCP) | **442 nodes**, each with `elementRef`, role, label, available action | inside an agent session — tap by `elementRef`, no coordinates, and `batch` several taps on one screen |
+| `axe describe-ui --udid` | 48 nodes, 21 labelled, with frames | shell scripts, which cannot reach MCP |
+| `idb ui describe-all` | **1 empty element**; every tap answers `Mach port invalid, device disconnected` | nothing, currently |
+
+`idb` was the fast one and is now broken against current simulators — `idb kill
+&& idb connect` does not revive it. Its "0.27s tap" is the speed of the error,
+not of a tap; it does at least exit non-zero, so a `idb … || axe …` fallback
+still works and merely wastes a call. **Re-measure before trusting any of these
+three, including this table** — the tool that was right last release is the one
+most likely to be quietly wrong now.
+
+`axe` **requires `--udid`**. Without it, it prints usage to stderr and returns
+nothing, so a script that does not check will read every screen as empty and
+report the app as broken. Find it yourself rather than requiring an argument:
 
 ```bash
-brew tap facebook/fb && brew trust facebook/fb/idb-companion
-brew install idb-companion && python3 -m pip install fb-idb   # client lands in ~/Library/Python/*/bin
-idb connect <UDID>
-idb ui tap --udid <UDID> 200 60          # points
-idb ui describe-all --udid <UDID>        # JSON, has AXLabel/frame
+xcrun simctl list devices booted -j    # → udid of the booted simulator
+axe describe-ui --udid <UDID>
+axe tap -x 200 -y 60 --udid <UDID>     # points, not pixels
 ```
 
 **Calibrate the harness or your timings are fiction.** A walk-the-path script reported a 108s
@@ -162,6 +190,55 @@ one — check the file is *playable* (`ffprobe`), not merely still.
   resolve to the same path and `AVAssetExportSession` fails the second with "Cannot Save" /
   "Cannot create file". Checking `fileExists` first does *not* fix it — both find the name free.
   Use an atomic counter. Reproduce with two concurrent exports before and after.
+
+## A Rust core linked into the app (uniffi)
+
+Three traps, each of which reads as "my change did nothing" or "the bridge is
+broken", and none of which is either.
+
+**The app may be linking yesterday's core.** `CARGO_TARGET_DIR` (commonly set
+to a shared directory in a shell profile) means cargo does *not* write to
+`./target` — while the Xcode project points its linker at `$(SRCROOT)/../target/…`.
+Everything builds, everything runs, and none of the day's work is in the app.
+Add a pre-build script phase that copies the newer `.a` across, and leave
+`ENABLE_USER_SCRIPT_SANDBOXING` off (it denies that phase access to the
+directory). If a change appears to have no effect, check the `.a` timestamp
+*before* re-reading the code.
+
+**Pin the deployment target in `.cargo/config.toml`, not in a build command.**
+
+```toml
+[env]
+IPHONEOS_DEPLOYMENT_TARGET = "17.0"
+```
+
+Left unset, every object is stamped with the SDK's own version and the linker
+emits one warning per object — hundreds of them, all identical, hiding whatever
+real warning arrives next. Pinning it in the Makefile fixes only that one door;
+`build-ios-sim.sh`, `make deploy` and a bare `cargo build` keep the problem. And
+a `link-arg` does **not** work: a staticlib is an archive and is never linked.
+Changing this env var does not enter cargo's hash either, so the dependency
+objects keep their old stamp — delete the target dir once when you set it.
+
+**Build for one concrete simulator.** `-destination 'generic/platform=iOS
+Simulator'` asks for a universal build, which includes x86_64; an arm64-only
+Rust core then fails to link with a page of missing uniffi symbols that reads
+exactly like a broken bridge. Use `-destination "id=$UDID"`.
+
+**Logging levels are a performance decision, not a style one.** A `tracing::info!`
+on a per-frame path wrote 11,752 records of one montage into a JSONL file on the
+device — 30,577 lines and 10 MB in a day, inside the loop the user is waiting
+on. Anything per-frame or per-item belongs at `debug!`/`trace!`, and whatever
+you do write needs a retention sweep at startup; nothing else will ever delete
+those files.
+
+**The first HTTP request a fresh process makes can hang.** Not slow — no answer
+at all until something cuts it off, with the retry succeeding in ~2s. Any client
+built with `reqwest::Client::new()` has no timeout of any kind, and library
+defaults can be worse than none (`openai-oxide` defaults to 600s). Set
+`connect_timeout`, `timeout` and a `pool_idle_timeout` shorter than the minute a
+mobile network takes to forget an idle connection, and let retry treat a timeout
+as transient. Measured: 120s of nothing → 40s with an answer.
 
 ## Debugging a stall on a real device (no screenshots there)
 
@@ -268,6 +345,37 @@ build with new logging looks like it changed nothing until you launch it.
   screen. Read what is here first, the cloud after, and put a deadline on the
   probe so the worst case is the order you had anyway.
 
+## Where the reference comes from
+
+Do not invent a screen from scratch when a convention already exists for it —
+people arrive already knowing how a length picker, a paywall or an onboarding
+step behaves, and a fresh idea in that slot costs them the knowledge.
+
+**Mobbin publishes `https://mobbin.com/llms.txt`** — 66 KB, no key, ~272
+mobile links organised four ways: by app category, by *flow*
+(`/explore/mobile/flows/…` — onboarding, adding-to-cart, editing-profile), by
+screen pattern, and by UI element. Fetch it, pick the two or three links that
+match the screen being built, and look at those rather than describing a
+layout from memory.
+
+```bash
+curl -s https://mobbin.com/llms.txt | grep -i 'flows/'      # 60+ named flows
+curl -s https://mobbin.com/llms.txt | grep -i 'ui-elements' # by component
+```
+
+Also worth having in the same slot: Apple's HIG for the platform rule, and a
+design the user already made — a Claude Design project can be read with the
+`DesignSync` MCP (`list_files` then `get_file`), which is how a `.dc.html`
+mockup becomes tokens (`Brand.swift`) and components rather than a screenshot
+someone eyeballs. Pull the palette, the radii and the blur values out of the
+markup instead of guessing them:
+
+```bash
+grep -o 'linear-gradient([^)]*)' mock.html | sort | uniq -c | sort -rn | head
+grep -oE '#[0-9A-Fa-f]{6}' mock.html | sort | uniq -c | sort -rn | head
+grep -o 'border-radius:[^;]*'   mock.html | sort | uniq -c | sort -rn | head
+```
+
 ## SwiftUI layout traps that cost a screenshot to find
 
 - **`GeometryReader` inside a stack takes the whole height** and leaves its
@@ -318,6 +426,28 @@ impossible when everything is called "Song, Play".
 "did it answer" reported PASS on a 124-second reply. Give each step what it
 should cost warm, report over-budget, fail on wildly over — slow is a
 regression, and it is the one that silently arrives.
+
+**A checker must never blame the app for its own failure.** Count "could not
+reach the screen" separately from "the screen has unnamed controls" and print
+both. An audit whose reader was misconfigured reported *7 screens with unnamed
+controls* in an app that had none — same exit code as a real defect, and a day
+of work aimed at nothing. Same rule for a walker: if the library count does not
+move after Save, ask the app whether it *attempted* the save, so "the tap
+missed the button" and "the system refused the write" stop looking alike.
+
+**Never grep away a category of output to make a run look clean.** 375 linker
+warnings stayed invisible for a day because the check filtered the line they
+were on, and the filter was written by the same person who then reported "no
+warnings".
+
+**A measurement from a busy or sleeping machine is not a measurement.** Three
+separate "regressions" — 909s, 1139s, 120s — were the laptop, not the code.
+Re-run before believing a number, and `caffeinate -dimsu` anything long.
+
+**Ask a repeated question and you may be timing a cache.** An LLM turn behind
+a gateway answered a fresh question in 9s and a repeat of an earlier one in
+1.0s. Vary the prompt when timing, or the check passes with the model
+unplugged.
 
 **A permanently red test hides the real ones.** Three PhotoKit tests had
 asserted the opposite of what was actually true for long enough that four
