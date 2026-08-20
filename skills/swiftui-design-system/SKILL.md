@@ -188,19 +188,27 @@ Three layers, cheapest first:
 ## Apple's own skills, and the rest of the field
 
 Xcode ships agent skills in the toolchain — plain `SKILL.md` folders, so they
-work in any agent, not only Xcode's assistant. Expected set: `swiftui-specialist`,
-`swiftui-whats-new`, `uikit-app-modernization`, `test-modernizer`,
-`audit-xcode-security-settings`, `c-bounds-safety`, `device-interaction`.
+work in any agent, not only Xcode's assistant.
 
 ```bash
 make apple-skills          # solo-factory: export into ~/.agents/skills, diffed
 make apple-skills-check    # what it would bring, without writing
 ```
 
-**Measured on Xcode 26.6: the `agent` tool exists and exports nothing** — *"No
-skills available to export"*. The set arrives with Xcode 27, so the sync script
-is written to say that plainly rather than look broken. Re-run after every Xcode
-update: these track the SDK, and a stale "what's new" skill is worse than none.
+**Xcode 26.6 exports nothing** — the `agent` tool is there and answers *"No
+skills available to export"*, so the script says that plainly rather than look
+broken. **Xcode 27.0 beta 2 exports ten**: `swiftui-specialist`,
+`swiftui-whats-new-27`, `uikit-app-modernization`, `modernize-tests`,
+`audit-xcode-security-settings`, `adopt-c-bounds-safety`, `device-interaction`,
+`app-intents-specialist`, `app-intents-whats-new-27` and
+`building-document-based-swiftui-applications`. The names are not stable across
+versions — four of the seven guessed from the 26.6 release notes came back
+spelled differently — so read the export rather than a list.
+
+Re-run after every Xcode update: these track the SDK, and a stale "what's new"
+skill is worse than none. A beta installed alongside the release is not the
+active toolchain, and `xcode-select` is machine-wide — scope one run instead:
+`DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer" make apple-skills`.
 If the export names the toolchain instead, Xcode → Settings → Locations →
 Command Line Tools points at the wrong Xcode.
 

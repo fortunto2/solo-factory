@@ -4,9 +4,11 @@
 #
 # Xcode ships them as ordinary Agent-Skills folders (`SKILL.md` + references),
 # so once exported they work in any agent — Claude Code, Cursor, Codex — not
-# only in Xcode's assistant. Expected set from Xcode 27: swiftui-specialist,
-# swiftui-whats-new, uikit-app-modernization, test-modernizer,
-# audit-xcode-security-settings, c-bounds-safety, device-interaction.
+# only in Xcode's assistant. Measured on Xcode 27.0 beta 2, ten of them:
+# adopt-c-bounds-safety, app-intents-specialist, app-intents-whats-new-27,
+# audit-xcode-security-settings, building-document-based-swiftui-applications,
+# device-interaction, modernize-tests, swiftui-specialist, swiftui-whats-new-27,
+# uikit-app-modernization.
 #
 # Re-run after every Xcode update: the skills track the SDK, and a stale
 # "what's new" skill is worse than none. There is no version stamp to compare,

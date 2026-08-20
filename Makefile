@@ -84,7 +84,8 @@ new-skill: ## Scaffold a new skill in the repo (S=skill-name)
 apple-skills: ## Export Apple's own agent skills from the installed Xcode into ~/.agents/skills
 	@# They are plain Agent-Skills folders, so they work in any agent — not only
 	@# Xcode's assistant. Re-run after each Xcode update: they track the SDK.
-	@# Xcode 26.6 exports nothing; the set arrives with Xcode 27.
+	@# Xcode 26.6 exports nothing; 27.0 beta 2 exports ten. A beta alongside the
+	@# release is not the active toolchain — scope it with DEVELOPER_DIR.
 	@bash scripts/sync-apple-skills.sh
 
 apple-skills-check: ## What an export would bring, without writing anything
