@@ -81,6 +81,15 @@ new-skill: ## Scaffold a new skill in the repo (S=skill-name)
 	@test -n "$(S)" || (echo "Usage: make new-skill S=play-billing" && exit 1)
 	@bash scripts/new-skill.sh $(S)
 
+apple-skills: ## Export Apple's own agent skills from the installed Xcode into ~/.agents/skills
+	@# They are plain Agent-Skills folders, so they work in any agent — not only
+	@# Xcode's assistant. Re-run after each Xcode update: they track the SDK.
+	@# Xcode 26.6 exports nothing; the set arrives with Xcode 27.
+	@bash scripts/sync-apple-skills.sh
+
+apple-skills-check: ## What an export would bring, without writing anything
+	@bash scripts/sync-apple-skills.sh --dry-run
+
 hooks: ## Install pre-commit hooks
 	@uvx pre-commit install
 	@echo "Pre-commit hooks installed."
