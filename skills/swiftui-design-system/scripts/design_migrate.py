@@ -290,8 +290,16 @@ def main() -> int:
 
     for change, count in sorted(tally.items(), key=lambda kv: -kv[1]):
         print(f"{count:4}  {change}")
+
+    # A left-alone literal is not a substitution, and counting it as one is how
+    # a finished migration reports "23 substitutions" and reads as unfinished.
+    # The two numbers answer different questions: what changed, and what the
+    # codemod deliberately refused to touch.
+    skipped = sum(c for change, c in tally.items() if "left alone" in change)
+    changed = sum(tally.values()) - skipped
     print(
-        f"\n{sum(tally.values())} substitutions in {touched} files"
+        f"\n{changed} substitutions in {touched} files"
+        f"{f', {skipped} literals left alone' if skipped else ''}"
         f"{'' if args.write else ' (dry run — pass --write)'}"
     )
     return 0
