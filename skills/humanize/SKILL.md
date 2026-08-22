@@ -4,7 +4,7 @@ description: Use when "humanize this", "make it sound human", "strip AI patterns
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.1"
+  version: "1.1.0"
   openclaw:
     emoji: "✍️"
 allowed-tools: Read, Write, Edit, Glob, Grep
@@ -112,6 +112,38 @@ AI tends to write: heading → one-sentence intro → 3 bullets → transition s
 - "It is important to" → say why
 - "This can be achieved by" → "Do X"
 
+### 7. Rhetorical Patterns
+
+Word-level fixes miss these. They survive shortening: a 300-character message can still
+carry three of them, which is why manually trimming text does not make it sound human.
+Cut them, don't rewrite them into better versions.
+
+| Pattern | Before | After |
+|---------|--------|-------|
+| Binary contrast | "It's not a docs problem. It's a coverage problem." | "6 questions fail because 3 devices have no docs." |
+| Negative listing | "Not a wrapper. Not a chatbot. A compiler." | "It's a compiler." |
+| Colon reveal | "The catch: it needs your docs." | "It needs 3 docs nobody has written." |
+| Faux-insight setup | "The part everyone misses is distribution." | "Distribution is the moat." |
+| Throat-clearing | "Here's the thing." / "Let me be clear." | (cut, state the point) |
+| Rhetorical setup | "What if I told you...", "Think about it:" | (cut, make the claim) |
+| `-ing` pseudo-analysis | "…shipped v2, highlighting their focus on speed." | "…shipped v2, which cut load time to 400ms." |
+| Importance puffery | "marks a pivotal moment", "a testament to" | state the fact, let the reader judge |
+| Metadiscourse | "This matters more than it sounds." | (cut — the fact carries it) |
+| Weasel attribution | "experts agree", "studies show" | name the source or drop the claim |
+| Synonym cycling | "the agent… the assistant… the tool…" | one name, repeated |
+| Profound kicker | "The future isn't coming. It's already here." | delete it, end on the last concrete line |
+| Summary recap | "In conclusion…", "Overall…" | end on the takeaway or next action |
+
+**Portability test.** If a sentence would read identically about another person,
+company, or product, it is filler. Replace it with a fact, mechanism, number or
+consequence specific to this subject, or cut it.
+
+**Show, don't label.** Cut commentary that tells the reader a point is important,
+surprising or subtle. If the prose already shows it, delete the label.
+
+**Protect the specific fact.** Never smooth a detail into generic importance.
+"significantly improves productivity" → "cut review time from 30 minutes to 8."
+
 ## Process
 
 1. **Read the input** — file path or pasted text.
@@ -134,6 +166,7 @@ AI tends to write: heading → one-sentence intro → 3 bullets → transition s
      Inflation: {N} deflated
      Triplets: {N} broken
      Sycophancy: {N} cut
+     Rhetorical patterns: {N} cut
      Total: {N} patterns fixed
 
    Before: {word count}
@@ -142,6 +175,13 @@ AI tends to write: heading → one-sentence intro → 3 bullets → transition s
 
 5. **If file path:** write the cleaned version back. Show a diff summary.
    **If pasted text:** output the cleaned version directly.
+
+## Detect mode
+
+Asked "is this AI slop?" or handed someone else's draft to audit: name each pattern
+from this skill that appears, quote the line, give the fix in a few words. Do not
+rewrite, do not score the text, and never claim an AI wrote it — detectors guess, a
+named pattern is evidence the writer can check. Offer to edit afterwards.
 
 ## What NOT to change
 
@@ -158,3 +198,8 @@ AI tends to write: heading → one-sentence intro → 3 bullets → transition s
 - **Already clean:** report "No AI patterns found. Text looks human."
 - **Code-heavy docs:** skip code blocks entirely, only process prose sections
 - **Non-English text:** apply em dash and structural rules (they're universal), skip English stock phrases
+
+## Credits
+
+The rhetorical-pattern taxonomy in section 7 and the detect-mode contract are adapted
+from [no-ai-slop](https://github.com/petergyang/no-ai-slop) by Peter Yang (MIT).
