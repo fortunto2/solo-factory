@@ -17,6 +17,13 @@ next feature. Everything here is native SwiftUI: no design-system framework is
 worth taking on, because the platform is already built for this (Environment +
 style protocols + `containerRelativeFrame`).
 
+**Apple ships its own SwiftUI skills inside Xcode 27** — invalidation, `ForEach`
+identity, `@Observable`, Liquid Glass — as plain markdown any agent can read
+with no Xcode running. On anything about correctness or update cost they
+outrank this file, and they say so in their own header. Where they are, what
+they cover, and the rules that most often hit real code:
+**`references/apple-xcode-skills.md`**.
+
 Reach for this when the symptom is *"the screens look related and never line
 up"*. Measure before you believe it — see step 1.
 

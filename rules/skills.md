@@ -17,8 +17,16 @@ readlink ~/.claude/plugins/cache/solo/solo/*   # → the repo skills are served 
 | Startup/dev skills (`solo:*`) | `<solo-factory>/skills/<name>/SKILL.md` | yes — solo-factory |
 | Personal skills (music, home, one-offs) | `~/.claude/skills/<name>/SKILL.md` | no, unless you version it yourself |
 | Third-party skills | `~/.claude/plugins/cache/<marketplace>/…`, `~/.agents/skills/` | not yours — don't edit |
+| **Apple's, bundled in Xcode 27+** | `/Applications/Xcode*.app/Contents/PlugIns/IDEIntelligenceChat.framework/…/Resources/*.idechatprompttemplate` (+ `IDEXCStringsSupport…/Skills` for localization) | not yours — read only |
 | User rules | `<solo-factory>/rules/*.md` → symlinked into `~/.claude/rules/` | yes — solo-factory |
 | User `CLAUDE.md` | keep it in a repo **you own** and symlink to `~/.claude/CLAUDE.md` | your call |
+
+Apple's are in our own format (`SKILL.md` frontmatter + `references/`, just with a `.packaged`
+extension) and their header says they supersede anything the model learned elsewhere — so on SwiftUI,
+App Intents, UIKit modernization or String Catalogs, read Apple's before writing our own rule.
+Xcode 27 also eats the same plugin repos the CLI does (`.claude-plugin`, a marketplace URL, skill
+import/export), and pins the agent CLIs it downloads in `AgentVersions.plist`. Details and the
+condensed rules: `<solo-factory>/skills/swiftui-design-system/references/apple-xcode-skills.md`.
 
 solo-factory is installed as the `solo` plugin, and its cache dir is a **symlink to the repo**
 (`make plugin-link`). So a skill edited in solo-factory is live in the next session — no copying, no
