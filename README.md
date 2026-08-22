@@ -1,6 +1,6 @@
 [![GitHub stars](https://img.shields.io/github/stars/fortunto2/solo-factory?style=flat-square)](https://github.com/fortunto2/solo-factory/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Skills: 39](https://img.shields.io/badge/skills-39-blue?style=flat-square)](#skills)
+[![Skills: 44](https://img.shields.io/badge/skills-44-blue?style=flat-square)](#skills)
 [![Agents: 3](https://img.shields.io/badge/agents-3-green?style=flat-square)](#agents)
 [![MCP Tools: 11](https://img.shields.io/badge/MCP_tools-11-purple?style=flat-square)](#mcp-integration)
 [![Stacks: 9](https://img.shields.io/badge/stacks-9-orange?style=flat-square)](#available-stacks)
@@ -9,7 +9,7 @@
 
 **Your own path. Multiple stacks. Ship everything.**
 
-> From shower thought to deployed product — 39 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
+> From shower thought to deployed product — 44 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
@@ -69,13 +69,14 @@ claude plugin list            # Claude Code plugin
 
 ## Skills
 
-### Analysis (3 skills)
+### Analysis (4 skills)
 
 | Command | What it does |
 |---------|-------------|
 | `/solo:research <idea>` | Scout the market — competitors, SEO keywords, domains, TAM/SAM/SOM |
 | `/solo:swarm <idea>` | 3 parallel research agents (market + users + tech) for faster deep dive |
 | `/solo:validate <idea>` | S.E.E.D. niche check + STREAM scoring + Devil's Advocate → PRD |
+| `/solo:domain <name>` | Is the name actually free — RDAP/whois, App Store, Google Play, GitHub, trademarks |
 
 **Examples:**
 ```
@@ -112,7 +113,32 @@ claude plugin list            # Claude Code plugin
 → TDD loop: write test → implement → green → commit, phase by phase
 ```
 
-### Promotion (9 skills)
+### Mobile & Apple (7 skills)
+
+| Command | What it does |
+|---------|-------------|
+| `/solo:ios-dev` | Build the iPhone app — SwiftUI or KMP hybrid, Claude Code ↔ Xcode workflow, device builds |
+| `/solo:ios-release` | TestFlight and App Store via the `asc` CLI — upload, submit, attribution links |
+| `/solo:android-release` | Play Console via CLI — internal/open testing, AAB upload, staged rollout |
+| `/solo:apple-app-icon` | iOS 26+ layered `.icon` generated from an SVG by script, every appearance checked |
+| `/solo:swiftui-design-system` | 12-column grid, spacing/type/motion scales, a codemod that migrates literals |
+| `/solo:i18n` | One language → many, and keeping it there: RTL, plurals, spoken numbers, store listings |
+| `/solo:model-shrink` | Trained model → device: ONNX, int8, Core ML, on-device benchmark, download-on-demand |
+
+**Apple ships its own agent skills inside Xcode 27** — SwiftUI invalidation, `ForEach` identity,
+`@Observable`, App Intents, Liquid Glass, String Catalogs — in the same `SKILL.md` + `references/`
+format, and their header says they supersede anything a model learned elsewhere. Export them into
+`~/.agents/skills` so any agent can read them with no Xcode running:
+
+```bash
+make apple-skills-check    # what an export would bring, writes nothing
+make apple-skills          # export
+```
+
+What is in the set, and the rules that most often hit real code:
+[`skills/swiftui-design-system/references/apple-xcode-skills.md`](skills/swiftui-design-system/references/apple-xcode-skills.md).
+
+### Promotion (12 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -125,6 +151,9 @@ claude plugin list            # Claude Code plugin
 | `/solo:video-promo` | Promo video plan — 30-45s script, storyboard, Remotion config |
 | `/solo:metrics-track` | PostHog event funnel, KPI benchmarks, A/B test template, kill/iterate/scale |
 | `/solo:legal` | Privacy policy + terms of service — privacy-first, manifest-aligned |
+| `/solo:seo-cli` | Run the `seo` CLI — SEO+GEO score, agent-audit (can an AI agent read the site?), reindex |
+| `/solo:reddit` | Write and post Reddit comments that carry value, build karma without burning the account |
+| `/solo:github-outreach` | Scan a competitor library's dependents, reach the repos that would switch |
 
 **Examples:**
 ```
@@ -138,7 +167,7 @@ claude plugin list            # Claude Code plugin
 → Privacy policy (GDPR-ready), Terms of Service, App Store privacy labels
 ```
 
-### Utility (10+ skills)
+### Utility (13 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -153,6 +182,9 @@ claude plugin list            # Claude Code plugin
 | `/solo:humanize` | Strip AI writing patterns — em dashes, stock phrases, performed authenticity |
 | `/solo:index-youtube` | Index YouTube channel transcripts for semantic search |
 | `/solo:you2idea-extract` | Extract startup ideas from YouTube video transcripts |
+| `/solo:knowledge` | Answer from the methodology base — harness engineering, SGR, launch playbook |
+| `/solo:sgr` | Design schema-guided reasoning — schemas, tool dispatch, constrained decoding |
+| `/solo:skill-audit` | Score a skill against the best-practice checklist, 12 dimensions |
 
 **Examples:**
 ```
@@ -295,7 +327,7 @@ solo-factory/
 ├── .claude-plugin/
 │   ├── plugin.json          # Plugin manifest
 │   └── marketplace.json     # Marketplace manifest
-├── skills/                  # 39 skills
+├── skills/                  # 44 skills
 │   ├── research/            # Scout the market
 │   ├── validate/            # Score → PRD
 │   ├── scaffold/            # PRD → project
@@ -323,7 +355,23 @@ solo-factory/
 │   ├── launch/              # GTM launch strategy
 │   ├── legal/               # Privacy policy + terms
 │   ├── index-youtube/       # YouTube transcript indexing
-│   └── you2idea-extract/    # Ideas from YouTube
+│   ├── you2idea-extract/    # Ideas from YouTube
+│   ├── diagnose/            # Hard-bug feedback loop
+│   ├── grill/               # One-question-at-a-time plan interview
+│   ├── domain/              # Name availability across registries + stores
+│   ├── ios-dev/             # SwiftUI / KMP iPhone development
+│   ├── ios-release/         # TestFlight + App Store via asc CLI
+│   ├── android-release/     # Play Console releases
+│   ├── apple-app-icon/      # Layered .icon from SVG
+│   ├── swiftui-design-system/ # Grid, scales, codemod
+│   ├── i18n/                # Localization, RTL, store listings
+│   ├── model-shrink/        # ONNX / int8 / Core ML on device
+│   ├── seo-cli/             # seo CLI: SEO+GEO + agent-audit
+│   ├── reddit/              # Reddit comments and karma
+│   ├── github-outreach/     # Competitor dependents scan
+│   ├── knowledge/           # Methodology base lookup
+│   ├── sgr/                 # Schema-guided reasoning
+│   └── skill-audit/         # Score a skill against the checklist
 ├── agents/
 │   ├── researcher.md        # Deep research (sonnet)
 │   ├── code-analyst.md      # Code intelligence (haiku)
@@ -339,7 +387,8 @@ solo-factory/
 │   ├── solo-dev.sh          # Dev pipeline bash loop
 │   ├── solo-research.sh     # Research pipeline bash loop
 │   ├── solo-dashboard.sh    # tmux dashboard manager
-│   └── solo-stream-fmt.py   # Colored stream formatter
+│   ├── solo-stream-fmt.py   # Colored stream formatter
+│   └── sync-apple-skills.sh # Export Apple's Xcode 27 skills
 ├── templates/
 │   └── stacks/              # 9 stack YAML templates
 └── rules/
