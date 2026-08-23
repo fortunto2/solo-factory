@@ -7,7 +7,7 @@ metadata:
   version: "1.6.0"
   openclaw:
     emoji: "🐝"
-allowed-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Write, mcp__solograph__web_search, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_search, mcp__solograph__session_search
+allowed-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Write, mcp__searxng__web_search, mcp__searxng__web_extract, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_search, mcp__solograph__session_search
 argument-hint: "[idea name or description]"
 ---
 
@@ -52,6 +52,7 @@ Teammates should use available search tools:
 - **WebSearch** (built-in) — broad discovery, market reports, always available
 - **WebFetch** — scrape specific URLs for details, always available
 - **MCP `web_search`** (if available) — additional search with engine routing
+- **MCP `web_extract`** (if available) — read a single page as clean markdown
 - **MCP `kb_search`** (if available) — search local knowledge base for related research
 
 **Domain filtering:** use `site:github.com`, `site:reddit.com` etc. for targeted results.

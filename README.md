@@ -301,8 +301,16 @@ Skills auto-detect and use [solograph](https://github.com/fortunto2/solograph) t
 | `project_code_search` | Semantic code search (auto-indexes on first call) |
 | `project_code_reindex` | Reindex project code after changes |
 | `project_info` | Project registry (stacks, status, last commit) |
+| `web_fetch` | Fetch a URL with browser-like headers, tags stripped |
+
+Web search lives on its own MCP server, `searxng`, so it stays up when the graph does
+not and needs no FalkorDB:
+
+| Tool | Purpose |
+|------|---------|
 | `web_search` | Web search via [SearXNG](https://github.com/fortunto2/searxng-docker-tavily-adapter) or [Tavily](https://tavily.com) |
-| `web_fetch` | Fetch and extract content from URLs |
+| `web_extract` | One page as markdown: negotiated from the site when it serves markdown, otherwise extracted with trafilatura. Size presets + pagination |
+| `youtube_transcript` | Video captions as text |
 
 Without MCP, skills fall back to Glob, Grep, Read, WebSearch/WebFetch.
 
@@ -314,8 +322,26 @@ The `web_search` tool connects to any Tavily-compatible API:
 ```bash
 git clone https://github.com/fortunto2/searxng-docker-tavily-adapter.git
 cd searxng-docker-tavily-adapter && cp config.example.yaml config.yaml
+# set server.secret_key: openssl rand -hex 32
 docker compose up -d
 # → localhost:8013 (API) + localhost:8999 (UI)
+```
+
+Run it on a machine with a residential IP. Search engines CAPTCHA-wall datacenter
+address ranges, so on a VPS or a cloud container most engines get blocked within a
+few queries and no header tuning fixes it.
+
+`web_extract` needs the self-hosted adapter — it maps to `POST /extract`, which
+Tavily cloud does not have. `web_search` works against either.
+
+Register the search server as `searxng` (tools resolve as `mcp__searxng__web_search`):
+
+```json
+{"mcpServers": {"searxng": {
+  "command": "uv",
+  "args": ["run", "--project", "/path/to/searxng-docker-tavily-adapter/searxng_mcp", "searxng-mcp"],
+  "env": {"TAVILY_API_URL": "http://localhost:8013"}
+}}}
 ```
 
 **Or Tavily cloud:** set `TAVILY_API_URL=https://api.tavily.com` and `TAVILY_API_KEY` in plugin env.

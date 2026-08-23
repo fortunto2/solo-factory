@@ -7,7 +7,7 @@ metadata:
   version: "1.0.0"
   openclaw:
     emoji: "🎯"
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion, WebSearch, WebFetch, mcp__solograph__web_search, mcp__solograph__project_info
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion, WebSearch, WebFetch, mcp__searxng__web_search, mcp__solograph__project_info
 argument-hint: "<command> — commands: setup, enrich, evaluate, draft, status, next"
 ---
 

@@ -7,7 +7,7 @@ metadata:
   version: "2.0.0"
   openclaw:
     emoji: "💡"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__source_search, mcp__solograph__source_list, mcp__solograph__source_tags, mcp__solograph__source_related, mcp__solograph__kb_search, mcp__solograph__web_search
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__source_search, mcp__solograph__source_list, mcp__solograph__source_tags, mcp__solograph__source_related, mcp__solograph__kb_search, mcp__searxng__web_search, mcp__searxng__web_extract
 argument-hint: "[video-url or channel-name or 'analyze <query>']"
 ---
 
@@ -29,6 +29,7 @@ Check which tools are available:
 - `source_related(video_url)` — find related videos by shared tags
 - `kb_search(query)` — cross-reference with knowledge base
 - `web_search(query)` — discover new videos to index
+- `web_extract(url, size, page)` — read a linked article as clean markdown
 
 ## Steps
 

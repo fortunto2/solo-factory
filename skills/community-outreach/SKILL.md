@@ -7,7 +7,7 @@ metadata:
   version: "1.1.1"
   openclaw:
     emoji: "💬"
-allowed-tools: Read, Grep, Glob, Write, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__web_search, mcp__solograph__kb_search, mcp__solograph__project_info
+allowed-tools: Read, Grep, Glob, Write, WebSearch, WebFetch, AskUserQuestion, mcp__searxng__web_search, mcp__searxng__web_extract, mcp__solograph__kb_search, mcp__solograph__project_info
 argument-hint: "<project-name or idea>"
 ---
 
@@ -18,6 +18,7 @@ Find relevant community threads (Reddit, Hacker News, ProductHunt) and draft con
 ## MCP Tools (use if available)
 
 - `web_search(query, engines, include_raw_content)` — search Reddit, HN, web
+- `web_extract(url, size, page)` — read one thread or article as clean markdown
 - `kb_search(query)` — find related methodology
 - `project_info(name)` — get project details
 

@@ -7,7 +7,7 @@ metadata:
   version: "1.0.0"
   openclaw:
     emoji: "🤖"
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion, WebSearch, WebFetch, mcp__solograph__web_search, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_click, mcp__playwright__browser_type, mcp__playwright__browser_wait_for, mcp__playwright__browser_tabs
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion, WebSearch, WebFetch, mcp__searxng__web_search, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_click, mcp__playwright__browser_type, mcp__playwright__browser_wait_for, mcp__playwright__browser_tabs
 argument-hint: "<command> [subreddit] — commands: comment, post, find, status, setup"
 ---
 

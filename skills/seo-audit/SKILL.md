@@ -7,7 +7,7 @@ metadata:
   version: "1.1.1"
   openclaw:
     emoji: "📊"
-allowed-tools: Read, Grep, Bash, Glob, Write, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__web_search, mcp__solograph__project_info
+allowed-tools: Read, Grep, Bash, Glob, Write, WebSearch, WebFetch, AskUserQuestion, mcp__searxng__web_search, mcp__solograph__project_info
 argument-hint: "<url or project-name>"
 ---
 

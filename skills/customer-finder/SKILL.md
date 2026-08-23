@@ -8,7 +8,7 @@ metadata:
   adapted-from: https://github.com/Kappaemme-git/codex-first-customer-finder-skill (MIT)
   openclaw:
     emoji: "🎯"
-allowed-tools: Read, Grep, Glob, Write, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__web_search, mcp__solograph__kb_search, mcp__solograph__project_info
+allowed-tools: Read, Grep, Glob, Write, WebSearch, WebFetch, AskUserQuestion, mcp__searxng__web_search, mcp__searxng__web_extract, mcp__solograph__kb_search, mcp__solograph__project_info
 argument-hint: "<project-name, URL or idea> [quick|deep|b2b|design-partners|community]"
 ---
 
@@ -21,6 +21,7 @@ Difference from `/community-outreach`: that skill finds *threads* to reply in; t
 ## MCP Tools (use if available)
 
 - `web_search(query, engines, include_raw_content)` — SearXNG with engine routing (Reddit, HN, GitHub)
+- `web_extract(url, size, page)` — one page as clean markdown, paginated for long docs
 - `kb_search(query)` — prior research in KB
 - `project_info(name)` — project details
 
