@@ -1,6 +1,6 @@
 {
   "name": "solo",
-  "description": "Your own path. Multiple stacks. Ship everything. 44 skills, 3 agents, code intelligence MCP — from shower thought to deployed product.",
+  "description": "Your own path. Multiple stacks. Ship everything. 44 skills, 3 agents, code intelligence MCP \u2014 from shower thought to deployed product.",
   "version": "1.25.0",
   "author": {
     "name": "Rustam Salavatov",
@@ -9,16 +9,12 @@
   "repository": "https://github.com/fortunto2/solo-factory",
   "homepage": "https://github.com/fortunto2/solo-factory",
   "license": "MIT",
-  "keywords": ["startup", "solopreneur", "research", "validation", "scaffold", "tdd"],
-  "mcpServers": {
-    "solograph": {
-      "command": "uvx",
-      "args": ["solograph"],
-      "env": {
-        "CODEGRAPH_DB_PATH": "~/.solo/codegraph.db",
-        "CODEGRAPH_REGISTRY": "~/.solo/registry.yaml",
-        "TAVILY_API_URL": "http://localhost:8013"
-      }
-    }
-  }
+  "keywords": [
+    "startup",
+    "solopreneur",
+    "research",
+    "validation",
+    "scaffold",
+    "tdd"
+  ]
 }
