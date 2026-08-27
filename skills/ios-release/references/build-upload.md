@@ -255,6 +255,31 @@ Xcode Cloud instead of local builds: `asc xcode-cloud run --app "APP_ID" --workf
 
 ## Gotchas
 
+**`exportArchive` fails with "Copy failed" — it is your `rsync`.** Xcode shells out to `rsync` to
+assemble the .ipa and takes whichever one is first in `PATH`. A modern rsync (Homebrew ships 3.5.0)
+is incompatible with what Xcode drives, and the export dies on `IDEDistributionCreateIPAStep`. The
+error says nothing about rsync; you only see it in the distribution log:
+
+```
+rsync error: syntax or usage error (code 1) at main.c(1886) [server=3.5.0]
+Step "<IDEDistributionCreateIPAStep>" failed with error "Copy failed"
+```
+
+Read that log — `xcodebuild` prints its path on failure, and the useful line is in
+`IDEDistributionPipeline.log`. The fix is to hand Xcode the system one, which is openrsync claiming
+2.6.9 compatibility:
+
+```bash
+env PATH="/usr/bin:/bin:/usr/sbin:/sbin" xcodebuild -exportArchive …
+```
+
+This is per-machine, not per-project: once Homebrew's rsync is on the box, every iOS project on it
+exports the same way and fails the same way. Check with `which -a rsync`.
+
+Do not work around it by zipping `Payload/` by hand. That produces an installable .ipa, but it skips
+the step that writes `beta-reports-active` into the entitlements — the key TestFlight needs — and
+you will not notice until a build refuses to distribute.
+
 **Missing `iosApp` scheme.** `xcodebuild -scheme iosApp …` failing with "does not contain a scheme
 named iosApp" means a shared scheme for another target (e.g. a widget) disabled autogeneration.
 Create a shared `xcshareddata/xcschemes/iosApp.xcscheme` pointing at the app target's
