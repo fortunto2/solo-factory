@@ -167,7 +167,7 @@ What is in the set, and the rules that most often hit real code:
 → Privacy policy (GDPR-ready), Terms of Service, App Store privacy labels
 ```
 
-### Utility (13 skills)
+### Utility (14 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -185,6 +185,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:knowledge` | Answer from the methodology base — harness engineering, SGR, launch playbook |
 | `/solo:sgr` | Design schema-guided reasoning — schemas, tool dispatch, constrained decoding |
 | `/solo:skill-audit` | Score a skill against the best-practice checklist, 12 dimensions |
+| `/solo:terminal-eyes` | Terminal tuned for hours of reading agent output — flicker, polarity, ANSI palette, bell |
 
 **Examples:**
 ```
@@ -396,6 +397,7 @@ solo-factory/
 │   ├── reddit/              # Reddit comments and karma
 │   ├── github-outreach/     # Competitor dependents scan
 │   ├── knowledge/           # Methodology base lookup
+│   ├── terminal-eyes/       # Readable terminal: flicker, palette, notifications
 │   ├── sgr/                 # Schema-guided reasoning
 │   └── skill-audit/         # Score a skill against the checklist
 ├── agents/

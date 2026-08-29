@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- ~/Library/LaunchAgents/com.example.theme-auto.plist
+     Rename the label and the path, then: launchctl load <this file> -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.example.theme-auto</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>$HOME/.local/bin/theme auto</string>
+  </array>
+  <key>StartInterval</key><integer>60</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/tmp/theme-auto.log</string>
+  <key>StandardErrorPath</key><string>/tmp/theme-auto.log</string>
+</dict>
+</plist>

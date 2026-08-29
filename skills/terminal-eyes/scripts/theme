@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# theme — one light switch for kitty, Apple Terminal and Claude Code.
+#
+#   theme light | dark | toggle    manual switch (suppresses the automation for OVERRIDE_HOURS)
+#                                  add --system to flip the macOS appearance too
+#   theme auto                     pick by ambient light sensor (what launchd calls)
+#   theme sense                    current lux and what it would choose
+#   theme status                   what is set right now
+#   theme watch on|off             enable/disable the launchd poller
+#
+# Thresholds are machine- and room-specific: run `theme sense` at different times
+# of day and adjust. A dead zone between them stops a passing cloud from flipping
+# the theme; the override stops the poller from arguing with a manual choice.
+LUX_DARK=25     # below this, go dark
+LUX_LIGHT=55    # above this, go light; in between, nothing changes
+OVERRIDE_HOURS=4
+
+CFG=~/.config/terminal-profiles
+KITTY=~/.config/kitty
+STATE=$CFG/.state
+OVERRIDE=$CFG/.override
+PLIST=~/Library/LaunchAgents/com.example.theme-auto.plist
+
+lux() {
+  local raw
+  raw=$(ioreg -r -l -w 0 -k AmbientBrightness 2>/dev/null | grep -o '"AmbientBrightness" = [0-9]*' | head -1 | awk '{print $3}')
+  [[ -z "$raw" ]] && { echo ""; return 1; }
+  awk -v r="$raw" 'BEGIN{printf "%.0f", r/65536}'
+}
+
+current() { cat "$STATE" 2>/dev/null || echo light; }
+
+apply() {
+  local mode="$1"
+  local kfile cfile tprofile appearance
+  if [[ $mode == dark ]]; then
+    kfile=$KITTY/theme-warm-dark.conf; cfile=$CFG/claude/warm-night-dark.json
+    tprofile="Warm Night Dev"; appearance=true
+  else
+    kfile=$KITTY/theme-novel-light.conf; cfile=$CFG/claude/novel-light.json
+    tprofile="Novel Dev"; appearance=false
+  fi
+
+  # kitty: file for future windows + live instances over remote control
+  cp "$kfile" "$KITTY/theme-current.conf"
+  echo "${mode/light/novel-light}" > "$KITTY/.theme-state"
+  for sock in /tmp/kitty-*; do
+    [ -S "$sock" ] || continue
+    kitty @ --to "unix:$sock" set-colors --all --configured "$kfile" 2>/dev/null
+  done
+
+  # Claude Code: rewriting the active theme file — picked up without a restart
+  cp "$cfile" "$HOME/.claude/themes/novel.json"
+
+  # Apple Terminal: only if already running, don't wake it
+  if pgrep -xq Terminal; then
+    osascript -e "tell application \"Terminal\"
+      set default settings to settings set \"$tprofile\"
+      set startup settings to settings set \"$tprofile\"
+      repeat with w in windows
+        try
+          set current settings of w to settings set \"$tprofile\"
+        end try
+      end repeat
+    end tell" 2>/dev/null
+  fi
+
+  # the macOS appearance is NOT touched unless --system is passed explicitly
+  [[ "$2" == --system ]] && osascript -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $appearance" 2>/dev/null
+
+  echo "$mode" > "$STATE"
+}
+
+case ${1:-status} in
+  light|dark)
+    apply "$1" "$2"; touch "$OVERRIDE"; echo "→ $1 (manual, automation paused ${OVERRIDE_HOURS}h)" ;;
+  toggle)
+    [[ $(current) == light ]] && n=dark || n=light
+    apply "$n" "$2"; touch "$OVERRIDE"; echo "→ $n (manual, automation paused ${OVERRIDE_HOURS}h)" ;;
+  auto)
+    if [[ -f "$OVERRIDE" ]]; then
+      age=$(( ($(date +%s) - $(stat -f %m "$OVERRIDE")) / 3600 ))
+      (( age < OVERRIDE_HOURS )) && { echo "override active (${age}h of ${OVERRIDE_HOURS})"; exit 0; }
+      rm -f "$OVERRIDE"
+    fi
+    l=$(lux) || { echo "ambient light sensor unavailable"; exit 1; }
+    cur=$(current)
+    if (( l < LUX_DARK )) && [[ $cur != dark ]]; then apply dark; echo "${l} lux → dark"
+    elif (( l > LUX_LIGHT )) && [[ $cur != light ]]; then apply light; echo "${l} lux → light"
+    else echo "${l} lux → unchanged ($cur)"; fi ;;
+  sense)
+    l=$(lux); echo "ambient: ${l} lux"
+    if (( l < LUX_DARK )); then echo "  → dark (below ${LUX_DARK})"
+    elif (( l > LUX_LIGHT )); then echo "  → light (above ${LUX_LIGHT})"
+    else echo "  → dead zone ${LUX_DARK}-${LUX_LIGHT}, no change"; fi ;;
+  status)
+    echo "theme: $(current) | ambient: $(lux) lux"
+    [[ -f "$OVERRIDE" ]] && echo "override: yes ($(( ($(date +%s) - $(stat -f %m "$OVERRIDE")) / 60 )) min ago)" || echo "override: no"
+    launchctl list 2>/dev/null | grep -q com.example.theme-auto && echo "automation: on" || echo "automation: off" ;;
+  watch)
+    case $2 in
+      on)  launchctl unload "$PLIST" 2>/dev/null; launchctl load "$PLIST" && echo "automation on (polling every 60s)" ;;
+      off) launchctl unload "$PLIST" 2>/dev/null && echo "automation off" ;;
+      *)   echo "theme watch on|off" ;;
+    esac ;;
+  *) sed -n '2,10p' "$0" | sed 's/^# \?//' ;;
+esac
