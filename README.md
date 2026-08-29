@@ -185,7 +185,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:knowledge` | Answer from the methodology base — harness engineering, SGR, launch playbook |
 | `/solo:sgr` | Design schema-guided reasoning — schemas, tool dispatch, constrained decoding |
 | `/solo:skill-audit` | Score a skill against the best-practice checklist, 12 dimensions |
-| `/solo:terminal-eyes` | Terminal tuned for hours of reading agent output — flicker, polarity, ANSI palette, bell |
+| `/solo:terminal-eyes` | Terminal tuned for hours of reading agent output — flicker, polarity, ANSI palette, bell. Lives in [its own repo](https://github.com/fortunto2/terminal-eyes) (submodule) |
 
 **Examples:**
 ```
@@ -397,7 +397,7 @@ solo-factory/
 │   ├── reddit/              # Reddit comments and karma
 │   ├── github-outreach/     # Competitor dependents scan
 │   ├── knowledge/           # Methodology base lookup
-│   ├── terminal-eyes/       # Readable terminal: flicker, palette, notifications
+│   ├── terminal-eyes/       # submodule → fortunto2/terminal-eyes (+ Lumen menu bar app)
 │   ├── sgr/                 # Schema-guided reasoning
 │   └── skill-audit/         # Score a skill against the checklist
 ├── agents/

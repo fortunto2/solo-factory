@@ -1,0 +1,3 @@
+[submodule "skills/terminal-eyes"]
+	path = skills/terminal-eyes
+	url = https://github.com/fortunto2/terminal-eyes.git
