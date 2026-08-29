@@ -14,9 +14,18 @@
 # "what's new" skill is worse than none. There is no version stamp to compare,
 # so the script prints what changed and leaves the decision to you.
 #
+# It exports from whichever installed Xcode actually *has* skills, not from
+# whichever one `xcode-select` happens to point at. Those are usually
+# different: the skills arrive with Xcode 27, and most people keep 26 selected
+# because it is the release toolchain they build against. Measured 29 Aug
+# 2026 — Xcode 26.6 exports nothing at all, and the script used to answer
+# "this Xcode ships no agent skills yet" and stop, which reads as "not
+# available yet" rather than "look in the other one".
+#
 #   ./scripts/sync-apple-skills.sh              # into ~/.agents/skills
 #   ./scripts/sync-apple-skills.sh --dry-run    # what would land, no writes
 #   ./scripts/sync-apple-skills.sh --into DIR
+#   DEVELOPER_DIR=/path/to/Xcode.app/Contents/Developer ./scripts/…   # force one
 set -euo pipefail
 
 DEST="${HOME}/.agents/skills"
@@ -32,16 +41,47 @@ done
 
 say() { printf '  %s\n' "$1"; }
 
-xcode="$(xcode-select -p 2>/dev/null || true)"
-[ -n "$xcode" ] || { say "no Xcode selected — xcode-select -p is empty"; exit 1; }
-version="$(xcodebuild -version 2>/dev/null | head -1 || echo 'unknown')"
-say "$version at $xcode"
+# Which toolchain: an explicit DEVELOPER_DIR wins, then the selected one,
+# then any other Xcode on the machine. `agent skills export` is the probe —
+# a toolchain with no skills answers with none, and there is no cheaper
+# question to ask it.
+has_skills() {
+    local dev="$1" bin
+    bin="$(DEVELOPER_DIR="$dev" xcrun --find agent 2>/dev/null)" || return 1
+    local probe; probe="$(mktemp -d)"
+    DEVELOPER_DIR="$dev" "$bin" skills export --output-dir "$probe" --replace-existing >/dev/null 2>&1 || { rm -rf "$probe"; return 1; }
+    local n; n=$(find "$probe" -name SKILL.md -maxdepth 2 2>/dev/null | wc -l | tr -d ' ')
+    rm -rf "$probe"
+    [ "$n" -gt 0 ]
+}
 
-# `xcrun agent` exists from Xcode 26; the skills themselves arrive with 27.
-if ! agent_bin="$(xcrun --find agent 2>/dev/null)"; then
-    say "this toolchain has no \`agent\` tool — Xcode 26 or newer is needed"
+candidates=()
+[ -n "${DEVELOPER_DIR:-}" ] && candidates+=("$DEVELOPER_DIR")
+selected="$(xcode-select -p 2>/dev/null || true)"
+[ -n "$selected" ] && candidates+=("$selected")
+for app in /Applications/Xcode*.app; do
+    [ -d "$app/Contents/Developer" ] && candidates+=("$app/Contents/Developer")
+done
+
+xcode=""
+for dev in "${candidates[@]}"; do
+    case " ${seen:-} " in *" $dev "*) continue ;; esac
+    seen="${seen:-} $dev"
+    if has_skills "$dev"; then xcode="$dev"; break; fi
+done
+
+if [ -z "$xcode" ]; then
+    say "no Xcode on this machine ships agent skills."
+    say "They arrive with Xcode 27; 26.x exports nothing. Checked:"
+    for dev in ${seen:-}; do say "  $dev"; done
     exit 1
 fi
+
+export DEVELOPER_DIR="$xcode"
+version="$(xcodebuild -version 2>/dev/null | head -1)"
+say "${version:-Xcode} at $xcode"
+[ "$xcode" = "$selected" ] || say "(not the selected toolchain — that one ships no skills)"
+agent_bin="$(xcrun --find agent)"
 
 staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
