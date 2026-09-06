@@ -169,12 +169,10 @@ and reported ok. Reproduced that way before fixing. **Every assertion over a
 collection must first assert the collection is non-empty**, and the fix was
 shown red before being called fixed.
 
-(An earlier draft of this section cited a peer's `cargo-mutants` run — a whole
-function replaced with `vec![]` while the suite stayed green — as a second
-example. That finding was **withdrawn by its author**: see the
-`CARGO_TARGET_DIR` trap below, which made every mutant test unmutated code. The
-rule above stands on its own measurement; the withdrawn example is not evidence
-for it.)
+(An earlier draft cited a peer's `cargo-mutants` run — a function replaced with
+`vec![]` while the suite stayed green — as a second example. It was withdrawn,
+then **refuted outright**: applying that mutation by hand fails 50 of 309 tests.
+The rule above rests only on the measurement made here.)
 
 **An equality check must assert its operands are non-empty.** A probe comparing
 "the binary on the simulator" against "the binary I built" printed SAME for two
@@ -243,35 +241,69 @@ sha256 before and after, plus a revert that restores the original hash. A
 patcher that exits 0 having changed nothing, reported as "the test did not go
 red", is the same lie one level up.
 
-`cargo-mutants` isolates the **sources** — it copies them elsewhere rather than
-patching in place — but it does not isolate the **build**, and that gap is wide
-enough to invalidate a whole run silently.
+`cargo-mutants` copies sources to a temp dir rather than patching in place, and
+refuses to draw conclusions unless the `Unmutated baseline` is green first.
 
-**The `CARGO_TARGET_DIR` trap.** With a global `CARGO_TARGET_DIR` set in your
-shell profile (a common setting, e.g. to keep cargo out of a `./target` that
-Xcode watches), every mutant compiles to the same output path. Cargo sees a
-matching fingerprint, reuses the existing binary, and the tests run against
-**unmutated code**. The tool then reports `MISSED` honestly — the tests really
-did pass, just not over the mutation.
+**A retracted trap, kept as a case.** An earlier revision of this file described
+a `CARGO_TARGET_DIR` trap here — a shared target dir supposedly making every
+mutant test unmutated code, with a symptom, an "evidence" line and a fix. It
+does not reproduce. A clean A/B on the same mutants: with the variable, 3 caught
+in 51s; with `env -u CARGO_TARGET_DIR`, 3 caught in 49s. The cure cured nothing.
 
-```
-symptom:  every mutant MISSED, not one CAUGHT
-evidence: the same test-binary hash across all runs in the log
-fix:      env -u CARGO_TARGET_DIR cargo mutants ...
-          --out-dir should land under a cargo-mutants-*.tmp path
-```
+It is preserved here because how the false trap was built is worth more than the
+trap would have been. Three misreadings, in order:
 
-So the receipt is required after all, with a different subject than I first
-proposed: not the hash of the source file, but **the fingerprint of the
-artifact that actually executed**. Two mutants producing an identical test
-binary is the measurement that catches this; a source-level sha256 would have
-sailed straight past it.
+1. **A missing line taken for a missing event.** `cargo-mutants` does not print
+   CAUGHT per mutant — only MISSED/TIMEOUT/UNVIABLE stream past, while caught
+   ones land in the summary and in `caught.txt`. Grepping the stream for
+   `^CAUGHT` returned zero. `caught.txt` for that same run held 21.
+2. **Identical binary names taken for identical artifacts.** Cargo names a test
+   binary from flags and features, not from source content, so mutants
+   legitimately overwrite a file of the same name. The "evidence" rested on a
+   misunderstanding of the format.
+3. **A causal story built on those two and passed on as measured.**
+
+**The rule this produces: a known-answer test must run before the first
+conclusion, not after the first doubt.** Vigilance was present — the numbers
+looked too uniform, and the instrument *was* investigated. The investigation was
+also wrong, because it was built on the same misunderstanding. What works is
+mechanical, not attentional: feed the instrument an input whose answer you
+already know, and only then believe its output. In this case that input existed
+all along — a hand-written mutation, which when finally applied failed 50 of 309
+tests, proving the suite sensitive and the original finding **refuted**, not
+merely unconfirmed.
 
 **Never accept a zero result from an instrument you have not seen produce a
-non-zero one.** Sixteen consecutive `MISSED` with zero `CAUGHT` is better
-evidence of a broken instrument than of sixteen broken tests. This rule was
-formulated by the peer who then broke it two hours later on their own run —
-which is why it is written here rather than assumed.
+non-zero one** — but note that this phrasing is too weak on its own. Its author
+formulated it and broke it three times in one hour, including once after it was
+written down. A rule that needs vigilance is not a rule; the known-answer input
+is the mechanism that makes it enforceable.
+
+## Label every claim by who measured it
+
+Two findings in this file were written from a peer's report and both were later
+retracted by their author. Neither was ever reproduced here before being
+committed. The reports were detailed, came with logs, and arrived from a source
+whose earlier findings had all been correct — which is exactly the condition
+under which an unverified claim gets adopted.
+
+**A plausible report from a reliable source is not a measurement.** The fix is
+not more scepticism, it is a label. Every claim carries one of three:
+
+| Label | Means |
+|---|---|
+| **measured here** | reproduced in this repo, with the command that reproduces it |
+| **reported** | someone else measured it; not verified here |
+| **retracted** | withdrawn or refuted, kept visible with the reason |
+
+A retracted claim is marked, never deleted. A citation that quietly disappears
+leaves the reader believing it was never there, and the reasoning that produced
+it — which is usually the valuable part — disappears with it.
+
+The asymmetry worth remembering: **adopting a wrong finding costs more than
+missing a right one.** A missed finding stays available; an adopted one gets
+built on, and here it produced two commits and a stack-template edit that had
+to be unwound.
 
 ## The part a solo setup cannot fix alone
 
