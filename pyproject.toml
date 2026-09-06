@@ -19,7 +19,19 @@ python-version = "3.13"
 # unused import, an unsorted import block, an unused loop variable) and are fixed
 # in the same commit, so the set is adopted green rather than with a backlog.
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
+select = [
+    "E4", "E7", "E9", "F", "I", "B", "UP",
+    # Added after measuring what the verifier is blind to
+    # (scripts/measure-blind-spots): each of these bought a detection and costs
+    # nothing here. Measured, not chosen by taste — the whole S and SIM families
+    # would have bought three detections for 15 findings on our own scripts, most
+    # of them intentional in a tool that runs subprocesses and tolerates their
+    # failure. BLE001 alone costs 11, and our broad excepts are deliberate.
+    "SIM115",  # a file opened and never closed
+    "S602",    # subprocess with shell=True
+    "S605",    # a shell command built from a variable
+    "S608",    # SQL built by string interpolation
+]
 
 # `solo-verify` is dropped into strangers' repositories and run with whatever
 # `python3` is on their PATH — on macOS that is /usr/bin/python3, still 3.9.6.

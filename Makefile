@@ -71,6 +71,9 @@ test: ## Run all tests (BATS + trigger validation)
 	@bats tests/
 	@python3 scripts/validate_triggers.py
 
+blind-spots:  ## Plant known defects and count what the verifier misses
+	python3 scripts/measure-blind-spots
+
 test-vacuous:  ## Find tests that assert only absence
 	python3 scripts/check-vacuous-tests $$(git ls-files "*.bats" "test_*.py" "*.test.ts")
 

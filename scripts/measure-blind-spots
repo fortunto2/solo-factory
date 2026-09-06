@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+"""How many real defects does solo-verify NOT see?
+
+The false-positive rate was measured on foreign repositories (#18021). This is
+the other half and the one a user actually needs: a verifier's value is bounded
+by what it can miss, and nothing here had ever measured that.
+
+Method: plant one known defect at a time in a throwaway repository, run
+solo-verify over it, and record whether any finding names it. Every defect below
+is one a competent reviewer would stop a pull request for. Nothing is inferred
+from the code — each row is a run.
+
+The point is not a score. It is a published list of what this tool is blind to,
+so nobody reads a green receipt as "this change is correct". A verifier that
+does not publish its blind spots invites exactly that reading.
+
+    python3 scripts/measure-blind-spots [--full]
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+VERIFY = Path(__file__).resolve().parent / "solo-verify"
+
+# (name, filename, source, the rule that must fire — or None when no sensor here
+#  claims this class at all).
+#
+# The first draft used a filename as the marker for the cases with no rule, and
+# scored 6/15. One of those six was "a test that asserts nothing", credited
+# because ruff flagged the unused local `result` with F841 — an unrelated finding
+# in the same file. That is the lenient-assertion defect this repo has a checker
+# for, reproduced inside the measurement of the checker's own tool. Honest score
+# 5/15, and a rule code is required now.
+CASES: list[tuple[str, str, str, str | None]] = [
+    ("syntax error", "a.py", "def f(\n", "syntax"),
+    ("unused import", "b.py", "import os\n", "F401"),
+    ("undefined name", "c.py", "def f():\n    return undefined_thing\n", "F821"),
+    (
+        "unused local variable",
+        "d.py",
+        "def f():\n    total = 1 + 1\n    return 0\n",
+        "F841",
+    ),
+    (
+        "mutable default argument",
+        "e.py",
+        "def f(items=[]):\n    items.append(1)\n    return items\n",
+        "B006",
+    ),
+    (
+        "except that swallows everything",
+        "f.py",
+        "def f():\n    try:\n        g()\n    except Exception:\n        pass\n",
+        "BLE001",
+    ),
+    (
+        "off-by-one in a loop bound",
+        "g.py",
+        "def last(xs):\n    return xs[len(xs)]\n",
+        None,
+    ),
+    (
+        "wrong comparison operator",
+        "h.py",
+        "def is_adult(age):\n    return age > 18\n",
+        None,
+    ),
+    (
+        "hardcoded credential",
+        "i.py",
+        'API_KEY = "sk-live-01234567890abcdef"\n\n\ndef f():\n    return API_KEY\n',
+        None,
+    ),
+    (
+        "file opened and never closed",
+        "j.py",
+        "def f(p):\n    data = open(p).read()\n    return data\n",
+        "SIM115",
+    ),
+    (
+        "a test that asserts nothing",
+        "test_k.py",
+        "def test_it_works():\n    result = 1 + 1\n",
+        None,
+    ),
+    (
+        "an assertion deleted from a test",
+        "test_l.py",
+        "def test_sums():\n    total = 1 + 1\n    print(total)\n",
+        None,
+    ),
+    (
+        "sleep instead of synchronisation",
+        "m.py",
+        "import time\n\n\ndef f():\n    time.sleep(5)\n    return 1\n",
+        None,
+    ),
+    (
+        "shell command built from an argument",
+        "n.py",
+        "import subprocess\n\n\ndef f(name):\n"
+        "    subprocess.run(f'rm -rf {name}', shell=True, check=True)\n",
+        "S602",
+    ),
+    (
+        "integer division where float was meant",
+        "o.py",
+        "def average(xs):\n    return sum(xs) // len(xs)\n",
+        None,
+    ),
+]
+
+
+# pre-commit and every git hook export GIT_DIR / GIT_WORK_TREE pointing at the
+# OUTER repository. Inheriting them makes the `git init` below fail with
+# "core.bare and core.worktree do not make sense", so this script worked from a
+# shell and failed inside a hook — which is where it will usually run. Same trap
+# tests/sensors.bats documents; a script that creates a scratch repo has to
+# scrub them itself rather than relying on its caller.
+GIT_ENV = {
+    k: v
+    for k, v in os.environ.items()
+    if not k.startswith("GIT_") or k in ("GIT_ASKPASS",)
+}
+
+
+def run_case(tmp: Path, filename: str, source: str, full: bool) -> str:
+    repo = tmp / "repo"
+    if repo.exists():
+        shutil.rmtree(repo)
+    repo.mkdir(parents=True)
+    for cmd in (
+        ["git", "init", "-q", "."],
+        ["git", "config", "user.email", "t@example.com"],
+        ["git", "config", "user.name", "t"],
+        ["git", "commit", "-q", "--allow-empty", "-m", "init"],
+    ):
+        subprocess.run(cmd, cwd=repo, check=True, capture_output=True, env=GIT_ENV)
+    # Same rule set this repo adopted, so the answer is about the tool as shipped
+    # rather than about ruff's defaults.
+    (repo / "pyproject.toml").write_text(
+        '[project]\nname = "t"\nrequires-python = ">=3.10"\n\n'
+        '[tool.ruff.lint]\nselect = ["E4", "E7", "E9", "F", "I", "B", "UP",\n'
+        '  "SIM115", "S602", "S605", "S608"]\n'
+    )
+    (repo / filename).write_text(source)
+    argv = [sys.executable, str(VERIFY), "--root", str(repo), "--files", filename]
+    if full:
+        argv.append("--full")
+    return subprocess.run(argv, capture_output=True, text=True, env=GIT_ENV).stdout
+
+
+def main() -> int:
+    full = "--full" in sys.argv
+    caught, missed, incidental = [], [], []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        for name, filename, source, expect in CASES:
+            out = run_case(tmp, filename, source, full)
+            findings = out.split("findings:", 1)[1] if "findings:" in out else ""
+            if expect is not None and expect in findings:
+                caught.append(name)
+                print(f"  caught   {name}  ({expect})")
+                continue
+            missed.append(name)
+            # Something in the same file may still be flagged for an unrelated
+            # reason. That is not detection, and crediting it is how the first
+            # draft of this script scored 6 instead of 5.
+            if filename in findings:
+                incidental.append(name)
+                print(f"  MISSED   {name}  (file flagged for something else)")
+            else:
+                print(f"  MISSED   {name}")
+
+    total = len(CASES)
+    print(
+        f"\n{len(caught)}/{total} caught, {len(missed)}/{total} missed"
+        f"  (mode: {'full' if full else 'fast'})"
+    )
+    if incidental:
+        print(
+            f"\n{len(incidental)} of the misses produced a finding in the same file "
+            f"for an unrelated reason. A reader skimming the receipt could mistake "
+            f"that for detection; this script does not."
+        )
+    if missed:
+        print("\nBlind to:")
+        for m in missed:
+            print(f"  - {m}")
+        print(
+            "\nThese are not bugs in the verifier. They are the shape of what it "
+            "promises: syntax, lint, types and whether the suite runs. A green "
+            "receipt means those passed, never that the change is correct."
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

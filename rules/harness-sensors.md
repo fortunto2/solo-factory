@@ -105,6 +105,54 @@ really is what is wrong — in one agent's measured sample, 3 of 5 times the
 correct repair *was* the rule. So the harness surfaces the edit and leaves the
 judgment to you.
 
+## What it cannot see, measured
+
+A verifier's value is bounded by what it misses, and nothing here had measured
+that until `scripts/measure-blind-spots` (`make blind-spots`). It plants one
+known defect at a time — each one a competent reviewer would block a pull request
+for — runs the verifier, and records whether a finding **names** it.
+
+**7 of 15 caught, 8 missed.** The eight, published rather than summarised:
+
+- an off-by-one in a loop bound
+- a wrong comparison operator (`>` where `>=` was meant)
+- a hardcoded credential
+- a test that asserts nothing
+- an assertion deleted from a test
+- `sleep` instead of synchronisation
+- integer division where float was meant
+- an `except` that swallows everything (catchable by `BLE001`, deliberately not
+  selected — it costs 11 findings here and our broad excepts are intentional)
+
+None of those is a bug. They are the shape of the promise: syntax, lint, types,
+and whether the suite runs. **A green receipt means those passed, never that the
+change is correct**, and a tool that does not publish that distinction invites
+the opposite reading.
+
+Two things the run changed:
+
+**It moved the score.** The first pass was 5/15. `SIM115`, `S602`, `S605` and
+`S608` each bought a detection at **zero findings on our own code**, so they were
+added. The whole `S`+`SIM` families would have bought three detections for 15
+findings, most of them intentional patterns in a tool that runs subprocesses and
+tolerates their failure — a bad trade by the noise budget below, and refused on
+the numbers rather than on taste.
+
+**And it passed from a shell while failing inside a hook.** `pre-commit` exports
+`GIT_DIR` and `GIT_WORK_TREE` pointing at the outer repository, so the scratch
+`git init` died with "core.bare and core.worktree do not make sense" — the trap
+`tests/sensors.bats` had documented for itself and nothing else inherited. A
+script that creates a scratch repository has to scrub those variables itself
+rather than trust its caller, and the test now sets `GIT_DIR` deliberately so the
+hook environment is the one under test.
+
+**The first draft scored 6/15 by crediting a coincidence.** "A test that asserts
+nothing" matched on the filename, and ruff had flagged an unused local in the
+same file — the lenient-assertion defect this repo now has a checker for,
+reproduced inside the measurement of that very tool. A rule code is required now,
+and a miss that produced an unrelated finding in the same file is reported as
+exactly that.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed
