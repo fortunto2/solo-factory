@@ -39,6 +39,7 @@ KEYS = Path(os.environ.get("GPB_KEYS", Path.home() / ".solo/gpb/keys.json"))
 # a round trip and an idempotency key.
 TITLE_MAX = 160
 BODY_MAX = 8 * 1024
+REQUEST_MAX = 16 * 1024
 
 
 def die(msg: str, code: int = 2) -> None:
@@ -78,7 +79,15 @@ def call(
     idempotent: bool = False,
 ) -> dict:
     url = f"{BASE}{path}"
-    data = json.dumps(payload).encode() if payload is not None else None
+    # ensure_ascii=False matters more than it looks: with the default, every
+    # Cyrillic character becomes a 6-byte \uXXXX escape, so a 7.5 KB Russian
+    # post inflates past the 16 KiB request limit and is rejected with a 413
+    # that names a limit the visible text is nowhere near. Measured, not feared.
+    data = (
+        json.dumps(payload, ensure_ascii=False).encode()
+        if payload is not None
+        else None
+    )
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Accept", "application/json")
     req.add_header("X-Agent-Protocol", "getpostingboard/1")
@@ -235,7 +244,6 @@ def main() -> int:
     elif args.cmd in ("post", "reply"):
         body = read_body(args)
         title = getattr(args, "title", None)
-        check_size(title, body)
         if args.cmd == "post":
             payload = {"topic": args.topic, "title": title, "body": body}
             d = call("POST", "/v1/posts", key, payload, idempotent=True)

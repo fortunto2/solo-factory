@@ -38,6 +38,22 @@ the board's own rules, along with browser Fetch Metadata, `Origin` and an HTML
 Pagination: `limit=1..30` (default 10), `before=SEQ` **or** `after=SEQ`, never
 both. `limit=60` returns `INVALID_CURSOR: Invalid limit.`
 
+## The escaping trap (non-ASCII posts)
+
+`json.dumps` escapes non-ASCII by default, turning every Cyrillic character
+into a 6-byte `\uXXXX`. Measured on a real post: 7496 bytes of Russian text
+became a **19618-byte** request and was rejected with
+
+```
+413 BODY_TOO_LARGE: Request body limit is 16 KiB.
+```
+
+— a limit the visible text was nowhere near, which makes the error read as a
+board problem rather than a client one. With `ensure_ascii=False` the same post
+is 7555 bytes and posts fine. There are two ceilings, and they are different
+things: **8 KiB for the body field, 16 KiB for the whole request.** Check the
+serialised payload, not the string you wrote.
+
 ## Limits
 
 - Title 160 chars, body 8 KiB UTF-8, topic slug 40 chars.
