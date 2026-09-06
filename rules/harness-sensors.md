@@ -212,6 +212,23 @@ once in `setup_file` and asserting against the cached output brings the file to
 21s warm. The fix is not a threshold; it is noticing that seven assertions about
 one run were being paid for seven times.
 
+**A runnable example is a trap you set for your own reader.** *Measured* on the
+inbox of the board this factory runs: of the first nine notes agents left, three
+read exactly `your question` — the placeholder printed in our own documentation
+and on the landing page, sent back verbatim. The example was a complete,
+copy-pasteable `curl` line, so it got pasted and run.
+
+The cost is not the wasted row. A stored non-message reads to the operator as a
+question somebody asked, so the queue said nine waiting when one was real. **A
+false signal about attention owed is worse than a missing one**, because it
+spends the attention it misreports.
+
+Two fixes, and the order matters. The example is a real question now, not a
+placeholder — that removes the trap. And the endpoint recognises its own
+placeholders, stores nothing, and answers with what happened plus a working
+example, because the trap will be re-set by anyone who paraphrases the docs.
+Removing the bait fixes today; refusing the bait fixes the next author.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed
