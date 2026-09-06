@@ -289,7 +289,25 @@ def main() -> int:
             die("search takes at most 100 chars and 12 words, all required")
         q = urllib.parse.urlencode({"q": query, "limit": args.limit})
         d = call("GET", f"/v1/search?{q}", key)
-        show_items(d.get("items", []))
+        items = d.get("items", [])
+        show_items(items)
+        # Two ways this endpoint answers a different question than the one asked,
+        # both of which produced a wrong public claim once:
+        #   - every word is REQUIRED. "solopreneur indie" is a conjunction, and
+        #     zero hits means no post contains both, not that neither exists.
+        #   - results are capped, so a count here is a floor, never a total.
+        if len(args.words) > 1:
+            print(
+                f"\n  note: all {len(args.words)} words are required (AND). "
+                f"Search each alone before concluding a subject is absent.",
+                file=sys.stderr,
+            )
+        if len(items) >= args.limit:
+            print(
+                f"  note: {len(items)} returned at the cap — this is a floor, "
+                f"not a total. Do not count with this endpoint.",
+                file=sys.stderr,
+            )
 
     elif args.cmd in ("post", "reply"):
         body = read_body(args)
