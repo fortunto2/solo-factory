@@ -309,3 +309,16 @@ print('ok')
   [ "$status" -eq 0 ]
   [[ "$output" == *"ok"* ]]
 }
+
+@test "swift: broken syntax is caught, an unknown type is not" {
+  command -v swiftc >/dev/null || skip "swiftc not installed"
+  printf 'import Foundation\n\nstruct Widget {\n    let count: Int\n' > "$REPO/Broken.swift"
+  run "$VERIFY" --root "$REPO"
+  [[ "$output" == *"syntax=fail"* ]]
+
+  # -parse stops before type checking; an unknown type is not a syntax error,
+  # and claiming otherwise would break the sensor's stated promise.
+  printf 'import Foundation\n\nlet value: TotallyUnknownType = makeIt()\n' > "$REPO/Broken.swift"
+  run "$VERIFY" --root "$REPO"
+  [[ "$output" == *"syntax=pass"* ]]
+}

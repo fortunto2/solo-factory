@@ -343,12 +343,25 @@ def check_syntax(root: Path, files: list[Path]) -> Result:
                 findings.append(
                     f"{rel(root, f)} syntax {out.strip().splitlines()[0] if out.strip() else 'parse error'}"
                 )
+        elif f.suffix == ".swift" and shutil.which("swiftc"):
+            # -parse stops before type checking, so an unknown type or a missing
+            # import stays green — exactly the promise ast.parse makes for
+            # Python. ~0.15s per file, so it is scoped to changed files only.
+            # Contributed and measured by a peer session on its own Swift tree.
+            code, out = run(["swiftc", "-parse", str(f)], root, 20)
+            covered.append(rel(root, f))
+            if status_for(code) == "fail":
+                first = next(
+                    (ln.strip() for ln in out.splitlines() if ": error:" in ln),
+                    "parse error",
+                )
+                findings.append(f"{rel(root, f)} syntax {first}")
     if not covered:
         return Result("syntax", "skip", reason="no parseable files in scope")
     return Result(
         "syntax",
         "fail" if findings else "pass",
-        promise="every changed .py/.js file parses",
+        promise="every changed .py/.js/.swift file parses (syntax only, not types)",
         findings=findings,
         covered=covered,
         counters={"parsed": len(covered), "broken": len(findings)},

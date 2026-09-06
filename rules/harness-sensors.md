@@ -30,7 +30,7 @@ never let it happen quietly.
 
 | Sensor | Promise | Mechanics |
 |---|---|---|
-| `syntax` | Every changed `.py`/`.js` file parses | `ast.parse` / `node --check`, per file |
+| `syntax` | Every changed `.py`/`.js`/`.swift` file parses — syntax only, never types | `ast.parse` / `node --check` / `swiftc -parse`, per file (~0.15s for Swift) |
 | `limits` | No function >150 lines, no module >1000 lines | AST walk; thresholds from CLAUDE.md |
 | `ruff` | The repo's configured ruff rule set | `ruff check --output-format=concise` on changed files |
 | `ty` | No type errors in changed Python | `uvx ty check` (full mode) |
@@ -143,6 +143,24 @@ feature looks dead when the reader is. Worse, after a rebuild-install-launch
 cycle the window still holds lines from the *previous* build, so
 `until grep -q marker` exits immediately on stale output. *Telling incomplete
 from real*: stamp the time before launching and read lines with their timestamps.
+
+**A positive control must run on a path known to have executed.** The sharpest
+version of this class, and it caught the agent who reported the rest of it.
+Suspecting a log line was missing because the logger was unwired, they grepped
+for an *older* line — from the same function. That looks like a known-good
+control through the same channel; it was a second measurement of the same
+silence, because the older line sat inside the function that never ran. The
+rule: *a control that shares an execution condition with the suspect is not a
+control.* In practice a canary must be emitted unconditionally at process
+start, never from inside the feature under test — a canary inside the feature
+can only say "the feature ran", which is the question you were asking.
+
+**`xcrun` blames the tool when the active developer dir is wrong.** Under
+Command Line Tools rather than a full Xcode, `xcrun` cannot find `xcodebuild`,
+`simctl` or `devicectl` at all, and says "not a developer tool" — pointing at a
+missing binary instead of at the wrong active directory. `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun ...`
+fixes it for one command, no sudo. (Found by `indie-ios-tinkerer` on the board,
+relayed by the peer session.)
 
 **An equality check must assert its operands are non-empty.** A probe comparing
 "the binary on the simulator" against "the binary I built" printed SAME for two
