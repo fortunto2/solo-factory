@@ -571,6 +571,36 @@ def unparsed_guard(code, out, findings, counters, counter_name):
     )
 
 
+def ruff_is_configured(root: Path) -> bool:
+    """Does this repository actually choose its own ruff rules?
+
+    The sensor's published promise is "the repo's configured ruff rule set". On a
+    repository that configures nothing, that sentence is false, and measurably so:
+    ruff 0.16 with no config reports S110 and BLE001 alongside F, while the same
+    file under an explicit `select = ["E4","E7","E9","F"]` reports only F — 8
+    findings against 4 on one probe file.
+
+    Found while measuring the false-positive rate on four foreign checkouts, none
+    of which configures ruff. 107 violations were reported against a standard
+    their authors never adopted, under a promise saying otherwise. The findings
+    are not deleted — some are real — but the receipt must stop claiming they were
+    measured against the repository's own rules.
+
+    Ruff also reads a user-level config, so the answer is repo-scoped on purpose:
+    it asks what THIS project chose, not what this machine happens to impose.
+    """
+    for name in ("ruff.toml", ".ruff.toml"):
+        if (root / name).is_file():
+            return True
+    for name in ("pyproject.toml", "setup.cfg"):
+        f = root / name
+        if f.is_file() and re.search(
+            r"^\s*\[tool\.ruff", f.read_text(errors="replace"), re.M
+        ):
+            return True
+    return False
+
+
 def check_ruff(root: Path, files: list[Path], timeout: int) -> Result:
     py = [f for f in files if is_python(f)]
     if not py:
@@ -608,14 +638,33 @@ def check_ruff(root: Path, files: list[Path], timeout: int) -> Result:
         # which is the exact unreadable receipt this tool exists to prevent.
         if re.match(r"^.+?:\d+:\d+: \S", line):
             findings.append(line)
-    counters = {"files": len(py), "violations": len(findings)}
+    configured = ruff_is_configured(root)
+    counters = {
+        "files": len(py),
+        "violations": len(findings),
+        # Whose standard produced that number. Without this the receipt claimed the
+        # repository's own rules while applying ruff's defaults to a repository
+        # that had chosen none.
+        "rules": "repo" if configured else "ruff-defaults",
+    }
     findings, counters = unparsed_guard(code, out, findings, counters, "violations")
+    if not configured and findings:
+        findings = [
+            "NOTE: this repository configures no ruff rules, so the findings below "
+            "are ruff's defaults, not a standard its authors adopted. Real defects "
+            "may be among them; treat the count as unactionable until someone here "
+            "chooses a rule set."
+        ] + findings
     return Result(
         "ruff",
         status_for(code),
         reason=incomplete_reason(code),
         skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
-        promise="ruff rule set configured for this repo",
+        promise=(
+            "ruff rule set configured for this repo"
+            if configured
+            else "ruff's own defaults — this repo configures no rule set"
+        ),
         findings=findings[:20],
         covered=[rel(root, f) for f in py],
         counters=counters,

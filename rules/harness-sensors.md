@@ -207,9 +207,44 @@ of an audit:
   argument. The message added two days ago is what said so instead of passing.
 - **The 107 ruff violations are not evidence of anything yet.** None of those
   repos configures ruff, so the rule set is not one their authors adopted, and
-  our promise says "the repo's configured ruff rule set". Whether that counts as
-  a false positive is a question about the promise, not about the code, and it
-  is still open.
+  our promise said "the repo's configured ruff rule set". *Answered the next
+  cycle*: the promise was false, measurably. One probe file under no config
+  reports 8 findings including `S110` and `BLE001`; the same file under an
+  explicit `select = ["E4","E7","E9","F"]` reports 4, only `F`. Ruff 0.16's
+  defaults are far wider than the classic set, so "no config" is itself a rule
+  set — just not the repository's.
+
+  The receipt now carries `rules: repo` or `rules: ruff-defaults`, the promise
+  line changes with it, and a repo that configures nothing gets a note saying the
+  count is unactionable until someone there picks a rule set. The findings are
+  not deleted: some are real, and deciding which is not ours to do for a stranger.
+
+  **This repository was the first offender.** solo-factory configured no ruff
+  rules either, so our own receipts read `ruff-defaults` while the promise
+  claimed otherwise. Fixed by choosing one explicitly, measured before choosing:
+  defaults report 29 findings on `scripts/`, `E4/E7/E9/F` reports 1, and the
+  adopted `E4,E7,E9,F,I,B,UP` reports 3.
+
+  **That "3" was wrong, and how it was wrong is the useful part.** The probe ran
+  in a temp directory whose `pyproject.toml` had the rule selection but no
+  `requires-python`, so ruff inferred an older target and switched the `UP` rules
+  off. In the real repository, which declares 3.10, the number is 5. A measuring
+  environment that differs from the real one in a way that changes the answer is
+  the same defect as any other instrument error — and it was found by the gate,
+  not by the probe.
+
+  **Then adopting `UP` broke the tool.** `UP038` rewrote
+  `isinstance(x, (A, B))` into `isinstance(x, A | B)`, which is a `TypeError`
+  before 3.10, and `solo-verify` is dropped into strangers' repositories and
+  launched with whatever `python3` is on their PATH — on macOS that is
+  `/usr/bin/python3`, still **3.9.6**. Every run died on the traceback.
+
+  Note the mirror: the syntax sensor was wrong today for using the **running**
+  interpreter where the **declared** one was meant, and `UP` was wrong for using
+  the declared one where the running one was meant. Same root — the two are
+  different facts and the code has to say which it means. `UP` is now ignored for
+  that one file with the reason stated in `pyproject.toml`, and a test runs the
+  verifier under `/usr/bin/python3` so this cannot come back silently.
 
 **A test whose assertions are all negative passes on empty output.** *Measured
 here*, three times in one week, twice inside the test file about vacuous passes:

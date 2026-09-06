@@ -12,15 +12,15 @@ Usage:
 """
 
 import json
-import sys
 import os
-import shutil
-import wave
-import struct
 import random
+import shutil
+import struct
 import subprocess
+import sys
 import tempfile
 import time
+import wave
 
 # ── Flags ──
 NO_COLOR = "--no-color" in sys.argv or os.environ.get("NO_COLOR")
@@ -387,7 +387,7 @@ def format_tool_line(name: str, inp: dict) -> str:
     elif name.startswith("mcp__"):
         # MCP tool — show tool name + first meaningful value
         first_val = ""
-        for k, v in inp.items():
+        for v in inp.values():
             if v and isinstance(v, str) and len(v) > 2:
                 first_val = v[:80]
                 break

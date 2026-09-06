@@ -5,7 +5,6 @@ Makes skills dual-compatible: Claude Code + OpenClaw ClawHub.
 Idempotent — skips skills that already have openclaw metadata.
 """
 
-import re
 from pathlib import Path
 
 SKILLS_DIR = Path(__file__).parent.parent / "skills"
@@ -84,7 +83,7 @@ def add_openclaw_meta(skill_md: Path) -> bool:
                     in_frontmatter = False
                     # If we were in metadata but haven't inserted yet
                     if in_metadata and not inserted:
-                        new_lines.append(f'{" " * metadata_indent}openclaw:')
+                        new_lines.append(f"{' ' * metadata_indent}openclaw:")
                         new_lines.append(f'{" " * metadata_indent}  emoji: "{emoji}"')
                         inserted = True
                 new_lines.append(line)
@@ -109,16 +108,22 @@ def add_openclaw_meta(skill_md: Path) -> bool:
                         next_indent = len(next_line) - len(next_stripped)
                         if next_indent == 0 or next_line.strip() == "---":
                             if not inserted:
-                                new_lines.append(f'{" " * metadata_indent}openclaw:')
-                                new_lines.append(f'{" " * metadata_indent}  emoji: "{emoji}"')
+                                new_lines.append(f"{' ' * metadata_indent}openclaw:")
+                                new_lines.append(
+                                    f'{" " * metadata_indent}  emoji: "{emoji}"'
+                                )
                                 inserted = True
                                 in_metadata = False
                         continue
                     else:
                         in_metadata = False
                         if not inserted:
-                            new_lines.append(f'{" " * max(metadata_indent, 2)}openclaw:')
-                            new_lines.append(f'{" " * max(metadata_indent, 2)}  emoji: "{emoji}"')
+                            new_lines.append(
+                                f"{' ' * max(metadata_indent, 2)}openclaw:"
+                            )
+                            new_lines.append(
+                                f'{" " * max(metadata_indent, 2)}  emoji: "{emoji}"'
+                            )
                             inserted = True
 
             new_lines.append(line)

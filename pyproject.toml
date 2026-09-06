@@ -9,3 +9,27 @@ dependencies = [
 
 [tool.ty.environment]
 python-version = "3.13"
+
+# Chosen explicitly, because the ruff sensor's promise is "the repo's configured
+# ruff rule set" and until now this repo configured none — so our own receipts
+# said `rules: ruff-defaults` and the promise was false about us first.
+#
+# Measured before choosing, on scripts/: ruff's own defaults report 29 findings
+# here, E4/E7/E9/F reports 1, and this set reports 3. The three are real (an
+# unused import, an unsorted import block, an unused loop variable) and are fixed
+# in the same commit, so the set is adopted green rather than with a backlog.
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
+
+# `solo-verify` is dropped into strangers' repositories and run with whatever
+# `python3` is on their PATH — on macOS that is /usr/bin/python3, still 3.9.6.
+# The UP rules are keyed to this project's DECLARED requires-python (3.10), so
+# applying UP038 there rewrote `isinstance(x, (A, B))` as `isinstance(x, A | B)`
+# and the tool died with `TypeError: unsupported operand type(s) for |` on 3.9.
+#
+# Declared floor and running interpreter are not the same thing. The syntax
+# sensor was wrong today for using the running one where the declared one was
+# meant; this rule was wrong for the exact mirror. Caught by our own test suite,
+# not by review.
+[tool.ruff.lint.per-file-ignores]
+"scripts/solo-verify" = ["UP"]

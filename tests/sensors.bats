@@ -608,3 +608,64 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   [ "$status" -eq 1 ]
   [[ "$output" == *"Fix this before anything else"* ]]
 }
+
+# --- whose rules produced that number ---------------------------------------
+# The sensor promised "the repo's configured ruff rule set" while applying ruff's
+# defaults to repositories that configure none. Measured on one probe file: no
+# config gives 8 findings including S110 and BLE001; an explicit
+# select = ["E4","E7","E9","F"] gives 4, only F. Four foreign checkouts produced
+# 107 violations under a standard their authors never adopted, and the receipt
+# said otherwise.
+
+@test "a repo with no ruff config is labelled ruff-defaults, and says so" {
+  rm -f "$REPO/pyproject.toml"
+  printf '[project]\nname = "t"\n' > "$REPO/pyproject.toml"
+  printf 'def f():\n    try:\n        pass\n    except Exception:\n        pass\n' > "$REPO/blind.py"
+  run "$VERIFY" --root "$REPO" --files blind.py
+  [[ "$output" == *'"rules":"ruff-defaults"'* ]]
+  [[ "$output" == *"configures no ruff rules"* ]]
+}
+
+@test "a repo that chooses its own rules is labelled repo, with no note" {
+  printf '[project]\nname = "t"\n\n[tool.ruff.lint]\nselect = ["F"]\n' > "$REPO/pyproject.toml"
+  printf 'import os\n' > "$REPO/unused.py"
+  run "$VERIFY" --root "$REPO" --files unused.py
+  [[ "$output" == *'"rules":"repo"'* ]]
+  [[ "$output" == *"F401"* ]]
+  [[ "$output" != *"configures no ruff rules"* ]]
+}
+
+@test "a bare ruff.toml counts as configured" {
+  printf '[project]\nname = "t"\n' > "$REPO/pyproject.toml"
+  printf 'line-length = 100\n' > "$REPO/ruff.toml"
+  printf 'import os\n' > "$REPO/x.py"
+  run "$VERIFY" --root "$REPO" --files x.py
+  [[ "$output" == *'"rules":"repo"'* ]]
+  [[ "$output" != *"configures no ruff rules"* ]]
+}
+
+@test "the note appears only when there is something to note" {
+  rm -f "$REPO/ruff.toml"
+  printf '[project]\nname = "t"\n' > "$REPO/pyproject.toml"
+  printf 'x = 1\n' > "$REPO/clean2.py"
+  run "$VERIFY" --root "$REPO" --files clean2.py
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"rules":"ruff-defaults"'* ]]
+  [[ "$output" != *"configures no ruff rules"* ]]
+}
+
+@test "solo-verify still runs under the oldest python a stranger may have" {
+  # It is dropped into other people's repositories and launched with whatever
+  # python3 is on their PATH — on macOS that is /usr/bin/python3, 3.9.6. Adopting
+  # ruff's UP rules and applying UP038 rewrote isinstance(x, (A, B)) as
+  # isinstance(x, A | B), which is a TypeError before 3.10, and the tool died on
+  # every run. The declared requires-python is not the interpreter it gets.
+  if [ ! -x /usr/bin/python3 ]; then skip "no system python3 on this machine"; fi
+  ver=$(/usr/bin/python3 -c 'import sys;print("%d.%d"%sys.version_info[:2])')
+  printf 'x = 1\n' > "$REPO/a.py"
+  run /usr/bin/python3 "$VERIFY" --root "$REPO"
+  [[ "$output" == *"VERIFY"* ]]
+  [[ "$output" != *"Traceback"* ]]
+  [[ "$output" != *"TypeError"* ]]
+  echo "ran under python $ver" >&2
+}
