@@ -622,8 +622,14 @@ def check_pytest(root: Path, timeout: int) -> Result:
             findings=[
                 (
                     "collected 0 tests. Exit code alone would read as green; it is "
-                    "not. Check test paths, renamed files, or a broken conftest."
-                )
+                    "not. Possible causes: test paths, renamed files, a broken "
+                    "conftest — but pytest's own words are below and beat the guess."
+                ),
+                # Measured on a conftest that raises: pytest printed the file, the
+                # line and `RuntimeError: conftest explodes`, and the receipt threw
+                # all of it away for a three-item checklist. A hint is a hypothesis;
+                # the tool's output is evidence, and evidence goes in the receipt.
+                *[ln.strip() for ln in out.splitlines() if ln.strip()][-6:],
             ],
             counters=counters,
             seconds=time.time() - t,
@@ -693,6 +699,13 @@ def check_go(root: Path, files: list[Path], full: bool, timeout: int) -> list[Re
             for ln in out.splitlines()
             if ln.strip() and not ln.startswith("#")
         ][:15]
+        # Measured with a Go module that does not compile: go-vet printed a bare
+        # `fail` with no counter. go-test in the same run did produce findings,
+        # because Go emits FAIL lines even on a build failure — so cargo-test's
+        # defect is not shared here, and this is the only half that needed fixing.
+        findings, counters = unparsed_guard(
+            code, out, findings, {"diagnostics": len(findings)}, "diagnostics"
+        )
         results.append(
             Result(
                 "go-vet",
@@ -701,6 +714,7 @@ def check_go(root: Path, files: list[Path], full: bool, timeout: int) -> list[Re
                 skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
                 promise="go vet clean across the module",
                 findings=findings,
+                counters=counters,
                 seconds=time.time() - t,
             )
         )
@@ -920,6 +934,10 @@ def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[
         findings = [
             ln.strip() for ln in out.splitlines() if ln.startswith(("error", "warning"))
         ][:15]
+        # A bare `clippy=fail` with no counter is "ok" alone wearing red. Same rule.
+        findings, counters = unparsed_guard(
+            code, out, findings, {"diagnostics": len(findings)}, "diagnostics"
+        )
         out_results.append(
             Result(
                 "clippy",
@@ -928,6 +946,7 @@ def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[
                 skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
                 promise="clippy with warnings denied (whole workspace, not scoped)",
                 findings=findings,
+                counters=counters,
                 seconds=time.time() - t,
             )
         )
@@ -938,6 +957,11 @@ def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[
         findings = [
             ln.strip() for ln in out.splitlines() if "FAILED" in ln or "panicked" in ln
         ][:15]
+        # Measured: a crate that does not compile produces neither FAILED nor
+        # panicked, so this filter returned nothing and the receipt printed a bare
+        # `cargo-test=fail` with the two-word finding "cargo-test failed" — the exact
+        # shape ruff had. The suite did not fail a test; it never ran one.
+        findings, counters = unparsed_guard(code, out, findings, counters, "failed")
         out_results.append(
             Result(
                 "cargo-test",

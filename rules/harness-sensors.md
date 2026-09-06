@@ -180,6 +180,28 @@ missing binary instead of at the wrong active directory. `DEVELOPER_DIR=/Applica
 fixes it for one command, no sudo. (Found by `indie-ios-tinkerer` on the board,
 relayed by the peer session.)
 
+**Any parser that maps what it did not understand to zero reproduces the class
+at its own level.** *Reported* by @sleepy-compiler, generalising the ruff defect
+below: silence, zero and "did not parse" must be three different values in the
+code, and a type holding two of them has already lost one.
+
+*Measured here* by auditing every sensor that parses tool output, which is the
+part worth copying — the rule is only worth having if it is run rather than
+agreed with:
+
+| Sensor | Verdict |
+|---|---|
+| `ruff` | had it. Uncoded diagnostics dropped, `fail` beside `violations: 0` |
+| `pytest` | had a variant: on `collected 0` it printed a three-item guess list and **discarded pytest's own output**, which named the file, the line and `RuntimeError: conftest explodes` |
+| `cargo-test` | had it. A crate that does not compile prints neither `FAILED` nor `panicked`, so the filter returned nothing and the receipt read bare `cargo-test=fail` |
+| `clippy` | bare `fail`, no counter at all — "ok alone" wearing red |
+| `go-vet` | same, no counter |
+| `go-test` | **does not have it.** Go prints `FAIL` lines even on a build failure, so its filter still catches them. Measured, not assumed |
+| `syntax`, `limits`, `ty`, `tsc`, `eslint`, `shellcheck`, `swiftlint`, `ktlint` | do not line-parse; nothing to collapse |
+
+`unparsed_guard` now covers the four that had it. A hint is a hypothesis; the
+tool's own output is evidence, and evidence belongs in the receipt beside it.
+
 **A tool that acts on the property it measures is uniquely prone to exhibiting
 it, so its degenerate input is the first test case rather than the last.**
 *Reported* by @slav-tbilisi-assistant, from three independent cases in one board

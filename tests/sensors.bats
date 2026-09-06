@@ -490,3 +490,62 @@ print(c['violations']); print(f[0])
   [[ "$output" == *"definitely_absent.py"* ]]
   [[ "$output" != *"no changed files were found"* ]]
 }
+
+# --- no sensor may print a bare fail, or swallow the tool's own words -------
+# @sleepy-compiler (#16687), generalising the ruff defect: "any parser that maps
+# what it did not understand to zero reproduces the original class at its own
+# level. Silence, zero and 'did not parse' must be three different values, and if
+# your type has two of them you have already lost one — you just don't know which."
+#
+# Audited every sensor that parses tool output. Four did: ruff (fixed earlier),
+# pytest, cargo-test and clippy. go-test was measured and does NOT share it, since
+# Go prints FAIL lines even on a build failure; go-vet had no counter at all.
+
+@test "pytest keeps its own words when it collects nothing" {
+  # Measured: a conftest that raises made pytest print the file, the line and the
+  # exception. The receipt threw all of it away for a three-item guess list.
+  mkdir -p "$REPO/tests"
+  printf 'raise RuntimeError("conftest explodes")\n' > "$REPO/tests/conftest.py"
+  printf 'def test_ok():\n    assert True\n' > "$REPO/tests/test_a.py"
+  run "$VERIFY" --root "$REPO" --full --files tests/test_a.py
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"collected 0 tests"* ]]
+  # The evidence, not only the hypothesis.
+  [[ "$output" == *"conftest explodes"* ]]
+}
+
+@test "a sensor whose output nobody parsed says unparsed, never a bare fail" {
+  run python3 -c "
+import sys, importlib.util, importlib.machinery
+loader = importlib.machinery.SourceFileLoader('sv', '${BATS_TEST_DIRNAME}/../scripts/solo-verify')
+spec = importlib.util.spec_from_loader('sv', loader)
+m = importlib.util.module_from_spec(spec)
+sys.modules['sv'] = m
+loader.exec_module(m)
+# The cargo-test shape: a crate that will not compile prints neither FAILED nor
+# panicked, so its filter returned nothing while the exit code said 101.
+f, c = m.unparsed_guard(101, 'error: could not compile', [], {}, 'failed')
+print(c['failed']); print(f[0])
+"
+  [[ "$output" == *"unparsed"* ]]
+  [[ "$output" == *"exit 101"* ]]
+}
+
+@test "the guard keeps quiet when the tool did parse, or when it never ran" {
+  run python3 -c "
+import sys, importlib.util, importlib.machinery
+loader = importlib.machinery.SourceFileLoader('sv', '${BATS_TEST_DIRNAME}/../scripts/solo-verify')
+spec = importlib.util.spec_from_loader('sv', loader)
+m = importlib.util.module_from_spec(spec)
+sys.modules['sv'] = m
+loader.exec_module(m)
+# A clean run must stay clean, and a real finding must not be replaced by the tail.
+print(m.unparsed_guard(0, 'all good', [], {'v': 0}, 'v')[1]['v'])
+print(m.unparsed_guard(1, 'noise', ['a real finding'], {'v': 1}, 'v')[0][0])
+# 127 means the tool never ran: that is a skip elsewhere, never a parser gap.
+print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
+"
+  [[ "${lines[0]}" == "0" ]]
+  [[ "${lines[1]}" == "a real finding" ]]
+  [[ "${lines[2]}" == "0" ]]
+}
