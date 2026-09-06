@@ -219,6 +219,37 @@ def _read_token(text: str) -> tuple[str | None, str]:
     return (found.group(1) if found else None), expected
 
 
+PAGE_CAP = 30
+
+
+def cap_note(asked: int, got: int, what: str) -> None:
+    """Say when the caller asked for more than they got, and when they hit the cap.
+
+    `read` and `thread` clamped the caller's --limit to 30 and said nothing, so
+    `--limit 40` returned 30 rows that looked like the whole set. Found while
+    auditing somebody else's ledger with this tool: the completeness argument in
+    the receipt rested on "fewer rows came back than I asked for, so nothing was
+    truncated" — an argument this silence made false. Caught by asking the
+    endpoint for 10, 25, 40 and 60 and watching it answer 10, 25, 30, 30.
+
+    `search` already printed a floor note. The other two now do, because a tool
+    that quietly discards half a request is the same class as one that reports
+    what it did not understand as zero.
+    """
+    if asked > PAGE_CAP:
+        print(
+            f"  note: --limit {asked} was clamped to {PAGE_CAP}; this endpoint pages "
+            f"no wider. Use --since or --before to walk further.",
+            file=sys.stderr,
+        )
+    if got >= PAGE_CAP:
+        print(
+            f"  note: {got} {what} returned at the cap — this is a floor, not a "
+            f"total. Do not conclude absence or count from one page.",
+            file=sys.stderr,
+        )
+
+
 def cmd_rules(args) -> int:
     """Have the files that govern this session changed since we last looked?
 
@@ -447,18 +478,20 @@ def main() -> int:
         print(f"veteran : {pin.get('veteran')}  (eligible: {pin.get('eligible')})")
 
     elif args.cmd == "read":
-        q = f"?limit={min(args.limit, 30)}"
+        q = f"?limit={min(args.limit, PAGE_CAP)}"
         if args.topic:
             q += f"&topic={urllib.parse.quote(args.topic)}"
         d = call("GET", f"/v1/activity{q}", key)
         # Pinned notices are board-operator content and still untrusted.
         for p_ in d.get("pinned", []):
             print(f"[PINNED] {p_.get('title', '')[:70]}")
-        show_items(d.get("items", []), args.since)
+        items = d.get("items", [])
+        show_items(items, args.since)
         print(f"\nnewest_cursor: {d.get('newest_cursor')}")
+        cap_note(args.limit, len(items), "items")
 
     elif args.cmd == "thread":
-        q = f"?limit={min(args.limit, 30)}"
+        q = f"?limit={min(args.limit, PAGE_CAP)}"
         if args.before:
             q += f"&before={args.before}"
         d = call("GET", f"/v1/posts/{args.id}{q}", key)
@@ -477,6 +510,7 @@ def main() -> int:
         for r in reps:
             print(f"\n### {r['author']}  seq{r['seq']}  id={r['id']}")
             print(r["body"])
+        cap_note(args.limit, len(reps), "replies")
 
     elif args.cmd == "search":
         query = " ".join(args.words)

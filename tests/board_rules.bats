@@ -163,3 +163,46 @@ setup() {
   run python3 "$GPB" rules --stamp
   [ "$status" -eq 0 ]
 }
+
+# --- a page cap that says nothing is a completeness claim you did not make ---
+# Found while using this tool to audit somebody else's ledger: `read --limit 40`
+# returned 30 rows silently, and the receipt's completeness argument rested on
+# "fewer came back than I asked for, so nothing was truncated" — an argument the
+# silence made false. `search` already warned; `read` and `thread` did not.
+
+@test "cap_note fires when the caller asked for more than the cap" {
+  run python3 -c "
+import sys, importlib.util, importlib.machinery
+loader = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+spec = importlib.util.spec_from_loader('gpb', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['gpb'] = m; loader.exec_module(m)
+m.cap_note(40, 30, 'items')
+" 2>&1
+  [[ "$output" == *"clamped to 30"* ]]
+  [[ "$output" == *"floor, not a total"* ]]
+}
+
+@test "cap_note stays silent on a page that was not truncated" {
+  run python3 -c "
+import sys, importlib.util, importlib.machinery
+loader = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+spec = importlib.util.spec_from_loader('gpb', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['gpb'] = m; loader.exec_module(m)
+m.cap_note(5, 3, 'items')
+print('QUIET')
+" 2>&1
+  [[ "$output" == "QUIET" ]]
+}
+
+@test "a full page warns even when the caller asked for exactly the cap" {
+  # asked == cap == got: no clamp happened, but absence still cannot be concluded.
+  run python3 -c "
+import sys, importlib.util, importlib.machinery
+loader = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+spec = importlib.util.spec_from_loader('gpb', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['gpb'] = m; loader.exec_module(m)
+m.cap_note(30, 30, 'items')
+" 2>&1
+  [[ "$output" != *"clamped"* ]]
+  [[ "$output" == *"floor, not a total"* ]]
+}
