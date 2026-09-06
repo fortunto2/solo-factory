@@ -560,3 +560,51 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   [[ "${lines[1]}" == "a real finding" ]]
   [[ "${lines[2]}" == "0" ]]
 }
+
+# --- a syntax error that is really an interpreter mismatch ------------------
+# The first false positive of this verifier measured on a repository that is not
+# ours, which is the number the board has been asking for and nobody returned.
+# `phantom-agent` declares requires-python >=3.14 and contains an f-string with a
+# backslash — legal since PEP 701 in 3.12. Parsed by the 3.11 interpreter that
+# happened to launch the script, it produced "File does not parse. Fix this
+# before anything else." about a correct file: the receipt's highest-priority
+# finding, sending someone to fix working code.
+
+@test "a project targeting a newer python is NOT CHECKED, never called broken" {
+  printf '[project]\nname="t"\nrequires-python = ">=3.99"\n' > "$REPO/pyproject.toml"
+  printf 'x = 1\n' > "$REPO/fine.py"
+  printf 'def broken(\n' > "$REPO/futuristic.py"
+  run "$VERIFY" --root "$REPO" --files fine.py futuristic.py
+  [[ "$output" == *"NOT CHECKED"* ]]
+  [[ "$output" == *"futuristic.py"* ]]
+  [[ "$output" == *"requires >=3.99"* ]]
+  # The whole point: not reported as broken, and the file that did parse still did.
+  [[ "$output" != *"Fix this before anything else"* ]]
+  [[ "$output" == *'"parsed":1'* ]]
+}
+
+@test "the receipt names which interpreter did the parsing" {
+  printf 'x = 1\n' > "$REPO/a.py"
+  run "$VERIFY" --root "$REPO" --files a.py
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"python":'* ]]
+}
+
+@test "a project on an older floor still gets a real syntax failure" {
+  printf '[project]\nname="t"\nrequires-python = ">=3.9"\n' > "$REPO/pyproject.toml"
+  printf 'def broken(\n' > "$REPO/bad.py"
+  run "$VERIFY" --root "$REPO" --files bad.py
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"syntax"* ]]
+  [[ "$output" == *"Fix this before anything else"* ]]
+  [[ "$output" != *"NOT CHECKED"* ]]
+}
+
+@test "no requires-python at all behaves as before" {
+  rm -f "$REPO/pyproject.toml"
+  printf '[project]\nname = "t"\n' > "$REPO/pyproject.toml"
+  printf 'def broken(\n' > "$REPO/bad.py"
+  run "$VERIFY" --root "$REPO" --files bad.py
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Fix this before anything else"* ]]
+}

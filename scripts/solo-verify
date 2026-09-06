@@ -325,6 +325,35 @@ def harness_touched(root: Path, files: list[Path]) -> list[str]:
 # --------------------------------------------------------------------------
 
 
+def project_python_floor(root: Path) -> tuple[int, int] | None:
+    """The lowest Python this project says it supports, from requires-python.
+
+    Measured on someone else's repository, which is the only place this could
+    have been found: `phantom-agent` declares `requires-python = ">=3.14"` and
+    contains an f-string with a backslash — legal since PEP 701 in 3.12. Parsed
+    by the 3.11 interpreter that happened to launch this script, it produced
+    `File does not parse. Fix this before anything else.` — the receipt's
+    highest-priority finding, about a file that is correct.
+
+    A false red, and worse than a false green in one way: it sends someone to fix
+    working code. The sensor was never wrong about what it saw; it was wrong to
+    report "this file is broken" when the honest statement is "the interpreter I
+    ran under cannot parse a file written for a newer one".
+    """
+    for name in ("pyproject.toml", "setup.cfg"):
+        f = root / name
+        if not f.is_file():
+            continue
+        m = re.search(
+            r"""^\s*(?:requires-python|python_requires)\s*=\s*["']?[^0-9]*(\d+)\.(\d+)""",
+            f.read_text(errors="replace"),
+            re.MULTILINE,
+        )
+        if m:
+            return int(m.group(1)), int(m.group(2))
+    return None
+
+
 def check_syntax(root: Path, files: list[Path]) -> Result:
     """Parse-only, per file, no cross-file semantics.
 
@@ -334,12 +363,30 @@ def check_syntax(root: Path, files: list[Path]) -> Result:
     check on every single edit because it cannot fail for that reason.
     """
     covered, findings = [], []
+    running = sys.version_info[:2]
+    floor = project_python_floor(root)
+    # Only a project that targets a NEWER Python than the one parsing can produce
+    # a syntax error that is really a version artefact. A project on an older
+    # floor gets the ordinary verdict.
+    newer_than_us = floor is not None and floor > running
+    unparseable_by_version = []
+
     for f in files:
         if is_python(f):
             try:
                 ast.parse(f.read_text(encoding="utf-8", errors="replace"))
                 covered.append(rel(root, f))
             except SyntaxError as exc:
+                if newer_than_us:
+                    # Not covered: we did not check this file, and saying we did
+                    # would be the false green in the other direction.
+                    unparseable_by_version.append(
+                        f"{rel(root, f)}:{exc.lineno or 1} {exc.msg} — parsed by "
+                        f"Python {running[0]}.{running[1]}, but this project requires "
+                        f">={floor[0]}.{floor[1]}. UNCHECKED, not broken: run the "
+                        f"verifier under the project's own interpreter to find out."
+                    )
+                    continue
                 covered.append(rel(root, f))
                 findings.append(
                     f"{rel(root, f)}:{exc.lineno or 1} syntax {exc.msg} — {FIX_HINTS['syntax']}"
@@ -373,13 +420,36 @@ def check_syntax(root: Path, files: list[Path]) -> Result:
             reason="no parseable files in scope",
             skip_kind=NOT_APPLICABLE,
         )
+    if unparseable_by_version and not covered:
+        return Result(
+            "syntax",
+            "skip",
+            reason=(
+                f"every file in scope failed to parse under Python "
+                f"{running[0]}.{running[1]} while the project requires "
+                f">={floor[0]}.{floor[1]} — nothing was checked"
+            ),
+            skip_kind=UNAVAILABLE,
+            findings=unparseable_by_version,
+        )
+    counters = {
+        "parsed": len(covered),
+        "broken": len(findings),
+        # Which interpreter did the parsing. The receipt never said, and that is
+        # exactly the fact needed to read a syntax finding on someone else's tree.
+        "python": f"{running[0]}.{running[1]}",
+    }
+    if unparseable_by_version:
+        counters["unchecked_needs_newer_python"] = len(unparseable_by_version)
     return Result(
         "syntax",
         "fail" if findings else "pass",
         promise="every changed .py/.js/.swift file parses (syntax only, not types)",
-        findings=findings,
+        # These ride in findings so the file is named. A counter saying "1" without
+        # saying which file is the same shape as a verdict without a receipt.
+        findings=findings + unparseable_by_version,
         covered=covered,
-        counters={"parsed": len(covered), "broken": len(findings)},
+        counters=counters,
     )
 
 
@@ -1173,6 +1243,15 @@ def build_receipt(
             if r.status == "skip"
         ],
         "unavailable": [r.name for r in unavailable],
+        # A passing sensor's findings are never rendered, so a file it declined to
+        # check would leave only a counter behind. Named here instead.
+        "not_checked_version": [
+            f
+            for r in results
+            if r.counters.get("unchecked_needs_newer_python")
+            for f in r.findings
+            if "UNCHECKED, not broken" in f
+        ],
         "findings": [f for r in failed for f in (r.findings or [f"{r.name} failed"])],
         "elapsed": round(elapsed, 2),
     }
@@ -1204,6 +1283,12 @@ def render(rec: dict) -> str:
             "  UNCHECKED (no sensor looked at these): "
             + ", ".join(rec["unchecked"][:12])
         )
+    # A passing sensor's findings are not rendered below, so anything it declined
+    # to check would vanish with only a counter to mark it. Name the files.
+    if rec.get("not_checked_version"):
+        out.append("  NOT CHECKED — this interpreter is older than the project:")
+        for line in rec["not_checked_version"]:
+            out.append(f"    {line}")
     if rec.get("harness_gaps"):
         out.append("  HARNESS GAP — a sensor that should have spoken did not:")
         for g in rec["harness_gaps"]:

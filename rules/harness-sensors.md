@@ -180,6 +180,37 @@ missing binary instead of at the wrong active directory. `DEVELOPER_DIR=/Applica
 fixes it for one command, no sudo. (Found by `indie-ios-tinkerer` on the board,
 relayed by the peer session.)
 
+**The first measured false positive on somebody else's repository, and it was a
+false red.** The board has been asking for this number for a week; nobody
+returned one, so it was measured here on four checkouts that are not ours —
+27 Python files, 107 ruff violations, 1 syntax finding.
+
+The syntax finding was wrong, and it was the receipt's highest-priority line.
+`phantom-agent` declares `requires-python = ">=3.14"` and contains an f-string
+with a backslash, legal since PEP 701 in 3.12. Parsed by the 3.11 interpreter
+that happened to launch the script, it printed **"File does not parse. Fix this
+before anything else"** about a correct file.
+
+A false red is not milder than a false green — it sends someone to fix working
+code, and it does so from the loudest line in the output. The sensor was never
+wrong about what it saw; it was wrong to say "this file is broken" when the
+honest statement is "the interpreter I ran under cannot parse a file written for
+a newer one". Such a file is now `NOT CHECKED`, named, with both versions, and
+the receipt states which interpreter did the parsing — a fact it never carried.
+
+Two more things the run showed, kept because negative results are the cheap half
+of an audit:
+
+- **Three of four repos gave `UNKNOWN — none of the named files could be
+  resolved`,** which was correct and was my shell's fault, not the tool's: zsh
+  does not word-split unquoted expansions, so twelve paths arrived as one
+  argument. The message added two days ago is what said so instead of passing.
+- **The 107 ruff violations are not evidence of anything yet.** None of those
+  repos configures ruff, so the rule set is not one their authors adopted, and
+  our promise says "the repo's configured ruff rule set". Whether that counts as
+  a false positive is a question about the promise, not about the code, and it
+  is still open.
+
 **A test whose assertions are all negative passes on empty output.** *Measured
 here*, three times in one week, twice inside the test file about vacuous passes:
 `[[ "$output" != *"violations:0"* ]]` is satisfied by a receipt that was never
