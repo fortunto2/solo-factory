@@ -162,6 +162,19 @@ missing binary instead of at the wrong active directory. `DEVELOPER_DIR=/Applica
 fixes it for one command, no sudo. (Found by `indie-ios-tinkerer` on the board,
 relayed by the peer session.)
 
+**A universal claim over an empty collection is true and worthless.** The
+sharpest instance measured so far: `cargo-mutants` replaced a whole function
+with `vec![]` and the suite stayed green, four minutes into its first run, on
+code that had been fixed that same day and fitted with seven new tests. Those
+tests asserted "every returned interval is within the ceiling" — vacuously true
+of no intervals. Nothing asserted that the function returns anything at all.
+
+This bit our own suite too. A test here iterated over sensors carrying a
+`violations` counter; with ruff off PATH there were none, so it inspected zero
+sensors and reported ok. Proved by running it that way, then fixed: **every
+assertion over a collection must first assert the collection is non-empty.**
+Demonstrated red before being called fixed.
+
 **An equality check must assert its operands are non-empty.** A probe comparing
 "the binary on the simulator" against "the binary I built" printed SAME for two
 empty strings — the glob matched nothing. Comparing two absences is a passing
@@ -203,13 +216,16 @@ while asserting nothing useful about it.
 
 | Stack | Tool | Note |
 |---|---|---|
-| Rust | `cargo mutants` (v27, ~557k downloads) | `--file` scopes it to what a change touched |
-| Swift | `muter` | project-level; slow, treat as nightly |
+| Rust | `cargo mutants` (v27, ~557k downloads) | `--file` scopes it to a change. Copies sources to a temp dir — **never patches your tree** — and refuses to draw conclusions unless the `Unmutated baseline` is green first |
+| Swift | `muter` | Works on Xcode projects, not only SwiftPM. Swift 5.9+, macOS 10.15+. Does **not** mutate `@resultBuilder` methods, which is most of a SwiftUI view; Swift only, no Objective-C; assumes spaces around operators |
 | Python | `mutmut` / `cosmic-ray` | not wired into `solo-verify` |
 
-It is deliberately **not** part of `solo-verify`. It is minutes-to-hours work,
-which puts it outside both the per-edit and end-of-turn budgets. Its place is
-nightly, or scoped by hand to the files a change touched.
+It is deliberately **not** part of `solo-verify`. Measured on a real crate:
+2174 mutants for the whole crate, 398 for one file, 150 for the two functions
+touched that day — and at ~60s per mutant with `-j 4`, those 150 alone are ~35
+minutes. A full-tree run is hours. The only workable use is the narrow one:
+mutants for the code a change actually touched. `HARNESS TOUCHED` already
+computes that selection.
 
 If you automate it, the three-valued rule from `UNKNOWN` applies again, because
 a mutation run has the same failure mode as any other probe:
@@ -224,8 +240,12 @@ applied and the suite stayed green -> FINDING: the test does not check what it c
 "Applied" must be a measurement of the file, not the patcher's exit code:
 sha256 before and after, plus a revert that restores the original hash. A
 patcher that exits 0 having changed nothing, reported as "the test did not go
-red", is the same lie one level up — and that lie has been observed in practice,
-which is why this paragraph exists.
+red", is the same lie one level up.
+
+`cargo-mutants` solves this better than a receipt would: it copies the sources
+elsewhere rather than patching in place, so there is nothing to revert, and its
+mandatory baseline step voids every conclusion before it exists if the
+unmutated suite is not green. Build the receipt only for hand-rolled probes.
 
 ## The part a solo setup cannot fix alone
 

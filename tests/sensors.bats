@@ -64,12 +64,20 @@ print('ok')\""
 }
 
 @test "counters agree with status: a passing sensor reports zero violations" {
+  # This test used to be vacuous: the loop asserted over sensors carrying a
+  # `violations` counter, and with ruff off PATH there were none, so it
+  # inspected zero sensors and still printed ok. A universal claim over an
+  # empty set is true and worthless. Every assertion over a collection must
+  # first assert the collection is non-empty.
   printf 'x = 1\n' > "$REPO/clean.py"
   run bash -c "'$VERIFY' --root '$REPO' --json | python3 -c \"
 import json,sys
+inspected = 0
 for r in json.load(sys.stdin)['ran']:
     if r['status'] == 'pass' and 'violations' in r['counters']:
+        inspected += 1
         assert r['counters']['violations'] == 0, r
+assert inspected > 0, 'vacuous: no sensor with a violations counter ran'
 print('ok')\""
   [ "$status" -eq 0 ]
 }
