@@ -250,3 +250,62 @@ print('ok')
   [[ "$output" == *"pytest — timed out"* ]]
   [[ "$output" != *"collected 0 tests"* ]]
 }
+
+# --- Scope discipline and sensor presence ----------------------------------
+# All three reported by the life2film session, running this on a Rust+Swift
+# tree that had never adopted rustfmt: 93 files flagged, 100% unactionable.
+
+@test "cargo-fmt respects scope: a clean changed file passes in a dirty repo" {
+  command -v rustfmt >/dev/null || skip "rustfmt not installed"
+  printf '[package]\nname = "x"\nversion = "0.1.0"\nedition = "2024"\n' > "$REPO/Cargo.toml"
+  mkdir -p "$REPO/src"
+  printf 'fn  ugly( ) {   }\n' > "$REPO/src/other.rs"     # dirty, untouched
+  git -C "$REPO" add -A && git -C "$REPO" commit -q -m base
+  printf 'fn clean() {}\n' > "$REPO/src/lib.rs"           # clean, changed
+  run "$VERIFY" --root "$REPO"
+  [[ "$output" == *"cargo-fmt=pass"* ]]
+  [[ "$output" != *"run \`cargo fmt\`"* ]]
+}
+
+@test "an empty scope reports no findings at all, even in a dirty repo" {
+  # The contradiction: "nothing was verified" and "cargo-fmt=fail" in one receipt.
+  printf '[package]\nname = "x"\nversion = "0.1.0"\nedition = "2024"\n' > "$REPO/Cargo.toml"
+  mkdir -p "$REPO/src"
+  printf 'fn  ugly( ) {   }\n' > "$REPO/src/main.rs"
+  git -C "$REPO" add -A && git -C "$REPO" commit -q -m all
+  run "$VERIFY" --root "$REPO"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"UNKNOWN"* ]]
+  [[ "$output" == *"ran:      nothing"* ]]
+  [[ "$output" != *"findings:"* ]]
+}
+
+@test "a Swift file activates swiftlint without a Package.swift" {
+  command -v swiftlint >/dev/null || skip "swiftlint not installed"
+  printf 'import Foundation\nlet x = 1\n' > "$REPO/App.swift"
+  printf 'name: Demo\n' > "$REPO/project.yml"
+  run "$VERIFY" --root "$REPO"
+  [[ "$output" == *"swift (changed .swift files)"* ]]
+  # it must appear in the receipt in some state — silence is the defect
+  [[ "$output" == *"swiftlint"* ]]
+}
+
+@test "a promised sensor that never reports is a HARNESS GAP, not a pass" {
+  run python3 -c "
+import sys, types, pathlib
+src = open('${BATS_TEST_DIRNAME}/../scripts/solo-verify').read()
+m = types.ModuleType('sv_gap'); sys.modules['sv_gap'] = m
+exec(compile(src, 'solo-verify', 'exec'), m.__dict__)
+files = [pathlib.Path('/tmp/a.swift'), pathlib.Path('/tmp/b.kt')]
+gaps = m.harness_gaps(files, [])        # no sensor spoke at all
+assert len(gaps) == 2, gaps
+assert 'swiftlint' in gaps[0] or 'swiftlint' in gaps[1]
+assert 'harness defect' in gaps[0]
+# and a sensor that did speak clears its gap
+ok = m.harness_gaps(files, [m.Result('swiftlint','skip',reason='x'), m.Result('ktlint','pass')])
+assert ok == [], ok
+print('ok')
+"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ok"* ]]
+}

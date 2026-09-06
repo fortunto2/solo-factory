@@ -216,7 +216,7 @@ def git_changed_files(root: Path) -> list[Path]:
     return [root / n for n in sorted(names) if (root / n).is_file()]
 
 
-def detect_stacks(root: Path) -> dict[str, str]:
+def detect_stacks(root: Path, files: list[Path]) -> dict[str, str]:
     markers = {
         "python": ["pyproject.toml", "setup.py", "requirements.txt"],
         "node": ["package.json"],
@@ -231,6 +231,27 @@ def detect_stacks(root: Path) -> dict[str, str]:
             if (root / name).exists():
                 found[stack] = name
                 break
+
+    # A root marker is not the only evidence a language is present. An Xcode
+    # project generated from project.yml has no Package.swift, so `swift` never
+    # activated and swiftlint vanished from the receipt entirely — neither ran
+    # nor skipped. Reported by the life2film session on a ~220-file Swift tree.
+    by_suffix = {
+        ".swift": "swift",
+        ".kt": "kotlin",
+        ".kts": "kotlin",
+        ".rs": "rust",
+        ".go": "go",
+        ".py": "python",
+        ".ts": "node",
+        ".tsx": "node",
+        ".js": "node",
+        ".jsx": "node",
+    }
+    for f in files:
+        stack = by_suffix.get(f.suffix)
+        if stack and stack not in found:
+            found[stack] = f"changed {f.suffix} files"
     return found
 
 
@@ -667,22 +688,63 @@ def check_tsc(root: Path, timeout: int) -> Result:
     )
 
 
-def check_rust(root: Path, full: bool, timeout: int) -> list[Result]:
+def rust_edition(root: Path) -> str:
+    try:
+        m = re.search(
+            r'^\s*edition\s*=\s*"(\d{4})"',
+            (root / "Cargo.toml").read_text(encoding="utf-8", errors="replace"),
+            re.MULTILINE,
+        )
+        return m.group(1) if m else "2024"
+    except OSError:
+        return "2024"
+
+
+def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[Result]:
     if not shutil.which("cargo"):
         return [Result("cargo", "skip", reason=missing("cargo"))]
     out_results = []
-    t = time.time()
-    code, _ = run(["cargo", "fmt", "--check"], root, timeout)
-    out_results.append(
-        Result(
-            "cargo-fmt",
-            status_for(code),
-            reason=incomplete_reason(code),
-            promise="rustfmt clean",
-            findings=[] if code == 0 else ["run `cargo fmt`"],
-            seconds=time.time() - t,
+
+    # `cargo fmt --check` formats the whole workspace regardless of what
+    # changed. On a project that never adopted rustfmt that is 93 files of
+    # noise on every run, and — worse — it reported a finding in the same
+    # receipt that said "empty scope: nothing was verified". Two contradictory
+    # statements in one receipt. Scope it to the changed files instead.
+    rs = [f for f in files if f.suffix == ".rs"]
+    if not rs:
+        out_results.append(Result("cargo-fmt", "skip", reason="no Rust files in scope"))
+    elif not shutil.which("rustfmt"):
+        out_results.append(Result("cargo-fmt", "skip", reason=missing("rustfmt")))
+    else:
+        t = time.time()
+        code, _ = run(
+            [
+                "rustfmt",
+                "--check",
+                "--edition",
+                rust_edition(root),
+                *[str(f) for f in rs],
+            ],
+            root,
+            timeout,
         )
-    )
+        out_results.append(
+            Result(
+                "cargo-fmt",
+                status_for(code),
+                reason=incomplete_reason(code),
+                promise="changed .rs files are rustfmt-clean",
+                findings=[]
+                if code == 0
+                else [
+                    f"{rel(root, f)} — not rustfmt-clean. Run `rustfmt {rel(root, f)}`."
+                    for f in rs
+                ],
+                covered=[rel(root, f) for f in rs],
+                counters={"files": len(rs)},
+                seconds=time.time() - t,
+            )
+        )
     if full:
         t = time.time()
         code, out = run(
@@ -696,7 +758,7 @@ def check_rust(root: Path, full: bool, timeout: int) -> list[Result]:
                 "clippy",
                 status_for(code),
                 reason=incomplete_reason(code),
-                promise="clippy with warnings denied",
+                promise="clippy with warnings denied (whole workspace, not scoped)",
                 findings=findings,
                 seconds=time.time() - t,
             )
@@ -713,7 +775,7 @@ def check_rust(root: Path, full: bool, timeout: int) -> list[Result]:
                 "cargo-test",
                 status_for(code),
                 reason=incomplete_reason(code),
-                promise="cargo test suite passes",
+                promise="cargo test suite passes (whole workspace, not scoped)",
                 findings=findings,
                 counters=counters,
                 seconds=time.time() - t,
@@ -774,6 +836,48 @@ def check_kotlin(root: Path, files: list[Path], timeout: int) -> Result:
 # --------------------------------------------------------------------------
 
 
+# A sensor promised for a file type in scope must appear in the receipt in SOME
+# state. Silence is the one outcome that is never allowed: on a Swift tree,
+# `swiftlint` was installed and reachable yet appeared in neither `ran` nor
+# `skipped`, because the stack never activated. Absence of a line read as
+# "nothing to say" when it meant "this sensor was never constructed".
+# Proposed by the life2film session: a sensor missing from both lists is a
+# defect of the harness, not a missing line.
+EXPECTED_SENSORS = {
+    ".swift": "swiftlint",
+    ".kt": "ktlint",
+    ".kts": "ktlint",
+    ".rs": "cargo-fmt",
+    ".go": "gofmt",
+    ".py": "ruff",
+    ".ts": "eslint",
+    ".tsx": "eslint",
+    ".js": "eslint",
+    ".jsx": "eslint",
+    ".sh": "shellcheck",
+}
+
+
+def harness_gaps(files: list[Path], results: list[Result]) -> list[str]:
+    """File types in scope whose promised sensor never appeared at all."""
+    spoke = {r.name for r in results}
+    # a stack-level skip (e.g. "cargo", "go") answers for its own sensors
+    aliases = {"cargo-fmt": "cargo", "gofmt": "go"}
+    gaps = []
+    for suffix in sorted({f.suffix for f in files}):
+        sensor = EXPECTED_SENSORS.get(suffix)
+        if not sensor:
+            continue
+        if sensor in spoke or aliases.get(sensor, "") in spoke:
+            continue
+        n = sum(1 for f in files if f.suffix == suffix)
+        gaps.append(
+            f"{n} {suffix} file(s) in scope but '{sensor}' said nothing — "
+            f"neither ran nor skipped. This is a harness defect, not a clean result."
+        )
+    return gaps
+
+
 def build_receipt(
     root: Path,
     files: list[Path],
@@ -800,6 +904,8 @@ def build_receipt(
         verdict, why = "UNKNOWN", "no sensor could run on this scope"
     elif failed:
         verdict, why = "FAIL", ""
+    elif harness_gaps(files, results):
+        verdict, why = "UNKNOWN", "a promised sensor never reported (see HARNESS GAP)"
     else:
         verdict, why = "PASS", ""
 
@@ -813,6 +919,7 @@ def build_receipt(
         "covered": sorted(covered),
         "unchecked": unchecked,
         "harness_touched": harness_touched(root, files),
+        "harness_gaps": harness_gaps(files, results),
         "ran": [
             {
                 "name": r.name,
@@ -857,6 +964,10 @@ def render(rec: dict) -> str:
             "  UNCHECKED (no sensor looked at these): "
             + ", ".join(rec["unchecked"][:12])
         )
+    if rec.get("harness_gaps"):
+        out.append("  HARNESS GAP — a sensor that should have spoken did not:")
+        for g in rec["harness_gaps"]:
+            out.append(f"    {g}")
     if rec["harness_touched"]:
         out.append("  HARNESS TOUCHED — this change edits the measuring apparatus:")
         for h in rec["harness_touched"][:10]:
@@ -905,7 +1016,7 @@ def main() -> int:
     else:
         files = git_changed_files(root)
 
-    stacks = detect_stacks(root)
+    stacks = detect_stacks(root, files)
     results: list[Result] = [check_syntax(root, files), check_limits(root, files)]
 
     if "python" in stacks:
@@ -918,7 +1029,7 @@ def main() -> int:
         if args.full:
             results.append(check_tsc(root, timeout))
     if "rust" in stacks:
-        results += check_rust(root, args.full, timeout)
+        results += check_rust(root, files, args.full, timeout)
     if "swift" in stacks:
         results.append(check_swift(root, files, timeout))
     if "kotlin" in stacks:

@@ -36,7 +36,8 @@ never let it happen quietly.
 | `ty` | No type errors in changed Python | `uvx ty check` (full mode) |
 | `pytest` | The suite runs **and collects >0 tests** | `uvx pytest -q`, counters parsed |
 | `eslint` / `tsc` | Repo's eslint config; project typechecks | `node_modules/.bin/*` only, never global |
-| `cargo-fmt` / `clippy` / `cargo-test` | rustfmt clean; clippy with `-D warnings`; tests pass | cargo |
+| `cargo-fmt` | Changed `.rs` files are rustfmt-clean | `rustfmt --check` on the changed files only |
+| `clippy` / `cargo-test` | clippy with `-D warnings`; tests pass — **whole workspace, not scoped** | cargo (full mode) |
 | `swiftlint` / `ktlint` | Configured rule set | Per changed file |
 | `shellcheck` | Clean at severity **>= warning** | Info level is excluded on purpose — see noise, below |
 
@@ -62,6 +63,23 @@ found" would state a cause that did not happen.
 **3. A skip always carries a reason, and "not installed" is a claim about PATH.**
 A hook's PATH differs from your shell's, so a tool that works in the terminal
 can be unreachable in the hook. The receipt says which of those it observed.
+
+**3b. A sensor obeys the scope, or says it does not.** `cargo fmt --check`
+formats the whole workspace whatever changed. On a project that never adopted
+rustfmt that is 93 files of noise every run — an actionable false-positive rate
+of 100%, since nobody reformats 93 files because a verifier asked. Worse, it
+printed a finding in the same receipt that said "empty scope: nothing was
+verified": two contradictory statements at once. Scoped sensors now take the
+changed files; the genuinely whole-project ones (clippy, cargo test) say so in
+their promise.
+
+**3c. A promised sensor that says nothing is a harness defect.** If a file type
+is in scope and its sensor appears in neither `ran` nor `skipped`, the receipt
+prints `HARNESS GAP` and the verdict becomes UNKNOWN, never PASS. This caught a
+real hole: an Xcode project generated from `project.yml` has no `Package.swift`,
+so the Swift stack never activated and `swiftlint` vanished from the receipt on
+a tree that was half Swift — installed, reachable, and silent. Stacks now
+activate from the changed files as well as from root markers.
 
 **4. Editing the harness is loud, not forbidden.** Test files and lint configs
 in a change are printed as `HARNESS TOUCHED` with a sha256. Sometimes the rule
