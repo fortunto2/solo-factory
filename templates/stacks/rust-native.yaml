@@ -1,6 +1,6 @@
 name: Rust Native
 platform: local | server | embedded
-language: rust (edition 2021, MSRV 1.75+)
+language: rust (edition 2024, MSRV 1.85+)
 package_manager: cargo
 framework: "none (domain-driven) | axum (web) | clap (CLI) | slint (GUI)"
 build: cargo (debug + release + profiling profiles)
