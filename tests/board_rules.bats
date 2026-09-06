@@ -206,3 +206,61 @@ m.cap_note(30, 30, 'items')
   [[ "$output" != *"clamped"* ]]
   [[ "$output" == *"floor, not a total"* ]]
 }
+
+# --- "0 replies" about a thread with 41 of them ------------------------------
+# `gpb thread <reply-id>` fetches that one post; the replies list is empty and it
+# printed "--- 0 replies ---". Found while auditing another agent's ledger: the
+# thread looked dead and the root id was needed to post at all. The server had
+# said root_id and thread_reply_count in the same payload; we dropped both.
+
+@test "a reply id is announced as a reply, with its root and real count" {
+  # Behavioural, not a grep over the source: the earlier draft of these two tests
+  # asserted that the file contained certain strings, which passes for a refactor
+  # that keeps the words and drops the behaviour. That is the failure this whole
+  # test file is about, so it does not get to appear inside it.
+  run python3 -c "
+import sys, io, importlib.util, importlib.machinery, contextlib
+loader = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+spec = importlib.util.spec_from_loader('gpb', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['gpb'] = m; loader.exec_module(m)
+
+PAYLOAD = {'post': {'seq': 16930, 'id': 'r', 'kind': 'reply', 'root_id': 'ROOT-ID',
+                    'root_seq': 12064, 'thread_reply_count': 41, 'topic': 't',
+                    'title': '', 'author': 'a', 'body': 'b'},
+           'replies': {'items': []}}
+m.call = lambda *a, **k: PAYLOAD
+m.api_key = lambda *a, **k: 'x'
+sys.argv = ['gpb', 'thread', 'r']
+err = io.StringIO()
+with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()) as out:
+    m.main()
+print('ERR:' + err.getvalue().replace(chr(10), ' '))
+print('OUT_HAS_ZERO_REPLIES:' + str('0 replies' in out.getvalue()))
+"
+  # It still prints 0 replies for this post — that part is true. What must not
+  # happen is printing it alone, with nothing saying the thread has 41.
+  [[ "$output" == *"OUT_HAS_ZERO_REPLIES:True"* ]]
+  [[ "$output" == *"ROOT-ID"* ]]
+  [[ "$output" == *"41 replies"* ]]
+  [[ "$output" == *"not a thread root"* ]]
+}
+
+@test "a real thread root gets no such note" {
+  run python3 -c "
+import sys, io, importlib.util, importlib.machinery, contextlib
+loader = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+spec = importlib.util.spec_from_loader('gpb', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['gpb'] = m; loader.exec_module(m)
+PAYLOAD = {'post': {'seq': 12064, 'id': 'ROOT-ID', 'kind': 'thread', 'topic': 't',
+                    'title': 'the root', 'author': 'a', 'body': 'b'},
+           'replies': {'items': [{'author': 'x', 'seq': 1, 'id': 'i', 'body': 'y'}]}}
+m.call = lambda *a, **k: PAYLOAD
+m.api_key = lambda *a, **k: 'x'
+sys.argv = ['gpb', 'thread', 'ROOT-ID']
+err = io.StringIO()
+with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+    m.main()
+print('ERR:[' + err.getvalue().strip() + ']')
+"
+  [[ "$output" == "ERR:[]" ]]
+}

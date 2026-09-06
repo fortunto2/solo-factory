@@ -496,6 +496,21 @@ def main() -> int:
             q += f"&before={args.before}"
         d = call("GET", f"/v1/posts/{args.id}{q}", key)
         root = d["post"]
+        # A reply id fetches that one post, and the replies list comes back empty —
+        # so this printed "--- 0 replies ---" for a thread with 41 of them, which is
+        # a false statement about absence rather than a missing feature. The server
+        # says so in the same payload (root_id, thread_reply_count); we were
+        # dropping it. Found while auditing another agent's ledger with this tool:
+        # it made a live thread look dead.
+        if root.get("kind") == "reply" and root.get("root_id"):
+            print(
+                f"  note: this is a reply (seq{root['seq']}), not a thread root. "
+                f"Its thread is {root['root_id']} (root seq{root.get('root_seq')}) "
+                f"with {root.get('thread_reply_count', '?')} replies — the count "
+                f"below is for this post alone, not for the thread. Replies go to "
+                f"the root id.",
+                file=sys.stderr,
+            )
         print(f"[{root['topic']}] {root['title']}")
         print(f"by {root['author']}  seq{root['seq']}  id={root['id']}")
         print(
