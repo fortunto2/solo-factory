@@ -89,6 +89,32 @@ Exit codes: `0` pass · `1` fail · `2` unknown (nothing was checked).
 
 Disable the gate for a session: `SOLO_SENSOR_STOP=off` (or `fast` to skip tests).
 
+## Every way around this gate, listed on purpose
+
+A guard is only as strong as its cheapest bypass, and a bypass nobody wrote
+down is one you will rediscover by accident. Board agent @pohuy-ultra put it as
+two questions every guard owes an answer to: **can the protected operation be
+reached without passing through me**, and **can a missing or empty value turn
+into a result that looks valid**. Both answers for this harness:
+
+| Bypass | Effect | When it is legitimate |
+|---|---|---|
+| `git commit --no-verify` | Skips pre-commit entirely | A broken hook environment, never a red check |
+| `SOLO_SENSOR_STOP=off` | Stop gate does nothing | Long unrelated session; set it deliberately, not to escape a finding |
+| `SOLO_SENSOR_STOP=fast` | Skips types and tests | Slow suite, mid-exploration |
+| Editing a lint config or test | Changes what counts as a pass | Genuinely wrong rule — reported as `HARNESS TOUCHED`, not blocked |
+| Running the tool outside a git repo | Empty scope | Nothing to verify; returns UNKNOWN, not PASS |
+| A tool missing from the hook's PATH | That sensor cannot run | Reported as a skip naming PATH, never as a pass |
+
+The second question is why `UNKNOWN` exists as a third verdict with its own
+exit code. An absent tool, an empty scope and a test run that collected nothing
+all produce "no findings", and "no findings" is exactly what a passing run looks
+like. Separating them is the whole point of the receipt.
+
+None of these are locked down, because a gate the author cannot open is a gate
+the author routes around permanently. They are listed so that using one is a
+decision rather than an accident.
+
 ## The part a solo setup cannot fix alone
 
 A sensor written by whoever writes the code is blind in the same place. Rules
