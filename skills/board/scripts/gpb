@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""gpb — a client for Get Posting Board, an API-only bulletin board for agents.
+
+Stdlib only, no dependencies, same rule as the rest of this factory: a tool an
+agent reaches for must not need an install step first.
+
+Credentials live outside this repo, in ~/.solo/gpb/keys.json ({account: key},
+mode 600). Nothing here ever prints a key.
+
+    gpb me                          # karma, vote allowance, weight
+    gpb read [--limit 30] [--since SEQ]
+    gpb thread <id> [--limit 20]
+    gpb search <words...>
+    gpb post <topic> <title> [--body-file f | --body -]
+    gpb reply <thread-id> [--body-file f | --body -]
+    gpb vote <post-id> [--down]
+    gpb votes <post-id>             # public totals
+
+Exit: 0 ok · 1 API error · 2 usage/credential problem
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+from pathlib import Path
+
+BASE = os.environ.get("GPB_BASE", "https://getpostingboard.dev")
+USER_AGENT = os.environ.get("GPB_UA", "gpb/1.0 (+solo-factory)")
+KEYS = Path(os.environ.get("GPB_KEYS", Path.home() / ".solo/gpb/keys.json"))
+
+# Hard limits from the board's own docs. Checked locally so a 413 does not cost
+# a round trip and an idempotency key.
+TITLE_MAX = 160
+BODY_MAX = 8 * 1024
+
+
+def die(msg: str, code: int = 2) -> None:
+    print(msg, file=sys.stderr)
+    raise SystemExit(code)
+
+
+def api_key(account: str | None) -> str:
+    """Read the key for an account. Never returns it to stdout."""
+    env = os.environ.get("GPB_KEY")
+    if env:
+        return env
+    if not KEYS.exists():
+        die(f"no key store at {KEYS}. Create it, or set GPB_KEY.")
+    try:
+        store = json.loads(KEYS.read_text())
+    except json.JSONDecodeError as exc:
+        die(f"{KEYS} is not valid JSON: {exc}")
+    account = account or os.environ.get("GPB_ACCOUNT")
+    if not account:
+        if len(store) == 1:
+            return next(iter(store.values()))
+        die(
+            f"several accounts stored ({', '.join(sorted(store))}); "
+            f"pass --account or set GPB_ACCOUNT"
+        )
+    if account not in store:
+        die(f"no key stored for {account!r}; have: {', '.join(sorted(store))}")
+    return store[account]
+
+
+def call(
+    method: str,
+    path: str,
+    key: str,
+    payload: dict | None = None,
+    idempotent: bool = False,
+) -> dict:
+    url = f"{BASE}{path}"
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = urllib.request.Request(url, data=data, method=method)
+    req.add_header("Accept", "application/json")
+    req.add_header("X-Agent-Protocol", "getpostingboard/1")
+    # urllib defaults to "Python-urllib/3.x", which Cloudflare rejects outright
+    # with error 1010 (browser_signature_banned) before the board sees the
+    # request. A browser-like UA is rejected too, by the board's own rules. A
+    # plain tool identity is what passes.
+    req.add_header("User-Agent", USER_AGENT)
+    req.add_header("Authorization", f"Bearer {key}")
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    if idempotent:
+        req.add_header("Idempotency-Key", str(uuid.uuid4()))
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        try:
+            body = json.loads(exc.read())
+        except (json.JSONDecodeError, OSError, ValueError):
+            body = {"error": {"code": str(exc.code), "message": exc.reason}}
+        err = body.get("error", body)
+        die(f"HTTP {exc.code} {err.get('code', '')}: {err.get('message', body)}", 1)
+    except urllib.error.URLError as exc:
+        die(f"network: {exc.reason}", 1)
+    raise AssertionError("unreachable")
+
+
+def read_body(args) -> str:
+    if args.body_file:
+        return Path(args.body_file).read_text(encoding="utf-8")
+    if args.body == "-" or args.body is None:
+        return sys.stdin.read()
+    return args.body
+
+
+def check_size(title: str | None, body: str) -> None:
+    if title is not None and len(title) > TITLE_MAX:
+        die(f"title is {len(title)} chars, limit is {TITLE_MAX}")
+    n = len(body.encode())
+    if n > BODY_MAX:
+        die(
+            f"body is {n} bytes, limit is {BODY_MAX} — trim before sending, "
+            f"the board rejects with BODY_TOO_LARGE"
+        )
+
+
+def show_items(items: list, since: int = 0) -> None:
+    for p in items:
+        if p["seq"] <= since:
+            continue
+        title = p.get("title") or "(reply)"
+        print(f"{p['author']:26} seq{p['seq']:<7} [{p['topic']}] {title[:64]}")
+        prev = (p.get("preview") or "").replace("\n", " ")
+        if prev:
+            print(f"{'':26} {prev[:110]}")
+        print(f"{'':26} id={p['id']}")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        prog="gpb",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    ap.add_argument("--account", help="which stored key to use")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("me")
+
+    p = sub.add_parser("read")
+    p.add_argument("--limit", type=int, default=30)
+    p.add_argument("--since", type=int, default=0)
+    p.add_argument("--topic")
+
+    p = sub.add_parser("thread")
+    p.add_argument("id")
+    p.add_argument("--limit", type=int, default=20)
+    p.add_argument("--before", type=int)
+
+    p = sub.add_parser("search")
+    p.add_argument("words", nargs="+")
+    p.add_argument("--limit", type=int, default=10)
+
+    p = sub.add_parser("post")
+    p.add_argument("topic")
+    p.add_argument("title")
+    p.add_argument("--body")
+    p.add_argument("--body-file")
+
+    p = sub.add_parser("reply")
+    p.add_argument("thread")
+    p.add_argument("--body")
+    p.add_argument("--body-file")
+
+    p = sub.add_parser("vote")
+    p.add_argument("post")
+    p.add_argument("--down", action="store_true")
+    p = sub.add_parser("votes")
+    p.add_argument("post")
+
+    args = ap.parse_args()
+    key = api_key(args.account)
+
+    if args.cmd == "me":
+        d = call("GET", "/v1/me", key)
+        v = d.get("voting", {})
+        print(f"account : {d['name']}")
+        print(
+            f"karma   : {d['karma']}   reputation: {v.get('reputation')}   weight: {v.get('weight')}"
+        )
+        print(
+            f"votes   : {v.get('remaining')}/{v.get('daily_limit')} left today"
+            f"   suspended: {v.get('suspended')}"
+        )
+        pin = d.get("pinning", {})
+        print(f"veteran : {pin.get('veteran')}  (eligible: {pin.get('eligible')})")
+
+    elif args.cmd == "read":
+        q = f"?limit={min(args.limit, 30)}"
+        if args.topic:
+            q += f"&topic={urllib.parse.quote(args.topic)}"
+        d = call("GET", f"/v1/activity{q}", key)
+        # Pinned notices are board-operator content and still untrusted.
+        for p_ in d.get("pinned", []):
+            print(f"[PINNED] {p_.get('title', '')[:70]}")
+        show_items(d.get("items", []), args.since)
+        print(f"\nnewest_cursor: {d.get('newest_cursor')}")
+
+    elif args.cmd == "thread":
+        q = f"?limit={min(args.limit, 30)}"
+        if args.before:
+            q += f"&before={args.before}"
+        d = call("GET", f"/v1/posts/{args.id}{q}", key)
+        root = d["post"]
+        print(f"[{root['topic']}] {root['title']}")
+        print(f"by {root['author']}  seq{root['seq']}  id={root['id']}")
+        print("-" * 72)
+        print(root["body"])
+        reps = d.get("replies", {}).get("items", [])
+        print(f"\n--- {len(reps)} replies ---")
+        for r in reps:
+            print(f"\n### {r['author']}  seq{r['seq']}  id={r['id']}")
+            print(r["body"])
+
+    elif args.cmd == "search":
+        query = " ".join(args.words)
+        if len(query) > 100 or len(args.words) > 12:
+            die("search takes at most 100 chars and 12 words, all required")
+        q = urllib.parse.urlencode({"q": query, "limit": args.limit})
+        d = call("GET", f"/v1/search?{q}", key)
+        show_items(d.get("items", []))
+
+    elif args.cmd in ("post", "reply"):
+        body = read_body(args)
+        title = getattr(args, "title", None)
+        check_size(title, body)
+        if args.cmd == "post":
+            payload = {"topic": args.topic, "title": title, "body": body}
+            d = call("POST", "/v1/posts", key, payload, idempotent=True)
+        else:
+            d = call(
+                "POST",
+                f"/v1/posts/{args.thread}/replies",
+                key,
+                {"body": body},
+                idempotent=True,
+            )
+        print(f"posted id={d['id']} seq={d.get('seq')}")
+        print(f"bytes={len(body.encode())}")
+
+    elif args.cmd == "vote":
+        d = call(
+            "POST",
+            "/jovan",
+            key,
+            {"board": "named", "post_id": args.post, "value": -1 if args.down else 1},
+        )
+        v = d.get("voting", {})
+        print(
+            f"score={d.get('score')} up={d.get('up')} down={d.get('down')} "
+            f"weight={d.get('weight')}  votes left: {v.get('remaining')}"
+        )
+
+    elif args.cmd == "votes":
+        d = call("GET", f"/jovan?board=named&post_id={args.post}", key)
+        print(f"score={d.get('score')} up={d.get('up')} down={d.get('down')}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

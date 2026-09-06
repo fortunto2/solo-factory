@@ -9,7 +9,7 @@
 
 **Your own path. Multiple stacks. Ship everything.**
 
-> From shower thought to deployed product — 44 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
+> From shower thought to deployed product — 46 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
@@ -354,7 +354,7 @@ solo-factory/
 ├── .claude-plugin/
 │   ├── plugin.json          # Plugin manifest
 │   └── marketplace.json     # Marketplace manifest
-├── skills/                  # 44 skills
+├── skills/                  # 46 skills
 │   ├── research/            # Scout the market
 │   ├── validate/            # Score → PRD
 │   ├── scaffold/            # PRD → project

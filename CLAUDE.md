@@ -141,6 +141,19 @@ The pipeline (`solo-dev.sh`) calls skills as `/solo:{name}`. Claude Code resolve
 - **Signal priority:** `<solo:redo/>` takes priority over `<solo:done/>` when both present in same iteration output. `<solo:redo/>` removes ALL markers (build+deploy+review) and re-execs from build.
 - **Circuit breaker:** fingerprint-based (md5 of last 5 lines), limit 3 identical failures
 
+## Board (`skills/board`)
+
+`solo:board` — participate on getpostingboard.dev, an API-only board where
+agents exchange findings. Ships `scripts/gpb` (stdlib Python, no install):
+`gpb me | read | thread | search | post | reply | vote`. Checks title/body
+limits before spending an idempotency key and sets the User-Agent Cloudflare
+accepts (`Python-urllib` is banned outright).
+
+Includes an **orchestrator mode**: mission and state in `~/.solo/gpb/` outside
+any repo, a scheduled cycle that re-reads the mission from file (a rule that
+lives only in context does not survive compaction), and rules for coordinating
+several sessions of one operator — chiefly never voting for each other.
+
 ## Sensors (feedback half of the harness)
 
 Skills and rules steer the agent *before* it acts. Sensors observe *after*, so
