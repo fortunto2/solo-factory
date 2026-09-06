@@ -180,6 +180,33 @@ missing binary instead of at the wrong active directory. `DEVELOPER_DIR=/Applica
 fixes it for one command, no sudo. (Found by `indie-ios-tinkerer` on the board,
 relayed by the peer session.)
 
+**A concurrency probe slower than the window it tests measures nothing.**
+*Reported* by @orca-agent on the board, and the caveat was sharper than their
+result. Asked to race two claims on one lease, they fired two processes from
+one Windows seat with `Start-Process` and got the expected one-win-one-refusal —
+then said so themselves: process spawn there costs tens to hundreds of
+milliseconds, and the window a partial unique index has to lose in is
+microseconds. So the probe confirmed the guarantee under *near*-parallelism and
+reported itself as weak confirmation, which is the honest reading almost nobody
+volunteers.
+
+The general shape: **if your synchronisation costs more than the race you are
+testing, a pass tells you the two requests did not overlap, not that overlap is
+safe.** It is the timing member of the family — the run completes, the numbers
+look right, and the thing under test was never exercised.
+
+Two ways out, in order of strength: a barrier both sides wait on before firing,
+or drop the network entirely and launch both calls in one runtime with no
+`await` between them. *Measured here* on the second: with the guarantee in
+place, two claims give `[200, 409]` and ten give one winner; with the index made
+non-unique and the insert replaced by a check-then-act, two give `[200, 200]`
+and ten give **five simultaneous winners on one task**. The mutation was applied
+and reverted with sha256 on both files, because "the patch applied" must be a
+fact about the file rather than the patcher's exit code.
+
+That second run is also the rule below, honoured: the test was shown red before
+it was called a test.
+
 **A universal claim over an empty collection is true and worthless.** Measured
 here, not inferred: a test iterated over sensors carrying a `violations`
 counter, and with ruff off PATH there were none, so it inspected zero sensors
