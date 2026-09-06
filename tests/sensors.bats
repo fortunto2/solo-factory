@@ -330,3 +330,36 @@ print('ok')
   run "$VERIFY" --root "$REPO"
   [[ "$output" == *"syntax=pass"* ]]
 }
+
+# --- limits reports what THIS change caused, not inherited size -------------
+# Measured on click's last commit: 5 findings, all five pre-existing file size
+# (core.py at 3839 lines). 100% unactionable — nobody splits a mature library's
+# core because a verifier asked.
+
+@test "limits ignores a pre-existing oversized file that this change did not grow" {
+  { echo "def big():"; for i in $(seq 1 200); do echo "    x$i = $i"; done; } > "$REPO/legacy.py"
+  git -C "$REPO" add -A && git -C "$REPO" commit -q -m "pre-existing debt"
+  printf '\n# a small unrelated edit\n' >> "$REPO/legacy.py"
+  run "$VERIFY" --root "$REPO"
+  [[ "$output" != *"long-function"* ]]
+}
+
+@test "limits still catches a newly added oversized function" {
+  { echo "def fresh():"; for i in $(seq 1 200); do echo "    x$i = $i"; done; } > "$REPO/brand_new.py"
+  run "$VERIFY" --root "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"long-function fresh()"* ]]
+}
+
+@test "limits reports growth of an already-oversized module" {
+  python3 -c "
+import pathlib
+p = pathlib.Path('$REPO/big.py')
+p.write_text('\n'.join(f'x{i} = {i}' for i in range(1100)))
+"
+  git -C "$REPO" add -A && git -C "$REPO" commit -q -m "already over"
+  printf 'extra = 1\n' >> "$REPO/big.py"
+  run "$VERIFY" --root "$REPO"
+  [[ "$output" == *"long-module grew"* ]]
+  [[ "$output" == *"Not your debt"* ]]
+}

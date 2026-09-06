@@ -368,6 +368,34 @@ def check_syntax(root: Path, files: list[Path]) -> Result:
     )
 
 
+def previous_size(root: Path, path: Path) -> tuple[int, int] | None:
+    """(lines, longest function) of this file at HEAD, or None if it is new.
+
+    Measured need: run on click's last commit, `limits` produced five findings
+    and all five were pre-existing size — core.py at 3839 lines, a test file at
+    3656. Nobody splits a mature library's core because a verifier asked, so an
+    unconditional threshold is 100% unactionable on someone else's tree. The
+    threshold is only a signal when THIS change crossed it.
+    """
+    rel_path = rel(root, path)
+    code, out = run(["git", "show", f"HEAD:{rel_path}"], root, 10)
+    if code != 0:
+        return None
+    lines = out.count("\n") + 1
+    longest = 0
+    if path.suffix == ".py":
+        try:
+            tree = ast.parse(out)
+        except SyntaxError:
+            return (lines, 0)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                end = getattr(node, "end_lineno", None)
+                if end:
+                    longest = max(longest, end - node.lineno + 1)
+    return (lines, longest)
+
+
 def check_limits(root: Path, files: list[Path]) -> Result:
     findings, covered = [], []
     for f in files:
@@ -379,9 +407,15 @@ def check_limits(root: Path, files: list[Path]) -> Result:
             continue
         covered.append(rel(root, f))
         n = text.count("\n") + 1
-        if n > MAX_MODULE_LINES:
+        before = previous_size(root, f)
+        if n > MAX_MODULE_LINES and (before is None or before[0] <= MAX_MODULE_LINES):
             findings.append(
                 f"{rel(root, f)}:1 long-module {n} lines — {FIX_HINTS['long-module']}"
+            )
+        elif before is not None and before[0] > MAX_MODULE_LINES and n > before[0]:
+            findings.append(
+                f"{rel(root, f)}:1 long-module grew {before[0]} -> {n} lines, already over "
+                f"{MAX_MODULE_LINES}. Not your debt, but this change adds to it."
             )
         if not is_python(f):
             continue
@@ -392,11 +426,19 @@ def check_limits(root: Path, files: list[Path]) -> Result:
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 end = getattr(node, "end_lineno", None)
-                if end and (end - node.lineno + 1) > MAX_FUNCTION_LINES:
-                    findings.append(
-                        f"{rel(root, f)}:{node.lineno} long-function {node.name}() is "
-                        f"{end - node.lineno + 1} lines — {FIX_HINTS['long-function']}"
-                    )
+                if not end:
+                    continue
+                length = end - node.lineno + 1
+                if length <= MAX_FUNCTION_LINES:
+                    continue
+                # Pre-existing over-length functions are inherited debt, not a
+                # finding about this change.
+                if before is not None and before[1] >= length:
+                    continue
+                findings.append(
+                    f"{rel(root, f)}:{node.lineno} long-function {node.name}() is "
+                    f"{length} lines — {FIX_HINTS['long-function']}"
+                )
     if not covered:
         return Result("limits", "skip", reason="no source files in scope")
     return Result(
