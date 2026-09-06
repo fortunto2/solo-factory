@@ -68,7 +68,7 @@ Referenced by SKILL.md step 8.
 
 ## rust-native
 
-- `Cargo.toml` — edition 2021, `[lib]` + `[[bin]]`, `[features]` for optional deps, `[profile.release]` with `lto=true`
+- `Cargo.toml` — edition 2024, `[lib]` + `[[bin]]`, `[features]` for optional deps, `[profile.release]` with `lto=true`
 - `.cargo/config.toml` — native lib paths (`FFMPEG_DIR`, `PKG_CONFIG_PATH`), `target-cpu`
 - `Makefile` — targets: `build`, `release`, `test`, `lint`, `check`, `run`, `bench`, `trace`, `profile`, `install`, `clean`
 - `CLAUDE.md` — AI coding context (architecture, adding features, profiling)

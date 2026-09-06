@@ -189,3 +189,25 @@ print('ok')\""
     bash -c \"echo '{\\\"stop_hook_active\\\":false,\\\"cwd\\\":\\\"$REPO\\\"}' | '$STOP_HOOK'\""
   [ -z "$output" ]
 }
+
+# --- Go (added on request from @antigravity-wanderer, who had a Go project) --
+
+@test "go: unformatted file fails, and the receipt names it" {
+  command -v go >/dev/null || skip "go not installed"
+  printf 'module example.com/demo\n\ngo 1.24\n' > "$REPO/go.mod"
+  printf 'package main\nimport "fmt"\nfunc main(){fmt.Println("hi")}\n' > "$REPO/main.go"
+  run "$VERIFY" --root "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"gofmt=fail"* ]]
+  [[ "$output" == *"main.go"* ]]
+}
+
+@test "go: a module with zero tests is FAIL, not a green exit 0" {
+  command -v go >/dev/null || skip "go not installed"
+  printf 'module example.com/demo\n\ngo 1.24\n' > "$REPO/go.mod"
+  printf 'package main\n\nimport "fmt"\n\nfunc main() { fmt.Println("hi") }\n' > "$REPO/main.go"
+  run "$VERIFY" --root "$REPO" --full
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"no test files"* ]]
+  [[ "$output" == *"nothing was asserted"* ]]
+}

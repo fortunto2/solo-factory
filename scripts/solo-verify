@@ -71,6 +71,7 @@ SOURCE_SUFFIXES = {
     ".kt",
     ".kts",
     ".sh",
+    ".go",
 }
 
 # Files that ARE the harness. Editing them is legitimate but must never be quiet.
@@ -196,6 +197,7 @@ def detect_stacks(root: Path) -> dict[str, str]:
         "rust": ["Cargo.toml"],
         "swift": ["Package.swift"],
         "kotlin": ["build.gradle.kts", "build.gradle"],
+        "go": ["go.mod"],
     }
     found: dict[str, str] = {}
     for stack, names in markers.items():
@@ -450,6 +452,100 @@ def check_pytest(root: Path, timeout: int) -> Result:
         counters=counters,
         seconds=time.time() - t,
     )
+
+
+def check_go(root: Path, files: list[Path], full: bool, timeout: int) -> list[Result]:
+    """Requested by @antigravity-wanderer, who had a Go project to test on.
+
+    gofmt is the fast sensor: it parses, so it doubles as a syntax check and
+    cannot fail because of a file the agent has not reached yet. vet and test
+    are semantic and stay in full mode.
+    """
+    src = [f for f in files if f.suffix == ".go"]
+    if not shutil.which("go"):
+        return [Result("go", "skip", reason=missing("go", "brew install go"))]
+
+    results: list[Result] = []
+    if not src:
+        results.append(Result("gofmt", "skip", reason="no Go files in scope"))
+    else:
+        t = time.time()
+        code, out = run(["gofmt", "-l", *[str(f) for f in src]], root, timeout)
+        unformatted = [ln.strip() for ln in out.splitlines() if ln.strip()]
+        results.append(
+            Result(
+                "gofmt",
+                "fail" if unformatted else "pass",
+                promise="every changed .go file parses and is gofmt-clean",
+                findings=[
+                    f"{Path(f).name} — not gofmt-clean. Run `gofmt -w {f}`."
+                    for f in unformatted[:20]
+                ],
+                covered=[rel(root, f) for f in src],
+                counters={"files": len(src), "unformatted": len(unformatted)},
+                seconds=time.time() - t,
+            )
+        )
+
+    if full:
+        t = time.time()
+        code, out = run(["go", "vet", "./..."], root, timeout)
+        findings = [
+            ln.strip()
+            for ln in out.splitlines()
+            if ln.strip() and not ln.startswith("#")
+        ][:15]
+        results.append(
+            Result(
+                "go-vet",
+                "pass" if code == 0 else "fail",
+                promise="go vet clean across the module",
+                findings=findings,
+                seconds=time.time() - t,
+            )
+        )
+
+        t = time.time()
+        code, out = run(["go", "test", "./..."], root, timeout)
+        # Counters, not a bare colour: "no test files" everywhere is the Go
+        # shape of a False Green on Zero Scope.
+        ok = len(re.findall(r"^ok\s+", out, re.MULTILINE))
+        notests = len(re.findall(r"no test files", out))
+        failed = len(re.findall(r"^(FAIL|---\s+FAIL)", out, re.MULTILINE))
+        counters = {"packages_ok": ok, "packages_no_tests": notests, "failed": failed}
+        if code == 0 and ok == 0 and notests > 0:
+            results.append(
+                Result(
+                    "go-test",
+                    "fail",
+                    promise="the module's tests run and pass",
+                    findings=[
+                        (
+                            f"{notests} package(s) reported 'no test files' and none ran "
+                            "a test. Exit 0 means nothing was asserted, not that it passed."
+                        )
+                    ],
+                    counters=counters,
+                    seconds=time.time() - t,
+                )
+            )
+        else:
+            tail = [
+                ln.strip()
+                for ln in out.splitlines()
+                if ln.startswith(("FAIL", "---", "panic:"))
+            ][:15]
+            results.append(
+                Result(
+                    "go-test",
+                    "pass" if code == 0 else "fail",
+                    promise="the module's tests run and pass",
+                    findings=tail if code != 0 else [],
+                    counters=counters,
+                    seconds=time.time() - t,
+                )
+            )
+    return results
 
 
 def check_shellcheck(root: Path, files: list[Path], timeout: int) -> Result:
@@ -772,6 +868,8 @@ def main() -> int:
         results.append(check_swift(root, files, timeout))
     if "kotlin" in stacks:
         results.append(check_kotlin(root, files, timeout))
+    if "go" in stacks:
+        results += check_go(root, files, args.full, timeout)
     results.append(check_shellcheck(root, files, timeout))
 
     rec = build_receipt(root, files, stacks, results, args.full, time.time() - started)
