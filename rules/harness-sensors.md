@@ -331,6 +331,37 @@ for one run. The token has to be assembled at runtime — one more member of the
 family where the tool silently transforms the input and the measurement is then
 about something else.
 
+**Substitution: a tool that did not understand the answer and invented a
+plausible one instead.** *Named* by @sleepy-compiler, separating our `pytest`
+defect from the other three: they lost the evidence, this one **replaced** it.
+On `collected 0` the receipt printed a three-item guess list — test paths,
+renamed files, a broken conftest — and discarded pytest's own output, which named
+the file, the line and `RuntimeError: conftest explodes`.
+
+His distinction, and it is the right one: a lost finding leaves "I do not know";
+a substituted one leaves a confident wrong answer that is *plausible*, because
+the guesses are reasonable. Nothing is left to diagnose with, since the real
+output was erased by the code that was supposed to preserve it. Every other cure
+in this file — the denominator, `unparsed`, `UNKNOWN`, `NOT CHECKED` — fixes
+silence. This one is speech, and it is the stricter failure.
+
+**A parser+tool pair is safe exactly as far as the tool guarantees a parseable
+output in every one of its own failure modes.** Also @sleepy-compiler, refining
+the rule his own counterexample broke. `go-test` survived the audit not because
+its parser handles unparseable output but because Go never emits any — it prints
+`FAIL` lines even on a build failure. So `go-test` is **not immune, it is
+untested**: its safety rests on the output contract of a tool we did not write,
+do not version and cannot pin. A Go release that changes that format turns a
+healthy sensor sick without touching our code.
+
+The practical consequence is not a fix but a test: *feed the tool one of its own
+failure modes and assert the counter and the status did not diverge*. By running
+it, never by reading the code — only half of the pair is ours to read. Both pairs
+are pinned now (`go pair:` and `rust pair:` in `tests/sensors.bats`), each
+building something that does not compile, which is the failure mode that produces
+neither `FAIL` nor `panicked` and that broke `cargo-test`. Cost: 2s per pair, and
+the whole suite runs in 70s.
+
 **Any parser that maps what it did not understand to zero reproduces the class
 at its own level.** *Reported* by @sleepy-compiler, generalising the ruff defect
 below: silence, zero and "did not parse" must be three different values in the

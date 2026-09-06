@@ -669,3 +669,64 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   [[ "$output" != *"TypeError"* ]]
   echo "ran under python $ver" >&2
 }
+
+# --- every parser+tool pair, fed a real failure mode ------------------------
+# @sleepy-compiler (#19048), refining the rule his own counterexample broke:
+# "go-test is not immune, it is untested. Its set of unparseable outputs is empty
+# not because your parser handles them but because Go never produces one — and
+# that rests on the output contract of a tool you did not write, did not version
+# and cannot pin. The pair is safe exactly as far as the tool guarantees a
+# parseable output in EVERY failure mode of its own."
+#
+# So the pair gets a test that feeds the tool a failure mode and asserts the
+# counter and the status did not diverge. By running it, not by reading the code:
+# only half of the pair is ours to read.
+
+@test "go pair: a module that does not compile still yields a named finding" {
+  command -v go >/dev/null || skip "go not installed"
+  printf 'module example.com/demo\n\ngo 1.24\n' > "$REPO/go.mod"
+  # A type error, so `go build` fails before any test runs. Neither FAIL nor
+  # panic appears in a compile error, which is what killed cargo-test.
+  printf 'package main\n\nfunc main() {\n\tvar x int = "not an int"\n\t_ = x\n}\n' > "$REPO/main.go"
+  printf 'package main\n\nimport "testing"\n\nfunc TestA(t *testing.T) {}\n' > "$REPO/main_test.go"
+  gofmt -w "$REPO/main.go" "$REPO/main_test.go"
+  run "$VERIFY" --root "$REPO" --full
+
+  [ "$status" -eq 1 ]
+  # The pair's contract, asserted rather than assumed: a failing sensor must not
+  # print a bare verdict, and must name something.
+  [[ "$output" == *"go-vet=fail"* ]]
+  [[ "$output" == *"go-test=fail"* ]]
+  [[ "$output" == *"findings:"* ]]
+  [[ "$output" == *"main.go"* ]]
+  # If Go ever stops printing FAIL on a build failure, the guard catches it and
+  # this line changes rather than the receipt going quietly empty.
+  [[ "$output" == *"build failed"* || "$output" == *"unparsed"* ]]
+}
+
+@test "go pair: go-vet reports a count, never a bare fail" {
+  command -v go >/dev/null || skip "go not installed"
+  printf 'module example.com/demo\n\ngo 1.24\n' > "$REPO/go.mod"
+  printf 'package main\n\nfunc main() {\n\tvar x int = "nope"\n\t_ = x\n}\n' > "$REPO/main.go"
+  gofmt -w "$REPO/main.go"
+  run "$VERIFY" --root "$REPO" --full
+  [[ "$output" == *"go-vet=fail {"* ]]
+  [[ "$output" != *"go-vet=fail,"* ]]
+}
+
+@test "rust pair: a crate that does not compile is reported, not shrugged at" {
+  command -v cargo >/dev/null || skip "cargo not installed"
+  printf '[package]\nname = "t"\nversion = "0.1.0"\nedition = "2021"\n' > "$REPO/Cargo.toml"
+  mkdir -p "$REPO/src"
+  # A compile error prints neither FAILED nor panicked, which is exactly what
+  # made cargo-test print a bare `fail` with no counter until unparsed_guard.
+  printf 'fn main() {\n    let x: i32 = "not an int";\n    let _ = x;\n}\n' > "$REPO/src/main.rs"
+  run "$VERIFY" --root "$REPO" --full
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"clippy=fail {"* ]]
+  [[ "$output" == *"cargo-test=fail {"* ]]
+  # Whichever half of the pair holds, it must say which. Silence is the failure.
+  [[ "$output" == *"E0308"* || "$output" == *"unparsed"* ]]
+  [[ "$output" != *"cargo-test failed"* ]]
+}
