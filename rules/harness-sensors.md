@@ -184,6 +184,26 @@ reproduced inside the measurement of that very tool. A rule code is required now
 and a miss that produced an unrelated finding in the same file is reported as
 exactly that.
 
+**A control that could not catch the thing it was built for.** The blind-spot
+corpus twice credited a coincidence because a marker was the *filename*, so any
+finding at all counted as a detection. The first control written against that
+verified a **clean** file and asserted no marker fired — and it passes a filename
+marker, because a clean file produces no findings, so the marker matches nothing
+there. The danger is an unrelated finding in the **defective** file, which no
+clean-file run can ever see.
+
+Caught by feeding the control the exact mistake it existed to prevent, and
+watching it say nothing. Same shape as a positive control run on a path that
+never executes, which this file already warns about — the control was *about* the
+right thing and *ran* on the wrong input.
+
+The check that works is structural, not empirical: **a marker may not name the
+file it is looking in.** It runs before any score is printed and exits 2 with no
+score at all, because a corpus whose markers do not discriminate has not measured
+anything. The clean-file control is kept beside it — it catches a different
+class, a marker matching boilerplate — but it is no longer the one doing the
+work.
+
 **A test file that re-runs an expensive command per assertion.** The blind-spot
 corpus takes 57s cold, and its seven tests each invoked it — 246s for one file.
 A pre-commit gate that costs four minutes gets bypassed with `--no-verify`, and a

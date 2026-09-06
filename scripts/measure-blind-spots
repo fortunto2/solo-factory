@@ -253,6 +253,64 @@ def run_case(tmp: Path, filename: str, source: str, full: bool, stack: str) -> s
     return subprocess.run(argv, capture_output=True, text=True, env=GIT_ENV).stdout
 
 
+CLEAN = {
+    "python": ("clean.py", "def f():\n    return 1\n"),
+    "go": ("main.go", "package main\n\nfunc main() {}\n"),
+    "rust": ("src/main.rs", "fn main() {}\n"),
+}
+
+
+def check_markers(tmp: Path, suites, full: bool) -> list[str]:
+    """A marker that matches a file with no defect in it proves nothing.
+
+    Twice now a marker was the FILENAME, so any finding at all scored as a
+    detection: once in the Python corpus ("a test that asserts nothing", credited
+    because ruff flagged an unused local), and once in the Go cases a cycle after
+    that was fixed. Both times the marker was written while thinking about the
+    defect rather than about what else could match it, which is not a lapse of
+    attention — it is the wrong question, and attention will not fix it.
+
+    So the instrument runs its own negative control before reporting anything:
+    verify a clean file of each stack and assert no marker appears in the output.
+    A marker that fires there does not discriminate, and a score built on it is
+    not a measurement.
+
+    Same discipline as the rest of this harness: never accept a result from an
+    instrument you have not seen distinguish. Here it is per-marker rather than
+    per-run, because each marker is its own instrument.
+    """
+    bad = []
+
+    # Structural first, because it is the check that actually catches the mistake
+    # that happened twice. The empirical one below cannot: a clean file produces
+    # NO findings, so a filename marker matches nothing there and passes. The
+    # danger of a filename marker is that it matches an UNRELATED finding in the
+    # defective file, and no clean-file run can see that.
+    #
+    # This was nearly shipped as a control that could not catch the thing it was
+    # built for — the same shape as a positive control run on a path that never
+    # executes, which this harness has a rule about.
+    for _stack, cases in suites:
+        for name, filename, _src, expect in cases:
+            if expect is None:
+                continue
+            leaf = Path(filename).name
+            if expect in filename or leaf in expect:
+                bad.append(
+                    f"{name}: marker {expect!r} is the file it is looking in — it "
+                    f"would credit ANY finding in {leaf} as a detection"
+                )
+
+    for stack, cases in suites:
+        filename, source = CLEAN[stack]
+        out = run_case(tmp, filename, source, full or stack != "python", stack)
+        findings = out.split("findings:", 1)[1] if "findings:" in out else ""
+        for name, _f, _src, expect in cases:
+            if expect is not None and expect in findings:
+                bad.append(f"{name}: marker {expect!r} fires on a clean {stack} file")
+    return bad
+
+
 def main() -> int:
     full = "--full" in sys.argv
     caught, missed, incidental = [], [], []
@@ -266,6 +324,24 @@ def main() -> int:
         )
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
+
+        bad = check_markers(tmp, suites, full)
+        if bad:
+            print("MARKER CONTROL FAILED — these do not discriminate:", file=sys.stderr)
+            for b in bad:
+                print(f"  {b}", file=sys.stderr)
+            print(
+                "\nNo score is reported. A marker that names its own file, or that "
+                "fires on a clean one, credits any finding as a detection — which "
+                "is how this corpus twice counted a coincidence.",
+                file=sys.stderr,
+            )
+            return 2
+        print(
+            f"  marker control: {sum(len(c) for _, c in suites)} markers, "
+            f"none names its own file, none fires on a clean one\n"
+        )
+
         cases_all = [(st, c) for st, cs in suites for c in cs]
         for stack, (name, filename, source, expect) in cases_all:
             out = run_case(

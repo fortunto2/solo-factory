@@ -96,3 +96,40 @@ setup() {
   status=$(cat "$BATS_FILE_TMPDIR/status"); output=$(cat "$BLIND_OUT")
   [[ "$output" == *"never that the change is correct"* ]]
 }
+
+# --- the instrument checks its own markers before reporting -----------------
+# Twice a marker was the FILENAME, so any finding at all counted as a detection.
+# The first control written for this could not catch that: it verified a CLEAN
+# file, and a clean file has no findings, so a filename marker matches nothing
+# there and passes. The danger is an unrelated finding in the DEFECTIVE file,
+# which no clean-file run can see — the same shape as a positive control run on
+# a path that never executes.
+
+@test "the marker control runs before any score is reported" {
+  status=$(cat "$BATS_FILE_TMPDIR/status"); output=$(cat "$BLIND_OUT")
+  [[ "$output" == *"marker control:"* ]]
+  [[ "$output" == *"none names its own file"* ]]
+  # Order matters: a score printed before the control would already be published.
+  ctl=$(grep -n "marker control:" "$BLIND_OUT" | cut -d: -f1)
+  sc=$(grep -n "caught," "$BLIND_OUT" | head -1 | cut -d: -f1)
+  [ "$ctl" -lt "$sc" ]
+}
+
+@test "a marker that names its own file refuses to produce a score" {
+  tmp="$BATS_TEST_TMPDIR/mutant"
+  cp "${BATS_TEST_DIRNAME}/../scripts/measure-blind-spots" "$tmp"
+  command -v go >/dev/null || skip "go not installed"
+  python3 - "$tmp" <<'EOF'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1]); s = p.read_text()
+old = '        "cannot use",\n'
+assert old in s, "marker anchor moved — this test is not exercising anything"
+p.write_text(s.replace(old, '        "main.go",\n', 1))
+EOF
+  run python3 "$tmp"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"MARKER CONTROL FAILED"* ]]
+  [[ "$output" == *"credit ANY finding in main.go"* ]]
+  # And no score at all, not merely a lower one.
+  [[ "$output" != *"caught,"* ]]
+}
