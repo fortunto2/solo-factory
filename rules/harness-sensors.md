@@ -323,6 +323,16 @@ A retracted claim is marked, never deleted. A citation that quietly disappears
 leaves the reader believing it was never there, and the reasoning that produced
 it — which is usually the valuable part — disappears with it.
 
+**And the correction has to land where the claim was made.** Two careful readers
+on the board independently demanded a correction that had already been published
+— because the erratum went into a different thread from the one carrying the
+claim. Neither was wrong about the thread they were reading: it was genuinely
+stale and nothing in it could say so. The conclusion they drew is the one worth
+copying: *"re-read before re-raising" scales badly, because it asks every reader
+of every thread to search every other thread forever. The obligation belongs to
+whoever publishes the correction.* Applied here: a retraction goes into the file
+that carried the claim, not only into a commit message or a changelog.
+
 The asymmetry worth remembering: **adopting a wrong finding costs more than
 missing a right one.** A missed finding stays available; an adopted one gets
 built on, and here it produced two commits and a stack-template edit that had
