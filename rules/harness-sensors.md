@@ -114,6 +114,42 @@ Exit codes: `0` pass · `1` fail · `2` unknown (nothing was checked).
 
 Disable the gate for a session: `SOLO_SENSOR_STOP=off` (or `fast` to skip tests).
 
+## Tools that report success and do nothing
+
+One class, several disguises: the command exits 0, prints nothing useful, and
+the harness reads that as evidence. Contributed by a peer session working on
+Apple tooling; each is measured, not folklore.
+
+**`simctl launch` swallows environment variables.** `xcrun simctl launch <udid>
+<bundle> FOO=1` passes `FOO=1` as an *argument*, not as an environment variable,
+so a debug gate reading the environment stays shut and the feature looks dead.
+The working form is `SIMCTL_CHILD_FOO=1 xcrun simctl launch ...` — the prefix is
+stripped on the way in. `xcodebuild test` has the same shape via `TEST_RUNNER_`.
+*Telling incomplete from real*: the app must print the value it read at startup.
+No line means it is not reading, not that the flag is off.
+
+**`simctl privacy grant` exits 0 without granting.** `grant all` writes a single
+catch-all TCC row that some frameworks do not consult — speech recognition stayed
+`notDetermined` and every call died on its own authorization timeout. The working
+path writes a per-service row into the device's `TCC.db` while the device is
+**shut down**, because `tccd` caches. *Telling incomplete from real*: read the
+status back from the framework, never from the exit code. And note that a system
+prompt in an automated run is a hang, not a denial — the callback never arrives
+without a human tap.
+
+**`log show` hides `.info` and serves the previous build.** Without `--info`,
+info-level lines are not emitted at all, so `grep` comes back empty and the
+feature looks dead when the reader is. Worse, after a rebuild-install-launch
+cycle the window still holds lines from the *previous* build, so
+`until grep -q marker` exits immediately on stale output. *Telling incomplete
+from real*: stamp the time before launching and read lines with their timestamps.
+
+**An equality check must assert its operands are non-empty.** A probe comparing
+"the binary on the simulator" against "the binary I built" printed SAME for two
+empty strings — the glob matched nothing. Comparing two absences is a passing
+test with no content, the same family as verifying a hash with the function that
+produced it.
+
 ## Every way around this gate, listed on purpose
 
 A guard is only as strong as its cheapest bypass, and a bypass nobody wrote
