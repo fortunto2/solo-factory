@@ -112,7 +112,7 @@ that until `scripts/measure-blind-spots` (`make blind-spots`). It plants one
 known defect at a time — each one a competent reviewer would block a pull request
 for — runs the verifier, and records whether a finding **names** it.
 
-**7 of 15 caught, 8 missed.** The eight, published rather than summarised:
+**11 of 24 caught, 13 missed**, across three stacks. The thirteen, published rather than summarised:
 
 - an off-by-one in a loop bound
 - a wrong comparison operator (`>` where `>=` was meant)
@@ -123,6 +123,22 @@ for — runs the verifier, and records whether a finding **names** it.
 - integer division where float was meant
 - an `except` that swallows everything (catchable by `BLE001`, deliberately not
   selected — it costs 11 findings here and our broad excepts are intentional)
+- **Go**: an error returned and ignored, a hardcoded credential, an off-by-one
+  slice bound
+- **Rust**: a hardcoded credential, an off-by-one index
+
+The Python corpus alone measured the stack this tool is written in, which is
+where its author's blind spots and its own are most likely to coincide. Go and
+Rust are checked by entirely different sensors — `fmt`, `vet`, `clippy`, the
+compiler — and their answer is the same shape: what does not compile is caught,
+what compiles and is wrong is not.
+
+**A hardcoded credential is missed in all three.** For Python that is not a
+missing config line: `S105/S106/S107` match on the *name* (`password`, `token`),
+never on the value, so they catch `password = "hunter2"` and miss
+`API_KEY = "sk-live-..."`. Adding them costs 0 findings here and buys 0
+detections for that shape. Measured, because otherwise a reader assumes we simply
+failed to select the right rule.
 
 None of those is a bug. They are the shape of the promise: syntax, lint, types,
 and whether the suite runs. **A green receipt means those passed, never that the
@@ -130,6 +146,13 @@ change is correct**, and a tool that does not publish that distinction invites
 the opposite reading.
 
 Two things the run changed:
+
+**The Go markers repeated a mistake fixed one cycle earlier.** They named the
+file, so both Go cases scored as caught on any finding at all — the same lenient
+marker removed from the Python corpus a cycle before, reintroduced in the same
+script by the same author within a week. Go has no rule codes, so the diagnostic
+text is the marker now (`cannot use`, `imported and not used`). The score did not
+change; what it is made of did.
 
 **It moved the score.** The first pass was 5/15. `SIM115`, `S602`, `S605` and
 `S608` each bought a detection at **zero findings on our own code**, so they were
@@ -160,6 +183,14 @@ same file — the lenient-assertion defect this repo now has a checker for,
 reproduced inside the measurement of that very tool. A rule code is required now,
 and a miss that produced an unrelated finding in the same file is reported as
 exactly that.
+
+**A test file that re-runs an expensive command per assertion.** The blind-spot
+corpus takes 57s cold, and its seven tests each invoked it — 246s for one file.
+A pre-commit gate that costs four minutes gets bypassed with `--no-verify`, and a
+bypassed gate is worse than no gate because you still believe it ran. Running it
+once in `setup_file` and asserting against the cached output brings the file to
+21s warm. The fix is not a threshold; it is noticing that seven assertions about
+one run were being paid for seven times.
 
 ## On noise
 
@@ -359,8 +390,7 @@ failure modes and assert the counter and the status did not diverge*. By running
 it, never by reading the code — only half of the pair is ours to read. Both pairs
 are pinned now (`go pair:` and `rust pair:` in `tests/sensors.bats`), each
 building something that does not compile, which is the failure mode that produces
-neither `FAIL` nor `panicked` and that broke `cargo-test`. Cost: 2s per pair, and
-the whole suite runs in 70s.
+neither `FAIL` nor `panicked` and that broke `cargo-test`. Cost: 2s per pair.
 
 **Any parser that maps what it did not understand to zero reproduces the class
 at its own level.** *Reported* by @sleepy-compiler, generalising the ruff defect

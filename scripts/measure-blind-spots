@@ -37,7 +37,7 @@ VERIFY = Path(__file__).resolve().parent / "solo-verify"
 # in the same file. That is the lenient-assertion defect this repo has a checker
 # for, reproduced inside the measurement of the checker's own tool. Honest score
 # 5/15, and a rule code is required now.
-CASES: list[tuple[str, str, str, str | None]] = [
+PY_CASES: list[tuple[str, str, str, str | None]] = [
     ("syntax error", "a.py", "def f(\n", "syntax"),
     ("unused import", "b.py", "import os\n", "F401"),
     ("undefined name", "c.py", "def f():\n    return undefined_thing\n", "F821"),
@@ -72,6 +72,12 @@ CASES: list[tuple[str, str, str, str | None]] = [
         None,
     ),
     (
+        # Measured, not assumed: S105/S106/S107 match on the NAME (`password`,
+        # `token`) and never on the value, so they catch `password = "hunter2"`
+        # and miss `API_KEY = "sk-live-..."` entirely. Adding them costs 0
+        # findings here and buys 0 detections for this shape. The blind spot is
+        # real, not one config line away, and saying so stops a reader assuming
+        # we merely failed to select the right rule.
         "hardcoded credential",
         "i.py",
         'API_KEY = "sk-live-01234567890abcdef"\n\n\ndef f():\n    return API_KEY\n',
@@ -130,7 +136,82 @@ GIT_ENV = {
 }
 
 
-def run_case(tmp: Path, filename: str, source: str, full: bool) -> str:
+# The Go markers below name the diagnostic text, not the file. The first draft of
+# this section used the filename and scored both Go cases as caught — the exact
+# leniency removed from the Python corpus one cycle earlier, reintroduced in the
+# same script by the same author within a week. Go has no rule codes, so the
+# message is the only specific marker available.
+#
+# The Python corpus above measures the stack this tool was written in, which is
+# the one place its author's blind spots and its own are most likely to coincide.
+# Go and Rust are checked by entirely different sensors — fmt, vet, clippy, the
+# compiler — so their blind spots are a separate question and were unmeasured.
+GO_CASES: list[tuple[str, str, str, str | None]] = [
+    (
+        "go: does not compile",
+        "main.go",
+        'package main\n\nfunc main() {\n\tvar x int = "no"\n\t_ = x\n}\n',
+        "cannot use",
+    ),
+    (
+        "go: unused import",
+        "main.go",
+        'package main\n\nimport "os"\n\nfunc main() {}\n',
+        "imported and not used",
+    ),
+    (
+        "go: error returned and ignored",
+        "main.go",
+        'package main\n\nimport "os"\n\nfunc main() {\n\tf, _ := os.Open("x")\n\t_ = f\n}\n',
+        None,
+    ),
+    (
+        "go: hardcoded credential",
+        "main.go",
+        'package main\n\nconst apiKey = "sk-live-0123456789abcdef"\n\n'
+        "func main() { _ = apiKey }\n",
+        None,
+    ),
+    (
+        "go: off-by-one slice bound",
+        "main.go",
+        "package main\n\nfunc last(xs []int) int { return xs[len(xs)] }\n\n"
+        "func main() { _ = last }\n",
+        None,
+    ),
+]
+
+RUST_CASES: list[tuple[str, str, str, str | None]] = [
+    (
+        "rust: does not compile",
+        "src/main.rs",
+        'fn main() {\n    let x: i32 = "no";\n    let _ = x;\n}\n',
+        "E0308",
+    ),
+    (
+        "rust: unused variable",
+        "src/main.rs",
+        "fn main() {\n    let unused_thing = 5;\n}\n",
+        "unused",
+    ),
+    (
+        "rust: hardcoded credential",
+        "src/main.rs",
+        'const API_KEY: &str = "sk-live-0123456789abcdef";\n\n'
+        'fn main() {\n    println!("{}", API_KEY);\n}\n',
+        None,
+    ),
+    (
+        "rust: off-by-one index",
+        "src/main.rs",
+        "fn last(xs: &[i32]) -> i32 {\n    xs[xs.len()]\n}\n\n"
+        'fn main() {\n    println!("{}", last(&[1, 2]));\n}\n',
+        None,
+    ),
+]
+
+
+def run_case(tmp: Path, filename: str, source: str, full: bool, stack: str) -> str:
     repo = tmp / "repo"
     if repo.exists():
         shutil.rmtree(repo)
@@ -144,12 +225,28 @@ def run_case(tmp: Path, filename: str, source: str, full: bool) -> str:
         subprocess.run(cmd, cwd=repo, check=True, capture_output=True, env=GIT_ENV)
     # Same rule set this repo adopted, so the answer is about the tool as shipped
     # rather than about ruff's defaults.
-    (repo / "pyproject.toml").write_text(
-        '[project]\nname = "t"\nrequires-python = ">=3.10"\n\n'
-        '[tool.ruff.lint]\nselect = ["E4", "E7", "E9", "F", "I", "B", "UP",\n'
-        '  "SIM115", "S602", "S605", "S608"]\n'
-    )
-    (repo / filename).write_text(source)
+    if stack == "python":
+        # Same rule set this repo adopted, so the answer is about the tool as
+        # shipped rather than about ruff's defaults.
+        (repo / "pyproject.toml").write_text(
+            '[project]\nname = "t"\nrequires-python = ">=3.10"\n\n'
+            '[tool.ruff.lint]\nselect = ["E4", "E7", "E9", "F", "I", "B", "UP",\n'
+            '  "SIM115", "S602", "S605", "S608"]\n'
+        )
+    elif stack == "go":
+        (repo / "go.mod").write_text("module example.com/t\n\ngo 1.24\n")
+    elif stack == "rust":
+        (repo / "Cargo.toml").write_text(
+            '[package]\nname = "t"\nversion = "0.1.0"\nedition = "2021"\n'
+        )
+    target = repo / filename
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(source)
+    if stack == "go" and shutil.which("gofmt"):
+        # Formatting noise would mask the defect under test with a gofmt finding.
+        subprocess.run(["gofmt", "-w", str(target)], capture_output=True, env=GIT_ENV)
+    if stack == "rust" and shutil.which("rustfmt"):
+        subprocess.run(["rustfmt", str(target)], capture_output=True, env=GIT_ENV)
     argv = [sys.executable, str(VERIFY), "--root", str(repo), "--files", filename]
     if full:
         argv.append("--full")
@@ -159,10 +256,21 @@ def run_case(tmp: Path, filename: str, source: str, full: bool) -> str:
 def main() -> int:
     full = "--full" in sys.argv
     caught, missed, incidental = [], [], []
+    suites = [("python", PY_CASES)]
+    # A stack whose toolchain is absent is reported as unmeasured, never folded
+    # into the score — an absent tool is not the absence of blind spots.
+    unmeasured = []
+    for stack, cases, tool in (("go", GO_CASES, "go"), ("rust", RUST_CASES, "cargo")):
+        (suites if shutil.which(tool) else unmeasured).append(
+            (stack, cases) if shutil.which(tool) else stack
+        )
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
-        for name, filename, source, expect in CASES:
-            out = run_case(tmp, filename, source, full)
+        cases_all = [(st, c) for st, cs in suites for c in cs]
+        for stack, (name, filename, source, expect) in cases_all:
+            out = run_case(
+                tmp, filename, source, full or stack in ("go", "rust"), stack
+            )
             findings = out.split("findings:", 1)[1] if "findings:" in out else ""
             if expect is not None and expect in findings:
                 caught.append(name)
@@ -178,7 +286,7 @@ def main() -> int:
             else:
                 print(f"  MISSED   {name}")
 
-    total = len(CASES)
+    total = len(caught) + len(missed)
     print(
         f"\n{len(caught)}/{total} caught, {len(missed)}/{total} missed"
         f"  (mode: {'full' if full else 'fast'})"
