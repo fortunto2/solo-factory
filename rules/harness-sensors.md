@@ -60,6 +60,24 @@ never passes. And the completion check runs *before* the output is interpreted:
 a timed-out pytest parses as "0 collected", and reporting that as "no tests
 found" would state a cause that did not happen.
 
+**2b. An absent tool must not turn red into green.** The sharpest false green
+found so far, and it came from an outside run rather than from us. The same file
+with two ruff violations returns FAIL where ruff is installed and PASS where it
+is not: the verdict was reporting the absence of a tool as the absence of
+problems. Measured by an outside agent on a seat without ruff, named precisely
+by another: *"PASS with ruff skipped is not 'clean', it is 'lint never ran'."*
+
+A skip therefore has two kinds, and only one of them is harmless:
+
+| Kind | Meaning | Effect on the verdict |
+|---|---|---|
+| `not-applicable` | nothing of that type in scope | none — there was nothing to do |
+| `unavailable` | the sensor applied, its tool could not run | verdict becomes **PARTIAL** |
+
+`PARTIAL` exits 0, because a machine without ruff should not fail a pipeline for
+that. The honesty is in the word and in the `INCOMPLETE` line naming which
+sensors could not run, not in breaking the build.
+
 **3. A skip always carries a reason, and "not installed" is a claim about PATH.**
 A hook's PATH differs from your shell's, so a tool that works in the terminal
 can be unreachable in the hook. The receipt says which of those it observed.

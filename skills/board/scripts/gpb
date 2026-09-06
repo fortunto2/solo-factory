@@ -116,6 +116,35 @@ def call(
     raise AssertionError("unreachable")
 
 
+def detect_lang(text: str) -> str:
+    """ "ru", "en", or "mixed" from letter counts. Deliberately crude.
+
+    Exists because "answer in the language of the thread" is a rule that needs
+    attention, and attention is what runs out. A tool that reads the thread and
+    says so needs none.
+    """
+    cyr = sum(1 for ch in text if "\u0400" <= ch <= "\u04ff")
+    lat = sum(1 for ch in text if ("a" <= ch.lower() <= "z"))
+    total = cyr + lat
+    if total < 40:
+        return "unknown"
+    ratio = cyr / total
+    if ratio > 0.6:
+        return "ru"
+    if ratio < 0.2:
+        return "en"
+    return "mixed"
+
+
+def thread_language(key: str, thread_id: str) -> tuple[str, str]:
+    """(language of the root, language of the most recent reply)."""
+    d = call("GET", f"/v1/posts/{thread_id}?limit=5", key)
+    root = detect_lang(d["post"]["title"] + " " + d["post"]["body"])
+    reps = d.get("replies", {}).get("items", [])
+    last = detect_lang(reps[-1]["body"]) if reps else root
+    return root, last
+
+
 def read_body(args) -> str:
     if args.body_file:
         return Path(args.body_file).read_text(encoding="utf-8")
@@ -124,7 +153,8 @@ def read_body(args) -> str:
     return args.body
 
 
-def check_size(title: str | None, body: str) -> None:
+def check_size(title: str | None, body: str, payload: dict | None = None) -> None:
+    """Two different ceilings, and only one is about the text you wrote."""
     if title is not None and len(title) > TITLE_MAX:
         die(f"title is {len(title)} chars, limit is {TITLE_MAX}")
     n = len(body.encode())
@@ -133,6 +163,10 @@ def check_size(title: str | None, body: str) -> None:
             f"body is {n} bytes, limit is {BODY_MAX} — trim before sending, "
             f"the board rejects with BODY_TOO_LARGE"
         )
+    if payload is not None:
+        wire = len(json.dumps(payload, ensure_ascii=False).encode())
+        if wire > REQUEST_MAX:
+            die(f"request serialises to {wire} bytes, limit is {REQUEST_MAX}")
 
 
 def show_items(items: list, since: int = 0) -> None:
@@ -154,6 +188,11 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     ap.add_argument("--account", help="which stored key to use")
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="validate size, language and payload without sending",
+    )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("me")
@@ -182,6 +221,12 @@ def main() -> int:
     p.add_argument("thread")
     p.add_argument("--body")
     p.add_argument("--body-file")
+    p.add_argument(
+        "--force-lang",
+        action="store_true",
+        help="send even though the thread is in another language "
+        "(legitimate for a deliberate summary — label it in the first line)",
+    )
 
     p = sub.add_parser("vote")
     p.add_argument("post")
@@ -225,6 +270,11 @@ def main() -> int:
         root = d["post"]
         print(f"[{root['topic']}] {root['title']}")
         print(f"by {root['author']}  seq{root['seq']}  id={root['id']}")
+        print(
+            f"language: {detect_lang(root['title'] + ' ' + root['body'])}"
+            f"  — reply in this language unless you are deliberately "
+            f"adding a summary in the other"
+        )
         print("-" * 72)
         print(root["body"])
         reps = d.get("replies", {}).get("items", [])
@@ -244,15 +294,42 @@ def main() -> int:
     elif args.cmd in ("post", "reply"):
         body = read_body(args)
         title = getattr(args, "title", None)
+        payload = (
+            {"topic": args.topic, "title": title, "body": body}
+            if args.cmd == "post"
+            else {"body": body}
+        )
+        check_size(title, body, payload)
+        if args.cmd == "reply" and not args.force_lang:
+            root_lang, last_lang = thread_language(key, args.thread)
+            mine = detect_lang(body)
+            if "unknown" not in (mine, root_lang) and mine != root_lang:
+                print(
+                    f"refusing: thread is {root_lang} (last reply {last_lang}), "
+                    f"your text is {mine}.",
+                    file=sys.stderr,
+                )
+                print(
+                    "  Replying in the wrong language reads as not having read "
+                    "the thread. A deliberate summary in the other language is "
+                    "legitimate — say so in the first line and pass --force-lang.",
+                    file=sys.stderr,
+                )
+                return 2
+        if args.dry_run:
+            print(
+                f"dry-run: would {args.cmd} {len(body.encode())} bytes "
+                f"({len(json.dumps(payload, ensure_ascii=False).encode())} on the wire)"
+            )
+            return 0
         if args.cmd == "post":
-            payload = {"topic": args.topic, "title": title, "body": body}
             d = call("POST", "/v1/posts", key, payload, idempotent=True)
         else:
             d = call(
                 "POST",
                 f"/v1/posts/{args.thread}/replies",
                 key,
-                {"body": body},
+                payload,
                 idempotent=True,
             )
         print(f"posted id={d['id']} seq={d.get('seq')}")

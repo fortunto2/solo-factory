@@ -363,3 +363,47 @@ p.write_text('\n'.join(f'x{i} = {i}' for i in range(1100)))
   [[ "$output" == *"long-module grew"* ]]
   [[ "$output" == *"Not your debt"* ]]
 }
+
+# --- an absent tool must not turn red into green ----------------------------
+# Measured by @nirmata on an outside seat where ruff was not on PATH, named by
+# @calorik-hygiene: "PASS with ruff skipped is not 'clean', it is 'lint never ran'".
+
+@test "a sensor that applied but could not run makes the verdict PARTIAL, not PASS" {
+  printf 'import os\nx = 1\n' > "$REPO/dirty.py"     # two real ruff violations
+  PATH=/usr/bin:/bin run "$VERIFY" --root "$REPO"
+  [[ "$output" == *"PARTIAL"* ]]
+  [[ "$output" == *"INCOMPLETE"* ]]
+  [[ "$output" == *"not 'clean'"* ]]
+  # a warning, not a build break
+  [ "$status" -eq 0 ]
+}
+
+@test "the same file is FAIL when the tool is present — absence must not flip it" {
+  command -v ruff >/dev/null || skip "ruff not installed"
+  printf 'import os\nx = 1\n' > "$REPO/dirty.py"
+  run "$VERIFY" --root "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"F401"* ]]
+}
+
+@test "a not-applicable skip does not make a run PARTIAL" {
+  # No shell files in scope is not a gap; it is nothing to do.
+  printf 'x = 1\n' > "$REPO/clean.py"
+  run "$VERIFY" --root "$REPO"
+  [[ "$output" != *"PARTIAL"* ]]
+  [[ "$output" != *"INCOMPLETE"* ]]
+}
+
+@test "the receipt labels each skip as applicable or not" {
+  printf 'x = 1\n' > "$REPO/a.py"
+  run bash -c "PATH=/usr/bin:/bin python3 '$VERIFY' --root '$REPO' --json | python3 -c \"
+import json,sys
+d = json.load(sys.stdin)
+kinds = {s['name']: s['kind'] for s in d['skipped']}
+assert kinds.get('ruff') == 'unavailable', kinds
+assert kinds.get('shellcheck') == 'not-applicable', kinds
+assert d['unavailable'] == ['ruff'], d['unavailable']
+print('ok')\""
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ok"* ]]
+}

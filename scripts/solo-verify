@@ -34,7 +34,9 @@ Usage:
     solo-verify --files a.py b.ts   # explicit scope
     solo-verify --json              # machine-readable receipt
 
-Exit: 0 pass · 1 fail · 2 unknown (nothing was actually checked)
+Exit: 0 pass or partial · 1 fail · 2 unknown (nothing was actually checked)
+PARTIAL means every check that ran was green but a sensor that applied could
+not run — green by what ran, not clean.
 """
 
 from __future__ import annotations
@@ -133,10 +135,18 @@ class Result:
     status: str  # pass | fail | skip
     promise: str = ""  # what this sensor claims to check
     reason: str = ""  # why skipped — mandatory for skip
+    # "not-applicable" (nothing of that type in scope) or "unavailable" (the
+    # sensor applied but its tool could not run). Reported by @calorik-hygiene:
+    # PASS with ruff skipped reads as "lint clean" when it means "lint never ran".
+    skip_kind: str = ""
     findings: list[str] = field(default_factory=list)
     covered: list[str] = field(default_factory=list)  # files it actually looked at
     counters: dict = field(default_factory=dict)  # minimal observability vector
     seconds: float = 0.0
+
+
+UNAVAILABLE = "unavailable"
+NOT_APPLICABLE = "not-applicable"
 
 
 def missing(binary: str, install_hint: str = "") -> str:
@@ -357,7 +367,12 @@ def check_syntax(root: Path, files: list[Path]) -> Result:
                 )
                 findings.append(f"{rel(root, f)} syntax {first}")
     if not covered:
-        return Result("syntax", "skip", reason="no parseable files in scope")
+        return Result(
+            "syntax",
+            "skip",
+            reason="no parseable files in scope",
+            skip_kind=NOT_APPLICABLE,
+        )
     return Result(
         "syntax",
         "fail" if findings else "pass",
@@ -440,7 +455,12 @@ def check_limits(root: Path, files: list[Path]) -> Result:
                     f"{length} lines — {FIX_HINTS['long-function']}"
                 )
     if not covered:
-        return Result("limits", "skip", reason="no source files in scope")
+        return Result(
+            "limits",
+            "skip",
+            reason="no source files in scope",
+            skip_kind=NOT_APPLICABLE,
+        )
     return Result(
         "limits",
         "fail" if findings else "pass",
@@ -454,9 +474,16 @@ def check_limits(root: Path, files: list[Path]) -> Result:
 def check_ruff(root: Path, files: list[Path], timeout: int) -> Result:
     py = [f for f in files if is_python(f)]
     if not py:
-        return Result("ruff", "skip", reason="no Python files in scope")
+        return Result(
+            "ruff", "skip", reason="no Python files in scope", skip_kind=NOT_APPLICABLE
+        )
     if not shutil.which("ruff"):
-        return Result("ruff", "skip", reason=missing("ruff", "brew install ruff"))
+        return Result(
+            "ruff",
+            "skip",
+            reason=missing("ruff", "brew install ruff"),
+            skip_kind=UNAVAILABLE,
+        )
     t = time.time()
     code, out = run(
         ["ruff", "check", "--no-fix", "--output-format=concise", *[str(f) for f in py]],
@@ -478,6 +505,7 @@ def check_ruff(root: Path, files: list[Path], timeout: int) -> Result:
         "ruff",
         status_for(code),
         reason=incomplete_reason(code),
+        skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
         promise="ruff rule set configured for this repo",
         findings=findings[:20],
         covered=[rel(root, f) for f in py],
@@ -489,9 +517,11 @@ def check_ruff(root: Path, files: list[Path], timeout: int) -> Result:
 def check_types(root: Path, files: list[Path], timeout: int) -> Result:
     py = [f for f in files if is_python(f)]
     if not py:
-        return Result("ty", "skip", reason="no Python files in scope")
+        return Result(
+            "ty", "skip", reason="no Python files in scope", skip_kind=NOT_APPLICABLE
+        )
     if not shutil.which("uvx"):
-        return Result("ty", "skip", reason=missing("uvx"))
+        return Result("ty", "skip", reason=missing("uvx"), skip_kind=UNAVAILABLE)
     t = time.time()
     code, out = run(["uvx", "ty", "check", *[str(f) for f in py]], root, timeout)
     findings = [ln.strip() for ln in out.splitlines() if "error" in ln.lower()][:15]
@@ -501,6 +531,7 @@ def check_types(root: Path, files: list[Path], timeout: int) -> Result:
         "ty",
         status_for(code),
         reason=incomplete_reason(code),
+        skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
         promise="type errors in changed Python files",
         findings=findings,
         covered=[rel(root, f) for f in py],
@@ -519,7 +550,7 @@ def check_pytest(root: Path, timeout: int) -> Result:
             "pytest", "skip", reason="no tests/ directory and no test_*.py at root"
         )
     if not shutil.which("uvx"):
-        return Result("pytest", "skip", reason=missing("uvx"))
+        return Result("pytest", "skip", reason=missing("uvx"), skip_kind=UNAVAILABLE)
     t = time.time()
     code, out = run(["uvx", "pytest", "-q", "--no-header"], root, timeout)
     # Order matters: a timed-out or never-started run parses as "0 collected",
@@ -527,7 +558,11 @@ def check_pytest(root: Path, timeout: int) -> Result:
     # completion before interpreting the output at all.
     if status_for(code) == "skip":
         return Result(
-            "pytest", "skip", reason=incomplete_reason(code), seconds=time.time() - t
+            "pytest",
+            "skip",
+            reason=incomplete_reason(code),
+            skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
+            seconds=time.time() - t,
         )
     counters = {"collected": 0, "passed": 0, "failed": 0}
     for key, pat in (
@@ -559,6 +594,7 @@ def check_pytest(root: Path, timeout: int) -> Result:
         "pytest",
         status_for(code),
         reason=incomplete_reason(code),
+        skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
         promise="the repo's test suite runs and passes",
         findings=[] if code == 0 else tail,
         counters=counters,
@@ -575,11 +611,22 @@ def check_go(root: Path, files: list[Path], full: bool, timeout: int) -> list[Re
     """
     src = [f for f in files if f.suffix == ".go"]
     if not shutil.which("go"):
-        return [Result("go", "skip", reason=missing("go", "brew install go"))]
+        return [
+            Result(
+                "go",
+                "skip",
+                reason=missing("go", "brew install go"),
+                skip_kind=UNAVAILABLE,
+            )
+        ]
 
     results: list[Result] = []
     if not src:
-        results.append(Result("gofmt", "skip", reason="no Go files in scope"))
+        results.append(
+            Result(
+                "gofmt", "skip", reason="no Go files in scope", skip_kind=NOT_APPLICABLE
+            )
+        )
     else:
         t = time.time()
         code, out = run(["gofmt", "-l", *[str(f) for f in src]], root, timeout)
@@ -612,6 +659,7 @@ def check_go(root: Path, files: list[Path], full: bool, timeout: int) -> list[Re
                 "go-vet",
                 status_for(code),
                 reason=incomplete_reason(code),
+                skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
                 promise="go vet clean across the module",
                 findings=findings,
                 seconds=time.time() - t,
@@ -626,6 +674,7 @@ def check_go(root: Path, files: list[Path], full: bool, timeout: int) -> list[Re
                     "go-test",
                     "skip",
                     reason=incomplete_reason(code),
+                    skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
                     seconds=time.time() - t,
                 )
             )
@@ -663,6 +712,7 @@ def check_go(root: Path, files: list[Path], full: bool, timeout: int) -> list[Re
                     "go-test",
                     status_for(code),
                     reason=incomplete_reason(code),
+                    skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
                     promise="the module's tests run and pass",
                     findings=tail if code != 0 else [],
                     counters=counters,
@@ -675,12 +725,18 @@ def check_go(root: Path, files: list[Path], full: bool, timeout: int) -> list[Re
 def check_shellcheck(root: Path, files: list[Path], timeout: int) -> Result:
     sh = [f for f in files if is_shell(f)]
     if not sh:
-        return Result("shellcheck", "skip", reason="no shell files in scope")
+        return Result(
+            "shellcheck",
+            "skip",
+            reason="no shell files in scope",
+            skip_kind=NOT_APPLICABLE,
+        )
     if not shutil.which("shellcheck"):
         return Result(
             "shellcheck",
             "skip",
             reason=missing("shellcheck", "brew install shellcheck"),
+            skip_kind=UNAVAILABLE,
         )
     t = time.time()
     code, out = run(
@@ -691,6 +747,7 @@ def check_shellcheck(root: Path, files: list[Path], timeout: int) -> Result:
         "shellcheck",
         status_for(code),
         reason=incomplete_reason(code),
+        skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
         promise="shell scripts lint clean",
         findings=findings,
         covered=[rel(root, f) for f in sh],
@@ -702,7 +759,9 @@ def check_shellcheck(root: Path, files: list[Path], timeout: int) -> Result:
 def check_node_lint(root: Path, files: list[Path], timeout: int) -> Result:
     src = [f for f in files if f.suffix in {".ts", ".tsx", ".js", ".jsx"}]
     if not src:
-        return Result("eslint", "skip", reason="no JS/TS files in scope")
+        return Result(
+            "eslint", "skip", reason="no JS/TS files in scope", skip_kind=NOT_APPLICABLE
+        )
     binary = root / "node_modules" / ".bin" / "eslint"
     if not binary.exists():
         return Result(
@@ -717,6 +776,7 @@ def check_node_lint(root: Path, files: list[Path], timeout: int) -> Result:
         "eslint",
         status_for(code),
         reason=incomplete_reason(code),
+        skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
         promise="eslint config for this repo",
         findings=findings,
         covered=[rel(root, f) for f in src],
@@ -736,6 +796,7 @@ def check_tsc(root: Path, timeout: int) -> Result:
         "tsc",
         status_for(code),
         reason=incomplete_reason(code),
+        skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
         promise="project typechecks",
         findings=findings,
         counters={"errors": len(findings)},
@@ -757,7 +818,7 @@ def rust_edition(root: Path) -> str:
 
 def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[Result]:
     if not shutil.which("cargo"):
-        return [Result("cargo", "skip", reason=missing("cargo"))]
+        return [Result("cargo", "skip", reason=missing("cargo"), skip_kind=UNAVAILABLE)]
     out_results = []
 
     # `cargo fmt --check` formats the whole workspace regardless of what
@@ -767,9 +828,20 @@ def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[
     # statements in one receipt. Scope it to the changed files instead.
     rs = [f for f in files if f.suffix == ".rs"]
     if not rs:
-        out_results.append(Result("cargo-fmt", "skip", reason="no Rust files in scope"))
+        out_results.append(
+            Result(
+                "cargo-fmt",
+                "skip",
+                reason="no Rust files in scope",
+                skip_kind=NOT_APPLICABLE,
+            )
+        )
     elif not shutil.which("rustfmt"):
-        out_results.append(Result("cargo-fmt", "skip", reason=missing("rustfmt")))
+        out_results.append(
+            Result(
+                "cargo-fmt", "skip", reason=missing("rustfmt"), skip_kind=UNAVAILABLE
+            )
+        )
     else:
         t = time.time()
         code, _ = run(
@@ -788,6 +860,7 @@ def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[
                 "cargo-fmt",
                 status_for(code),
                 reason=incomplete_reason(code),
+                skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
                 promise="changed .rs files are rustfmt-clean",
                 findings=[]
                 if code == 0
@@ -813,6 +886,7 @@ def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[
                 "clippy",
                 status_for(code),
                 reason=incomplete_reason(code),
+                skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
                 promise="clippy with warnings denied (whole workspace, not scoped)",
                 findings=findings,
                 seconds=time.time() - t,
@@ -830,6 +904,7 @@ def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[
                 "cargo-test",
                 status_for(code),
                 reason=incomplete_reason(code),
+                skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
                 promise="cargo test suite passes (whole workspace, not scoped)",
                 findings=findings,
                 counters=counters,
@@ -842,10 +917,18 @@ def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[
 def check_swift(root: Path, files: list[Path], timeout: int) -> Result:
     src = [f for f in files if f.suffix == ".swift"]
     if not src:
-        return Result("swiftlint", "skip", reason="no Swift files in scope")
+        return Result(
+            "swiftlint",
+            "skip",
+            reason="no Swift files in scope",
+            skip_kind=NOT_APPLICABLE,
+        )
     if not shutil.which("swiftlint"):
         return Result(
-            "swiftlint", "skip", reason=missing("swiftlint", "brew install swiftlint")
+            "swiftlint",
+            "skip",
+            reason=missing("swiftlint", "brew install swiftlint"),
+            skip_kind=UNAVAILABLE,
         )
     t = time.time()
     _, out = run(
@@ -868,9 +951,19 @@ def check_swift(root: Path, files: list[Path], timeout: int) -> Result:
 def check_kotlin(root: Path, files: list[Path], timeout: int) -> Result:
     src = [f for f in files if f.suffix in {".kt", ".kts"}]
     if not src:
-        return Result("ktlint", "skip", reason="no Kotlin files in scope")
+        return Result(
+            "ktlint",
+            "skip",
+            reason="no Kotlin files in scope",
+            skip_kind=NOT_APPLICABLE,
+        )
     if not shutil.which("ktlint"):
-        return Result("ktlint", "skip", reason=missing("ktlint", "brew install ktlint"))
+        return Result(
+            "ktlint",
+            "skip",
+            reason=missing("ktlint", "brew install ktlint"),
+            skip_kind=UNAVAILABLE,
+        )
     t = time.time()
     code, out = run(["ktlint", *[str(f) for f in src]], root, timeout)
     findings = [ln.strip() for ln in out.splitlines() if ln.strip()][:20]
@@ -878,6 +971,7 @@ def check_kotlin(root: Path, files: list[Path], timeout: int) -> Result:
         "ktlint",
         status_for(code),
         reason=incomplete_reason(code),
+        skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
         promise="ktlint rules",
         findings=findings,
         covered=[rel(root, f) for f in src],
@@ -953,6 +1047,12 @@ def build_receipt(
     # absent input must not be the same state.
     unchecked = [s for s in scope if s not in covered]
 
+    # A sensor that had work to do and could not do it. Distinct from one that had
+    # nothing to look at, and the difference decides the verdict.
+    unavailable = [
+        r for r in results if r.status == "skip" and r.skip_kind == "unavailable"
+    ]
+
     if not scope:
         verdict, why = "UNKNOWN", "empty scope: no changed files were found to check"
     elif not ran:
@@ -961,6 +1061,18 @@ def build_receipt(
         verdict, why = "FAIL", ""
     elif harness_gaps(files, results):
         verdict, why = "UNKNOWN", "a promised sensor never reported (see HARNESS GAP)"
+    elif unavailable:
+        # Not PASS. The same file with two ruff violations returns FAIL where ruff
+        # is installed and PASS where it is not — an absent tool turning red into
+        # green. @nirmata measured this on an outside seat, @calorik-hygiene named
+        # it: "PASS with ruff skipped is not 'clean', it is 'lint never ran'".
+        verdict, why = (
+            "PARTIAL",
+            (
+                f"{len(unavailable)} applicable sensor(s) could not run — "
+                f"this is not a clean result, it is an incomplete one"
+            ),
+        )
     else:
         verdict, why = "PASS", ""
 
@@ -986,8 +1098,11 @@ def build_receipt(
             for r in ran
         ],
         "skipped": [
-            {"name": r.name, "reason": r.reason} for r in results if r.status == "skip"
+            {"name": r.name, "reason": r.reason, "kind": r.skip_kind}
+            for r in results
+            if r.status == "skip"
         ],
+        "unavailable": [r.name for r in unavailable],
         "findings": [f for r in failed for f in (r.findings or [f"{r.name} failed"])],
         "elapsed": round(elapsed, 2),
     }
@@ -1041,6 +1156,14 @@ def render(rec: dict) -> str:
             out.append(f"    {f}")
         if len(rec["findings"]) > 25:
             out.append(f"    ... and {len(rec['findings']) - 25} more")
+    if rec.get("unavailable"):
+        out.append(
+            "  INCOMPLETE — these sensors applied but could not run: "
+            + ", ".join(rec["unavailable"])
+        )
+        out.append(
+            "    A green result here means 'nothing found by what ran', not 'clean'."
+        )
     if rec["verdict"] == "UNKNOWN":
         out.append(
             "  NOTE: this is NOT a pass. Nothing was verified. Either widen the "
@@ -1095,7 +1218,7 @@ def main() -> int:
 
     rec = build_receipt(root, files, stacks, results, args.full, time.time() - started)
     print(json.dumps(rec, indent=2, ensure_ascii=False) if args.json else render(rec))
-    return {"PASS": 0, "FAIL": 1, "UNKNOWN": 2}[rec["verdict"]]
+    return {"PASS": 0, "PARTIAL": 0, "FAIL": 1, "UNKNOWN": 2}[rec["verdict"]]
 
 
 if __name__ == "__main__":
