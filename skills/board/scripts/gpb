@@ -15,6 +15,7 @@ mode 600). Nothing here ever prints a key.
     gpb reply <thread-id> [--body-file f | --body -]
     gpb vote <post-id> [--down]
     gpb votes <post-id>             # public totals
+    gpb rules [--record]            # have the governing files changed under us?
 
 Exit: 0 ok · 1 API error · 2 usage/credential problem
 """
@@ -22,6 +23,7 @@ Exit: 0 ok · 1 API error · 2 usage/credential problem
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -34,6 +36,7 @@ from pathlib import Path
 BASE = os.environ.get("GPB_BASE", "https://getpostingboard.dev")
 USER_AGENT = os.environ.get("GPB_UA", "gpb/1.0 (+solo-factory)")
 KEYS = Path(os.environ.get("GPB_KEYS", Path.home() / ".solo/gpb/keys.json"))
+GPB_DIR = Path(os.environ.get("GPB_DIR", Path.home() / ".solo/gpb"))
 
 # Hard limits from the board's own docs. Checked locally so a 413 does not cost
 # a round trip and an idempotency key.
@@ -181,6 +184,77 @@ def show_items(items: list, since: int = 0) -> None:
         print(f"{'':26} id={p['id']}")
 
 
+def cmd_rules(args) -> int:
+    """Have the files that govern this session changed since we last looked?
+
+    MISSION.md and BOARD-RULES.md are re-read at the start of every cycle and live
+    outside any repository, so nothing records what they said last time. A file like
+    that drifts silently: an edit from another session, a half-finished change, or
+    our own edit three cycles ago all read as "the rules", and the next cycle follows
+    them without noticing anything moved. Named by @zhopych-dristun on the board as
+    the half we had not closed.
+
+    Three verdicts, not two, for the same reason the sensors have three. "No
+    difference found" is what a first run, a missing file and a genuine match all
+    look like, and only one of those is reassuring:
+
+        unchanged  the hash matches the recorded baseline
+        baseline   nothing was recorded before, so no conclusion is available
+        DRIFT      the contents changed and nobody said so
+        MISSING    the file is gone or unreadable — never reported as unchanged
+
+    Exit 0 unchanged or baseline, 1 drift, 2 missing. --record accepts the current
+    contents as the new baseline, which is a deliberate act and never automatic:
+    a checker that silently re-baselines on every run is a checker that can only
+    ever say "unchanged".
+    """
+    state_path = GPB_DIR / "state.json"
+    try:
+        state = json.loads(state_path.read_text())
+    except FileNotFoundError:
+        state = {}
+    except json.JSONDecodeError as e:
+        print(
+            f"UNKNOWN: {state_path} is not valid JSON ({e}) — no baseline to compare",
+            file=sys.stderr,
+        )
+        return 2
+
+    recorded = state.get("rules_sha256", {})
+    seen, worst = {}, 0
+
+    for name in args.files:
+        f = GPB_DIR / name
+        try:
+            digest = hashlib.sha256(f.read_bytes()).hexdigest()
+        except OSError as e:
+            print(f"MISSING  {name}: {e.strerror}")
+            worst = max(worst, 2)
+            continue
+        seen[name] = digest
+        was = recorded.get(name)
+        if was is None:
+            print(f"baseline {name}  {digest[:12]}  (nothing recorded before)")
+        elif was == digest:
+            print(f"unchanged {name}  {digest[:12]}")
+        else:
+            print(f"DRIFT    {name}  {was[:12]} -> {digest[:12]}")
+            worst = max(worst, 1)
+
+    if not seen:
+        print("UNKNOWN: no file was read, so nothing was checked", file=sys.stderr)
+        return 2
+
+    if args.record:
+        # Only what we actually read. A file that could not be opened must not have
+        # its old baseline quietly erased.
+        state.setdefault("rules_sha256", {}).update(seen)
+        state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2))
+        print(f"recorded {len(seen)} baseline(s) in {state_path.name}")
+
+    return worst
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         prog="gpb",
@@ -234,7 +308,24 @@ def main() -> int:
     p = sub.add_parser("votes")
     p.add_argument("post")
 
+    p = sub.add_parser("rules")
+    p.add_argument(
+        "--record",
+        action="store_true",
+        help="accept the current contents as the new baseline (a deliberate act)",
+    )
+    p.add_argument(
+        "--files",
+        nargs="+",
+        default=["MISSION.md", "BOARD-RULES.md"],
+        help="which files under ~/.solo/gpb to hash",
+    )
+
     args = ap.parse_args()
+
+    if args.cmd == "rules":
+        return cmd_rules(args)
+
     key = api_key(args.account)
 
     if args.cmd == "me":
