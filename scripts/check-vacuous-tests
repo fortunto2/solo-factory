@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+"""Find tests that cannot fail.
+
+Three times in one week this author wrote a test whose assertions were all
+negative — "the output does not contain X" — and every one of them passed on an
+empty result while checking nothing. Twice inside the very test file about
+vacuous passes. Vigilance did not fix it the first two times, so it is a check
+now.
+
+The rule, and it is narrow on purpose: **a test whose only assertions are
+absence assertions passes when there is no output at all.** Such a test must
+also assert something positive — a status, a count, a substring that must be
+present — so that an empty or broken run fails instead of sailing through.
+
+What it deliberately does NOT flag:
+- a test with at least one positive assertion, however many negatives it adds;
+- a test with no assertions at all (that is a different defect and a noisier
+  check — a setup helper looks identical);
+- anything outside a recognised test file.
+
+The false-positive budget is the reason for that narrowness. A checker that
+flags a lot of correct tests gets deleted within a week, and then you believe a
+check exists when it does not.
+
+Exit 0 clean, 1 findings, 2 nothing was examined (never a pass).
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+# A test file, by convention rather than by content sniffing.
+TEST_FILE = re.compile(
+    r"(\.bats$|(^|/)test_[^/]*\.py$|[._]test\.[jt]sx?$|\.spec\.[jt]sx?$)"
+)
+
+# Where a test begins, chosen by the file's own dialect rather than tried all at
+# once. Trying all three flagged a vitest fixture embedded in a .bats heredoc as
+# if it were a real test — the checker's first false positive, and it found it on
+# its own test file. A .bats file has no vitest tests in it; a fixture that looks
+# like one is data.
+BATS_START = re.compile(r'^\s*@test\s+"(?P<name>.*)"\s*\{')
+PY_START = re.compile(r"^\s*def (?P<name>test_\w+)\s*\(")
+JS_START = re.compile(r'^\s*(?:it|test)\s*\(\s*[\'"`](?P<name>[^\'"`]*)')
+
+
+def starts_for(path: Path):
+    if path.suffix == ".bats":
+        return (BATS_START,)
+    if path.suffix == ".py":
+        return (PY_START,)
+    return (JS_START,)
+
+
+POSITIVE = (
+    re.compile(r'\[\[\s*"?\$\{?\w+.*?==\s'),  # [[ "$output" == *x* ]]
+    re.compile(r"\[\s+\"?\$\{?\w+\"?\s+-(eq|ne|gt|lt|ge|le)\s"),  # [ "$status" -eq 0 ]
+    re.compile(r"^\s*(grep|test)\s+-q\b"),  # grep -q ... (a presence check)
+    re.compile(r"\bassert\s+(?!not\b)"),  # assert x   (python)
+    re.compile(r"\.(toBe|toEqual|toContain|toMatch|toHaveLength|toThrow)\("),
+)
+# A negated expectation is not a positive one, whatever it wraps.
+NEGATIVE = (
+    re.compile(r'\[\[\s*"?\$\{?\w+.*?!=\s'),
+    re.compile(r"^\s*!\s"),
+    re.compile(r"\bassert\s+not\b"),
+    re.compile(r"assertNot|toBeNull|\.not\.to"),
+)
+
+
+def scan(path: Path) -> list[tuple[str, int]]:
+    """Return (test name, line) for every test whose assertions are all negative."""
+    starts = starts_for(path)
+    findings, name, line_no, pos, neg = [], None, 0, 0, 0
+
+    def close() -> None:
+        if name is not None and neg and not pos:
+            findings.append((name, line_no))
+
+    for i, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
+        start = next((m for p in starts if (m := p.match(line))), None)
+        if start:
+            close()
+            name, line_no, pos, neg = start.group("name"), i, 0, 0
+            continue
+        if name is None:
+            continue
+        # A .not. expectation matches both tables; count it only as negative.
+        if any(p.search(line) for p in NEGATIVE):
+            neg += 1
+        elif any(p.search(line) for p in POSITIVE):
+            pos += 1
+    close()
+    return findings
+
+
+def main(argv: list[str]) -> int:
+    paths = [Path(a) for a in argv[1:]]
+    examined = [p for p in paths if TEST_FILE.search(str(p)) and p.is_file()]
+    if not examined:
+        print(
+            f"UNKNOWN: none of the {len(paths)} path(s) is a test file — nothing was "
+            f"examined. This is not a pass.",
+            file=sys.stderr,
+        )
+        return 2
+
+    total = 0
+    for p in examined:
+        for name, line in scan(p):
+            total += 1
+            print(
+                f"{p}:{line}: test asserts only absence — it passes on empty output. "
+                f'Add one positive assertion (a status, a count, a required substring): "{name}"'
+            )
+    print(
+        f"  checked {len(examined)} test file(s), {total} finding(s)",
+        file=sys.stderr,
+    )
+    return 1 if total else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

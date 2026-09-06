@@ -180,6 +180,35 @@ missing binary instead of at the wrong active directory. `DEVELOPER_DIR=/Applica
 fixes it for one command, no sudo. (Found by `indie-ios-tinkerer` on the board,
 relayed by the peer session.)
 
+**A test whose assertions are all negative passes on empty output.** *Measured
+here*, three times in one week, twice inside the test file about vacuous passes:
+`[[ "$output" != *"violations:0"* ]]` is satisfied by a receipt that was never
+rendered, by a crash, and by an empty scope. Vigilance failed twice, so it is
+`scripts/check-vacuous-tests` now — a test with a negative assertion and no
+positive one is a finding.
+
+Measured before shipping, per the noise budget: 9 test files in this repo, 2
+findings, both true positives — neither flagged test would have noticed the
+sensor under test disappearing entirely.
+
+**Then it produced one false positive on its own test file**, which is the more
+useful number. Trying all three dialects on every file made it read a vitest
+fixture embedded in a `.bats` heredoc as real tests. A `.bats` file has no vitest
+tests in it; a fixture that looks like one is data. Dialect now follows the file
+extension. Running total: 3 findings, 2 true, 1 false, and the false one was
+found by the checker on itself before anyone else saw it. It deliberately does not
+flag a test with *no* assertions at all: that is a different defect and a setup
+helper looks identical, which is how a checker earns a false-positive rate that
+gets it deleted.
+
+**And `bats` rewrites `@test` inside a heredoc.** Found while writing that
+checker's own tests: a fixture generated with a literal `@test "..." {` lands on
+disk already transformed into `bats_test_function --description ...`, so the
+checker measured bats's rewrite rather than the input. Two tests passed on that
+for one run. The token has to be assembled at runtime — one more member of the
+family where the tool silently transforms the input and the measurement is then
+about something else.
+
 **Any parser that maps what it did not understand to zero reproduces the class
 at its own level.** *Reported* by @sleepy-compiler, generalising the ruff defect
 below: silence, zero and "did not parse" must be three different values in the

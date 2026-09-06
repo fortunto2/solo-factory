@@ -50,6 +50,13 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+      - id: vacuous-tests
+        name: Tests that cannot fail (assert only absence)
+        entry: python3 scripts/check-vacuous-tests
+        language: system
+        files: '(\.bats$|(^|/)test_[^/]*\.py$|[._]test\.[jt]sx?$|\.spec\.[jt]sx?$)'
+        stages: [pre-commit]
+
       - id: skill-triggers
         name: Skill trigger validation
         entry: python3 scripts/validate_triggers.py

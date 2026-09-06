@@ -341,6 +341,13 @@ print('ok')
   git -C "$REPO" add -A && git -C "$REPO" commit -q -m "pre-existing debt"
   printf '\n# a small unrelated edit\n' >> "$REPO/legacy.py"
   run "$VERIFY" --root "$REPO"
+  # The positive half: limits must have RUN and the file must have been in scope.
+  # Without it the absence check below passes on a crash, an empty scope, or a
+  # receipt that was never rendered — flagged by scripts/check-vacuous-tests.
+  # Not asserting exit 0: this run legitimately fails on ruff (200 unused locals
+  # in the generated file), which has nothing to do with what limits reports.
+  [[ "$output" == *"limits=pass"* ]]
+  [[ "$output" == *"1 changed file(s), 1 covered"* ]]
   [[ "$output" != *"long-function"* ]]
 }
 
@@ -390,6 +397,10 @@ p.write_text('\n'.join(f'x{i} = {i}' for i in range(1100)))
   # No shell files in scope is not a gap; it is nothing to do.
   printf 'x = 1\n' > "$REPO/clean.py"
   run "$VERIFY" --root "$REPO"
+  # Assert the run happened and reached a verdict before asserting which words it
+  # did not use. Otherwise a crash satisfies both lines below.
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"VERIFY PASS"* ]]
   [[ "$output" != *"PARTIAL"* ]]
   [[ "$output" != *"INCOMPLETE"* ]]
 }
