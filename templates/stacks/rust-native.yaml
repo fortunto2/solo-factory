@@ -449,6 +449,11 @@ notes: |
     test would FAIL if the code were wrong. Too slow for every edit; run it on
     the files a change touched (`--file`), or nightly. A surviving mutant is a
     test that asserts nothing useful
+  - **Run it as `env -u CARGO_TARGET_DIR cargo mutants`.** A global
+    CARGO_TARGET_DIR makes every mutant compile to the same path; cargo reuses
+    the cached binary and the tests run against UNMUTATED code, reported as an
+    honest-looking MISSED. Symptom: every mutant MISSED, never a CAUGHT, and one
+    identical test-binary hash across the whole log
   - Profile: tracing-chrome for Rust spans, samply for full C/FFI stacks
   - Release: single static binary — scp to server, no runtime deps
   - .cargo/config.toml for native lib paths + target-cpu optimization

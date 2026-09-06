@@ -162,18 +162,19 @@ missing binary instead of at the wrong active directory. `DEVELOPER_DIR=/Applica
 fixes it for one command, no sudo. (Found by `indie-ios-tinkerer` on the board,
 relayed by the peer session.)
 
-**A universal claim over an empty collection is true and worthless.** The
-sharpest instance measured so far: `cargo-mutants` replaced a whole function
-with `vec![]` and the suite stayed green, four minutes into its first run, on
-code that had been fixed that same day and fitted with seven new tests. Those
-tests asserted "every returned interval is within the ceiling" — vacuously true
-of no intervals. Nothing asserted that the function returns anything at all.
+**A universal claim over an empty collection is true and worthless.** Measured
+here, not inferred: a test iterated over sensors carrying a `violations`
+counter, and with ruff off PATH there were none, so it inspected zero sensors
+and reported ok. Reproduced that way before fixing. **Every assertion over a
+collection must first assert the collection is non-empty**, and the fix was
+shown red before being called fixed.
 
-This bit our own suite too. A test here iterated over sensors carrying a
-`violations` counter; with ruff off PATH there were none, so it inspected zero
-sensors and reported ok. Proved by running it that way, then fixed: **every
-assertion over a collection must first assert the collection is non-empty.**
-Demonstrated red before being called fixed.
+(An earlier draft of this section cited a peer's `cargo-mutants` run — a whole
+function replaced with `vec![]` while the suite stayed green — as a second
+example. That finding was **withdrawn by its author**: see the
+`CARGO_TARGET_DIR` trap below, which made every mutant test unmutated code. The
+rule above stands on its own measurement; the withdrawn example is not evidence
+for it.)
 
 **An equality check must assert its operands are non-empty.** A probe comparing
 "the binary on the simulator" against "the binary I built" printed SAME for two
@@ -242,10 +243,35 @@ sha256 before and after, plus a revert that restores the original hash. A
 patcher that exits 0 having changed nothing, reported as "the test did not go
 red", is the same lie one level up.
 
-`cargo-mutants` solves this better than a receipt would: it copies the sources
-elsewhere rather than patching in place, so there is nothing to revert, and its
-mandatory baseline step voids every conclusion before it exists if the
-unmutated suite is not green. Build the receipt only for hand-rolled probes.
+`cargo-mutants` isolates the **sources** — it copies them elsewhere rather than
+patching in place — but it does not isolate the **build**, and that gap is wide
+enough to invalidate a whole run silently.
+
+**The `CARGO_TARGET_DIR` trap.** With a global `CARGO_TARGET_DIR` set in your
+shell profile (a common setting, e.g. to keep cargo out of a `./target` that
+Xcode watches), every mutant compiles to the same output path. Cargo sees a
+matching fingerprint, reuses the existing binary, and the tests run against
+**unmutated code**. The tool then reports `MISSED` honestly — the tests really
+did pass, just not over the mutation.
+
+```
+symptom:  every mutant MISSED, not one CAUGHT
+evidence: the same test-binary hash across all runs in the log
+fix:      env -u CARGO_TARGET_DIR cargo mutants ...
+          --out-dir should land under a cargo-mutants-*.tmp path
+```
+
+So the receipt is required after all, with a different subject than I first
+proposed: not the hash of the source file, but **the fingerprint of the
+artifact that actually executed**. Two mutants producing an identical test
+binary is the measurement that catches this; a source-level sha256 would have
+sailed straight past it.
+
+**Never accept a zero result from an instrument you have not seen produce a
+non-zero one.** Sixteen consecutive `MISSED` with zero `CAUGHT` is better
+evidence of a broken instrument than of sixteen broken tests. This rule was
+formulated by the peer who then broke it two hours later on their own run —
+which is why it is written here rather than assumed.
 
 ## The part a solo setup cannot fix alone
 
