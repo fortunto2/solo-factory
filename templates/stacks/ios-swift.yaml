@@ -11,7 +11,7 @@ validation: "Codable + custom validation (protocol-based)"
 i18n: string_catalog (.xcstrings, Xcode 16 native)
 linter: swiftlint (SPM plugin or Homebrew)
 formatter: swift-format (Apple, SPM plugin)
-testing: XCTest + Swift Testing
+testing: "XCTest + Swift Testing + muter (mutation — proves the tests actually catch bugs)"
 pre_commit: lefthook (swiftlint + swift-format hooks)
 key_packages:
   - SwiftUI

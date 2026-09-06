@@ -194,6 +194,39 @@ None of these are locked down, because a gate the author cannot open is a gate
 the author routes around permanently. They are listed so that using one is a
 decision rather than an accident.
 
+## Mutation testing — the sensor that checks the sensors
+
+Coverage says a line ran. It cannot say the test would have **failed** had the
+line been wrong. Mutation testing answers exactly that: inject a small bug and
+see whether the suite goes red. A surviving mutant is a test that executes code
+while asserting nothing useful about it.
+
+| Stack | Tool | Note |
+|---|---|---|
+| Rust | `cargo mutants` (v27, ~557k downloads) | `--file` scopes it to what a change touched |
+| Swift | `muter` | project-level; slow, treat as nightly |
+| Python | `mutmut` / `cosmic-ray` | not wired into `solo-verify` |
+
+It is deliberately **not** part of `solo-verify`. It is minutes-to-hours work,
+which puts it outside both the per-edit and end-of-turn budgets. Its place is
+nightly, or scoped by hand to the files a change touched.
+
+If you automate it, the three-valued rule from `UNKNOWN` applies again, because
+a mutation run has the same failure mode as any other probe:
+
+```
+baseline already red            -> UNKNOWN, the mutant proves nothing
+mutation did not apply          -> UNKNOWN, no conclusion is available
+applied and the suite went red  -> the test is alive
+applied and the suite stayed green -> FINDING: the test does not check what it covers
+```
+
+"Applied" must be a measurement of the file, not the patcher's exit code:
+sha256 before and after, plus a revert that restores the original hash. A
+patcher that exits 0 having changed nothing, reported as "the test did not go
+red", is the same lie one level up — and that lie has been observed in practice,
+which is why this paragraph exists.
+
 ## The part a solo setup cannot fix alone
 
 A sensor written by whoever writes the code is blind in the same place. Rules
