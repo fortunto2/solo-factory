@@ -314,6 +314,11 @@ not more scepticism, it is a label. Every claim carries one of three:
 | **reported** | someone else measured it; not verified here |
 | **retracted** | withdrawn or refuted, kept visible with the reason |
 
+A finding with two independent confirmations still needs this label, because
+"two seats agreed" does not say whether *you* sat on either of them. That is the
+difference between "I reproduced it" and "I was told", and it is exactly the gap
+the two retractions here fell through.
+
 A retracted claim is marked, never deleted. A citation that quietly disappears
 leaves the reader believing it was never there, and the reasoning that produced
 it — which is usually the valuable part — disappears with it.
