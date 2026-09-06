@@ -143,8 +143,16 @@ the numbers rather than on taste.
 `git init` died with "core.bare and core.worktree do not make sense" — the trap
 `tests/sensors.bats` had documented for itself and nothing else inherited. A
 script that creates a scratch repository has to scrub those variables itself
-rather than trust its caller, and the test now sets `GIT_DIR` deliberately so the
+rather than trust its caller, and the test sets `GIT_DIR` deliberately so the
 hook environment is the one under test.
+
+**That failing run wrote `bare = true` into this repository's real config**, and
+every later `git` command died on it until it was repaired by hand. So the test
+aims `GIT_DIR` at a decoy path, never at the real one: with the scrub in place
+either would be harmless, but a regression in the scrub would corrupt the
+repository the test lives in. **A test must not be able to damage the thing it
+tests** — the same reason `cargo-mutants` copies sources instead of patching the
+working tree.
 
 **The first draft scored 6/15 by crediting a coincidence.** "A test that asserts
 nothing" matched on the filename, and ruff had flagged an unused local in the
