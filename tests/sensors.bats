@@ -407,3 +407,86 @@ print('ok')\""
   [ "$status" -eq 0 ]
   [[ "$output" == *"ok"* ]]
 }
+
+# --- degenerate input is the first test case, not the last -----------------
+# @slav-tbilisi-assistant (#16387), after three tools in one thread each exhibited
+# the property it measured: "a tool that acts on the property it measures is
+# uniquely prone to exhibiting it, so its degenerate input is the main test case."
+# This verifier reports on whether checks report honestly. Fed a file that is not
+# Python at all, it printed `ruff=fail {"violations":0}` and one finding reading
+# "ruff failed" — a failure claiming to have found nothing, from the tool whose
+# entire promise is that the number and the status agree.
+
+@test "a fail must never be printed beside a zero count" {
+  printf '\x00\x01not python at all\x00' > "$REPO/broken.py"
+  run "$VERIFY" --root "$REPO" --files broken.py
+  [ "$status" -eq 1 ]
+  # Assert the scope first. Without this the next two lines pass on an empty-scope
+  # receipt, which is how two of these tests first went green while testing nothing.
+  [[ "$output" == *"1 covered"* ]]
+  [[ "$output" != *'"violations":0'* ]]
+  # And the finding must name where, not merely that something failed.
+  [[ "$output" == *"broken.py:1:"* ]]
+}
+
+@test "an uncoded ruff diagnostic is counted, not dropped" {
+  # invalid-syntax carries no rule code, so the coded-only pattern skipped it.
+  printf 'def (\n' > "$REPO/nocode.py"
+  run "$VERIFY" --root "$REPO" --files nocode.py
+  [[ "$output" == *"1 covered"* ]]
+  [[ "$output" == *"ruff=fail"* ]]
+  [[ "$output" != *'"violations":0'* ]]
+}
+
+@test "a coded violation still parses, with its fix hint" {
+  printf 'import os\n' > "$REPO/unused.py"
+  run "$VERIFY" --root "$REPO" --files unused.py
+  [[ "$output" == *"1 covered"* ]]
+  [[ "$output" == *"F401"* ]]
+  [[ "$output" == *'"violations":1'* ]]
+}
+
+@test "an empty file parses and says so rather than being skipped in silence" {
+  : > "$REPO/empty.py"
+  run "$VERIFY" --root "$REPO" --files empty.py
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"syntax=pass"* ]]
+  [[ "$output" == *'"parsed":1'* ]]
+}
+
+@test "a filename with spaces and non-ascii is covered, not silently dropped" {
+  printf 'x = 1\n' > "$REPO/имя с пробелом.py"
+  run "$VERIFY" --root "$REPO" --files "имя с пробелом.py"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"1 covered"* ]]
+  [[ "$output" != *"UNCHECKED"* ]]
+}
+
+@test "a tool that fails with output nobody can parse says so, not zero" {
+  # The guard itself, exercised directly: no parser will ever cover every future
+  # diagnostic shape, so the fallback has to be honest rather than reassuring.
+  run python3 -c "
+import sys, importlib.util, importlib.machinery
+loader = importlib.machinery.SourceFileLoader('sv', '${BATS_TEST_DIRNAME}/../scripts/solo-verify')
+spec = importlib.util.spec_from_loader('sv', loader)
+m = importlib.util.module_from_spec(spec)
+sys.modules['sv'] = m
+loader.exec_module(m)
+f, c = m.unparsed_guard(1, 'a shape nobody parses', [], {'violations': 0}, 'violations')
+print(c['violations']); print(f[0])
+"
+  [[ "$output" == *"unparsed"* ]]
+  [[ "$output" != *"violations: 0"* ]]
+  [[ "$output" == *"no finding could be parsed"* ]]
+}
+
+@test "a named file that does not resolve says so, not \"no changed files\"" {
+  # The verdict was already UNKNOWN and exit 2 — correct. The reason was invented:
+  # the caller named a file, so "no changed files were found" is a cause that did
+  # not happen. Same class as reporting a timed-out test run as "no tests found".
+  run "$VERIFY" --root "$REPO" --files definitely_absent.py
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"none of the named files could be resolved"* ]]
+  [[ "$output" == *"definitely_absent.py"* ]]
+  [[ "$output" != *"no changed files were found"* ]]
+}

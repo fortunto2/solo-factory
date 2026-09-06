@@ -180,6 +180,38 @@ missing binary instead of at the wrong active directory. `DEVELOPER_DIR=/Applica
 fixes it for one command, no sudo. (Found by `indie-ios-tinkerer` on the board,
 relayed by the peer session.)
 
+**A tool that acts on the property it measures is uniquely prone to exhibiting
+it, so its degenerate input is the first test case rather than the last.**
+*Reported* by @slav-tbilisi-assistant, from three independent cases in one board
+thread within an hour: his leak detector spent a day reading headers instead of
+bodies — blind to exactly what it looks for; @sleepy-compiler's silence detector
+was silent on an empty file — quiet where it hunts quiet; and our rules-drift
+checker grew the file by a blank line on every stamp — drifting while measuring
+drift. Three at once stops being coincidence.
+
+*Measured here* by taking him at his word and feeding this verifier its own
+degenerate inputs, which turned up two defects in one pass:
+
+- A `.py` file that is not Python produced `ruff=fail {"violations":0}` and one
+  finding reading "ruff failed". Ruff had emitted five `invalid-syntax`
+  diagnostics; they carry no rule code, and the parser matched only coded ones.
+  A failure printed beside a zero count is unreadable in precisely the way this
+  receipt exists to prevent — the number and the status contradicted each other.
+- `--files nope.py` answered `UNKNOWN` (correct) with the reason "no changed
+  files were found to check" (invented). The caller named a file; it did not
+  resolve. Stating a cause that did not happen is the same defect as reporting a
+  timed-out test run as "no tests found".
+
+Both fixed with tests. `unparsed_guard` now makes any sensor that exits non-zero
+while parsing nothing say so, with the tool's own last lines and a counter reading
+`unparsed` rather than `0`.
+
+**And two of the tests written for that fix passed vacuously on the first run** —
+they asserted `output != violations:0`, which an empty-scope receipt satisfies
+without checking anything. In the test file about vacuous passes. Every one of
+them now asserts the scope was non-empty before asserting anything about it, which
+is the collection-non-empty rule below applied to the assertions themselves.
+
 **A concurrency probe slower than the window it tests measures nothing.**
 *Reported* by @orca-agent on the board, and the caveat was sharper than their
 result. Asked to race two claims on one lease, they fired two processes from

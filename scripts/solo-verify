@@ -471,6 +471,36 @@ def check_limits(root: Path, files: list[Path]) -> Result:
     )
 
 
+def unparsed_guard(code, out, findings, counters, counter_name):
+    """A tool that failed but whose output nobody could parse did not find nothing.
+
+    The receipt's whole job is that a number and a status agree. `fail` beside
+    `violations: 0` says both "something is wrong" and "nothing was found", and a
+    reader cannot tell whether the tool found zero problems and failed for some
+    other reason, or whether the parser recognised none of its output. Measured
+    here: ruff emitted five `invalid-syntax` diagnostics on a file that was not
+    Python, the coded-only pattern matched none of them, and the receipt printed
+    `violations: 0` with one finding reading "ruff failed".
+
+    So a non-zero exit with an empty finding list is now reported as what it is —
+    a parser gap — with the tool's own last lines attached, and the counter says
+    `unparsed` rather than claiming zero. Zero is a measurement; "I did not
+    understand the answer" is not one.
+
+    Prompted by @slav-tbilisi-assistant's rule on the board: a tool that acts on
+    the property it measures is uniquely prone to exhibiting it, so its degenerate
+    input is the first test case rather than the last. This verifier reports on
+    whether checks report honestly, and it was not reporting honestly.
+    """
+    if code == 0 or findings or incomplete_reason(code):
+        return findings, counters
+    tail = [line.strip() for line in out.splitlines() if line.strip()][-5:]
+    return (
+        [f"exit {code}, but no finding could be parsed from its output:"] + tail,
+        {**counters, counter_name: "unparsed"},
+    )
+
+
 def check_ruff(root: Path, files: list[Path], timeout: int) -> Result:
     py = [f for f in files if is_python(f)]
     if not py:
@@ -497,10 +527,19 @@ def check_ruff(root: Path, files: list[Path], timeout: int) -> Result:
         # a summary line, and counting it would make the counter disagree
         # with the status.
         m = re.match(r"^.+?:\d+:\d+: ([A-Z]{1,4}\d{2,4})\b", line)
-        if not m:
+        if m:
+            hint = FIX_HINTS.get(m.group(1))
+            findings.append(f"{line} — {hint}" if hint else line)
             continue
-        hint = FIX_HINTS.get(m.group(1))
-        findings.append(f"{line} — {hint}" if hint else line)
+        # Not every ruff diagnostic carries a rule code. `invalid-syntax:` does not,
+        # and on a file that is not Python at all ruff emits nothing else. The
+        # coded-only pattern matched none of them, so the receipt printed
+        # `violations: 0` beside status `fail` — a failure reporting no findings,
+        # which is the exact unreadable receipt this tool exists to prevent.
+        if re.match(r"^.+?:\d+:\d+: \S", line):
+            findings.append(line)
+    counters = {"files": len(py), "violations": len(findings)}
+    findings, counters = unparsed_guard(code, out, findings, counters, "violations")
     return Result(
         "ruff",
         status_for(code),
@@ -509,7 +548,7 @@ def check_ruff(root: Path, files: list[Path], timeout: int) -> Result:
         promise="ruff rule set configured for this repo",
         findings=findings[:20],
         covered=[rel(root, f) for f in py],
-        counters={"files": len(py), "violations": len(findings)},
+        counters=counters,
         seconds=time.time() - t,
     )
 
@@ -1034,6 +1073,7 @@ def build_receipt(
     results: list[Result],
     full: bool,
     elapsed: float,
+    unresolved: list[str] | None = None,
 ) -> dict:
     ran = [r for r in results if r.status in ("pass", "fail")]
     failed = [r for r in ran if r.status == "fail"]
@@ -1054,7 +1094,13 @@ def build_receipt(
     ]
 
     if not scope:
-        verdict, why = "UNKNOWN", "empty scope: no changed files were found to check"
+        verdict = "UNKNOWN"
+        why = (
+            "empty scope: none of the named files could be resolved — "
+            + ", ".join(unresolved)
+            if unresolved
+            else "empty scope: no changed files were found to check"
+        )
     elif not ran:
         verdict, why = "UNKNOWN", "no sensor could run on this scope"
     elif failed:
@@ -1188,9 +1234,27 @@ def main() -> int:
     root = Path(args.root).resolve()
     timeout = FULL_TIMEOUT if args.full else FAST_TIMEOUT
     started = time.time()
+    files: list[Path] = []
 
+    unresolved: list[str] = []
     if args.files:
-        files = [Path(f).resolve() for f in args.files if Path(f).is_file()]
+        # A path named on the command line and then silently dropped is the worst
+        # kind of empty scope: the receipt went on to say "no changed files were
+        # found to check", which is a cause that did not happen. The caller named
+        # files; they did not resolve. Same class as reporting a timed-out test run
+        # as "no tests found" — the verdict was right and the reason was invented.
+        # Relative paths resolve against --root, not the caller's cwd, which is
+        # what made this visible: the tests pass --root and a bare filename.
+        for f in args.files:
+            cand = Path(f)
+            if not cand.is_absolute():
+                cand = root / f
+            if cand.is_file():
+                files.append(cand.resolve())
+            elif Path(f).is_file():
+                files.append(Path(f).resolve())
+            else:
+                unresolved.append(f)
     else:
         files = git_changed_files(root)
 
@@ -1216,7 +1280,9 @@ def main() -> int:
         results += check_go(root, files, args.full, timeout)
     results.append(check_shellcheck(root, files, timeout))
 
-    rec = build_receipt(root, files, stacks, results, args.full, time.time() - started)
+    rec = build_receipt(
+        root, files, stacks, results, args.full, time.time() - started, unresolved
+    )
     print(json.dumps(rec, indent=2, ensure_ascii=False) if args.json else render(rec))
     return {"PASS": 0, "PARTIAL": 0, "FAIL": 1, "UNKNOWN": 2}[rec["verdict"]]
 
