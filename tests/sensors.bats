@@ -211,3 +211,42 @@ print('ok')\""
   [[ "$output" == *"no test files"* ]]
   [[ "$output" == *"nothing was asserted"* ]]
 }
+
+# --- An incomplete run is not a result -------------------------------------
+# Reported by the life2film session: `timeout` is absent on macOS, so a probe
+# exited 127 with no output and was read as "the test did not go red".
+
+@test "exit codes 124/126/127 are skips, not failures" {
+  run python3 -c "
+import types
+src = open('${BATS_TEST_DIRNAME}/../scripts/solo-verify').read()
+ns = {'__name__': 'sv_probe'}
+import sys; sys.modules['sv_probe'] = types.ModuleType('sv_probe')
+sys.modules['sv_probe'].__dict__.update(ns)
+exec(compile(src, 'solo-verify', 'exec'), sys.modules['sv_probe'].__dict__)
+m = sys.modules['sv_probe']
+assert m.status_for(0)   == 'pass', m.status_for(0)
+assert m.status_for(1)   == 'fail', m.status_for(1)
+assert m.status_for(124) == 'skip', 'timeout must not be a failure'
+assert m.status_for(126) == 'skip', 'not-executable must not be a failure'
+assert m.status_for(127) == 'skip', 'command-not-found must not be a failure'
+assert m.incomplete_reason(124)
+assert m.incomplete_reason(127)
+assert m.incomplete_reason(1) == ''
+print('ok')
+"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ok"* ]]
+}
+
+@test "a timed-out test run reports the timeout, not 'collected 0 tests'" {
+  # The wrong-cause bug: a timeout parses as zero collected, and reporting
+  # "no tests found" states a cause that is not what happened.
+  printf '[project]\nname = "t"\n' > "$REPO/pyproject.toml"
+  mkdir -p "$REPO/tests"
+  printf 'import time\n\n\ndef test_slow():\n    time.sleep(120)\n' > "$REPO/tests/test_slow.py"
+  sed 's/FULL_TIMEOUT = 300/FULL_TIMEOUT = 3/' "$VERIFY" > "$REPO/sv_short"
+  run python3 "$REPO/sv_short" --root "$REPO" --full
+  [[ "$output" == *"pytest — timed out"* ]]
+  [[ "$output" != *"collected 0 tests"* ]]
+}

@@ -158,6 +158,32 @@ def missing(binary: str, install_hint: str = "") -> str:
     )
 
 
+def status_for(code: int) -> str:
+    """A non-zero exit is not automatically a failed check.
+
+    Reported by the life2film session, which had this lie three times in one
+    day: `timeout` is absent on macOS, so the probe exited 127 with no output
+    and was read as "the test did not go red". 127/126 mean the command never
+    ran; 124 means it was cut off. None of those observed the thing under test,
+    so they are UNKNOWN territory, not evidence of a pass or a failure.
+    """
+    if code == 0:
+        return "pass"
+    if code in (124, 126, 127):
+        return "skip"
+    return "fail"
+
+
+def incomplete_reason(code: int) -> str:
+    return {
+        124: "timed out before finishing — the check did not complete, so this "
+        "is neither a pass nor a failure",
+        126: "found but not executable — the check never ran",
+        127: "command not found while running the check (a nested tool is "
+        "missing, not the wrapper) — the check never ran",
+    }.get(code, "")
+
+
 def run(argv: list[str], cwd: Path, timeout: int) -> tuple[int, str]:
     """Run a command. Returns (code, combined output). Never raises."""
     try:
@@ -374,7 +400,8 @@ def check_ruff(root: Path, files: list[Path], timeout: int) -> Result:
         findings.append(f"{line} — {hint}" if hint else line)
     return Result(
         "ruff",
-        "pass" if code == 0 else "fail",
+        status_for(code),
+        reason=incomplete_reason(code),
         promise="ruff rule set configured for this repo",
         findings=findings[:20],
         covered=[rel(root, f) for f in py],
@@ -396,7 +423,8 @@ def check_types(root: Path, files: list[Path], timeout: int) -> Result:
         findings.append(FIX_HINTS["types"])
     return Result(
         "ty",
-        "pass" if code == 0 else "fail",
+        status_for(code),
+        reason=incomplete_reason(code),
         promise="type errors in changed Python files",
         findings=findings,
         covered=[rel(root, f) for f in py],
@@ -418,6 +446,13 @@ def check_pytest(root: Path, timeout: int) -> Result:
         return Result("pytest", "skip", reason=missing("uvx"))
     t = time.time()
     code, out = run(["uvx", "pytest", "-q", "--no-header"], root, timeout)
+    # Order matters: a timed-out or never-started run parses as "0 collected",
+    # and reporting that as "no tests found" states the wrong cause. Check
+    # completion before interpreting the output at all.
+    if status_for(code) == "skip":
+        return Result(
+            "pytest", "skip", reason=incomplete_reason(code), seconds=time.time() - t
+        )
     counters = {"collected": 0, "passed": 0, "failed": 0}
     for key, pat in (
         ("passed", r"(\d+) passed"),
@@ -446,7 +481,8 @@ def check_pytest(root: Path, timeout: int) -> Result:
     tail = [ln for ln in out.splitlines() if ln.strip()][-10:]
     return Result(
         "pytest",
-        "pass" if code == 0 else "fail",
+        status_for(code),
+        reason=incomplete_reason(code),
         promise="the repo's test suite runs and passes",
         findings=[] if code == 0 else tail,
         counters=counters,
@@ -498,7 +534,8 @@ def check_go(root: Path, files: list[Path], full: bool, timeout: int) -> list[Re
         results.append(
             Result(
                 "go-vet",
-                "pass" if code == 0 else "fail",
+                status_for(code),
+                reason=incomplete_reason(code),
                 promise="go vet clean across the module",
                 findings=findings,
                 seconds=time.time() - t,
@@ -507,6 +544,16 @@ def check_go(root: Path, files: list[Path], full: bool, timeout: int) -> list[Re
 
         t = time.time()
         code, out = run(["go", "test", "./..."], root, timeout)
+        if status_for(code) == "skip":
+            results.append(
+                Result(
+                    "go-test",
+                    "skip",
+                    reason=incomplete_reason(code),
+                    seconds=time.time() - t,
+                )
+            )
+            return results
         # Counters, not a bare colour: "no test files" everywhere is the Go
         # shape of a False Green on Zero Scope.
         ok = len(re.findall(r"^ok\s+", out, re.MULTILINE))
@@ -538,7 +585,8 @@ def check_go(root: Path, files: list[Path], full: bool, timeout: int) -> list[Re
             results.append(
                 Result(
                     "go-test",
-                    "pass" if code == 0 else "fail",
+                    status_for(code),
+                    reason=incomplete_reason(code),
                     promise="the module's tests run and pass",
                     findings=tail if code != 0 else [],
                     counters=counters,
@@ -565,7 +613,8 @@ def check_shellcheck(root: Path, files: list[Path], timeout: int) -> Result:
     findings = [ln.strip() for ln in out.splitlines() if ln.strip()][:20]
     return Result(
         "shellcheck",
-        "pass" if code == 0 else "fail",
+        status_for(code),
+        reason=incomplete_reason(code),
         promise="shell scripts lint clean",
         findings=findings,
         covered=[rel(root, f) for f in sh],
@@ -590,7 +639,8 @@ def check_node_lint(root: Path, files: list[Path], timeout: int) -> Result:
     findings = [ln.strip() for ln in out.splitlines() if ln.strip()][:20]
     return Result(
         "eslint",
-        "pass" if code == 0 else "fail",
+        status_for(code),
+        reason=incomplete_reason(code),
         promise="eslint config for this repo",
         findings=findings,
         covered=[rel(root, f) for f in src],
@@ -608,7 +658,8 @@ def check_tsc(root: Path, timeout: int) -> Result:
     findings = [ln.strip() for ln in out.splitlines() if "error TS" in ln][:15]
     return Result(
         "tsc",
-        "pass" if code == 0 else "fail",
+        status_for(code),
+        reason=incomplete_reason(code),
         promise="project typechecks",
         findings=findings,
         counters={"errors": len(findings)},
@@ -625,7 +676,8 @@ def check_rust(root: Path, full: bool, timeout: int) -> list[Result]:
     out_results.append(
         Result(
             "cargo-fmt",
-            "pass" if code == 0 else "fail",
+            status_for(code),
+            reason=incomplete_reason(code),
             promise="rustfmt clean",
             findings=[] if code == 0 else ["run `cargo fmt`"],
             seconds=time.time() - t,
@@ -642,7 +694,8 @@ def check_rust(root: Path, full: bool, timeout: int) -> list[Result]:
         out_results.append(
             Result(
                 "clippy",
-                "pass" if code == 0 else "fail",
+                status_for(code),
+                reason=incomplete_reason(code),
                 promise="clippy with warnings denied",
                 findings=findings,
                 seconds=time.time() - t,
@@ -658,7 +711,8 @@ def check_rust(root: Path, full: bool, timeout: int) -> list[Result]:
         out_results.append(
             Result(
                 "cargo-test",
-                "pass" if code == 0 else "fail",
+                status_for(code),
+                reason=incomplete_reason(code),
                 promise="cargo test suite passes",
                 findings=findings,
                 counters=counters,
@@ -705,7 +759,8 @@ def check_kotlin(root: Path, files: list[Path], timeout: int) -> Result:
     findings = [ln.strip() for ln in out.splitlines() if ln.strip()][:20]
     return Result(
         "ktlint",
-        "pass" if code == 0 else "fail",
+        status_for(code),
+        reason=incomplete_reason(code),
         promise="ktlint rules",
         findings=findings,
         covered=[rel(root, f) for f in src],

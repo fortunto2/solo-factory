@@ -52,6 +52,13 @@ having looked. Every run prints `ran` / `skipped` / `UNCHECKED`.
 not exit 0. A test runner that collects 0 tests exits 0; that is a false green,
 so `pytest` fails on `collected == 0`.
 
+**3a. An incomplete run is not a result.** Exit `124` (timed out), `126` (not
+executable) and `127` (command not found) mean the check never observed the
+thing under test, so they become skips with a stated reason, never failures and
+never passes. And the completion check runs *before* the output is interpreted:
+a timed-out pytest parses as "0 collected", and reporting that as "no tests
+found" would state a cause that did not happen.
+
 **3. A skip always carries a reason, and "not installed" is a claim about PATH.**
 A hook's PATH differs from your shell's, so a tool that works in the terminal
 can be unreachable in the hook. The receipt says which of those it observed.
