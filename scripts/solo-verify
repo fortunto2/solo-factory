@@ -1,0 +1,783 @@
+#!/usr/bin/env python3
+"""solo-verify — one verifier for every stack. Returns a receipt, not a verdict.
+
+Design, and who broke the first draft of it:
+
+* One command, no stack choices in the agent's head. Checks activate from
+  repository markers (Spotify's background agents work this way).
+
+* "ok" is a forbidden word on its own. A green result that does not say what
+  ran, what was skipped and *what it refused to look at* is indistinguishable
+  from never having looked. Board agent @zhopych-dristun put it sharply after
+  a hidden vote counter silently dropped a ballot: a silent rejection and an
+  absent input are the same state to the system. So the receipt names the
+  unchecked files, always.
+
+* Zero scope is never a pass. @antigravity-scout-99 calls this the False Green
+  on Zero Scope: a runner that collects 0 tests exits 0, and the agent believes
+  everything is green. Nothing checked => UNKNOWN, exit 2.
+
+* Counters, not just colour. Hiding *which tool* ran is economy; hiding *how
+  many items it collected* is data loss.
+
+* Every sensor states a PROMISE. Weakening a threshold then reads as a diff
+  against a published promise instead of an invisible edit. @zhopych-dristun's
+  measurement: in 3 of 5 real cases the correct repair WAS the rule, not the
+  code, so the harness must make rule edits visible rather than forbid them.
+
+* Touching the harness is reported loudly (HARNESS TOUCHED), because a blocking
+  gate the agent can rewrite is a race the agent wins.
+
+Usage:
+    solo-verify                     # fast: syntax + lint on changed files
+    solo-verify --full              # + types, tests
+    solo-verify --files a.py b.ts   # explicit scope
+    solo-verify --json              # machine-readable receipt
+
+Exit: 0 pass · 1 fail · 2 unknown (nothing was actually checked)
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+FAST_TIMEOUT = 20
+FULL_TIMEOUT = 300
+
+# Thresholds from CLAUDE.md, enforced as a sensor instead of prose, because a
+# rule nobody measures is a rule the agent forgets after compaction.
+MAX_FUNCTION_LINES = 150
+MAX_MODULE_LINES = 1000
+
+SOURCE_SUFFIXES = {
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".rs",
+    ".swift",
+    ".kt",
+    ".kts",
+    ".sh",
+}
+
+# Files that ARE the harness. Editing them is legitimate but must never be quiet.
+HARNESS_PATTERNS = (
+    "pyproject.toml",
+    "ruff.toml",
+    ".ruff.toml",
+    "setup.cfg",
+    "tox.ini",
+    ".eslintrc",
+    "eslint.config",
+    ".pre-commit-config.yaml",
+    "clippy.toml",
+    ".swiftlint.yml",
+    ".editorconfig",
+    "solo-verify",
+    "conftest.py",
+    "hooks.json",
+    "sensor-",
+    "lefthook.yml",
+    ".husky/",
+)
+# Matched against a path with a leading "/" so "tests/x" and "a/tests/x" both
+# hit. Without that normalisation a repo-root tests/ directory was reported as
+# UNCHECKED instead of as a harness edit — found by this tool on this repo.
+TEST_PATTERNS = (
+    "test_",
+    "_test.",
+    "/tests/",
+    ".test.",
+    ".spec.",
+    "Tests.swift",
+    ".bats",
+)
+
+# Fix instructions, not error codes. A sensor exists so the agent can
+# self-correct; a bare rule id does not tell it how.
+FIX_HINTS = {
+    "F821": "Undefined name. Import or define it. Do not silence this one.",
+    "F401": "Unused import. Remove it. If it is a re-export, list it in __all__.",
+    "E501": "Line too long. Wrap it; do not raise the limit for a single line.",
+    "long-function": (
+        f"Longer than {MAX_FUNCTION_LINES} lines. Split by responsibility. "
+        "Splitting is the default; keeping it whole needs a reason in the commit."
+    ),
+    "long-module": (
+        f"Longer than {MAX_MODULE_LINES} lines. Split it. If generated or a "
+        "single cohesive table, say so in the commit message."
+    ),
+    "syntax": "File does not parse. Fix this before anything else.",
+    "types": "Type error. Fix the type rather than widening to Any. If the "
+    "checker is wrong, narrow the ignore to this line, with a reason.",
+}
+
+
+@dataclass
+class Result:
+    name: str
+    status: str  # pass | fail | skip
+    promise: str = ""  # what this sensor claims to check
+    reason: str = ""  # why skipped — mandatory for skip
+    findings: list[str] = field(default_factory=list)
+    covered: list[str] = field(default_factory=list)  # files it actually looked at
+    counters: dict = field(default_factory=dict)  # minimal observability vector
+    seconds: float = 0.0
+
+
+def missing(binary: str, install_hint: str = "") -> str:
+    """Why a tool is absent — three distinct states that look identical inside.
+
+    @mcp-toolsmith's capability-inventory point: "I have no tool for that" can
+    mean not-installed, installed-but-not-on-this-PATH, or present-but-broken.
+    A hook runs with a different PATH than the shell, so "not installed" is
+    routinely a lie told by the environment.
+    """
+    where = shutil.which(binary)
+    if where:
+        return f"{binary} found at {where} but did not run"
+    hint = f" ({install_hint})" if install_hint else ""
+    return (
+        f"{binary} not on this process PATH{hint}. "
+        f"A hook's PATH differs from your shell's — if it works in the "
+        f"terminal, the tool is unreachable here, not absent."
+    )
+
+
+def run(argv: list[str], cwd: Path, timeout: int) -> tuple[int, str]:
+    """Run a command. Returns (code, combined output). Never raises."""
+    try:
+        p = subprocess.run(
+            argv, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False
+        )
+        return p.returncode, (p.stdout or "") + (p.stderr or "")
+    except subprocess.TimeoutExpired:
+        return 124, f"timed out after {timeout}s"
+    except FileNotFoundError:
+        return 127, f"{argv[0]} not found"
+    except OSError as exc:
+        return 126, str(exc)
+
+
+def git_changed_files(root: Path) -> list[Path]:
+    """Changed vs HEAD, staged, and untracked. Empty if not a git repo."""
+    code, _ = run(["git", "rev-parse", "--is-inside-work-tree"], root, 5)
+    if code != 0:
+        return []
+    names: set[str] = set()
+    for argv in (
+        ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD"],
+        ["git", "diff", "--name-only", "--diff-filter=ACMR", "--cached"],
+        ["git", "ls-files", "--others", "--exclude-standard"],
+    ):
+        code, out = run(argv, root, 10)
+        if code == 0:
+            names.update(ln.strip() for ln in out.splitlines() if ln.strip())
+    return [root / n for n in sorted(names) if (root / n).is_file()]
+
+
+def detect_stacks(root: Path) -> dict[str, str]:
+    markers = {
+        "python": ["pyproject.toml", "setup.py", "requirements.txt"],
+        "node": ["package.json"],
+        "rust": ["Cargo.toml"],
+        "swift": ["Package.swift"],
+        "kotlin": ["build.gradle.kts", "build.gradle"],
+    }
+    found: dict[str, str] = {}
+    for stack, names in markers.items():
+        for name in names:
+            if (root / name).exists():
+                found[stack] = name
+                break
+    return found
+
+
+def shebang(path: Path) -> str:
+    """First-line interpreter, or "". Extension is not identity.
+
+    Found by this tool on itself: `scripts/solo-verify` is Python with no .py
+    suffix, so every suffix-filtered sensor silently skipped it and the receipt
+    listed it as UNCHECKED. A file type guessed only from its name is a silent
+    rejection waiting to happen.
+    """
+    try:
+        with path.open("rb") as fh:
+            first = fh.readline(200).decode("utf-8", errors="replace")
+    except OSError:
+        return ""
+    return first[2:].strip() if first.startswith("#!") else ""
+
+
+def is_python(path: Path) -> bool:
+    return path.suffix == ".py" or "python" in shebang(path)
+
+
+def is_shell(path: Path) -> bool:
+    return path.suffix in {".sh", ".bash"} or any(
+        sh in shebang(path) for sh in ("bash", "/sh", "zsh")
+    )
+
+
+def rel(root: Path, p: Path) -> str:
+    try:
+        return str(p.relative_to(root))
+    except ValueError:
+        return str(p)
+
+
+def harness_touched(root: Path, files: list[Path]) -> list[str]:
+    """Files in this change that ARE the measuring apparatus.
+
+    Not a prohibition: sometimes the rule is what is wrong. But the edit has to
+    be visible next to the green light, or the gate is one the agent can rewrite.
+    """
+    hits = []
+    for f in files:
+        s = rel(root, f)
+        probe = "/" + s  # so "tests/x" matches the "/tests/" pattern
+        if any(pat in probe for pat in HARNESS_PATTERNS) or any(
+            pat in probe for pat in TEST_PATTERNS
+        ):
+            digest = "missing"
+            try:
+                digest = hashlib.sha256(f.read_bytes()).hexdigest()[:12]
+            except OSError:
+                pass
+            hits.append(f"{s} sha256:{digest}")
+    return hits
+
+
+# --------------------------------------------------------------------------
+# Sensors
+# --------------------------------------------------------------------------
+
+
+def check_syntax(root: Path, files: list[Path]) -> Result:
+    """Parse-only, per file, no cross-file semantics.
+
+    @antigravity-scout-99's Intermittent Rupture: during a multi-file refactor a
+    strict type check on every edit floods the agent with errors from files it
+    has not reached yet, and it panics and reverts good work. Syntax is safe to
+    check on every single edit because it cannot fail for that reason.
+    """
+    covered, findings = [], []
+    for f in files:
+        if is_python(f):
+            try:
+                ast.parse(f.read_text(encoding="utf-8", errors="replace"))
+                covered.append(rel(root, f))
+            except SyntaxError as exc:
+                covered.append(rel(root, f))
+                findings.append(
+                    f"{rel(root, f)}:{exc.lineno or 1} syntax {exc.msg} — {FIX_HINTS['syntax']}"
+                )
+            except OSError:
+                pass
+        elif f.suffix in {".js", ".jsx"} and shutil.which("node"):
+            code, out = run(["node", "--check", str(f)], root, 10)
+            covered.append(rel(root, f))
+            if code != 0:
+                findings.append(
+                    f"{rel(root, f)} syntax {out.strip().splitlines()[0] if out.strip() else 'parse error'}"
+                )
+    if not covered:
+        return Result("syntax", "skip", reason="no parseable files in scope")
+    return Result(
+        "syntax",
+        "fail" if findings else "pass",
+        promise="every changed .py/.js file parses",
+        findings=findings,
+        covered=covered,
+        counters={"parsed": len(covered), "broken": len(findings)},
+    )
+
+
+def check_limits(root: Path, files: list[Path]) -> Result:
+    findings, covered = [], []
+    for f in files:
+        if f.suffix not in SOURCE_SUFFIXES and not (is_python(f) or is_shell(f)):
+            continue
+        try:
+            text = f.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        covered.append(rel(root, f))
+        n = text.count("\n") + 1
+        if n > MAX_MODULE_LINES:
+            findings.append(
+                f"{rel(root, f)}:1 long-module {n} lines — {FIX_HINTS['long-module']}"
+            )
+        if not is_python(f):
+            continue
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            continue  # syntax sensor owns this
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                end = getattr(node, "end_lineno", None)
+                if end and (end - node.lineno + 1) > MAX_FUNCTION_LINES:
+                    findings.append(
+                        f"{rel(root, f)}:{node.lineno} long-function {node.name}() is "
+                        f"{end - node.lineno + 1} lines — {FIX_HINTS['long-function']}"
+                    )
+    if not covered:
+        return Result("limits", "skip", reason="no source files in scope")
+    return Result(
+        "limits",
+        "fail" if findings else "pass",
+        promise=f"no function >{MAX_FUNCTION_LINES} lines, no module >{MAX_MODULE_LINES} lines",
+        findings=findings,
+        covered=covered,
+        counters={"files": len(covered)},
+    )
+
+
+def check_ruff(root: Path, files: list[Path], timeout: int) -> Result:
+    py = [f for f in files if is_python(f)]
+    if not py:
+        return Result("ruff", "skip", reason="no Python files in scope")
+    if not shutil.which("ruff"):
+        return Result("ruff", "skip", reason=missing("ruff", "brew install ruff"))
+    t = time.time()
+    code, out = run(
+        ["ruff", "check", "--no-fix", "--output-format=concise", *[str(f) for f in py]],
+        root,
+        timeout,
+    )
+    findings = []
+    for line in out.splitlines():
+        line = line.strip()
+        # concise format is "path:line:col: CODE message" — anything else is
+        # a summary line, and counting it would make the counter disagree
+        # with the status.
+        m = re.match(r"^.+?:\d+:\d+: ([A-Z]{1,4}\d{2,4})\b", line)
+        if not m:
+            continue
+        hint = FIX_HINTS.get(m.group(1))
+        findings.append(f"{line} — {hint}" if hint else line)
+    return Result(
+        "ruff",
+        "pass" if code == 0 else "fail",
+        promise="ruff rule set configured for this repo",
+        findings=findings[:20],
+        covered=[rel(root, f) for f in py],
+        counters={"files": len(py), "violations": len(findings)},
+        seconds=time.time() - t,
+    )
+
+
+def check_types(root: Path, files: list[Path], timeout: int) -> Result:
+    py = [f for f in files if is_python(f)]
+    if not py:
+        return Result("ty", "skip", reason="no Python files in scope")
+    if not shutil.which("uvx"):
+        return Result("ty", "skip", reason=missing("uvx"))
+    t = time.time()
+    code, out = run(["uvx", "ty", "check", *[str(f) for f in py]], root, timeout)
+    findings = [ln.strip() for ln in out.splitlines() if "error" in ln.lower()][:15]
+    if findings:
+        findings.append(FIX_HINTS["types"])
+    return Result(
+        "ty",
+        "pass" if code == 0 else "fail",
+        promise="type errors in changed Python files",
+        findings=findings,
+        covered=[rel(root, f) for f in py],
+        counters={"files": len(py)},
+        seconds=time.time() - t,
+    )
+
+
+def check_pytest(root: Path, timeout: int) -> Result:
+    """Reports collected/passed/failed, never a bare colour.
+
+    Zero collected is not a pass — that is the False Green on Zero Scope.
+    """
+    if not ((root / "tests").is_dir() or any(root.glob("test_*.py"))):
+        return Result(
+            "pytest", "skip", reason="no tests/ directory and no test_*.py at root"
+        )
+    if not shutil.which("uvx"):
+        return Result("pytest", "skip", reason=missing("uvx"))
+    t = time.time()
+    code, out = run(["uvx", "pytest", "-q", "--no-header"], root, timeout)
+    counters = {"collected": 0, "passed": 0, "failed": 0}
+    for key, pat in (
+        ("passed", r"(\d+) passed"),
+        ("failed", r"(\d+) failed"),
+        ("collected", r"(\d+) tests? collected"),
+    ):
+        m = re.search(pat, out)
+        if m:
+            counters[key] = int(m.group(1))
+    if not counters["collected"]:
+        counters["collected"] = counters["passed"] + counters["failed"]
+    if counters["collected"] == 0:
+        return Result(
+            "pytest",
+            "fail",
+            promise="the repo's test suite runs and passes",
+            findings=[
+                (
+                    "collected 0 tests. Exit code alone would read as green; it is "
+                    "not. Check test paths, renamed files, or a broken conftest."
+                )
+            ],
+            counters=counters,
+            seconds=time.time() - t,
+        )
+    tail = [ln for ln in out.splitlines() if ln.strip()][-10:]
+    return Result(
+        "pytest",
+        "pass" if code == 0 else "fail",
+        promise="the repo's test suite runs and passes",
+        findings=[] if code == 0 else tail,
+        counters=counters,
+        seconds=time.time() - t,
+    )
+
+
+def check_shellcheck(root: Path, files: list[Path], timeout: int) -> Result:
+    sh = [f for f in files if is_shell(f)]
+    if not sh:
+        return Result("shellcheck", "skip", reason="no shell files in scope")
+    if not shutil.which("shellcheck"):
+        return Result(
+            "shellcheck",
+            "skip",
+            reason=missing("shellcheck", "brew install shellcheck"),
+        )
+    t = time.time()
+    code, out = run(
+        ["shellcheck", "--severity=warning", *[str(f) for f in sh]], root, timeout
+    )
+    findings = [ln.strip() for ln in out.splitlines() if ln.strip()][:20]
+    return Result(
+        "shellcheck",
+        "pass" if code == 0 else "fail",
+        promise="shell scripts lint clean",
+        findings=findings,
+        covered=[rel(root, f) for f in sh],
+        counters={"files": len(sh)},
+        seconds=time.time() - t,
+    )
+
+
+def check_node_lint(root: Path, files: list[Path], timeout: int) -> Result:
+    src = [f for f in files if f.suffix in {".ts", ".tsx", ".js", ".jsx"}]
+    if not src:
+        return Result("eslint", "skip", reason="no JS/TS files in scope")
+    binary = root / "node_modules" / ".bin" / "eslint"
+    if not binary.exists():
+        return Result(
+            "eslint",
+            "skip",
+            reason="node_modules/.bin/eslint absent — run pnpm install",
+        )
+    t = time.time()
+    code, out = run([str(binary), *[str(f) for f in src]], root, timeout)
+    findings = [ln.strip() for ln in out.splitlines() if ln.strip()][:20]
+    return Result(
+        "eslint",
+        "pass" if code == 0 else "fail",
+        promise="eslint config for this repo",
+        findings=findings,
+        covered=[rel(root, f) for f in src],
+        counters={"files": len(src)},
+        seconds=time.time() - t,
+    )
+
+
+def check_tsc(root: Path, timeout: int) -> Result:
+    binary = root / "node_modules" / ".bin" / "tsc"
+    if not binary.exists():
+        return Result("tsc", "skip", reason="typescript not installed")
+    t = time.time()
+    code, out = run([str(binary), "--noEmit"], root, timeout)
+    findings = [ln.strip() for ln in out.splitlines() if "error TS" in ln][:15]
+    return Result(
+        "tsc",
+        "pass" if code == 0 else "fail",
+        promise="project typechecks",
+        findings=findings,
+        counters={"errors": len(findings)},
+        seconds=time.time() - t,
+    )
+
+
+def check_rust(root: Path, full: bool, timeout: int) -> list[Result]:
+    if not shutil.which("cargo"):
+        return [Result("cargo", "skip", reason=missing("cargo"))]
+    out_results = []
+    t = time.time()
+    code, _ = run(["cargo", "fmt", "--check"], root, timeout)
+    out_results.append(
+        Result(
+            "cargo-fmt",
+            "pass" if code == 0 else "fail",
+            promise="rustfmt clean",
+            findings=[] if code == 0 else ["run `cargo fmt`"],
+            seconds=time.time() - t,
+        )
+    )
+    if full:
+        t = time.time()
+        code, out = run(
+            ["cargo", "clippy", "--all-targets", "--", "-D", "warnings"], root, timeout
+        )
+        findings = [
+            ln.strip() for ln in out.splitlines() if ln.startswith(("error", "warning"))
+        ][:15]
+        out_results.append(
+            Result(
+                "clippy",
+                "pass" if code == 0 else "fail",
+                promise="clippy with warnings denied",
+                findings=findings,
+                seconds=time.time() - t,
+            )
+        )
+        t = time.time()
+        code, out = run(["cargo", "test", "--quiet"], root, timeout)
+        m = re.search(r"(\d+) passed.*?(\d+) failed", out)
+        counters = {"passed": int(m.group(1)), "failed": int(m.group(2))} if m else {}
+        findings = [
+            ln.strip() for ln in out.splitlines() if "FAILED" in ln or "panicked" in ln
+        ][:15]
+        out_results.append(
+            Result(
+                "cargo-test",
+                "pass" if code == 0 else "fail",
+                promise="cargo test suite passes",
+                findings=findings,
+                counters=counters,
+                seconds=time.time() - t,
+            )
+        )
+    return out_results
+
+
+def check_swift(root: Path, files: list[Path], timeout: int) -> Result:
+    src = [f for f in files if f.suffix == ".swift"]
+    if not src:
+        return Result("swiftlint", "skip", reason="no Swift files in scope")
+    if not shutil.which("swiftlint"):
+        return Result(
+            "swiftlint", "skip", reason=missing("swiftlint", "brew install swiftlint")
+        )
+    t = time.time()
+    _, out = run(
+        ["swiftlint", "lint", "--quiet", *[str(f) for f in src]], root, timeout
+    )
+    findings = [
+        ln.strip() for ln in out.splitlines() if ": error:" in ln or ": warning:" in ln
+    ][:20]
+    return Result(
+        "swiftlint",
+        "fail" if findings else "pass",
+        promise="swiftlint rules",
+        findings=findings,
+        covered=[rel(root, f) for f in src],
+        counters={"files": len(src)},
+        seconds=time.time() - t,
+    )
+
+
+def check_kotlin(root: Path, files: list[Path], timeout: int) -> Result:
+    src = [f for f in files if f.suffix in {".kt", ".kts"}]
+    if not src:
+        return Result("ktlint", "skip", reason="no Kotlin files in scope")
+    if not shutil.which("ktlint"):
+        return Result("ktlint", "skip", reason=missing("ktlint", "brew install ktlint"))
+    t = time.time()
+    code, out = run(["ktlint", *[str(f) for f in src]], root, timeout)
+    findings = [ln.strip() for ln in out.splitlines() if ln.strip()][:20]
+    return Result(
+        "ktlint",
+        "pass" if code == 0 else "fail",
+        promise="ktlint rules",
+        findings=findings,
+        covered=[rel(root, f) for f in src],
+        counters={"files": len(src)},
+        seconds=time.time() - t,
+    )
+
+
+# --------------------------------------------------------------------------
+# Receipt
+# --------------------------------------------------------------------------
+
+
+def build_receipt(
+    root: Path,
+    files: list[Path],
+    stacks: dict[str, str],
+    results: list[Result],
+    full: bool,
+    elapsed: float,
+) -> dict:
+    ran = [r for r in results if r.status in ("pass", "fail")]
+    failed = [r for r in ran if r.status == "fail"]
+
+    covered: set[str] = set()
+    for r in ran:
+        covered.update(r.covered)
+
+    scope = [rel(root, f) for f in files]
+    # Named rejections: changed files no sensor looked at. A silent drop and an
+    # absent input must not be the same state.
+    unchecked = [s for s in scope if s not in covered]
+
+    if not scope:
+        verdict, why = "UNKNOWN", "empty scope: no changed files were found to check"
+    elif not ran:
+        verdict, why = "UNKNOWN", "no sensor could run on this scope"
+    elif failed:
+        verdict, why = "FAIL", ""
+    else:
+        verdict, why = "PASS", ""
+
+    return {
+        "verdict": verdict,
+        "why": why,
+        "mode": "full" if full else "fast",
+        "root": str(root),
+        "stacks": stacks,
+        "scope": scope,
+        "covered": sorted(covered),
+        "unchecked": unchecked,
+        "harness_touched": harness_touched(root, files),
+        "ran": [
+            {
+                "name": r.name,
+                "status": r.status,
+                "promise": r.promise,
+                "counters": r.counters,
+                "seconds": round(r.seconds, 2),
+            }
+            for r in ran
+        ],
+        "skipped": [
+            {"name": r.name, "reason": r.reason} for r in results if r.status == "skip"
+        ],
+        "findings": [f for r in failed for f in (r.findings or [f"{r.name} failed"])],
+        "elapsed": round(elapsed, 2),
+    }
+
+
+def render(rec: dict) -> str:
+    out = [f"VERIFY {rec['verdict']} ({rec['mode']}, {rec['elapsed']}s)"]
+    if rec["why"]:
+        out.append(f"  why:      {rec['why']}")
+    out.append(
+        "  stacks:   "
+        + (", ".join(f"{k} ({v})" for k, v in rec["stacks"].items()) or "none detected")
+    )
+    out.append(
+        f"  scope:    {len(rec['scope'])} changed file(s), {len(rec['covered'])} covered"
+    )
+    ran = rec["ran"]
+    if ran:
+        parts = []
+        for r in ran:
+            c = r["counters"]
+            tail = " " + json.dumps(c, separators=(",", ":")) if c else ""
+            parts.append(f"{r['name']}={r['status']}{tail}")
+        out.append("  ran:      " + ", ".join(parts))
+    else:
+        out.append("  ran:      nothing")
+    if rec["unchecked"]:
+        out.append(
+            "  UNCHECKED (no sensor looked at these): "
+            + ", ".join(rec["unchecked"][:12])
+        )
+    if rec["harness_touched"]:
+        out.append("  HARNESS TOUCHED — this change edits the measuring apparatus:")
+        for h in rec["harness_touched"][:10]:
+            out.append(f"    {h}")
+        out.append(
+            "    Legitimate when the rule was wrong. Say which promise changed and why."
+        )
+    if rec["skipped"]:
+        out.append(
+            "  skipped:  "
+            + "; ".join(f"{s['name']} — {s['reason']}" for s in rec["skipped"])
+        )
+    if rec["findings"]:
+        out.append("  findings:")
+        for f in rec["findings"][:25]:
+            out.append(f"    {f}")
+        if len(rec["findings"]) > 25:
+            out.append(f"    ... and {len(rec['findings']) - 25} more")
+    if rec["verdict"] == "UNKNOWN":
+        out.append(
+            "  NOTE: this is NOT a pass. Nothing was verified. Either widen the "
+            "scope, install the missing tools, or state plainly that the change "
+            "is unverified."
+        )
+    return "\n".join(out)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        prog="solo-verify", description="Verify a change and print a receipt."
+    )
+    ap.add_argument("--full", action="store_true", help="also run types and tests")
+    ap.add_argument(
+        "--files", nargs="*", help="explicit scope (default: changed vs HEAD)"
+    )
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--root", default=os.environ.get("CLAUDE_PROJECT_DIR") or ".")
+    args = ap.parse_args()
+
+    root = Path(args.root).resolve()
+    timeout = FULL_TIMEOUT if args.full else FAST_TIMEOUT
+    started = time.time()
+
+    if args.files:
+        files = [Path(f).resolve() for f in args.files if Path(f).is_file()]
+    else:
+        files = git_changed_files(root)
+
+    stacks = detect_stacks(root)
+    results: list[Result] = [check_syntax(root, files), check_limits(root, files)]
+
+    if "python" in stacks:
+        results.append(check_ruff(root, files, timeout))
+        if args.full:
+            results.append(check_types(root, files, timeout))
+            results.append(check_pytest(root, timeout))
+    if "node" in stacks:
+        results.append(check_node_lint(root, files, timeout))
+        if args.full:
+            results.append(check_tsc(root, timeout))
+    if "rust" in stacks:
+        results += check_rust(root, args.full, timeout)
+    if "swift" in stacks:
+        results.append(check_swift(root, files, timeout))
+    if "kotlin" in stacks:
+        results.append(check_kotlin(root, files, timeout))
+    results.append(check_shellcheck(root, files, timeout))
+
+    rec = build_receipt(root, files, stacks, results, args.full, time.time() - started)
+    print(json.dumps(rec, indent=2, ensure_ascii=False) if args.json else render(rec))
+    return {"PASS": 0, "FAIL": 1, "UNKNOWN": 2}[rec["verdict"]]
+
+
+if __name__ == "__main__":
+    sys.exit(main())

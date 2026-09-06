@@ -58,6 +58,15 @@ evolve-auto: ## Auto-apply evolution fixes (non-interactive, bighead-style)
 		"Read ~/.solo/evolution.md. Apply ALL unfixed DEFECT entries to solo-factory. For each: 1) apply fix 2) run make test 3) mark FIXED in evolution.md 4) git commit. Output <solo:done/> when all fixed." \
 		2>&1 | tail -20
 
+verify: ## Verify changed files (fast: syntax + lint)
+	@python3 scripts/solo-verify
+
+verify-full: ## Verify changed files (full: + types + tests)
+	@python3 scripts/solo-verify --full
+
+test-sensors: ## Run sensor/harness acceptance tests only
+	@bats tests/sensors.bats
+
 test: ## Run all tests (BATS + trigger validation)
 	@bats tests/
 	@python3 scripts/validate_triggers.py

@@ -32,7 +32,10 @@ repos:
     hooks:
       - id: ty-check
         name: ty type-check (Python)
-        entry: uvx ty check scripts/
+        # --with makes ty see the project's declared dependencies. Without
+        # them it reported 7 unresolved-import diagnostics on every commit,
+        # which is a sensor that is always red and therefore soon ignored.
+        entry: uvx --with pyyaml --with rich ty check scripts/
         language: system
         types: [python]
         pass_filenames: false

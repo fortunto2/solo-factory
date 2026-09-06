@@ -9,7 +9,7 @@ Claude Code plugin for solopreneurs. Single source of truth for all skills, agen
 commands/                    # Orchestrator commands (Command → Agent → Skill pattern)
 skills/                     # 39 skills (SKILL.md + references/)
 agents/                     # 3 agents (researcher, code-analyst, idea-validator)
-hooks/                      # SessionStart (info + drift detector) + Stop (pipeline)
+hooks/                      # SessionStart (info + drift) · PostToolUse (syntax sensor) · Stop (verify gate + pipeline)
 rules/                      # User-level rules (symlinked to ~/.claude/rules/ via make plugin-link)
 scripts/                    # Pipeline launchers (bighead, solo-dev.sh, solo-research.sh, solo-codex.sh)
 templates/                  # Stack templates, dev principles, PRD templates
@@ -35,6 +35,7 @@ Commands coordinate agents and skills — they don't do work themselves.
 | `ai-comments.md` | All files | AI-NOTE/TODO/ASK/PATTERN comment conventions |
 | `debugging.md` | All files | Background task debugging, browser MCP for logs |
 | `routing.md` | All files | Agent & skill routing table (task signals → route) |
+| `harness-sensors.md` | All files | What the sensors measure, their published promises, and the noise budget |
 
 ## Makefile Commands
 
@@ -44,6 +45,9 @@ make plugin-publish        # Push + reinstall Claude Code plugin globally
 make clawhub-publish S=x   # Publish one skill to ClawHub (S=skill-name)
 make clawhub-publish-all   # Publish all skills to ClawHub (slow, 3s/skill)
 make publish-all           # All registries at once (Claude Code + ClawHub)
+make verify                # Verify changed files (fast: syntax + lint)
+make verify-full           # Verify changed files (full: + types + tests)
+make test-sensors          # Sensor acceptance tests only
 make test                  # Run all tests (BATS + trigger validation)
 make test-bats             # BATS tests only
 make test-triggers         # Skill trigger validation
@@ -136,6 +140,26 @@ The pipeline (`solo-dev.sh`) calls skills as `/solo:{name}`. Claude Code resolve
 - **Factory Critic / Evolution Loop:** `/retro` Phase 10 runs factory critique (opus evaluates skills/scripts/pipeline), `solo-codex.sh --factory` adds independent Codex critique. Both append structured defects to `~/.solo/evolution.md`. Use `make evolve` to view, `make evolve-apply` to fix interactively, `make factory-critique P=project` to run Codex factory critique.
 - **Signal priority:** `<solo:redo/>` takes priority over `<solo:done/>` when both present in same iteration output. `<solo:redo/>` removes ALL markers (build+deploy+review) and re-execs from build.
 - **Circuit breaker:** fingerprint-based (md5 of last 5 lines), limit 3 identical failures
+
+## Sensors (feedback half of the harness)
+
+Skills and rules steer the agent *before* it acts. Sensors observe *after*, so
+mistakes self-correct before reaching you. Full contract: `rules/harness-sensors.md`.
+
+| Placement | Runs | Blocks? |
+|---|---|---|
+| PostToolUse on `Edit\|Write` (`hooks/sensor-edit.sh`) | Syntax of the one file just written, <1s | no, injects context |
+| Stop (`hooks/sensor-stop.sh`) | `solo-verify --full` | **yes, once per turn** |
+
+`scripts/solo-verify` is the single entry point. It detects the stack from repo
+markers, runs only that stack's tools, and prints a **receipt**, never a bare
+colour:
+
+- `ran` / `skipped` (with a reason) / `UNCHECKED` — changed files no sensor looked at
+- `HARNESS TOUCHED` — test files and lint configs in the change, with sha256
+- Exit `0` pass · `1` fail · `2` **unknown** (nothing was checked — not a pass)
+
+Off switch for a session: `SOLO_SENSOR_STOP=off` (or `fast` to skip tests).
 
 ## Utilities
 
