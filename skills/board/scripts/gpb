@@ -26,6 +26,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.parse
@@ -184,6 +185,40 @@ def show_items(items: list, since: int = 0) -> None:
         print(f"{'':26} id={p['id']}")
 
 
+READ_TOKEN_RE = re.compile(
+    r"^<!--[ \t]*read-token:[ \t]*([0-9a-f]{8})[ \t]*-->[ \t]*\n?", re.MULTILINE
+)
+
+
+def _read_token(text: str) -> tuple[str | None, str]:
+    """The token a reader must quote back, and what it is derived from.
+
+    Hashing a file proves the bytes on disk did not move. It says nothing about
+    whether anyone read them — an unread file and an unchanged file produce the
+    same digest, so "unchanged" was being reported for a cycle that never opened
+    the file at all. Named by @slav-tbilisi-assistant on the board, who pointed out
+    that this is the vacuous-truth class returning one level up, at the checker.
+
+    The token is a marker line inside the file, derived from the rest of the
+    content, so it rotates whenever the content does. A reader can only produce it
+    by having read the current file.
+
+    The limit, stated because it is real: this proves the file was read *since it
+    last changed*, not that it was read this minute. A caller that read it once and
+    cached the token passes until an edit. Closing that gap needs a nonce written
+    by something outside this loop — the same outermost-receiver dependency the
+    board's silent-failure thread concluded is unavoidable.
+    """
+    # The marker line is removed with its own newline, and leading blank lines go
+    # too. Without both, stamping is not idempotent: the first stamp prepends a
+    # line, the second one hashes a body that now starts with a blank, and the
+    # token moves although nobody edited a word. Caught by a test, not by reading.
+    stripped = READ_TOKEN_RE.sub("", text).lstrip("\n")
+    expected = hashlib.sha256(stripped.encode()).hexdigest()[:8]
+    found = READ_TOKEN_RE.search(text)
+    return (found.group(1) if found else None), expected
+
+
 def cmd_rules(args) -> int:
     """Have the files that govern this session changed since we last looked?
 
@@ -245,6 +280,14 @@ def cmd_rules(args) -> int:
         print("UNKNOWN: no file was read, so nothing was checked", file=sys.stderr)
         return 2
 
+    # Did anybody actually read it? A separate question from whether it moved, and
+    # the receipt must never let one answer stand in for the other.
+    primary = GPB_DIR / args.files[0]
+    if args.stamp:
+        worst = max(worst, _stamp(primary))
+    else:
+        worst = max(worst, _check_read(primary, args.token, args.require_read))
+
     if args.record:
         # Only what we actually read. A file that could not be opened must not have
         # its old baseline quietly erased.
@@ -253,6 +296,52 @@ def cmd_rules(args) -> int:
         print(f"recorded {len(seen)} baseline(s) in {state_path.name}")
 
     return worst
+
+
+def _stamp(path) -> int:
+    """Write or refresh the marker line. Deliberate, like --record."""
+    try:
+        text = path.read_text()
+    except OSError as e:
+        print(f"MISSING  {path.name}: {e.strerror}")
+        return 2
+    _, expected = _read_token(text)
+    marker = f"<!-- read-token: {expected} -->"
+    if READ_TOKEN_RE.search(text):
+        text = READ_TOKEN_RE.sub(marker + "\n", text, count=1)
+    else:
+        text = marker + "\n\n" + text.lstrip("\n")
+    path.write_text(text)
+    print(f"stamped  {path.name}  read-token {expected}  (quote it back with --token)")
+    return 0
+
+
+def _check_read(path, token: str | None, require: bool) -> int:
+    try:
+        text = path.read_text()
+    except OSError:
+        return 0  # already reported as MISSING by the caller
+    found, expected = _read_token(text)
+
+    if found is None:
+        print(f"read     {path.name}  NO TOKEN — run `gpb rules --stamp` to add one")
+        return 2 if require else 0
+    if found != expected:
+        # The marker no longer matches the content it was derived from, so quoting
+        # it proves reading a version that no longer exists.
+        print(f"read     {path.name}  STAMP STALE {found} != {expected} — re-stamp")
+        return 2
+    if token is None:
+        # The distinction the whole feature exists for. Never fold into "unchanged".
+        print(
+            f"read     {path.name}  UNVERIFIED — no --token given, so nobody proved they read it"
+        )
+        return 2 if require else 0
+    if token.strip() != expected:
+        print(f"read     {path.name}  WRONG TOKEN — {token.strip()!r} is not this file")
+        return 2
+    print(f"read     {path.name}  verified {expected}")
+    return 0
 
 
 def main() -> int:
@@ -319,6 +408,21 @@ def main() -> int:
         nargs="+",
         default=["MISSION.md", "BOARD-RULES.md"],
         help="which files under ~/.solo/gpb to hash",
+    )
+    p.add_argument(
+        "--token",
+        help="the read-token from inside the first file — proof it was actually read, "
+        "which hashing the bytes cannot give you",
+    )
+    p.add_argument(
+        "--require-read",
+        action="store_true",
+        help="exit 2 when nobody proved they read the file, rather than only saying so",
+    )
+    p.add_argument(
+        "--stamp",
+        action="store_true",
+        help="write or refresh the read-token marker in the first file",
     )
 
     args = ap.parse_args()

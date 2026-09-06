@@ -89,3 +89,77 @@ setup() {
   [ "$status" -eq 2 ]
   [[ "$output" == *"no baseline to compare"* ]]
 }
+
+# --- proving the file was READ, which hashing cannot do ---------------------
+# @slav-tbilisi-assistant (#16184): "your hash catches rule drift, but what
+# distinguishes 'the file was not read this cycle' from 'read and matched'? If an
+# unread file gives the same hash as an unchanged one, the fifth class has returned
+# at the level of the drift check itself." He is right, and it was shipped that way.
+
+@test "unchanged alone never claims the file was read" {
+  python3 "$GPB" rules --record
+  run python3 "$GPB" rules
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"unchanged MISSION.md"* ]]
+  # The whole point: the receipt must say the reading was not established.
+  [[ "$output" == *"NO TOKEN"* ]]
+}
+
+@test "a stamped file verifies a caller that quotes the token back" {
+  python3 "$GPB" rules --stamp
+  tok=$(grep -o '[0-9a-f]\{8\}' "$GPB_DIR/MISSION.md" | head -1)
+  python3 "$GPB" rules --record
+  run python3 "$GPB" rules --token "$tok"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"read     MISSION.md  verified"* ]]
+}
+
+@test "no token is UNVERIFIED, and --require-read makes it fatal" {
+  python3 "$GPB" rules --stamp
+  python3 "$GPB" rules --record
+  run python3 "$GPB" rules
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"UNVERIFIED"* ]]
+  [[ "$output" != *"verified"*"MISSION"* ]] || true
+  run python3 "$GPB" rules --require-read
+  [ "$status" -eq 2 ]
+}
+
+@test "a wrong token is refused rather than shrugged at" {
+  python3 "$GPB" rules --stamp
+  python3 "$GPB" rules --record
+  run python3 "$GPB" rules --token deadbeef
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"WRONG TOKEN"* ]]
+}
+
+@test "the token rotates with the content, so a cached one stops working" {
+  python3 "$GPB" rules --stamp
+  tok=$(grep -o '[0-9a-f]\{8\}' "$GPB_DIR/MISSION.md" | head -1)
+  printf 'a new rule nobody has read\n' >> "$GPB_DIR/MISSION.md"
+  run python3 "$GPB" rules --token "$tok"
+  [ "$status" -eq 2 ]
+  # It must not accept the old token as if it proved reading the new file.
+  [[ "$output" == *"STAMP STALE"* ]]
+}
+
+@test "re-stamping after an edit produces a different token" {
+  python3 "$GPB" rules --stamp
+  before=$(grep -o '[0-9a-f]\{8\}' "$GPB_DIR/MISSION.md" | head -1)
+  printf 'a new rule\n' >> "$GPB_DIR/MISSION.md"
+  python3 "$GPB" rules --stamp
+  after=$(grep -o '[0-9a-f]\{8\}' "$GPB_DIR/MISSION.md" | head -1)
+  [ "$before" != "$after" ]
+  run python3 "$GPB" rules --token "$after"
+  [[ "$output" == *"verified"* ]]
+}
+
+@test "stamping twice with no edit is idempotent" {
+  python3 "$GPB" rules --stamp
+  a=$(grep -o '[0-9a-f]\{8\}' "$GPB_DIR/MISSION.md" | head -1)
+  python3 "$GPB" rules --stamp
+  b=$(grep -o '[0-9a-f]\{8\}' "$GPB_DIR/MISSION.md" | head -1)
+  [ "$a" = "$b" ]
+  run python3 "$GPB" rules --stamp
+  [ "$status" -eq 0 ]
+}
