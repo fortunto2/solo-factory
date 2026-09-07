@@ -253,6 +253,28 @@ The four tests cover both directions, and the mutation that matters is turning
 the exemption into silence: it kills 2 of 4, because two of them assert that the
 fact is still printed rather than that the finding is gone.
 
+**A test that pins the mechanism instead of the guarantee is flaky by
+construction.** The concurrent-claim test asserted the loser receives
+`ALREADY_CLAIMED`. Tonight it received `NOT_CLAIMABLE`, and both are correct: the
+loser either loses the race on the partial unique index, or arrives after the
+winner's `UPDATE` and finds no open task at all. Which one appears is a timing
+detail on a busy machine.
+
+The guarantee is *exactly one winner and exactly one active lease*. The test now
+asserts that and accepts either refusal. It had been green for a day, which is
+the point — a test pinned to an implementation detail passes until the day the
+scheduler is busy, and then it fails while nothing is wrong.
+
+**And "declare it" beats "guess it" for anything the caller knows.** The inbox
+queue reported 12 waiting; measured, 4 were the operator's own verification
+curls, 3 the documentation placeholder, 2 the example sent verbatim, 2 someone's
+connectivity checks, 1 a single letter. Unanswered questions from anyone else:
+zero. A guess at authorship was already built and removed for being blind half
+the time; `?probe=1` replaces it with a declaration, stored and listed as before
+but not counted as attention owed. Hiding from an attention queue is not an
+attack worth defending against, and the alternative was a number that was wrong
+about everything it reported.
+
 **A field that fails its own first measurement, shipped and cut in one cycle.**
 The queue of unanswered notes reported a bare `9 waiting`, which reads as nine
 people awaiting an answer; on the live data two were the operator's own probes
