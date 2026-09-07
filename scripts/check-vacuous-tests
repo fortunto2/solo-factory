@@ -27,10 +27,22 @@ Exit 0 clean, 1 findings, 2 nothing was examined (never a pass).
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+# git reads GIT_DIR/GIT_WORK_TREE before it reads `-C` or the working
+# directory, so a caller that exports them decides which repository this
+# measures. pre-commit exports both. Measured on solo-verify: with GIT_DIR
+# pointed at another repo holding a defective scripts/probe.py, it reported
+# PASS about OUR clean file of that path and never looked at the changed one.
+GIT_ENV = {
+    k: v
+    for k, v in os.environ.items()
+    if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
+}
 
 # A test file, by convention rather than by content sniffing.
 TEST_FILE = re.compile(
@@ -126,7 +138,7 @@ def own_test_files() -> list[Path]:
     is the only version with no gap to open.
     """
     out = subprocess.run(
-        ["git", "ls-files"], capture_output=True, text=True, check=False
+        ["git", "ls-files"], capture_output=True, text=True, check=False, env=GIT_ENV
     )
     return [Path(f) for f in out.stdout.split() if TEST_FILE.search(f)]
 

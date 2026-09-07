@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import os
 import re
 import subprocess
 import sys
@@ -134,6 +135,13 @@ def changed_lines(target: Path) -> set[int] | None:
         capture_output=True,
         text=True,
         cwd=target.resolve().parent,
+        # An inherited GIT_DIR overrides cwd, so --changed would take its hunks from
+        # another repository and mutate lines this file never had.
+        env={
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
+        },
     )
     if r.returncode != 0:
         return None

@@ -1073,3 +1073,62 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   g=$(echo "$by_git" | grep "ran:"); f=$(echo "$by_files" | grep "ran:")
   [ "$g" = "$f" ]
 }
+
+# ── an inherited GIT_DIR decides which repository we measure ────────────────
+#
+# git reads GIT_DIR and GIT_WORK_TREE before it reads `-C` or the working
+# directory, so a caller that exports them silently redirects the scope query.
+# pre-commit exports both. This repo's rules file has warned about the trap since
+# it corrupted a real .git config — and the scrub was applied to exactly one
+# script, the one where it had already bitten. Every other git-calling script
+# kept the hole for a week.
+
+setup_decoy() {   # a second repo holding a DEFECTIVE file at a path we also have
+  DECOY="$BATS_TEST_TMPDIR/decoy"
+  mkdir -p "$DECOY/scripts"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$DECOY" && git init -q . \
+      && git config user.email t@e && git config user.name t \
+      && printf 'def f():\n    return 1\n' > scripts/probe.py \
+      && git add -A && git commit -q -m base )
+  printf 'import os\ndef f():\n    x = 1\n    return 1\n' > "$DECOY/scripts/probe.py"
+}
+
+@test "a foreign GIT_DIR does not decide what solo-verify verifies" {
+  setup_decoy
+  R="$BATS_TEST_DIRNAME/.."
+  # Our own copy of that path is clean. Before the scrub, the decoy's change put
+  # 'scripts/probe.py' in scope, this clean file was verified in its place, and the
+  # receipt said PASS about a change that happened in another repository.
+  printf 'def f():\n    return 1\n' > "$R/scripts/probe.py"
+  run python3 "$R/scripts/solo-verify" --json
+  local clean="$output"
+  run env GIT_DIR="$DECOY/.git" GIT_WORK_TREE="$DECOY" \
+      python3 "$R/scripts/solo-verify" --json
+  local foreign="$output"
+  rm -f "$R/scripts/probe.py"
+  # Presence of probe.py proves nothing — this test creates it here on purpose, so
+  # our own git reports it too. What discriminates is whether the REST of our scope
+  # survives: under the bug the scope was exactly the decoy's one file.
+  python3 -c "
+import json, sys
+a = json.loads(sys.argv[1]); b = json.loads(sys.argv[2])
+assert a['scope'], 'empty scope proves nothing — the comparison would be vacuous'
+assert a['root'] == b['root'], (a['root'], b['root'])
+assert a['scope'] == b['scope'], (a['scope'], b['scope'])
+assert a['verdict'] == b['verdict'], (a['verdict'], b['verdict'])
+" "$clean" "$foreign"
+}
+
+@test "check-shippable answers about this repo whatever GIT_DIR says" {
+  setup_decoy
+  C="$BATS_TEST_DIRNAME/../scripts/check-shippable"
+  run python3 "$C"
+  local plain="$output"
+  [ -n "$plain" ]
+  run env GIT_DIR="$DECOY/.git" GIT_WORK_TREE="$DECOY" python3 "$C"
+  [ "$output" = "$plain" ]
+  [[ "$output" == *"version"* ]]   # it really answered, rather than answering nothing
+  # The wrong answer it used to give, stating a cause that did not happen.
+  [[ "$output" != *"the manifest has no history"* ]]
+}

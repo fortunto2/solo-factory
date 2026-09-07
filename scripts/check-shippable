@@ -22,9 +22,21 @@ be read, which is never a pass.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+# git reads GIT_DIR/GIT_WORK_TREE before it reads `-C` or the working
+# directory, so a caller that exports them decides which repository this
+# measures. pre-commit exports both. Measured on solo-verify: with GIT_DIR
+# pointed at another repo holding a defective scripts/probe.py, it reported
+# PASS about OUR clean file of that path and never looked at the changed one.
+GIT_ENV = {
+    k: v
+    for k, v in os.environ.items()
+    if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
+}
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / ".claude-plugin" / "plugin.json"
@@ -43,7 +55,10 @@ USER_FACING = (
 
 def git(*args: str) -> str:
     return subprocess.run(
-        ["git", "-C", str(ROOT), *args], capture_output=True, text=True
+        ["git", "-C", str(ROOT), *args],
+        capture_output=True,
+        text=True,
+        env=GIT_ENV,
     ).stdout.strip()
 
 

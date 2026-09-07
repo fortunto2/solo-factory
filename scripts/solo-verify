@@ -200,11 +200,32 @@ def incomplete_reason(code: int) -> str:
     }.get(code, "")
 
 
+# git reads these BEFORE it reads `-C` or the working directory, so a caller that
+# exports them decides which repository we measure. pre-commit exports both, and so
+# does any shell inside a hook. Scrubbed for every subprocess, not only for git: a
+# linter that shells out to git inherits the same override.
+GIT_ENV_OVERRIDES = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
+
+
 def run(argv: list[str], cwd: Path, timeout: int) -> tuple[int, str]:
-    """Run a command. Returns (code, combined output). Never raises."""
+    """Run a command. Returns (code, combined output). Never raises.
+
+    The scope of a verification comes from `git diff`, so an inherited GIT_DIR
+    silently moves the whole run to another repository — and the receipt then says
+    PASS about files nobody asked about. Measured: with GIT_DIR pointed at a scratch
+    repo, this printed `VERIFY PASS … 1 changed file(s), 1 covered` for a file in
+    that scratch repo while standing in this one.
+    """
+    env = {k: v for k, v in os.environ.items() if k not in GIT_ENV_OVERRIDES}
     try:
         p = subprocess.run(
-            argv, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False
+            argv,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            env=env,
         )
         return p.returncode, (p.stdout or "") + (p.stderr or "")
     except subprocess.TimeoutExpired:

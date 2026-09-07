@@ -801,6 +801,53 @@ A record written before the field existed is reported as **unknown**, never fold
 in with the rest — absence of the field is not agreement with it. That branch is the
 one a mutation kills, which is how it was checked rather than assumed.
 
+**An inherited `GIT_DIR` decides which repository the verifier measures, and the
+receipt says PASS about the wrong one.** *Measured here*, and it is the highest-stakes
+false green found so far because it lands on the gate itself.
+
+git reads `GIT_DIR` and `GIT_WORK_TREE` **before** it reads `-C` or the working
+directory, so a caller that exports them redirects the scope query silently.
+pre-commit exports both, and so does any shell inside a hook.
+
+The discriminating case, built rather than argued: a second repository holding a
+defective `scripts/probe.py` — unused import, a dead assignment — while this
+repository holds a clean file at the same path. Standing here, with `GIT_DIR`
+pointed there:
+
+```
+scope: ['scripts/probe.py']   root: …/solo-factory   verdict: PASS   findings: 0
+```
+
+It verified **our clean copy** and reported PASS about a change that happened
+somewhere else. The defective file was never opened. A colliding path is what makes
+this a false green rather than a confusing error: without the collision the scope
+simply fails to resolve and the verdict is UNKNOWN, which is why the first two
+probes found nothing and read as reassuring.
+
+*This trap is already in this file.* It was written down when a scratch `git init`
+inherited pre-commit's `GIT_DIR` and wrote `bare = true` into this repository's real
+config, with the conclusion stated then: **a script that creates a scratch repository
+has to scrub those variables itself rather than trust its caller.** The scrub went
+into `measure-blind-spots`, the one script where it had already bitten, and nowhere
+else. Six scripts call git here; one scrubbed. **The one-call-site lesson for the
+sixth time, and the first where the rule was already published and simply not
+carried across.**
+
+Scrubbed now in `solo-verify` (for every subprocess, not only git — a linter that
+shells out inherits the same override), `check-shippable`, `check-vacuous-tests` and
+`mutate`, whose `--changed` would otherwise take its hunks from another repository
+and mutate lines the file never had.
+
+Two smaller things the same probe turned up. `check-shippable` under a foreign
+`GIT_DIR` answered `UNKNOWN: the manifest has no history` — the manifest has plenty;
+the cause was invented, the wrong-cause class again. And the test that pins this had
+to be rewritten once: its first version asserted the decoy's path was absent from
+scope, which is false, because the test creates that file here on purpose and our own
+git reports it. What discriminates is that the **rest** of our scope survives — under
+the bug the scope was exactly the decoy's one file — so the test compares the whole
+receipt with and without the variable, and asserts the scope is non-empty first, or
+the comparison would be vacuous.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed
