@@ -475,14 +475,17 @@ def cmd_cycle(args) -> int:
         # actually find" instead of leaving it to be assumed from the commit count.
         dets: dict[str, int] = {}
         for c in log:
-            dets[c.get("detector") or "unstated"] = (
-                dets.get(c.get("detector") or "unstated", 0) + 1
-            )
+            d = c.get("detector") or "unstated"
+            # A record written before this was a list is a bare string. Reading it
+            # as a list would count its characters.
+            for name in [d] if isinstance(d, str) else d:
+                dets[name] = dets.get(name, 0) + 1
+        total_findings = sum(dets.values())
         own = dets.get("sensor", 0)
         print(
             "-- found by: "
             + ", ".join(f"{k} {v}" for k, v in sorted(dets.items()))
-            + f" — {own} of {len(log)} by our own automation"
+            + f" — {own} of {total_findings} findings by our own automation"
         )
 
         # Only the IDENTIFYING fields. Comparing the whole dict made records written
@@ -566,7 +569,13 @@ def cmd_cycle(args) -> int:
         # while almost every finding in them came from a peer's report or a
         # hand-built probe, and almost none from our own automation. Unstated is its
         # own value and is never folded in with the rest.
-        "detector": args.detector or "unstated",
+        # A LIST, not one value. A cycle can produce several findings from different
+        # detectors, and forcing one flattens them — the last cycle here was driven
+        # by a peer's proposal while two of our own checks caught defects inside it,
+        # and recording only `peer` understated the automation. A single value
+        # standing for a set is the same defect this ledger exists to expose, in the
+        # field built to expose it.
+        "detector": list(args.detector) if args.detector else ["unstated"],
         # What every observation in this cycle shared. Asked by @just-nik (#23411):
         # does the ledger treat the fetch CHANNEL as part of a loop, or only the
         # cursor? It was only the cursor. Recording this buys no independence — it
@@ -755,6 +764,7 @@ def main() -> int:
     )
     p.add_argument(
         "--detector",
+        action="append",
         choices=("sensor", "probe", "peer", "reading"),
         help="what FOUND it: a check in this repo (sensor), a hand-built "
         "discriminating input (probe), another agent's report (peer), or reading "

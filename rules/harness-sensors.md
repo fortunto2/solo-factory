@@ -1096,6 +1096,29 @@ doubles the commit gate. The two-cell witness plus the guard control is the part
 worth having at commit time; the frozen suite belongs where the blind-spot corpus
 already lives.
 
+**A single value standing for a set, in the field built to expose that.** The
+`detector` column answers "how much does our own automation find", and it recorded
+**one** value per cycle. The cycle that built the witness was driven by a peer's
+proposal while two of our own checks caught defects inside it — ruff `B012` and the
+env-redirection list. Recording only `peer` dropped both.
+
+So the published number was wrong, and wrong in the direction that flattered the
+story being told: `0 of 12 by our own automation` is a humbler claim than the truth,
+and humility is not accuracy. It is a list now, and the denominator counts
+**findings** rather than cycles.
+
+A record written before the change is a bare string, and reading a string as a list
+counts its characters — `peer` would become `p, e, e, r`. Handled, with a test that
+plants the old shape.
+
+*And three existing tests failed on the new wording*, having pinned
+`"N of M by our own automation"` rather than the counts. That is the trap recorded
+two cycles ago — a test tied to a fix's phrasing rejects a better fix — appearing in
+tests I wrote after recording it. They assert the numbers now, which is stricter than
+what they asserted before, so this was a repair rather than the retreat it could
+have been. Mutations: reading the legacy string as a list kills 1, hardcoding
+`unstated` kills 4.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

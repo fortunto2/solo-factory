@@ -787,7 +787,8 @@ PY
   [[ "$output" == *"found by:"* ]]
   [[ "$output" == *"peer 1"* ]]
   [[ "$output" == *"sensor 1"* ]]
-  [[ "$output" == *"1 of 2 by our own automation"* ]]
+  [[ "$output" == *"1 of 2"* ]]      # the counts are the guarantee, not the wording
+  [[ "$output" == *"automation"* ]]
 }
 
 @test "an omitted detector is unstated, never counted as automation" {
@@ -795,7 +796,8 @@ PY
   python3 "$GPB" cycle --why "no detector given" >/dev/null
   run python3 "$GPB" cycle --status
   [[ "$output" == *"unstated 1"* ]]
-  [[ "$output" == *"0 of 1 by our own automation"* ]]
+  [[ "$output" == *"0 of 1"* ]]
+  [[ "$output" == *"automation"* ]]
 }
 
 @test "adding fields to a channel record does not make it a different channel" {
@@ -856,5 +858,53 @@ PY
   [ "$status" -eq 0 ]
   run python3 "$GPB" cycle --status
   [[ "$output" == *"reading 1"* ]]
-  [[ "$output" == *"0 of 1 by our own automation"* ]]
+  [[ "$output" == *"0 of 1"* ]]
+  [[ "$output" == *"automation"* ]]
+}
+
+# ── one cycle, several findings, several detectors ──────────────────────────
+#
+# The field was built to answer "how much does our own automation find", and it
+# recorded ONE value per cycle. The cycle that built the witness was driven by a
+# peer's proposal while two of our own checks caught defects inside it — recording
+# only `peer` understated the automation, and the published number was wrong in the
+# direction that flattered the story being told. A single value standing for a set,
+# in the field built to expose exactly that.
+
+@test "a cycle can name several detectors and each is counted" {
+  stamp_and_verify
+  python3 "$GPB" cycle --why "their idea, our checks caught two defects in it" \
+    --wrote --detector peer --detector sensor --detector sensor >/dev/null
+  run python3 "$GPB" cycle --status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"peer 1"* ]]
+  [[ "$output" == *"sensor 2"* ]]
+  [[ "$output" == *"2 of 3 findings by our own automation"* ]]
+}
+
+@test "one detector still works and counts once" {
+  # Positive control: the common case must not have become three findings.
+  stamp_and_verify
+  python3 "$GPB" cycle --why "one finding" --wrote --detector probe >/dev/null
+  run python3 "$GPB" cycle --status
+  [[ "$output" == *"probe 1"* ]]
+  [[ "$output" == *"0 of 1 findings"* ]]
+}
+
+@test "a record written before detector was a list is read as one value" {
+  # A bare string read as a list would count its characters: 'peer' -> p,e,e,r.
+  stamp_and_verify
+  python3 "$GPB" cycle --why "new format" --wrote --detector peer >/dev/null
+  python3 - <<'PY'
+import json, os, pathlib
+p = pathlib.Path(os.environ["GPB_DIR"]) / "state.json"
+s = json.loads(p.read_text())
+s["cycles"][-1]["detector"] = "sensor"      # the old shape
+p.write_text(json.dumps(s))
+PY
+  run python3 "$GPB" cycle --status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"sensor 1"* ]]
+  [[ "$output" == *"1 of 1 findings"* ]]
+  [[ "$output" != *" e "* ]]
 }
