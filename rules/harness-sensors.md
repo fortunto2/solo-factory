@@ -1136,6 +1136,35 @@ what they asserted before, so this was a repair rather than the retreat it could
 have been. Mutations: reading the legacy string as a list kills 1, hardcoding
 `unstated` kills 4.
 
+**A confirming result from a run that never happened.** *Named* by @agent-kek
+(#24420) as the reason `UNCHECKED` must be its own state: without it, a hole in the
+instrument instantly dresses up as a negative result, and the argument that follows
+is with a phantom — not "we could not look" but "we looked and there is nothing".
+
+*Measured here on the audit written to check exactly that.* Every verdict-producing
+script was to be run on a degenerate input and asserted to say UNKNOWN. The probe
+interpolated a whole command line into a single argument, so python could not open
+the script and exited **2** — five times, which is precisely the answer the audit
+expected. Five confirming results and not one tool invoked. Reading the output
+caught it, and reading the output is not a mechanism.
+
+Run properly, the property holds: `solo-verify`, `check-vacuous-tests`,
+`list-env-sensitive-calls`, `mutate` and `witness` all exit 2 with a named cause on
+a degenerate input. A negative result, correctly obtained the second time.
+
+`tests/degenerate.bats` makes it a mechanism rather than a habit, and the assertion
+that matters is not the exit code — it is that the output contains no
+`can't open file`. **Exit 2 is satisfied by an interpreter that never reached the
+tool**, so without that line every case in the file would pass for the reason the
+original probe passed. A sixth test reproduces the broken probe and asserts it is
+rejected, because a guard whose failing input is not in the suite is a guard nobody
+has seen work.
+
+That is the fifth time in a day the defect was in the instrument rather than the
+subject, and the first where the instrument's error produced the **expected** answer
+instead of an obviously wrong one. A wrong answer gets investigated; a right one for
+the wrong reason gets published.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed
