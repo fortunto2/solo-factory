@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+"""Every place this repo shells out to a command whose behaviour the environment
+can redirect, and whether that call site defends against it.
+
+Not a linter. It forbids nothing and fails nothing. It exists because a list you
+can walk is assignable work, and a list you have to reconstruct by hand is luck.
+
+Why it exists, measured twice in one day:
+
+  * A grep over `scripts/*` produced "six scripts call git here; one scrubbed",
+    published as a fact about the repository. The glob covered one directory at one
+    depth. A peer session made the same mistake in the same hour from the other
+    direction: their manual sweep missed a git call under `.claude/skills/`, so
+    "I found exactly one call and closed the question" was false twice over — there
+    was no list, and the hand sweep missed a file.
+  * The first AST version of THIS script matched a literal argv list only as a
+    DIRECT argument of a call, so it missed four `["git", ...]` entries nested
+    inside a list of argvs in `measure-blind-spots`. Caught by known-answer: that
+    file certainly calls git, and the tool said it did not.
+
+What it cannot see, stated rather than discovered later:
+
+  * shell scripts — this walks Python ASTs only
+  * an argv built at runtime (`[tool] + args`, an f-string, a variable)
+  * a call through a wrapper this file does not know about
+
+So a clean run means "no literal argv of these commands is undefended", never "this
+repository is undefended nowhere".
+"""
+
+from __future__ import annotations
+
+import ast
+import io
+import os
+import re
+import sys
+import tokenize
+from pathlib import Path
+
+# The command, and what redirects it. A caller exporting these decides what the
+# call measures, and for git they are read BEFORE `-C` and before the working
+# directory — so naming the repository explicitly does not protect you.
+REDIRECTORS = {
+    "git": ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"),
+    "docker": ("DOCKER_HOST", "DOCKER_CONTEXT"),
+    "kubectl": ("KUBECONFIG",),
+    "gh": ("GH_HOST", "GH_REPO"),
+}
+
+SKIP = ("/.git/", "__pycache__", "/node_modules/", "/.venv/")
+
+
+def sources(root: Path) -> list[Path]:
+    out = []
+    for p in sorted(root.rglob("*")):
+        s = str(p)
+        if any(x in s for x in SKIP) or not p.is_file():
+            continue
+        if p.suffix in (".py", ""):
+            out.append(p)
+    return out
+
+
+def call_sites(path: Path) -> list[tuple[int, str]]:
+    """Literal argv lists, wherever they sit — nested ones included."""
+    try:
+        text = path.read_text()
+    except (OSError, UnicodeDecodeError):
+        return []
+    if not any(c in text for c in REDIRECTORS):
+        return []
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return []
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.List, ast.Tuple)) and node.elts:
+            head = node.elts[0]
+            if isinstance(head, ast.Constant) and head.value in REDIRECTORS:
+                found.append((node.lineno, head.value))
+    return found
+
+
+def defends(code: str, cmd: str) -> bool:
+    """Does this file's CODE mention the redirector, or a prefix that covers it?
+
+    A weak signal, and the output says so: it means somebody named the variable in
+    this file, not that this call site is covered. It was weaker still on the first
+    run — `measure-blind-spots` scrubs with `k.startswith("GIT_")` and never writes
+    the literal `GIT_DIR`, so a genuinely defended file read as UNDEFENDED. Four of
+    twenty call sites, measured before shipping.
+    """
+    names = REDIRECTORS[cmd]
+    if any(v in code for v in names):
+        return True
+    # A prefix filter covers every variable that starts with it.
+    prefix = os.path.commonprefix(names)
+    return bool(prefix.endswith("_") and f'"{prefix}' in code)
+
+
+def code_only(text: str) -> str:
+    """The file with comment tokens removed. Strings stay: a scrub is a string."""
+    try:
+        toks = tokenize.generate_tokens(io.StringIO(text).readline)
+        return "".join(
+            t.string for t in toks if t.type not in (tokenize.COMMENT, tokenize.NL)
+        )
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        # An unparseable file gets no free pass: fall back to the whole text, which
+        # can only over-report defence, never under-report it.
+        return text
+
+
+# `\S.*` and not `\s*(.+?)\s*$`. The lazy version let `\s*` consume the newline,
+# so a declaration with NO reason absorbed the next line of the file and the receipt
+# printed `EXEMPT — import subprocess` — the mechanism inventing a justification
+# nobody wrote, which is the exact thing it exists to prevent. solo-verify's older
+# exemption regex already used `\S.*` and was never wrong; this one re-introduced
+# the hole by being written fresh instead of copied from the one that worked.
+EXEMPT_RE = re.compile(
+    r"^#[^\S\n]*list-env-sensitive-calls:[^\S\n]*allow[^\S\n]+(\S+)[^\S\n]+[—-]"
+    r"[^\S\n]+(\S.*)$",
+    re.M,
+)
+
+
+def exemption(text: str, cmd: str) -> str | None:
+    """A file may state, in itself, that a redirector is the interface here.
+
+    Whether a variable is noise or the interface is a property of the call site,
+    not of the command: for a pre-commit hook GIT_DIR is how the caller names the
+    repository, and scrubbing it would break the intended path; for a verifier
+    nobody names the repository that way and it is pure noise. So the decision is
+    declared where it is made, and printed rather than swallowed.
+    """
+    for m in EXEMPT_RE.finditer(text):
+        if m.group(1) == cmd and m.group(2).strip():
+            return m.group(2).strip()
+    return None
+
+
+def main(argv: list[str]) -> int:
+    root = Path(argv[1] if len(argv) > 1 else ".").resolve()
+    rows, undefended = [], set()
+    for path in sources(root):
+        sites = call_sites(path)
+        if not sites:
+            continue
+        text = path.read_text()
+        rel = str(path.relative_to(root))
+        for line, cmd in sites:
+            # Outside comments only. The first version searched the whole file,
+            # so the exemption comment below — which necessarily names GH_HOST —
+            # made its own file read as "defended". A scanner matching text cannot
+            # tell content from a statement about content; one reading the grammar
+            # can. Strings are KEPT, because a real scrub is written as a string
+            # literal: {k: v for ... if k not in ("GIT_DIR", ...)}.
+            guarded = defends(code_only(text), cmd)
+            waived = exemption(text, cmd)
+            if guarded:
+                state = "defended"
+            elif waived:
+                # Not a suppression: printed on every run with the reason, so a
+                # reader who disagrees sees the choice without opening the file.
+                # A waiver with no reason is not honoured — a rule set aside
+                # without an argument is what this mechanism exists to prevent.
+                state = f"EXEMPT — {waived}"
+            else:
+                state = "UNDEFENDED"
+                undefended.add(rel)
+            rows.append((rel, line, cmd, state))
+
+    if not rows:
+        # Zero is not a clean sweep: it is also what a broken walk returns.
+        print(
+            "UNKNOWN: no literal argv for any tracked command was found. That is "
+            "not a clean result — the same output comes from a walk that failed.",
+            file=sys.stderr,
+        )
+        return 2
+
+    for rel, line, cmd, state in rows:
+        print(f"{rel}:{line:<5} {cmd:<8} {state}")
+
+    files = {r[0] for r in rows}
+    print(
+        f"\n{len(files)} file(s), {len(rows)} call site(s). "
+        f"Undefended files: {', '.join(sorted(undefended)) or 'none'}"
+    )
+    print(
+        "Blind to: shell scripts, argv built at runtime, calls through wrappers. "
+        "A clean run means no LITERAL argv is undefended, not that the repo is safe.\n"
+        "'defended' is weak: the file names the variable in code, which is not proof "
+        "that THIS call site is covered. Walk the list; do not read it as a verdict."
+    )
+    return 1 if undefended else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -5,6 +5,9 @@ Usage: python3 evaluate.py <jsonl_path> <owner/repo>
        python3 evaluate.py <jsonl_path> --next       # Pick next enriched by stars
 """
 
+# list-env-sensitive-calls: allow gh — GH_HOST is how a user points this at their
+# own GitHub host, so it is the interface here rather than noise, and a wrong host
+# fails on authentication instead of returning plausible data.
 import base64
 import json
 import subprocess

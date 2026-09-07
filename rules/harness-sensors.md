@@ -901,6 +901,51 @@ measuring what you think you are measuring. Third time in one day, across two se
 that the defect was in the instrument rather than the subject — and this session lost
 a probe to the same `$?`-after-a-pipe earlier today.
 
+**A list you can walk is assignable work; a list you reconstruct by hand is luck.**
+*Contributed* by a peer session that built one after disagreeing with the point, and
+whose first run refuted them within ten minutes: they had two git call sites, not
+one, and the second lived under `.claude/skills/` where their manual sweep never
+looked.
+
+*Measured here, and it refuted me too.* The claim "six scripts call git here; one
+scrubbed" came from `grep -ln '"git"' scripts/*` — **one directory, one depth, one
+spelling** — and was published as a fact about the repository. An AST walk finds
+**8 files and 20 call sites**, including two `gh` calls under `skills/` that no
+sweep of mine had ever seen, and one unscrubbed `git` call I had already looked at
+and not fixed. Same defect as the `\b` claim two cycles earlier: a narrow scope
+stated as a repository-wide fact, for the second time in one day.
+
+`scripts/list-env-sensitive-calls` is that list. It forbids nothing — it exists to
+be walked. Four defects found while building it, each by a known answer rather than
+by reading:
+
+1. **It matched a literal argv only as a direct call argument**, missing four
+   `["git", …]` entries nested in a list of argvs. Caught because that file
+   certainly calls git and the tool said it did not.
+2. **A comment naming the variable counted as a defence** — and the file that
+   exemplified it was its own exemption comment, which necessarily names `GH_HOST`.
+   The scanner-versus-grammar lesson for the fourth time; it tokenizes now, keeping
+   strings because a real scrub *is* a string literal.
+3. **A prefix filter did not count.** `measure-blind-spots` scrubs with
+   `k.startswith("GIT_")` and never writes `GIT_DIR`, so a genuinely defended file
+   read as UNDEFENDED: 4 of 20 call sites, measured before shipping.
+4. **`defended` is a weak signal and the output says so** — the file names the
+   variable in code, which is not proof that *this* call site is covered.
+
+**And the exemption regex had two holes, the second visible only after the first was
+closed.** `\s*` after the dash consumes a newline, so a declaration with **no
+reason** matched the next line of the file and the receipt printed somebody's
+`import os` as the argument for waiving a rule. With that fixed the regex
+backtracked and used the hyphen inside `long-module` as the separator — rule
+`long`, reason `module`. **A mechanism whose entire purpose is that a rule is never
+set aside without an argument was inventing the argument, twice.**
+
+Both were in the shipped `solo-verify`, not only in the new script, and I reported
+the opposite first: the probe printed a match object and I read it as proof the old
+pattern was safe. Horizontal whitespace is required on both sides now
+(`[^\S\n]+`), with a test carrying its own positive control, because a test that
+only checks the refusal passes just as well when the mechanism is broken outright.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

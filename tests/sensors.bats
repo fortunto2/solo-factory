@@ -1215,3 +1215,27 @@ print('ABSENT:' + repr(m.git_named_but_absent(Path('$R'))))
   [[ "$output" != *"broken"* ]]
   [[ "$output" != *"linkdir"* ]]
 }
+
+@test "an exemption with no reason cannot borrow the next line, or its own hyphen" {
+  # Two holes in one regex, the second visible only after the first was fixed.
+  # `\s*` after the dash consumed the newline, so a declaration with NO reason
+  # matched the following line and the receipt printed somebody's `import os` as
+  # the argument for waiving a rule. With that closed, the regex backtracked and
+  # used the hyphen INSIDE `long-module` as the separator: rule=long, why=module.
+  # A mechanism whose whole purpose is that a rule is never set aside without an
+  # argument was inventing the argument, twice.
+  D="$BATS_TEST_TMPDIR/ex"; mkdir -p "$D"
+  printf '# solo-verify: allow long-module —\nimport os\n' > "$D/a.py"
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" --files "$D/a.py"
+  [ -n "$output" ]
+  [[ "$output" == *"ran:"* ]]              # it really ran
+  [[ "$output" != *"EXEMPT"* ]]
+  [[ "$output" != *"import os"* ]]
+
+  # Positive control: a real declaration is still honoured, or this test would
+  # pass by breaking the mechanism entirely.
+  printf '# solo-verify: allow long-module — a stated reason\nimport os\n' > "$D/b.py"
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" --files "$D/b.py"
+  [[ "$output" == *"EXEMPT"* ]]
+  [[ "$output" == *"a stated reason"* ]]
+}

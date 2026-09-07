@@ -69,3 +69,4 @@ select = [
 # interpreter on someone's PATH happens to be.
 "scripts/solo-verify" = ["UP"]
 "scripts/mutate" = ["UP"]
+"scripts/list-env-sensitive-calls" = ["UP"]

@@ -600,7 +600,18 @@ def previous_size(root: Path, path: Path) -> tuple[int, int] | None:
 
 
 EXEMPT_RE = re.compile(
-    r"^#\s*solo-verify:\s*allow\s+(?P<rule>[a-z-]+)\s*[—-]\s*(?P<why>\S.*)$",
+    # `[^\S\n]*` after the dash, not `\s*`: `\s*` consumes the newline, so a
+    # declaration with NO reason matched the NEXT LINE of the file and the receipt
+    # printed somebody's `import os` as the argument for waiving a rule. A
+    # mechanism that exists to stop a rule being set aside without an argument was
+    # inventing the argument. Found while writing the same regex a second time.
+    # Whitespace REQUIRED on both sides of the separator. Without it the regex
+    # backtracks and uses the hyphen inside the rule name as the dash: `allow
+    # long-module —` parsed as rule=`long`, why=`module —`, so a declaration with
+    # no reason was honoured anyway. Two holes in one line, and the second only
+    # showed up after the first was fixed.
+    r"^#[^\S\n]*solo-verify:[^\S\n]*allow[^\S\n]+(?P<rule>[a-z-]+)[^\S\n]+[—-]"
+    r"[^\S\n]+(?P<why>\S.*)$",
     re.MULTILINE,
 )
 

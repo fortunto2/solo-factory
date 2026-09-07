@@ -4,6 +4,9 @@
 Usage: python3 enrich.py <jsonl_path> [--batch 30]
 """
 
+# list-env-sensitive-calls: allow gh — GH_HOST is how a user points this at their
+# own GitHub host, so it is the interface here rather than noise, and a wrong host
+# fails on authentication instead of returning plausible data.
 import json
 import subprocess
 import sys

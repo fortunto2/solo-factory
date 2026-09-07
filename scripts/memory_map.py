@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -109,6 +110,13 @@ def find_git_root(path: Path) -> Path | None:
             capture_output=True,
             text=True,
             timeout=5,
+            # git reads these before `cwd`, so a caller that exports them would
+            # have this report another repository's root as the one we are in.
+            env={
+                k: v
+                for k, v in os.environ.items()
+                if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
+            },
         )
         if result.returncode == 0:
             return Path(result.stdout.strip())
