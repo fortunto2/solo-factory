@@ -866,3 +866,40 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   [[ "$output" == *"VERIFY PASS"* ]]
   [[ "$output" != *"PARTIAL"* ]]
 }
+
+# --- swiftlint had three defects of classes already fixed elsewhere ---------
+# Found by extending the blind-spot corpus to Swift. Each is a contract this
+# repo already enforces somewhere else, and swiftlint was the one call site it
+# had never reached — the same shape as the skip_kind audit a cycle earlier.
+
+@test "swiftlint reports how many violations, not just how many files" {
+  command -v swiftlint >/dev/null || skip "swiftlint not installed"
+  printf 'let x: Int = 1\n' > "$REPO/a.swift"
+  run "$VERIFY" --root "$REPO" --files a.swift
+  [[ "$output" == *"swiftlint=fail"* ]]
+  [[ "$output" == *'"violations":'* ]]
+  [[ "$output" != *'swiftlint=fail {"files":1}'* ]]
+}
+
+@test "a receipt never prints an absolute path" {
+  # It is meant to be pasted onto a board or into an issue, so an absolute path
+  # publishes the operator's directory layout to whoever reads it. Eight sensors
+  # hand their tool absolute paths and whether it echoes them back is the tool's
+  # choice — swiftlint echoes them. Relativised once, for all of them.
+  command -v swiftlint >/dev/null || skip "swiftlint not installed"
+  printf 'let x: Int = 1\n' > "$REPO/a.swift"
+  run "$VERIFY" --root "$REPO" --files a.swift
+  [[ "$output" == *"a.swift:"* ]]
+  [[ "$output" != *"$REPO/a.swift"* ]]
+  [[ "$output" != *"/private/"* ]]
+}
+
+@test "swiftlint honours its exit code, so an incomplete run is not a pass" {
+  # The code was discarded, so a timeout or a missing binary gave empty output,
+  # no findings and `pass` — a false green on the one path where nothing ran.
+  printf 'let name = 1\n' > "$REPO/b.swift"
+  run bash -c "PATH=/usr/bin:/bin '$VERIFY' --root '$REPO' --files b.swift"
+  # With swiftlint off PATH the sensor must skip as unavailable, never pass.
+  [[ "$output" == *"swiftlint"* ]]
+  [[ "$output" != *"swiftlint=pass"* ]]
+}

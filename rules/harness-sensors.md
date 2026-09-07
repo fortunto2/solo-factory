@@ -38,7 +38,7 @@ never let it happen quietly.
 | `eslint` / `tsc` | Repo's eslint config; project typechecks. **Absent toolchain ⇒ PARTIAL**, never PASS | `node_modules/.bin/*` only, never global |
 | `cargo-fmt` | Changed `.rs` files are rustfmt-clean | `rustfmt --check` on the changed files only |
 | `clippy` / `cargo-test` | clippy with `-D warnings`; tests pass — **whole workspace, not scoped** | cargo (full mode) |
-| `swiftlint` / `ktlint` | Configured rule set | Per changed file |
+| `swiftlint` / `ktlint` | Configured rule set, **with a violation count and the tool's exit code honoured** | Per changed file |
 | `shellcheck` | Clean at severity **>= warning** | Info level is excluded on purpose — see noise, below |
 
 Tooling never crosses languages: Python sensors never touch a `.ts` file.
@@ -252,6 +252,24 @@ end up quieter than a working one.
 The four tests cover both directions, and the mutation that matters is turning
 the exemption into silence: it kills 2 of 4, because two of them assert that the
 fact is still printed rather than that the finding is gone.
+
+**A receipt is meant to be pasted, so it must never print an absolute path.**
+`swiftlint` echoes back the path it was handed, and eight sensors hand their tool
+absolute paths — whether the tool relativises them is the tool's choice, not
+ours. So a finding read `/Users/…/scratchpad/sw/a.swift:1:5`, and that receipt is
+exactly what gets pasted onto a board or into an issue. Relativised in **one**
+place where findings are collected, not in seven sensors that would each be a
+call site to forget.
+
+Two more in the same sensor, both classes already enforced elsewhere:
+`swiftlint=fail {"files":1}` reported how many files it looked at and never how
+many violations it found, and it **discarded the tool's exit code**, so a timeout
+or a missing binary produced empty output, no findings and `pass` — a false green
+on the one path where nothing ran at all. It was the only sensor doing either.
+
+That is the skip_kind lesson a second time in two days: *one sensor is where a
+contract goes to be forgotten.* Found by extending the blind-spot corpus to
+Swift, which was looking for something else entirely.
 
 **The rule was written and only one sensor was wired to it.**
 @calorik-hygiene's finding — PASS with a linter skipped reads as "lint clean"

@@ -1228,19 +1228,31 @@ def check_swift(root: Path, files: list[Path], timeout: int) -> Result:
             skip_kind=UNAVAILABLE,
         )
     t = time.time()
-    _, out = run(
+    code, out = run(
         ["swiftlint", "lint", "--quiet", *[str(f) for f in src]], root, timeout
     )
+    # swiftlint prints the path it was given, and it is given absolute paths. A
+    # receipt is meant to be pasted — onto a board, into an issue — so an absolute
+    # path leaks the operator's directory layout to whoever reads it. Every other
+    # sensor reports through rel(); this one did not, and it is the only one whose
+    # output is verbatim from the tool.
     findings = [
         ln.strip() for ln in out.splitlines() if ": error:" in ln or ": warning:" in ln
     ][:20]
+    counters = {"files": len(src), "violations": len(findings)}
+    findings, counters = unparsed_guard(code, out, findings, counters, "violations")
     return Result(
         "swiftlint",
-        "fail" if findings else "pass",
+        # The exit code was discarded here, so a timeout or a missing binary
+        # produced empty output, no findings, and `pass` — a false green on the
+        # one path where nothing ran at all.
+        status_for(code),
+        reason=incomplete_reason(code),
+        skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
         promise="swiftlint rules",
         findings=findings,
         covered=[rel(root, f) for f in src],
-        counters={"files": len(src)},
+        counters=counters,
         seconds=time.time() - t,
     )
 
@@ -1417,7 +1429,18 @@ def build_receipt(
             for f in r.findings
             if "UNCHECKED, not broken" in f
         ],
-        "findings": [f for r in failed for f in (r.findings or [f"{r.name} failed"])],
+        # Relativised in one place rather than in each sensor. Eight of them hand
+        # absolute paths to their tool, and whether the tool echoes the path as
+        # given or relativises it is the tool's choice, not ours — swiftlint
+        # echoes it. A receipt is meant to be pasted onto a board or into an
+        # issue, so an absolute path publishes the operator's directory layout to
+        # whoever reads it. Fixing it per sensor would be seven more call sites
+        # to forget; the same lesson the skip_kind audit produced.
+        "findings": [
+            f.replace(f"{root.resolve()}/", "")
+            for r in failed
+            for f in (r.findings or [f"{r.name} failed"])
+        ],
         "elapsed": round(elapsed, 2),
     }
 
