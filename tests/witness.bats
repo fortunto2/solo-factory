@@ -107,3 +107,53 @@ EOF
   [[ "$output" == *"cell 3 did not run"* ]]
   [[ "$output" == *"green for a side reason"* ]]
 }
+
+# ── the cells and the delta answer different questions ─────────────────────
+#
+# I published a limit to @banantiy: the witness is only as strong as the weakest
+# remaining assertion, because weakening ONE left it still discriminating and the
+# run read REPAIR. Measured afterwards: that is true of the cells alone, and the
+# assertion-delta sensor catches exactly the case they miss. "Does the rule bind?"
+# and "was this test weakened?" are separate questions, and a green REPAIR that
+# arrives without the second reads as a clearance for both.
+
+@test "a partial retreat is REPAIR on the cells and reported by the delta" {
+  # The delta is computed by solo-verify, so it has to be present in the tree the
+  # witness is pointed at — the same tool, not a second copy of the counting rule.
+  mkdir -p "$R/scripts" && cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$R/scripts/"
+  # Drop one of the two assertions: the remaining one still discriminates, so the
+  # cells cannot see this. That is the case I published as the scheme's limit.
+  cat > "$R/tests/w.bats" <<'EOF'
+@test "an empty call is refused" {
+  run python3 "$SUBJ"
+  [ "$status" -eq 2 ]
+}
+EOF
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"REPAIR"* ]]              # the rule does bind
+  [[ "$output" == *"ALSO:"* ]]               # and the test lost assertions
+  [[ "$output" == *"-1 assertions"* ]]
+}
+
+@test "an unweakened witness gets no ALSO line" {
+  # Positive control: an ALSO printed unconditionally passes the test above while
+  # marking every honest repair as a retreat.
+  mkdir -p "$R/scripts" && cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$R/scripts/"
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"REPAIR"* ]]
+  [[ "$output" != *"ALSO:"* ]]
+}
+
+@test "an unreachable solo-verify is UNCHECKED, never 'no weakening'" {
+  # $R has no scripts/solo-verify here, so the delta cannot be computed — and that
+  # must be said rather than folded into the silence of "nothing was removed".
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"UNCHECKED"* ]]
+  [[ "$output" == *"solo-verify is not here"* ]]
+}

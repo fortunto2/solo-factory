@@ -1065,6 +1065,23 @@ with no `detector` — all three cells hold. Then banantiy's synthetic retreat: 
 the witness reduced to `[ -n "$output" ]`, cells 1 and 3 both fail and the run reads
 RETREAT-SHAPED. Accepts the repair, rejects the retreat, as asked.
 
+**The limit has a mitigation I already had, and only measuring found it.** "Does the
+rule bind?" and "was this test weakened?" are different questions. The cells answer
+the first; `ASSERTIONS NET NEGATIVE` answers the second. *Measured*: the partial
+retreat that the cells call REPAIR — correctly, the rule does bind — is reported by
+the delta as `-2 assertions, +0`. Neither alone sees a partial retreat; together they
+do, and a green REPAIR arriving without the second reads as a clearance for both. The
+witness prints the delta beside its verdict now, taken from `solo-verify` rather than
+recounted, because two copies of one counting rule is the shape of half the defects
+in this file.
+
+An absent or unrunnable `solo-verify` prints `UNCHECKED` with the reason — "no
+weakening found" and "could not look" are the two states this whole document exists
+to keep apart. The first version got that wrong in the other direction: it treated
+`solo-verify`'s exit 2 as a failed run, when 2 is UNKNOWN — it **ran** and had
+nothing to verify, which is exactly what a lone `.bats` file produces. So the
+ordinary case reported UNCHECKED.
+
 **The first attempt to build that retreat was not caught, and that is the more useful
 half.** Weakening *one* assertion left the witness discriminating through a surviving
 one, so the run still read REPAIR. The scheme is therefore only as strong as the

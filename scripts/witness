@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -99,6 +100,31 @@ def swap(path: Path, content: str, original: str) -> None:
     path.write_text(content)
     if sha(path) == before and content != original:
         raise RuntimeError(f"{path} did not change — no conclusion is available")
+
+
+def assertion_delta(root: Path, test: str) -> tuple[str | None, str | None]:
+    """Did the witness file lose assertions? Asked of solo-verify, not reimplemented.
+
+    Returns (finding, reason-it-could-not-be-answered). Exactly one is set. A second
+    copy of the counting rule would drift from the first, and this repo has spent a
+    week on defects whose whole shape is two places disagreeing about one fact.
+    """
+    sv = root / "scripts" / "solo-verify"
+    if not sv.is_file():
+        return None, "scripts/solo-verify is not here"
+    code, out = run([sys.executable, str(sv), "--json", "--files", test], root, 120)
+    # 2 is UNKNOWN — it RAN and had nothing to verify, which is what a lone .bats
+    # file gives, and the receipt is still valid. Only a run that never happened
+    # (timeout, not executable, not found) has nothing to read. The first version
+    # rejected 2 and reported UNCHECKED on the ordinary case.
+    if code in (124, 126, 127):
+        return None, f"solo-verify could not run (exit {code})"
+    try:
+        rec = json.loads(out[out.index("{") :])
+    except (ValueError, json.JSONDecodeError):
+        return None, "solo-verify did not return a receipt this run could parse"
+    hits = rec.get("assertions_removed") or []
+    return ("; ".join(hits) if hits else None), None
 
 
 def main(argv: list[str]) -> int:
@@ -177,6 +203,22 @@ def main(argv: list[str]) -> int:
 
     for label, held, detail in cells:
         print(f"  {'ok  ' if held else 'FAIL'} {label:<28} ({detail})")
+
+    # The cells answer "does the rule bind?". They do not answer "was this test
+    # weakened?", and a partial retreat produces REPAIR on the first question while
+    # being a retreat on the second — measured: two assertions dropped from a
+    # witness left it still discriminating, so all three cells held. The two facts
+    # have to arrive together or a green REPAIR reads as a clearance for both.
+    shrink, why_not = assertion_delta(root, args.test)
+    if shrink:
+        print(f"  ALSO: {shrink}")
+        print(
+            "    The rule binds AND the witness lost assertions. Those are separate "
+            "questions and this is a yes to both."
+        )
+    elif why_not:
+        # Never silence: "no weakening found" and "could not look" are different.
+        print(f"  ALSO: assertion delta UNCHECKED — {why_not}")
 
     if verdict == 2:
         return 2
