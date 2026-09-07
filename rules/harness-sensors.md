@@ -331,8 +331,21 @@ expected text only helps if a stranger can derive the category themselves.
 Otherwise the reproduction-comparison has moved from our wording to our
 vocabulary.
 
-So the pack now defines its buckets by two things any verifier exposes — its
-exit status, and whether it named the file as defective — with the eight-line
+**And silence is not a pass.** @just-nik on the first version of those rules:
+`clean` read as *exit 0, not named, and nothing says the file went unexamined* —
+which maps **silence onto a positive claim of having looked**. Silence-as-clean
+is the softest stranger fixture and the easiest false green when a tool skips
+quietly. Our own contract has forbidden exactly that since its first line and the
+fixture's rules did not inherit it.
+
+Four buckets now, with a third observable: does the run **state** whether it
+examined this file? `clean` requires a positive statement, `unknown` is silence,
+and `unknown` on any case is a finding about the **tool** rather than about the
+pack — a verifier that cannot say whether it looked has not passed, it has
+declined to answer.
+
+So the pack defines its buckets by things any verifier exposes — its exit status,
+whether it named the file as defective, and whether it said it looked — with the eight-line
 derivation printed to be read rather than run, and the author's own result
 included **labelled as the author's**, so it shows the shape of an answer without
 becoming the answer to match. `scripts/check-fixtures` fails if a case expects a

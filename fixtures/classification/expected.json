@@ -5,30 +5,36 @@
     "why_this_section_exists": "@huddora-ambassador-1857: a bucket name nobody can independently recompute just relocates the reproduction-comparison from the output string to the label. So the buckets are defined by two things you can observe about ANY verifier, in any wording: its exit status, and whether it named this file as defective.",
     "observe": [
       "exit: the process exit status (0, or non-zero)",
-      "named: does the output point at this file as a problem, with a line or column? Wording is irrelevant; a mention of the filename in a 'skipped' or 'not checked' line is NOT named."
+      "named: does the output point at this file as a problem, with a line or column? Wording is irrelevant; a filename inside a 'skipped' or 'not checked' line is NOT named.",
+      "examined: does the run state, in any wording, whether it looked at this file? A count of files covered, a per-sensor tally, an explicit 'unchecked' list — any of these is a statement. NOTHING counts as no statement."
     ],
     "buckets": {
-      "finding": "exit != 0 AND named == true",
-      "not_checked": "named == false AND the run did not report a clean pass — it declared, in any wording, that this file was not examined",
-      "clean": "exit == 0 AND named == false AND nothing says the file went unexamined"
+      "finding": "named == true AND exit != 0",
+      "not_checked": "named == false AND the run states it did NOT examine this file",
+      "clean": "named == false AND the run states it DID examine this file and found nothing",
+      "unknown": "named == false AND the run states nothing either way — it was silent about this file"
     },
     "reference_derivation": {
-      "note": "Eight lines of shell, printed so you can read it rather than run a black box. If your verifier is not solo-verify, replace the command and keep the two observations.",
+      "note": "Read it rather than run it. If your verifier is not solo-verify, replace the command and keep the three observations.",
       "shell": [
         "out=$(python3 solo-verify --root . --files \"$f\" 2>&1); code=$?",
         "named=$(echo \"$out\" | grep -cE \"^ +$f:[0-9]\")",
-        "if [ \"$code\" != 0 ] && [ \"$named\" != 0 ]; then echo finding",
-        "elif [ \"$named\" = 0 ] && echo \"$out\" | grep -qE 'PARTIAL|UNCHECKED|NOT CHECKED|nothing was checked'; then echo not_checked",
-        "else echo clean; fi"
+        "says_unexamined=$(echo \"$out\" | grep -cE \"UNCHECKED|NOT CHECKED|PARTIAL|nothing was checked\")",
+        "says_examined=$(echo \"$out\"   | grep -cE \"[0-9]+ covered|=pass \\{\")",
+        "if [ \"$named\" != 0 ] && [ \"$code\" != 0 ]; then echo finding",
+        "elif [ \"$says_unexamined\" != 0 ]; then echo not_checked",
+        "elif [ \"$says_examined\" != 0 ]; then echo clean",
+        "else echo unknown; fi"
       ],
       "our_own_result": {
         "measured_on": "Python 3.11.9, macOS",
         "01_true_finding.py": "finding",
         "02_pep701.py": "not_checked",
         "03_missing_tool.ts": "not_checked",
-        "caveat": "This is the author's run. It is here so you can see the shape of an answer, not so you can match it — if yours differs, yours is the interesting one."
+        "caveat": "The author's run. Here so you can see the shape of an answer, not so you can match it — if yours differs, yours is the interesting one."
       }
-    }
+    },
+    "why_unknown_exists": "@just-nik: silence-as-clean is the softest stranger fixture and the easiest false green when a tool skips quietly. The first version of these rules read `clean` as 'exit 0, not named, and nothing says it went unexamined' — which maps SILENCE onto a positive claim of having looked. A verifier that cannot tell you whether it examined a file has not passed; it has declined to answer. `unknown` on any case is a finding about the TOOL, not about the fixture, and it is worth reporting as such."
   },
   "cases": [
     {
@@ -58,9 +64,10 @@
     }
   ],
   "what_to_return": [
-    "for each case: the exit status, whether the file was named, and the bucket those two give you",
+    "for each case: exit status, whether the file was named, whether the run stated it examined the file, and the bucket those give you",
     "the Python version that ran the verifier",
-    "any case whose bucket is not in its expect list — that is the finding"
+    "any case whose bucket is not in its expect list — that is the finding",
+    "any case landing in `unknown` — that is a finding about your verifier rather than about this pack"
   ],
   "note_on_this_file": "It is a claim like any other. If a bucket rule here is ambiguous enough that two readers derive different buckets from the same output, say so — that is a defect in the pack, not in your run."
 }

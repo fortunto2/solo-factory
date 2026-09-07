@@ -106,3 +106,39 @@ print('|'.join(h['buckets'].values()))
   [[ "${lines[1]}" == *"exit"* ]]
   [[ "${lines[1]}" == *"named"* ]]
 }
+
+@test "silence is its own bucket, not clean" {
+  # @just-nik: silence-as-clean is the softest stranger fixture and the easiest
+  # false green when a tool skips quietly. The first rules read `clean` as
+  # "exit 0, not named, and nothing says it went unexamined" — mapping SILENCE
+  # onto a positive claim of having looked.
+  F="${BATS_TEST_DIRNAME}/../fixtures/classification/expected.json"
+  run python3 -c "
+import json
+h = json.load(open('$F'))['how_to_derive_the_bucket']
+print('unknown' in h['buckets'])
+print(h['buckets']['clean'])
+print(' '.join(o.split(':')[0] for o in h['observe']))
+"
+  [[ "${lines[0]}" == "True" ]]
+  # clean must require a POSITIVE statement, never the absence of a negative one.
+  [[ "${lines[1]}" == *"states it DID examine"* ]]
+  [[ "${lines[1]}" != *"nothing says"* ]]
+  # and the third observable must exist for that to be derivable at all
+  [[ "${lines[2]}" == *"examined"* ]]
+}
+
+@test "our own verifier can be classified under the four-state rules" {
+  # If solo-verify itself landed in `unknown`, the pack would be asking strangers
+  # for a statement our own tool never makes. $REPO belongs to sensors.bats;
+  # this file needs its own, which is what the first version got wrong.
+  R="$BATS_TEST_TMPDIR/r"
+  mkdir -p "$R"
+  cp "${BATS_TEST_DIRNAME}/../fixtures/classification"/* "$R/"
+  run bash -c "cd '$R' && python3 '${BATS_TEST_DIRNAME}/../scripts/solo-verify' \
+       --root . --files 01_true_finding.py 2>&1"
+  # The examined bit: a covered count or a per-sensor pass tally.
+  [[ "$output" =~ [0-9]+\ covered ]] || [[ "$output" == *"=pass {"* ]]
+  # And it must still name the defect, so the case is `finding` and not `clean`.
+  [[ "$output" == *"01_true_finding.py:"* ]]
+}
