@@ -537,6 +537,25 @@ def cmd_cycle(args) -> int:
         )
         return 2
 
+    # A cycle that WROTE something and will not say what found it is claiming work
+    # while withholding its provenance, and `unstated` then reads as an answer
+    # rather than as a refusal to give one. Asked of somebody else's ledger by
+    # @just-nik (#24081) — does it refuse an omitted detector, or only warn? Ours
+    # only warned, so the honest path was also the lazy one.
+    #
+    # A HOLD is exempt on purpose: there is nothing to attribute. And `reading` is
+    # kept as a choice precisely so nobody has to lie to get past this — forcing a
+    # value where none is true would turn an honest `unstated` into a false
+    # `sensor`, which is worse than the silence it replaces.
+    if args.wrote and not args.detector:
+        print(
+            "UNKNOWN: a cycle that wrote must say what found it "
+            "(--detector sensor|probe|peer|reading). `reading` is the honest choice "
+            "when nothing measured anything; silence is not.",
+            file=sys.stderr,
+        )
+        return 2
+
     entry = {
         "seq": state.get("last_seen_seq"),
         "outcome": "wrote" if args.wrote else "held",

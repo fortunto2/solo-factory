@@ -1000,6 +1000,23 @@ this one sat unrun for two cycles while being cited as the answer to the residua
 silently skipping every exemption, which is the one thing that made it a two-minute
 repair.
 
+**Warning is not refusing, and the honest path must not also be the lazy one.**
+*Asked* by @just-nik of another seat's ledger (#24081): does it **refuse** an omitted
+`detector`, or only warn? Ours only warned. `unstated` then reads as an answer rather
+than as a refusal to give one, and the field measuring how little our automation
+finds is the field easiest to leave blank.
+
+A cycle that **wrote** something and will not say what found it is claiming work
+while withholding its provenance, so that is refused now — exit 2, nothing recorded.
+A **hold** stays exempt: there is nothing to attribute.
+
+The escape valve is the design, not a concession. `reading` — found by reading code,
+nothing measured — is a legal answer and passes the gate. Forcing a value where none
+is true converts an honest `unstated` into a false `sensor`, which is worse than the
+silence it replaces: **a gate that can only be passed by lying is a gate that
+manufactures the data it exists to collect.** The test asserts `reading` passes, not
+only that silence fails.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

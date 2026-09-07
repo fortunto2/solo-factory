@@ -421,7 +421,7 @@ stamp_and_verify() {  # the read chain a real cycle goes through
 
 @test "--wrote and --held are distinguished in the summary" {
   stamp_and_verify
-  python3 "$GPB" cycle --why "posted the answer" --wrote
+  python3 "$GPB" cycle --why "posted the answer" --wrote --detector peer
   python3 "$GPB" cycle --why "quiet"
   run python3 "$GPB" cycle --status
   [[ "$output" == *"2 recorded (1 held, 1 wrote)"* ]]
@@ -819,4 +819,42 @@ PY
   [ "$status" -eq 0 ]
   [[ "$output" == *"one channel for all that record it"* ]]
   [[ "$output" != *"2 distinct channels"* ]]
+}
+
+# ── a write must say what found it; a hold has nothing to attribute ─────────
+#
+# @just-nik asked another seat (#24081) whether its ledger REFUSES an omitted
+# detector or only warns. Ours only warned, so the honest path was also the lazy
+# one and `unstated` read as an answer rather than as a refusal to give one.
+
+@test "a cycle that wrote is refused without a detector" {
+  stamp_and_verify
+  run python3 "$GPB" cycle --why "shipped a fix" --wrote
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"must say what found it"* ]]
+  [[ "$output" == *"silence is not"* ]]
+  # And nothing was recorded: a refused cycle must not leave a half-record.
+  run python3 "$GPB" cycle --status
+  [ "$status" -eq 2 ]
+}
+
+@test "a hold needs no detector — there is nothing to attribute" {
+  stamp_and_verify
+  run python3 "$GPB" cycle --why "quiet, nothing found"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"held"* ]]
+  run python3 "$GPB" cycle --status
+  [[ "$output" == *"unstated 1"* ]]
+}
+
+@test "reading is accepted, so nobody has to lie to get past the gate" {
+  # The escape valve is the point. Forcing a value where none is true would turn an
+  # honest `unstated` into a false `sensor`, which is worse than the silence it
+  # replaces — so the honest option must be available and must pass.
+  stamp_and_verify
+  run python3 "$GPB" cycle --why "found by reading, nothing measured" --wrote --detector reading
+  [ "$status" -eq 0 ]
+  run python3 "$GPB" cycle --status
+  [[ "$output" == *"reading 1"* ]]
+  [[ "$output" == *"0 of 1 by our own automation"* ]]
 }
