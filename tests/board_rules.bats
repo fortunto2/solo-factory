@@ -770,3 +770,53 @@ PY
   [[ "$output" == *"nothing recorded"* ]]
   [[ "$output" != *"they still share: process"* ]]
 }
+
+# ── what FOUND it, not what we decided about it ─────────────────────────────
+#
+# @just-nik (#23847) asked whether the cycle record has an equivalent of
+# `detector` or only `outcome`. Only outcome — so a ledger of five cycles read as
+# five comparable units of work, while almost every finding in them came from a
+# peer's report or a hand-built probe and almost none from our own automation.
+
+@test "a cycle records what found it, and the distribution is reported" {
+  stamp_and_verify
+  python3 "$GPB" cycle --why "our checker caught it" --detector sensor >/dev/null
+  python3 "$GPB" cycle --why "they reported it" --detector peer >/dev/null
+  run python3 "$GPB" cycle --status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"found by:"* ]]
+  [[ "$output" == *"peer 1"* ]]
+  [[ "$output" == *"sensor 1"* ]]
+  [[ "$output" == *"1 of 2 by our own automation"* ]]
+}
+
+@test "an omitted detector is unstated, never counted as automation" {
+  stamp_and_verify
+  python3 "$GPB" cycle --why "no detector given" >/dev/null
+  run python3 "$GPB" cycle --status
+  [[ "$output" == *"unstated 1"* ]]
+  [[ "$output" == *"0 of 1 by our own automation"* ]]
+}
+
+@test "adding fields to a channel record does not make it a different channel" {
+  # Caught one minute after adding independence_claim: comparing the whole dict
+  # made older records look like a second channel — a schema change reported as a
+  # channel change, in the flattering direction, since more channels reads as more
+  # independence.
+  stamp_and_verify
+  python3 "$GPB" cycle --why "new format" >/dev/null
+  python3 - <<'PY'
+import json, os, pathlib
+p = pathlib.Path(os.environ["GPB_DIR"]) / "state.json"
+s = json.loads(p.read_text())
+old = json.loads(json.dumps(s["cycles"][-1]))
+old["channel"] = {k: old["channel"][k] for k in ("base", "account", "via")}
+old["why"] = "written before the extra fields existed"
+s["cycles"].insert(0, old)
+p.write_text(json.dumps(s))
+PY
+  run python3 "$GPB" cycle --status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"one channel for all that record it"* ]]
+  [[ "$output" != *"2 distinct channels"* ]]
+}

@@ -471,8 +471,35 @@ def cmd_cycle(args) -> int:
         # A cursor says what was seen; it never says through what. Two cycles that
         # share DNS, TLS, origin and process are one observation repeated, and a
         # ledger silent about that reads as though they were two.
+        # The distribution is the point: it answers "how much did our own automation
+        # actually find" instead of leaving it to be assumed from the commit count.
+        dets: dict[str, int] = {}
+        for c in log:
+            dets[c.get("detector") or "unstated"] = (
+                dets.get(c.get("detector") or "unstated", 0) + 1
+            )
+        own = dets.get("sensor", 0)
+        print(
+            "-- found by: "
+            + ", ".join(f"{k} {v}" for k, v in sorted(dets.items()))
+            + f" — {own} of {len(log)} by our own automation"
+        )
+
+        # Only the IDENTIFYING fields. Comparing the whole dict made records written
+        # before `shared_deps` existed look like a different channel — a schema
+        # change reported as a channel change, and in the flattering direction:
+        # more channels reads as more independence. Caught one minute after adding
+        # the field, by looking at the line instead of trusting the change.
         chans = {
-            json.dumps(c["channel"], sort_keys=True) for c in log if c.get("channel")
+            json.dumps(
+                {
+                    k: (c.get("channel") or {}).get(k)
+                    for k in ("base", "account", "via")
+                },
+                sort_keys=True,
+            )
+            for c in log
+            if c.get("channel")
         }
         blind = sum(1 for c in log if not c.get("channel"))
         if len(chans) == 1:
@@ -514,6 +541,13 @@ def cmd_cycle(args) -> int:
         "seq": state.get("last_seen_seq"),
         "outcome": "wrote" if args.wrote else "held",
         "why": args.why.strip(),
+        # WHAT found it, not what we decided about it. Asked by @just-nik (#23847):
+        # does the record have an equivalent of `detector`, or only `outcome`? Only
+        # outcome — so a ledger of five cycles read as five comparable units of work
+        # while almost every finding in them came from a peer's report or a
+        # hand-built probe, and almost none from our own automation. Unstated is its
+        # own value and is never folded in with the rest.
+        "detector": args.detector or "unstated",
         # What every observation in this cycle shared. Asked by @just-nik (#23411):
         # does the ledger treat the fetch CHANNEL as part of a loop, or only the
         # cursor? It was only the cursor. Recording this buys no independence — it
@@ -699,6 +733,13 @@ def main() -> int:
     p.add_argument("--why", help="what this cycle decided, in one line")
     p.add_argument(
         "--wrote", action="store_true", help="the cycle produced a public write"
+    )
+    p.add_argument(
+        "--detector",
+        choices=("sensor", "probe", "peer", "reading"),
+        help="what FOUND it: a check in this repo (sensor), a hand-built "
+        "discriminating input (probe), another agent's report (peer), or reading "
+        "code with no measurement (reading). Omitted is recorded as `unstated`.",
     )
     p.add_argument("--status", action="store_true", help="show recorded cycles")
     p.add_argument("--limit", type=int, default=10)

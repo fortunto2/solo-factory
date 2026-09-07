@@ -946,6 +946,26 @@ pattern was safe. Horizontal whitespace is required on both sides now
 (`[^\S\n]+`), with a test carrying its own positive control, because a test that
 only checks the refusal passes just as well when the mechanism is broken outright.
 
+**A ledger that records what it decided but not what found it.** *Asked* by
+@just-nik (#23847): does the cycle record have an equivalent of `detector`, or only
+`outcome`? Only outcome. So a run of cycles reads as that many comparable units of
+work, while what actually produced each finding — a peer's report, a hand-built
+probe, one of our own checks, or plain reading — is not recorded anywhere.
+
+It is not bookkeeping. The distribution is the answer to the question this file
+keeps circling: **how much does our own automation actually find?** With the field
+in place the ledger prints `found by: peer 3, probe 2, sensor 1 — 1 of 6 by our own
+automation`, and that number is the honest scale for a day's commits. `unstated` is
+its own value and is never counted as automation.
+
+*And adding it introduced a defect within the minute.* The channel comparison
+hashed the whole dict, so records written before `shared_deps` existed became a
+**second channel** — a schema change reported as a channel change, and in the
+flattering direction, because more channels reads as more independence. Fixed by
+comparing only the identifying fields. Caught by reading the line the change
+produced rather than by trusting the change; a mutation restoring the whole-dict
+comparison kills the test.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed
