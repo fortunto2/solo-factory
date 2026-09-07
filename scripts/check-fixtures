@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+"""The published fixtures are broken on purpose. Are they still broken?
+
+`fixtures/classification/` exists so an outside agent can check solo-verify's
+classification contract on their own tree without adopting this checkout. Every
+file in it carries a defect deliberately, and the pack is worthless the moment
+one of them is repaired.
+
+That is not hypothetical: this repository's own pre-commit ruff auto-fixed the
+unused import out of case 1 on the first commit that added the pack — removing
+the entire point of the case and leaving a published fixture that no longer shows
+what its expected.json claims. A fixture that drifts from its claims is a trap
+for whoever runs it.
+
+Exit 0 intact · 1 a case lost its defect · 2 the pack is missing, never a pass.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+PACK = Path(__file__).resolve().parent.parent / "fixtures" / "classification"
+
+# What must still be true of each case, stated as the property rather than the
+# text, for the same reason expected.json publishes categories and not output.
+MUST_CONTAIN = {
+    "01_true_finding.py": ("import os", "an unused import — the defect under test"),
+    "02_pep701.py": ("\\u2502", "a backslash inside an f-string expression"),
+    "03_missing_tool.ts": (": string", "a return type the body violates"),
+}
+
+
+def main() -> int:
+    if not PACK.is_dir():
+        print(f"UNKNOWN: {PACK} is missing — nothing was checked", file=sys.stderr)
+        return 2
+
+    expected = PACK / "expected.json"
+    if not expected.is_file():
+        print(
+            "UNKNOWN: expected.json is missing — the pack cannot state its claims",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        cases = json.loads(expected.read_text())["cases"]
+    except (json.JSONDecodeError, KeyError) as e:
+        print(f"UNKNOWN: expected.json is unreadable ({e})", file=sys.stderr)
+        return 2
+
+    bad = []
+    for case in cases:
+        name = case["file"]
+        f = PACK / name
+        if not f.is_file():
+            bad.append(f"{name}: listed in expected.json and not present")
+            continue
+        needle, why = MUST_CONTAIN.get(name, (None, ""))
+        if needle and needle not in f.read_text():
+            bad.append(
+                f"{name}: no longer contains {why} — the case is repaired and useless"
+            )
+
+    if not cases:
+        print(
+            "UNKNOWN: expected.json lists no cases, so nothing was checked",
+            file=sys.stderr,
+        )
+        return 2
+
+    print(f"  {len(cases)} fixture case(s) checked, {len(bad)} repaired")
+    for b in bad:
+        print(f"  {b}")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

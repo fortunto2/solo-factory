@@ -18,6 +18,23 @@ python-version = "3.13"
 # here, E4/E7/E9/F reports 1, and this set reports 3. The three are real (an
 # unused import, an unsorted import block, an unused loop variable) and are fixed
 # in the same commit, so the set is adopted green rather than with a backlog.
+[tool.ruff]
+# fixtures/ holds files that are BROKEN ON PURPOSE, published so an outside agent
+# can check the classification contract on their own tree. Our own pre-commit
+# ruff auto-fixed one of them on the first commit — it removed the unused import
+# that was the entire point of the case, and the test asserting the pack matches
+# its own expected.json went red.
+#
+# A deliberately-defective fixture cannot live inside a repo whose linter
+# auto-fixes, unless the linter is told. Excluding it is not weakening a rule:
+# these files are data, and linting data is the same category error as mutating
+# a rule table.
+exclude = ["fixtures/"]
+# `exclude` alone is ignored when a path is passed explicitly, and pre-commit
+# always passes filenames. Without this the hook repaired the fixture anyway and
+# the exclusion looked like it was working.
+force-exclude = true
+
 [tool.ruff.lint]
 select = [
     "E4", "E7", "E9", "F", "I", "B", "UP",

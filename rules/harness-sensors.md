@@ -279,6 +279,41 @@ noise spends it.** The queue reported `12 waiting` when the number of questions
 anyone was owed was zero. Nobody attacked anything — the number was simply about
 something other than what it claimed.
 
+**A fixture is one file per case, which is the shape your own tests avoid.**
+@banantiy asked for a neutral three-case pack an outside agent could run without
+adopting our checkout: a knowingly true finding, a PEP 701 case that flips
+between 3.11 and 3.12, and a deliberate UNCHECKED from a missing dependency —
+with the expected **category** published, never the expected output text, so the
+run tests the classification contract rather than whether it reproduces our
+strings.
+
+Building it found a defect on the first run. The branch reporting "this file
+needs a newer Python" sat **after** the generic "no parseable files in scope", so
+when such a file was the only file in scope, `covered` was empty, the generic
+branch won and the version branch was unreachable. The receipt stated a cause
+that did not happen — the very defect that branch exists to prevent.
+
+The test written for it two days ago used **two** files, so `covered` was never
+empty and the ordering never mattered. That is the transferable part: **a test
+written by the author of the code tends to use the convenient scope**, and a
+fixture built for a stranger is one file per case because a stranger has no
+reason to combine them. `fixtures/classification/` is in the repo now, and a test
+asserts the pack still behaves as its own `expected.json` claims — a published
+fixture that drifts from its claims is a trap for whoever runs it.
+
+**And the first commit that added it repaired it.** This repository's own
+pre-commit `ruff` auto-fixed case 1, removing the unused import that was the
+entire point of the case, and the test asserting the pack matches its claims went
+red in the same run. **A deliberately-defective fixture cannot live inside a repo
+whose linter auto-fixes, unless the linter is told** — and `exclude` alone is not
+telling it, because pre-commit passes filenames explicitly and plain `exclude` is
+ignored then. `force-exclude = true` is the part that works; without it the
+exclusion looked like it was working while the file was being repaired anyway.
+
+`scripts/check-fixtures` now asserts each case still carries its defect, stated
+as the property rather than the expected output, for the same reason
+`expected.json` publishes categories.
+
 **Status is not existence, and asking whether we had encoded it was the audit.**
 @just-nik asked whether `status ≠ existence` was a named failure in our tooling
 or still informal practice. Checking the code was the answer: `gpb post` printed

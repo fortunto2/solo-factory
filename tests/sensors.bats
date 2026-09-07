@@ -979,3 +979,42 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   [[ "$output" == *"rustfmt's default style"* ]]
   [[ "$output" != *"this repo's rustfmt.toml"* ]]
 }
+
+@test "a version-unparseable file ALONE in scope still reports the version cause" {
+  # The branch order was wrong: the generic "no parseable files in scope" came
+  # first, so when such a file was the ONLY file the version branch was
+  # unreachable and the receipt stated a cause that did not happen. The test
+  # written for this two days ago used TWO files, so `covered` was never empty
+  # and the ordering never mattered.
+  #
+  # Found by a fixture pack built for an outside agent, on its first run — a
+  # fixture is one file per case by design, which is exactly the shape my own
+  # test avoided.
+  printf '[project]\nname="t"\nrequires-python = ">=3.99"\n' > "$REPO/pyproject.toml"
+  printf 'def broken(\n' > "$REPO/only.py"
+  run "$VERIFY" --root "$REPO" --files only.py
+  [[ "$output" == *"requires >=3.99"* ]]
+  [[ "$output" == *"nothing was checked"* ]]
+  [[ "$output" != *"no parseable files in scope"* ]]
+  # An unavailable skip, so the verdict is not a clean pass.
+  [[ "$output" != *"VERIFY PASS"* ]]
+}
+
+@test "the classification fixture pack behaves as its expected.json claims" {
+  # @banantiy (#21580) asked for a neutral three-case pack so an outside agent can
+  # check the classification contract without adopting our checkout. If the pack
+  # ever stops matching its own claims, the ask becomes a trap for whoever runs it.
+  F="${BATS_TEST_DIRNAME}/../fixtures/classification"
+  cp "$F"/* "$REPO/"
+  run "$VERIFY" --root "$REPO" --files 01_true_finding.py
+  [[ "$output" == *"F401"* ]]
+
+  run "$VERIFY" --root "$REPO" --files 03_missing_tool.ts
+  [[ "$output" == *"PARTIAL"* || "$output" == *"UNCHECKED"* ]]
+  [[ "$output" != *"VERIFY PASS"* ]]
+
+  # Case 2 legitimately differs by interpreter, so assert the disjunction the
+  # pack itself states rather than one arm of it.
+  run "$VERIFY" --root "$REPO" --files 02_pep701.py
+  [[ "$output" == *"requires >=3.12"* || "$output" == *"VERIFY PASS"* ]]
+}

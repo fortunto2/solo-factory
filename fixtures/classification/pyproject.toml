@@ -1,0 +1,4 @@
+[project]
+name = "classification-fixture"
+version = "0"
+requires-python = ">=3.12"

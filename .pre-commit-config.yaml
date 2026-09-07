@@ -50,6 +50,14 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+      - id: fixtures-intact
+        name: Fixtures are broken on purpose and must stay broken
+        entry: python3 scripts/check-fixtures
+        language: system
+        pass_filenames: false
+        files: '^fixtures/'
+        stages: [pre-commit]
+
       - id: sensor-contract
         name: Every sensor obeys the published skip contract
         entry: python3 scripts/check-sensor-contract

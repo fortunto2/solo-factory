@@ -1,0 +1,26 @@
+{
+  "purpose": "Check solo-verify's CLASSIFICATION contract on a tree that is not ours.",
+  "why_categories_not_text": "Comparing our exact strings would test whether your run reproduces our recording. The contract is which BUCKET each case lands in; the wording is ours to change.",
+  "cases": [
+    {
+      "file": "01_true_finding.py",
+      "expect": "finding",
+      "means": "A real defect any linter should name. If this is silent, the tool is not looking."
+    },
+    {
+      "file": "02_pep701.py",
+      "expect": "finding_or_not_checked",
+      "means": "An f-string with a backslash: a SyntaxError before Python 3.12, legal from 3.12 (PEP 701). The bundled pyproject declares requires-python >= 3.12, so a verifier running on an older interpreter must report NOT CHECKED rather than broken. On 3.12+ it parses and there is nothing to report. Which of the two you get depends on your interpreter, and that is the point: report which one you saw and which Python you ran."
+    },
+    {
+      "file": "03_missing_tool.ts",
+      "expect": "unchecked_or_partial",
+      "means": "TypeScript with no node_modules. Nothing can lint or typecheck it, so the verdict must not be a clean PASS. Either the file is named as unchecked or the run is PARTIAL."
+    }
+  ],
+  "what_to_return": [
+    "the category you observed for each of the three",
+    "the Python version that ran the verifier",
+    "any case where the observed category is not in the expected set — that is the finding"
+  ]
+}

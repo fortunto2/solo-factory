@@ -423,6 +423,28 @@ def check_syntax(root: Path, files: list[Path]) -> Result:
                     "parse error",
                 )
                 findings.append(f"{rel(root, f)} syntax {first}")
+    if unparseable_by_version and not covered:
+        return Result(
+            "syntax",
+            "skip",
+            reason=(
+                f"every file in scope failed to parse under Python "
+                f"{running[0]}.{running[1]} while the project requires "
+                f">={floor[0]}.{floor[1]} — nothing was checked"
+            ),
+            skip_kind=UNAVAILABLE,
+            findings=unparseable_by_version,
+        )
+
+    # This must precede the generic branch below. It did not, so when a
+    # version-unparseable file was the ONLY file in scope, `covered` was empty and
+    # the generic "no parseable files in scope" won — leaving the version branch
+    # unreachable and the receipt stating a cause that did not happen.
+    #
+    # The test written for this two days ago used TWO files, so `covered` was
+    # never empty and the ordering never mattered. Found by a fixture pack built
+    # for an outside agent, on its first run, because a fixture is one file per
+    # case by design.
     if not covered:
         # "No parseable files in scope" states a cause that did not happen when
         # the scope holds source this sensor has no parser for. A .ts file is not
@@ -441,18 +463,6 @@ def check_syntax(root: Path, files: list[Path]) -> Result:
             "skip",
             reason=reason,
             skip_kind=NOT_APPLICABLE,
-        )
-    if unparseable_by_version and not covered:
-        return Result(
-            "syntax",
-            "skip",
-            reason=(
-                f"every file in scope failed to parse under Python "
-                f"{running[0]}.{running[1]} while the project requires "
-                f">={floor[0]}.{floor[1]} — nothing was checked"
-            ),
-            skip_kind=UNAVAILABLE,
-            findings=unparseable_by_version,
         )
     counters = {
         "parsed": len(covered),
