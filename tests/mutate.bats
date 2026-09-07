@@ -233,3 +233,69 @@ EOF
   [[ "$output" == *"nothing was measured"* ]]
   [[ "$output" == *"not a clean sweep"* ]]
 }
+
+# ── one-sided conditions: a repair that looks like a repair ──────────────────
+#
+# Named by a peer session from its own case. A substring match on `to` inside
+# `Director` was repaired with \b, and \bpassport\b then failed to match
+# `passport_issue`, because an underscore is a word character. Both versions wrong
+# in opposite directions, each passing the test written for the other. The class is
+# not "a regex without boundaries" but a repair that looks like a repair.
+#
+# Its mechanical signature: both directions of one condition mutated, exactly one
+# killed. Two independent survivors read as two gaps; this is a sharper thing —
+# the tests pin one side of a boundary, so overshooting to the other side is free.
+
+one_sided() {  # feed synthetic outcomes straight to the function
+  python3 -c "
+import importlib.machinery, importlib.util, sys
+l = importlib.machinery.SourceFileLoader('m', '$M')
+s = importlib.util.spec_from_loader('m', l)
+m = importlib.util.module_from_spec(s); l.exec_module(m)
+print(m.one_sided($1))
+"
+}
+
+@test "one direction caught and its mirror missed is reported" {
+  run one_sided "[(7,'condition always true',True,'if x:'),(7,'condition always false',False,'if x:')]"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"line 7"* ]]
+  [[ "$output" == *"condition always true is caught"* ]]
+  [[ "$output" == *"condition always false is not"* ]]
+}
+
+@test "both directions caught is not one-sided" {
+  # Positive control against a section that prints whatever it is given.
+  run one_sided "[(7,'condition always true',True,'if x:'),(7,'condition always false',True,'if x:')]"
+  [ "$status" -eq 0 ]
+  [[ "$output" == "[]" ]]
+}
+
+@test "both directions surviving is two gaps, not an asymmetry" {
+  run one_sided "[(7,'condition always true',False,'if x:'),(7,'condition always false',False,'if x:')]"
+  [[ "$output" == "[]" ]]
+}
+
+@test "one direction that never ran is not an asymmetry" {
+  # The mirror mutation did not apply at all. Reporting that as one-sided would
+  # state a cause that did not happen — a finding about coverage where the real
+  # fact is that nothing was measured on the other side.
+  run one_sided "[(7,'condition always true',True,'if x:')]"
+  [[ "$output" == "[]" ]]
+}
+
+@test "other mutation kinds on the same line do not create an asymmetry" {
+  run one_sided "[(7,'comparison flipped',True,'a == b'),(7,'early return',False,'return 1')]"
+  [[ "$output" == "[]" ]]
+}
+
+@test "the section is absent when nothing is one-sided" {
+  # Both directions of the one condition are asserted, so there is no asymmetry.
+  write_test '
+@test "big" { run python3 -c "import sys;sys.path.insert(0,\"'"$D"'\");import thing;print(thing.classify(10))"; [[ "$output" == "big" ]]; }
+@test "small" { run python3 -c "import sys;sys.path.insert(0,\"'"$D"'\");import thing;print(thing.classify(9))"; [[ "$output" == "small" ]]; }
+'
+  run python3 "$M" "$D/thing.py" "$D/t.bats"
+  [[ "$output" == *"killed"* ]]          # the run actually happened
+  [[ "$output" != *"ONE-SIDED"* ]]
+}

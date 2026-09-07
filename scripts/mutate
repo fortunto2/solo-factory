@@ -169,6 +169,43 @@ def candidates(text: str, only: set[int] | None = None) -> list[tuple[str, str, 
     return out
 
 
+def one_sided(outcomes: list[tuple[int, str, bool, str]]) -> list[str]:
+    """Conditions where one direction is caught and the mirror direction is not.
+
+    Two independent survivors read as two test gaps. Both directions of the SAME
+    condition, with exactly one killed, is a sharper and different thing: the tests
+    pin one side of a boundary, so a repair that overshoots to the other side passes
+    every one of them. Adding a further iteration cannot be caught by that suite —
+    only stepping back can.
+
+    Named by a peer session from its own case: a substring match on `to` inside
+    `Director` was repaired with `\\b`, and `\\bpassport\\b` then failed to match
+    `passport_issue`, because an underscore is a word character. Both versions wrong
+    in opposite directions, each passing the test written for the other. The class is
+    not "a regex without boundaries" but **a repair that looks like a repair**.
+
+    Reported by them, measured here: this repository has no `\\b` in any regex, so the
+    specific instance is absent and the shape is not.
+    """
+    by_line: dict[int, dict[str, bool]] = {}
+    text: dict[int, str] = {}
+    for line, name, was_killed, src in outcomes:
+        if name.startswith("condition always "):
+            by_line.setdefault(line, {})[name] = was_killed
+            text[line] = src
+    out = []
+    for line, seen in sorted(by_line.items()):
+        # Both directions must have RUN. One direction alone says nothing about
+        # asymmetry — it says the other mutation never applied.
+        if len(seen) == 2 and sum(seen.values()) == 1:
+            caught = next(n for n, k in seen.items() if k)
+            missed = next(n for n, k in seen.items() if not k)
+            out.append(
+                f"line {line}: {caught} is caught, {missed} is not — {text[line]}"
+            )
+    return out
+
+
 def main(argv: list[str]) -> int:
     args = [a for a in argv[1:] if not a.startswith("--")]
     if not args:
@@ -230,7 +267,7 @@ def main(argv: list[str]) -> int:
     )
     print(f"  baseline: {total_tests} test(s) green in {test_file.name}\n")
 
-    survived, killed = [], []
+    survived, killed, outcomes = [], [], []
     restored = False
     try:
         for name, before, after in cands:
@@ -247,6 +284,7 @@ def main(argv: list[str]) -> int:
             code, _ = run_tests(test_file)
             line = original[: original.index(before)].count("\n") + 1
             entry = f"{target.name}:{line} {name} — {before.strip()[:60]}"
+            outcomes.append((line, name, code != 0, before.strip()[:60]))
             (killed if code != 0 else survived).append(entry)
             print(f"  {'killed ' if code else 'SURVIVED'} {entry}")
     finally:
@@ -274,6 +312,16 @@ def main(argv: list[str]) -> int:
     print(
         f"\n{len(killed)} killed, {len(survived)} survived, of {len(killed) + len(survived)}"
     )
+    lopsided = one_sided(outcomes)
+    if lopsided:
+        print("\nONE-SIDED — the tests pin one direction of a condition, not both:")
+        for entry in lopsided:
+            print(f"  {entry}")
+        print(
+            "\nA repair that overshoots past the target passes this suite, because "
+            "nothing asserts the other side. The fix is rarely a further iteration."
+        )
+
     if survived:
         print("\nSurvived — these changes broke nothing that is asserted:")
         for s in survived:

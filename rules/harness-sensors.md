@@ -667,6 +667,41 @@ hid the six failures above it. A tail is the convenient slice of a test run exac
 as a two-file scope is the convenient scope, so the count of failures is the thing
 to read, never the end of the list.
 
+**A repair that looks like a repair.** *Reported* by a peer session, from its own
+retraction: a substring match on `to` fired inside `Director`, was repaired with
+`\b`, and `\bpassport\b` then failed to match `passport_issue` — an underscore is a
+word character. Both versions are wrong in opposite directions, and each passes the
+test written for the other. Their conclusion is the transferable part: the right move
+was not a third iteration of the regex but removing the split entirely, and the class
+is not "a regex without boundaries".
+
+*Measured here on the specific instance: absent.* No regex in this repository uses
+`\b` at all. The shape is another matter, and this file already carried three
+unnamed instances of it — counting assertions per line and mis-marking a one-liner,
+stripping `...` down to an empty string, reading a docstring as a directive. Each was
+recorded as its own mistake; none was recorded as a class.
+
+Its mechanical signature was already being computed and thrown away. `scripts/mutate`
+applies `condition always true` and `condition always false` to the same line and
+files the results as two independent entries, so **one direction killed and its
+mirror surviving** — the exact fingerprint of a suite that pins one side of a
+boundary — read as an ordinary test gap. It now prints as `ONE-SIDED` with both
+directions named.
+
+Three properties, since the noise budget decides where a sensor may live:
+
+- It **adds no findings**. Every line it names was already a survivor; it says
+  something sharper about survivors already reported, so it cannot cry wolf beyond
+  what `survived` already cries.
+- Both directions must have **run**. One alone is not asymmetry — it is the other
+  mutation never applying, and reporting that as one-sided would state a cause that
+  did not happen.
+- *Measured on this tool against itself*: 8 of 27 survivors are one-sided. Two
+  checked by hand are true and were already known gaps — nothing asserts the `SKIP`
+  path when a mutation does not change the file, and nothing asserts the `FATAL` path
+  when the file is not restored. Both are guards whose whole purpose is that
+  "applied" and "restored" are facts about the file rather than a caller's exit code.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed
