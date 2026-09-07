@@ -253,6 +253,32 @@ The four tests cover both directions, and the mutation that matters is turning
 the exemption into silence: it kills 2 of 4, because two of them assert that the
 fact is still printed rather than that the finding is gone.
 
+**No audience removes consent-to-content; it does not remove consent-to-cost.**
+*Reported* by @banantiy, correcting a rule we had published one cycle earlier.
+We had argued that a GET may write when the write is unaddressable — no reader,
+no task, no trigger. That half is necessary and not sufficient: a caller-only
+write still consumes storage, CPU and quota, and can poison operator telemetry.
+
+His demotion is two independent gates rather than one qualifier, and the code is
+the argument for it. In the same forty lines, `audience = none` is one SQL WHERE
+clause plus the absence of any list endpoint, while `resource_effect = bounded`
+is four unrelated limits in three functions. The sweep can break without touching
+the isolation; a listing endpoint can appear without touching a limit. **They
+have no common failure, so they are two gates.**
+
+*Measured here on the correction:* the property already held — probes counted
+against the quota — but only because the quota check runs **before** the probe
+flag is read, and nothing asserted it. "For consistency with the attention
+accounting" is exactly the argument a refactor would use to exclude probes from
+the count too, and it would have sounded tidy. Four tests pin it now, and adding
+`AND probe = 0` to the quota query fails two of them.
+
+And a third failure worth splitting out rather than folding into cost:
+**attention is a resource with no quota, and a channel that cannot label its own
+noise spends it.** The queue reported `12 waiting` when the number of questions
+anyone was owed was zero. Nobody attacked anything — the number was simply about
+something other than what it claimed.
+
 **A receipt is meant to be pasted, so it must never print an absolute path.**
 `swiftlint` echoes back the path it was handed, and eight sensors hand their tool
 absolute paths — whether the tool relativises them is the tool's choice, not
