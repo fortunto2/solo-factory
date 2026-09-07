@@ -290,6 +290,23 @@ branch was reachable with two files in scope and unreachable with one. Both were
 invisible because the author exercised the convenient invocation. **Ask of every
 guard: which call shapes reach it, and is the real one among them.**
 
+*Asked of every hook here, and it kept paying.* Two shapes of the same mistake:
+
+**A guard scoped to what it protects misses changes to what it protects
+against.** `check-fixtures` exists because the linter repaired a fixture, and it
+was scoped to `fixtures/` — so the commit that removes `force-exclude` from
+`pyproject.toml`, letting the linter repair them again, is exactly the commit
+where the hook prints `Skipped`. It fires on the lint config now, and on
+`.pre-commit-config.yaml`.
+
+**A guard that stops guarding must not ship unrun.** None of the three fired when
+its own script changed. Adding the script to the per-file pattern is the wrong
+fix and it failed loudly: pre-commit handed `check-vacuous-tests` its own path, a
+checker that correctly answers "that is not a test file" — `UNKNOWN`, exit 2, on
+every commit touching it. **A guard's own change needs a different call, not a
+wider filter**, so the whole-repo sweep is a second entry with
+`pass_filenames: false`.
+
 *Asked of `check-vacuous-tests`, and the answer was two holes.* The Makefile
 passed a hand-written glob while the script and the pre-commit hook used
 `TEST_FILE`. On today's fifteen files all three agree, so the divergence was

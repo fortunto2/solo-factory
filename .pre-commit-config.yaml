@@ -55,7 +55,11 @@ repos:
         entry: python3 scripts/check-fixtures
         language: system
         pass_filenames: false
-        files: '^fixtures/'
+        # Three things, not one. `fixtures/` is what it protects; the lint config
+        # is what it protects AGAINST — remove force-exclude and ruff repairs the
+        # fixtures on a commit this hook would have skipped; and its own script,
+        # because a weakened guard should not ship unrun.
+        files: '^(fixtures/|pyproject\.toml$|\.pre-commit-config\.yaml$|scripts/check-fixtures$)'
         stages: [pre-commit]
 
       - id: sensor-contract
@@ -63,14 +67,30 @@ repos:
         entry: python3 scripts/check-sensor-contract
         language: system
         pass_filenames: false
-        files: '^scripts/solo-verify$'
+        # Plus its own script: a guard that stops guarding must not ship unrun.
+        files: '^scripts/(solo-verify|check-sensor-contract)$'
         stages: [pre-commit]
 
       - id: vacuous-tests
         name: Tests that cannot fail (assert only absence)
         entry: python3 scripts/check-vacuous-tests
         language: system
+        # Must stay in step with TEST_FILE in the script; a test asserts they do.
         files: '(\.bats$|(^|/)test_[^/]*\.py$|[._]test\.[jt]sx?$|\.spec\.[jt]sx?$)'
+        stages: [pre-commit]
+
+      - id: vacuous-tests-sweep
+        name: A weakened vacuous-test checker must not ship unrun
+        entry: python3 scripts/check-vacuous-tests
+        language: system
+        # Separate entry because the SHAPE differs: the hook above is per-file and
+        # this one is a whole-repo sweep. Adding the script to the pattern above
+        # instead made pre-commit hand the script's own path to a checker that
+        # correctly answers "that is not a test file" — UNKNOWN, exit 2, on every
+        # commit touching it. A guard's own change needs a different call, not a
+        # wider filter.
+        pass_filenames: false
+        files: '^scripts/check-vacuous-tests$'
         stages: [pre-commit]
 
       - id: skill-triggers
