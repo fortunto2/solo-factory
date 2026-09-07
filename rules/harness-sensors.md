@@ -664,11 +664,21 @@ survived. **Three of the five were noise** — `__name__` guards and
 and a checker at that rate is ignored within a week, so those are filtered as
 equivalent mutants and named as such in the code.
 
-**Pointed at itself: 19 killed, 23 survived of 42.** Its own tests are thin, and
-the number is published rather than hidden, for the same reason the blind-spot
-corpus prints what it misses. One survivor was closed immediately — the "the
-mutation did not apply" branch is a safety property, and scoring a no-op patch as
-a survived mutant would report the tests as weak when nothing was tested.
+**Pointed at itself: 19 killed, 23 survived of 42**, published rather than hidden
+for the same reason the blind-spot corpus prints what it misses. Reading that list
+produced two things.
+
+*The majority of survivors were the tool rewriting its own rule tables.* Mutating
+a `==` inside `MUTATIONS` changes **which mutations exist**, not what the code
+does, so nothing can catch it and nothing should try. The exclusion is general
+rather than a special case for this file: a module-level assignment to a list,
+tuple, set or dict literal is configuration, and its lines are not mutated. Every
+one of those survivors disappeared; the candidate count *rose* by two, because the
+function implementing the exclusion is itself new code with its own candidates.
+
+*What remained clustered on argument validation and the tool's own advertised
+safety properties* — paths any reader would call obvious, none of them exercised.
+Six tests later: **28 killed, 16 survived of 44.** The rest stay published.
 
 The remaining two were real and neither was visible by reading: nothing asserted
 that a truncated backlog says how many it dropped, and the "manifest has no

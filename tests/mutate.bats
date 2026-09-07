@@ -111,3 +111,73 @@ print(len(m.candidates('def f():\n    if a == b:\n        return 5\n')))
   [[ "${lines[0]}" == "0" ]]
   [ "${lines[1]}" -gt 0 ]
 }
+
+# --- the argument and safety branches the tool named on itself ---------------
+# Pointed at itself the runner scored 19/42, and once its own rule TABLES were
+# excluded as data the survivors clustered on two things: argument validation and
+# the safety properties it advertises. Both are paths a reader would call obvious
+# and neither was exercised.
+
+@test "no arguments is UNKNOWN with usage, never a clean run" {
+  run python3 "$M"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"mutate"* ]]
+  [[ "$output" != *"survived"* ]]
+}
+
+@test "a target without a test file cannot be measured, and says so" {
+  run python3 "$M" "$D/thing.py"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"no test file given"* ]]
+  [[ "$output" == *"nothing could be measured"* ]]
+}
+
+@test "a missing test file is UNKNOWN, not zero survivors" {
+  run python3 "$M" "$D/thing.py" "$D/absent.bats"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"is not a file"* ]]
+  [[ "$output" != *"0 survived"* ]]
+}
+
+@test "--list needs no test file and never runs one" {
+  run python3 "$M" --list "$D/thing.py"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"candidate mutation"* ]]
+  [[ "$output" != *"baseline"* ]]
+}
+
+@test "a module-level literal table is data and is not mutated" {
+  # The tool spent most of its first self-run rewriting its own MUTATIONS and
+  # EQUIVALENT tables — changing which mutations exist rather than what the code
+  # does. Those survive everything and mean nothing.
+  cat > "$D/tbl.py" <<'EOF'
+RULES = [
+    ("a", "x == y"),
+    ("b", "n >= 2"),
+]
+
+
+def use(n):
+    if n >= 2:
+        return "big"
+    return "small"
+EOF
+  run python3 "$M" --list "$D/tbl.py"
+  [ "$status" -eq 0 ]
+  # The comparison inside the function is fair game; the ones in the table are not.
+  [[ "$output" == *"if n >= 2"* ]]
+  [[ "$output" != *'"n >= 2"'* ]]
+  [[ "$output" != *'"x == y"'* ]]
+}
+
+@test "it runs under the oldest python a caller is likely to have" {
+  # UP038 would rewrite isinstance(x, (A, B)) as isinstance(x, A | B), a
+  # TypeError before 3.10. It broke solo-verify exactly that way two cycles ago.
+  # scripts/ is run with whatever python3 the caller has, not with the declared
+  # requires-python.
+  if [ ! -x /usr/bin/python3 ]; then skip "no system python3"; fi
+  run /usr/bin/python3 "$M" --list "$D/thing.py"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"candidate mutation"* ]]
+  [[ "$output" != *"Traceback"* ]]
+}

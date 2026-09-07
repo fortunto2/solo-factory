@@ -28,6 +28,7 @@ the answer stays with the reader.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import re
 import subprocess
@@ -77,9 +78,38 @@ EQUIVALENT = (
 )
 
 
+def data_lines(text: str) -> set[int]:
+    """Lines belonging to a module-level literal table: data, not behaviour.
+
+    Pointed at itself, this tool spent most of its mutants rewriting its own
+    MUTATIONS and EQUIVALENT tables — changing which mutations exist rather than
+    what the code does. Those survive every test and mean nothing, and they were
+    the majority of the first self-run's 23 survivors.
+
+    The general form, not a special case for this file: a module-level assignment
+    to a list, tuple, set or dict literal is configuration. Mutating a `==` inside
+    one produces a different configuration, not a defect, so no test should be
+    expected to catch it.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return set()
+    lines: set[int] = set()
+    for node in tree.body:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = node.value
+        if isinstance(value, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
+            end = getattr(node, "end_lineno", node.lineno)
+            lines.update(range(node.lineno, end + 1))
+    return lines
+
+
 def candidates(text: str) -> list[tuple[str, str, str]]:
     """Every (name, before, after) this file admits, one occurrence each."""
     out = []
+    skip = data_lines(text)
     for name, pat, rep in MUTATIONS:
         rx = re.compile(pat, re.MULTILINE)
         for m in rx.finditer(text):
@@ -89,7 +119,12 @@ def candidates(text: str) -> list[tuple[str, str, str]]:
                 # Re-apply against the whole line so anchored patterns still work.
                 after = text[m.start() : m.end()]
                 after = rx.sub(rep, after, count=1)
-            if after != before and not any(e.search(before) for e in EQUIVALENT):
+            line = text[: m.start()].count("\n") + 1
+            if (
+                after != before
+                and line not in skip
+                and not any(e.search(before) for e in EQUIVALENT)
+            ):
                 out.append((name, before, after))
     return out
 

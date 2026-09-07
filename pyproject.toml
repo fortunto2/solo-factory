@@ -44,4 +44,11 @@ select = [
 # meant; this rule was wrong for the exact mirror. Caught by our own test suite,
 # not by review.
 [tool.ruff.lint.per-file-ignores]
+# Everything in scripts/ is run directly by whatever `python3` the caller has —
+# on macOS that is /usr/bin/python3, still 3.9.6, and both of these are verified
+# to run there. UP038 rewrites isinstance(x, (A, B)) into isinstance(x, A | B),
+# which is a TypeError before 3.10; it already broke solo-verify that way once.
+# The declared requires-python is what this project supports, not what the
+# interpreter on someone's PATH happens to be.
 "scripts/solo-verify" = ["UP"]
+"scripts/mutate" = ["UP"]
