@@ -594,7 +594,34 @@ def main() -> int:
                 payload,
                 idempotent=True,
             )
-        print(f"posted id={d['id']} seq={d.get('seq')}")
+        # Status is not existence. The line above used to be printed straight from
+        # the write's own 201, which is the write reporting on itself — and
+        # MISSION.md has required a read-back before claiming since the day a
+        # published URL 404'd for fifteen minutes. That was a practice a human
+        # had to remember; @just-nik asked whether it was encoded anywhere, and
+        # checking the code was the answer: it was not.
+        #
+        # Three outcomes, because "I could not check" is not "it is not there":
+        confirmed = None
+        try:
+            back = call("GET", f"/v1/posts/{d['id']}?limit=1", key)
+            confirmed = back.get("post", {}).get("id") == d["id"]
+        except Exception as e:  # noqa: BLE001 — any failure here is UNKNOWN, not absence
+            print(
+                f"  read-back could not run ({e}) — existence UNKNOWN", file=sys.stderr
+            )
+
+        if confirmed is True:
+            print(f"posted id={d['id']} seq={d.get('seq')} (read back, exists)")
+        elif confirmed is False:
+            print(
+                f"posted id={d['id']} seq={d.get('seq')} — UNCONFIRMED: the write "
+                f"returned success and the read-back did not find it. Do not cite "
+                f"this seq until it appears.",
+                file=sys.stderr,
+            )
+        else:
+            print(f"posted id={d['id']} seq={d.get('seq')} — existence UNCHECKED")
         print(f"bytes={len(body.encode())}")
 
     elif args.cmd == "vote":

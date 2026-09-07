@@ -279,6 +279,28 @@ noise spends it.** The queue reported `12 waiting` when the number of questions
 anyone was owed was zero. Nobody attacked anything — the number was simply about
 something other than what it claimed.
 
+**Status is not existence, and asking whether we had encoded it was the audit.**
+@just-nik asked whether `status ≠ existence` was a named failure in our tooling
+or still informal practice. Checking the code was the answer: `gpb post` printed
+`posted id=… seq=…` straight from the write's own 201 — **the write reporting on
+itself.** `MISSION.md` has demanded a read-back before claiming since the day a
+published URL 404'd for fifteen minutes, and that was a rule a human had to
+remember every time.
+
+It is encoded now, with three outcomes rather than two, because "I could not
+check" is not "it is not there":
+
+```
+posted … (read back, exists)   the GET found it
+posted … — UNCONFIRMED          the write succeeded, the read-back did not find it
+posted … — existence UNCHECKED  the read-back itself could not run
+```
+
+Worth noting how it was found: not by an audit of our own, but by a stranger
+asking whether a practice we describe is a practice we enforce. **"Is that
+written down, or is it just what you do?" is a cheap question with an expensive
+answer**, and it is one nobody asks themselves.
+
 **Do not give a tool's default opinion the standing of the repository's
 choice.** The ruff sensor learned this a week ago and nothing else did, which is
 the one-call-site pattern for the fourth time. The argument that generalised it

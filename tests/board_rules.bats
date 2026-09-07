@@ -264,3 +264,91 @@ print('ERR:[' + err.getvalue().strip() + ']')
 "
   [[ "$output" == "ERR:[]" ]]
 }
+
+# --- status is not existence ------------------------------------------------
+# @just-nik (#21511) asked whether "status ≠ existence" was encoded anywhere or
+# was still informal practice. Checking the code was the answer: `gpb post`
+# printed "posted id=… seq=…" straight from the write's own 201 — the write
+# reporting on itself. MISSION.md has demanded a read-back before claiming since
+# the day a published URL 404'd for fifteen minutes, and that was a rule a human
+# had to remember.
+
+load_gpb() {
+  run python3 -c "
+import sys, io, json, contextlib, importlib.util, importlib.machinery
+loader = importlib.machinery.SourceFileLoader('g', '$GPB')
+spec = importlib.util.spec_from_loader('g', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['g'] = m; loader.exec_module(m)
+m.api_key = lambda *a, **k: 'x'
+POSTED = {'id': 'abc', 'seq': 42}
+$1
+m.call = fake
+sys.argv = ['gpb', 'reply', 'root-id', '--body', 'a body long enough to send']
+err = io.StringIO()
+with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()) as out:
+    try:
+        m.main()
+    except SystemExit:
+        pass
+print('OUT:' + out.getvalue().replace(chr(10), ' '))
+print('ERR:' + err.getvalue().replace(chr(10), ' '))
+"
+}
+
+@test "a post that reads back is reported as existing, not merely accepted" {
+  load_gpb "
+ROOT = {'post': {'id': 'root-id', 'seq': 1, 'topic': 't', 'title': 'x', 'author': 'a', 'body': 'a body in english for the gate'}, 'replies': {'items': []}}
+def fake(method, path, key, payload=None, idempotent=False):
+    if method == 'POST':
+        return POSTED
+    if 'root-id' in path:
+        return ROOT
+    return {'post': {'id': 'abc', 'seq': 42, 'topic': 't', 'title': '', 'author': 'a', 'body': 'b'}}
+"
+  [[ "$output" == *"read back, exists"* ]]
+  [[ "$output" != *"UNCONFIRMED"* ]]
+}
+
+@test "a write the read-back cannot find is UNCONFIRMED and goes to stderr" {
+  load_gpb "
+ROOT = {'post': {'id': 'root-id', 'seq': 1, 'topic': 't', 'title': 'x', 'author': 'a', 'body': 'a body in english for the gate'}, 'replies': {'items': []}}
+def fake(method, path, key, payload=None, idempotent=False):
+    if method == 'POST':
+        return POSTED
+    if 'root-id' in path:
+        return ROOT
+    return {'post': {'id': 'somebody-else', 'seq': 1}}
+"
+  [[ "$output" == *"UNCONFIRMED"* ]]
+  [[ "$output" == *"Do not cite this seq"* ]]
+  [[ "$output" != *"read back, exists"* ]]
+}
+
+@test "a read-back that cannot run is UNCHECKED, never absence" {
+  # The distinction the whole harness is about: a failed check is not a finding.
+  load_gpb "
+ROOT = {'post': {'id': 'root-id', 'seq': 1, 'topic': 't', 'title': 'x', 'author': 'a', 'body': 'a body in english for the gate'}, 'replies': {'items': []}}
+def fake(method, path, key, payload=None, idempotent=False):
+    if method == 'POST':
+        return POSTED
+    if 'root-id' in path:
+        return ROOT
+    raise RuntimeError('network is down')
+"
+  [[ "$output" == *"existence UNCHECKED"* ]]
+  [[ "$output" == *"could not run"* ]]
+  [[ "$output" != *"UNCONFIRMED"* ]]
+}
+
+@test "the seq is still printed in every case, so it can be chased by hand" {
+  load_gpb "
+ROOT = {'post': {'id': 'root-id', 'seq': 1, 'topic': 't', 'title': 'x', 'author': 'a', 'body': 'a body in english for the gate'}, 'replies': {'items': []}}
+def fake(method, path, key, payload=None, idempotent=False):
+    if method == 'POST':
+        return POSTED
+    if 'root-id' in path:
+        return ROOT
+    raise RuntimeError('down')
+"
+  [[ "$output" == *"seq=42"* ]]
+}
