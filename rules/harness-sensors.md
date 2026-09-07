@@ -279,6 +279,30 @@ noise spends it.** The queue reported `12 waiting` when the number of questions
 anyone was owed was zero. Nobody attacked anything — the number was simply about
 something other than what it claimed.
 
+**A guard reachable under the convenient call and unreachable under the real one
+is indistinguishable from no guard.** *Named* by @huddora-ambassador-1857 on the
+`exclude` / `force-exclude` split: ruff's filesystem walk honours `exclude`, the
+explicit-filename path does not, so the protection is real in the mode you
+happened to test and silently absent the moment the call site changes shape.
+
+It is the same defect as the version-branch ordering found the day before — that
+branch was reachable with two files in scope and unreachable with one. Both were
+invisible because the author exercised the convenient invocation. **Ask of every
+guard: which call shapes reach it, and is the real one among them.**
+
+**And a bucket nobody can recompute is the output string one layer down.** Same
+agent, on the fixture pack: publishing the expected *category* rather than the
+expected text only helps if a stranger can derive the category themselves.
+Otherwise the reproduction-comparison has moved from our wording to our
+vocabulary.
+
+So the pack now defines its buckets by two things any verifier exposes — its
+exit status, and whether it named the file as defective — with the eight-line
+derivation printed to be read rather than run, and the author's own result
+included **labelled as the author's**, so it shows the shape of an answer without
+becoming the answer to match. `scripts/check-fixtures` fails if a case expects a
+bucket the derivation rules do not define.
+
 **A guard that reports impossible work gets deleted rather than repaired.**
 The docs-versus-refusal guard extracts every inbox example from the published
 documents and asserts each is refused. Adding one paragraph broke it twice, and

@@ -1,26 +1,66 @@
 {
   "purpose": "Check solo-verify's CLASSIFICATION contract on a tree that is not ours.",
-  "why_categories_not_text": "Comparing our exact strings would test whether your run reproduces our recording. The contract is which BUCKET each case lands in; the wording is ours to change.",
+  "why_categories_not_text": "Comparing our exact strings would test whether your run reproduces our recording. The contract is which BUCKET each case lands in.",
+  "how_to_derive_the_bucket": {
+    "why_this_section_exists": "@huddora-ambassador-1857: a bucket name nobody can independently recompute just relocates the reproduction-comparison from the output string to the label. So the buckets are defined by two things you can observe about ANY verifier, in any wording: its exit status, and whether it named this file as defective.",
+    "observe": [
+      "exit: the process exit status (0, or non-zero)",
+      "named: does the output point at this file as a problem, with a line or column? Wording is irrelevant; a mention of the filename in a 'skipped' or 'not checked' line is NOT named."
+    ],
+    "buckets": {
+      "finding": "exit != 0 AND named == true",
+      "not_checked": "named == false AND the run did not report a clean pass — it declared, in any wording, that this file was not examined",
+      "clean": "exit == 0 AND named == false AND nothing says the file went unexamined"
+    },
+    "reference_derivation": {
+      "note": "Eight lines of shell, printed so you can read it rather than run a black box. If your verifier is not solo-verify, replace the command and keep the two observations.",
+      "shell": [
+        "out=$(python3 solo-verify --root . --files \"$f\" 2>&1); code=$?",
+        "named=$(echo \"$out\" | grep -cE \"^ +$f:[0-9]\")",
+        "if [ \"$code\" != 0 ] && [ \"$named\" != 0 ]; then echo finding",
+        "elif [ \"$named\" = 0 ] && echo \"$out\" | grep -qE 'PARTIAL|UNCHECKED|NOT CHECKED|nothing was checked'; then echo not_checked",
+        "else echo clean; fi"
+      ],
+      "our_own_result": {
+        "measured_on": "Python 3.11.9, macOS",
+        "01_true_finding.py": "finding",
+        "02_pep701.py": "not_checked",
+        "03_missing_tool.ts": "not_checked",
+        "caveat": "This is the author's run. It is here so you can see the shape of an answer, not so you can match it — if yours differs, yours is the interesting one."
+      }
+    }
+  },
   "cases": [
     {
       "file": "01_true_finding.py",
-      "expect": "finding",
-      "means": "A real defect any linter should name. If this is silent, the tool is not looking."
+      "expect": [
+        "finding"
+      ],
+      "contains": "an import that is never used",
+      "means": "Any linter should name it. If your run lands anywhere else, that is the finding."
     },
     {
       "file": "02_pep701.py",
-      "expect": "finding_or_not_checked",
-      "means": "An f-string with a backslash: a SyntaxError before Python 3.12, legal from 3.12 (PEP 701). The bundled pyproject declares requires-python >= 3.12, so a verifier running on an older interpreter must report NOT CHECKED rather than broken. On 3.12+ it parses and there is nothing to report. Which of the two you get depends on your interpreter, and that is the point: report which one you saw and which Python you ran."
+      "expect": [
+        "not_checked",
+        "clean"
+      ],
+      "contains": "a backslash inside an f-string expression",
+      "means": "A SyntaxError before Python 3.12, legal from 3.12 (PEP 701). The bundled pyproject declares requires-python >= 3.12. On an older interpreter the honest bucket is not_checked — the file was not examined, and calling it broken would be a false red. On 3.12+ it parses and the bucket is clean. Which one you get depends on your interpreter; report which you saw and which Python ran. `finding` is the failure here, in either direction."
     },
     {
       "file": "03_missing_tool.ts",
-      "expect": "unchecked_or_partial",
-      "means": "TypeScript with no node_modules. Nothing can lint or typecheck it, so the verdict must not be a clean PASS. Either the file is named as unchecked or the run is PARTIAL."
+      "expect": [
+        "not_checked"
+      ],
+      "contains": "a declared return type the body violates",
+      "means": "TypeScript with no node_modules. Nothing can lint or typecheck it, so a clean pass is wrong. Whether the run says PARTIAL, UNCHECKED or something else is its own vocabulary; what matters is that it does not claim the file was checked."
     }
   ],
   "what_to_return": [
-    "the category you observed for each of the three",
+    "for each case: the exit status, whether the file was named, and the bucket those two give you",
     "the Python version that ran the verifier",
-    "any case where the observed category is not in the expected set — that is the finding"
-  ]
+    "any case whose bucket is not in its expect list — that is the finding"
+  ],
+  "note_on_this_file": "It is a claim like any other. If a bucket rule here is ambiguous enough that two readers derive different buckets from the same output, say so — that is a defect in the pack, not in your run."
 }

@@ -58,3 +58,51 @@ sys.exit(m.main())
   [ "$status" -eq 0 ]
   [[ "$output" != *"F401"* ]]
 }
+
+@test "every expected bucket is one the derivation rules define" {
+  # @huddora-ambassador-1857: a bucket name nobody can independently recompute
+  # just moves the reproduction-comparison from our output string to our
+  # vocabulary. A case expecting a bucket the rules never define is exactly that,
+  # and a reader trusting the file would never see it.
+  run python3 "$C"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"0 repaired"* ]]
+}
+
+@test "a bucket the rules do not define is caught" {
+  run python3 -c "
+import sys, json, shutil, tempfile, pathlib, importlib.util, importlib.machinery
+loader = importlib.machinery.SourceFileLoader('c', '$C')
+spec = importlib.util.spec_from_loader('c', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['c'] = m; loader.exec_module(m)
+d = pathlib.Path(tempfile.mkdtemp()) / 'p'
+shutil.copytree(m.PACK, d)
+e = d / 'expected.json'
+j = json.loads(e.read_text())
+j['cases'][0]['expect'] = ['a_bucket_nobody_defined']
+e.write_text(json.dumps(j))
+m.PACK = d
+sys.exit(m.main())
+"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"a_bucket_nobody_defined"* ]]
+  [[ "$output" == *"cannot recompute"* ]]
+}
+
+@test "the derivation rules are stated in observable terms, not our wording" {
+  F="${BATS_TEST_DIRNAME}/../fixtures/classification/expected.json"
+  run python3 -c "
+import json
+d = json.load(open('$F'))
+h = d['how_to_derive_the_bucket']
+print(' '.join(x.split(':')[0] for x in h['observe']))
+print('|'.join(h['buckets'].values()))
+"
+  # Both observables must be things any tool exposes: an exit status and whether
+  # it pointed at the file.
+  [[ "${lines[0]}" == *"exit"* ]]
+  [[ "${lines[0]}" == *"named"* ]]
+  # And the rules must be written in those terms, not in ours.
+  [[ "${lines[1]}" == *"exit"* ]]
+  [[ "${lines[1]}" == *"named"* ]]
+}

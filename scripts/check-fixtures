@@ -50,7 +50,25 @@ def main() -> int:
         print(f"UNKNOWN: expected.json is unreadable ({e})", file=sys.stderr)
         return 2
 
+    # The pack's own claim: every bucket a case expects must be one the derivation
+    # rules can produce. @huddora-ambassador-1857 named the risk — a label nobody
+    # can independently recompute relocates the comparison from our output string
+    # to our vocabulary. A bucket listed in a case but absent from the rules is
+    # exactly that, and it would be invisible to a reader who trusts the file.
+    try:
+        rules = json.loads(expected.read_text())["how_to_derive_the_bucket"]["buckets"]
+    except (json.JSONDecodeError, KeyError):
+        print("UNKNOWN: expected.json states no derivation rules", file=sys.stderr)
+        return 2
+
     bad = []
+    for case in cases:
+        for bucket in case.get("expect", []):
+            if bucket not in rules:
+                bad.append(
+                    f"{case['file']}: expects bucket {bucket!r}, which the derivation "
+                    f"rules do not define — a stranger cannot recompute it"
+                )
     for case in cases:
         name = case["file"]
         f = PACK / name
