@@ -181,3 +181,55 @@ EOF
   [[ "$output" == *"candidate mutation"* ]]
   [[ "$output" != *"Traceback"* ]]
 }
+
+# --- scoping, and the two defects it exposed --------------------------------
+# A whole-file run is unusable where it matters most: solo-verify offers 261
+# candidates at 33s per test run — two and a half hours, so it never gets run,
+# and a tool nobody runs measures nothing.
+
+@test "--changed scopes to the lines this working tree touched" {
+  git init -q "$D/repo"; cd "$D/repo"
+  git config user.email t@example.com; git config user.name t
+  printf 'def a(n):\n    if n >= 1:\n        return "x"\n    return "y"\n\n\ndef b(n):\n    if n >= 2:\n        return "p"\n    return "q"\n' > m.py
+  git add -A && git commit -q -m init
+  whole=$(python3 "$M" --list m.py | tail -1 | grep -o '^[0-9]*')
+  # Touch one line only.
+  python3 - <<'EOF'
+import pathlib
+p = pathlib.Path('m.py'); s = p.read_text()
+p.write_text(s.replace('if n >= 2:', 'if n >= 3:', 1))
+EOF
+  scoped=$(python3 "$M" --changed --list m.py | tail -1 | grep -o '^[0-9]*')
+  [ "$scoped" -lt "$whole" ]
+  [ "$scoped" -gt 0 ]
+}
+
+@test "--changed with nothing changed is UNKNOWN, not a clean sweep" {
+  git init -q "$D/clean"; cd "$D/clean"
+  git config user.email t@example.com; git config user.name t
+  printf 'def a(n):\n    if n >= 1:\n        return "x"\n    return "y"\n' > m.py
+  git add -A && git commit -q -m init
+  run python3 "$M" --changed --list m.py
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"no uncommitted changes"* ]]
+  [[ "$output" == *"not the same as nothing surviving"* ]]
+}
+
+@test "an if with a trailing comment is reachable by the operators" {
+  # Found by scoping to a changed line that carried a comment and getting
+  # "0 of 0". An operator that cannot reach a construct reports no survivors
+  # there, which reads as coverage.
+  printf 'def f(n):\n    if n > 3:  # a note\n        return "big"\n    return "small"\n' > "$D/c.py"
+  run python3 "$M" --list "$D/c.py"
+  [[ "$output" == *"condition always true"* ]]
+  [[ "$output" == *"if n > 3"* ]]
+}
+
+@test "zero applicable mutations is UNKNOWN, never 0 killed 0 survived" {
+  printf 'x = 1\n' > "$D/flat.py"
+  printf '@test "t" { true; }\n' > "$D/flat.bats"
+  run python3 "$M" "$D/flat.py" "$D/flat.bats"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"nothing was measured"* ]]
+  [[ "$output" == *"not a clean sweep"* ]]
+}

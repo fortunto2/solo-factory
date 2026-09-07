@@ -38,15 +38,20 @@ from pathlib import Path
 # Small, meaning-changing edits. Each is (name, pattern, replacement) applied to
 # one occurrence at a time. They are chosen to break behaviour rather than syntax:
 # a mutant that does not run teaches nothing.
+# The trailing-comment group is not cosmetic. The first version anchored on `:$`,
+# so every `if ...:  # note` in a codebase was silently unmutatable — and an
+# operator that cannot reach a construct reports zero survivors there, which
+# reads as coverage. Found by pointing the tool at a changed line that happened
+# to carry a comment and getting "0 of 0".
 MUTATIONS: list[tuple[str, str, str]] = [
     (
         "condition always true",
-        r"^(\s*)if (?!True\b|False\b)([^:\n]+):$",
+        r"^(\s*)if (?!True\b|False\b)([^:\n]+):(\s*#.*)?$",
         r"\1if True:  # mutant",
     ),
     (
         "condition always false",
-        r"^(\s*)if (?!True\b|False\b)([^:\n]+):$",
+        r"^(\s*)if (?!True\b|False\b)([^:\n]+):(\s*#.*)?$",
         r"\1if False:  # mutant",
     ),
     ("comparison flipped", r"([^<>=!])==([^=])", r"\1!=\2"),
@@ -106,7 +111,41 @@ def data_lines(text: str) -> set[int]:
     return lines
 
 
-def candidates(text: str) -> list[tuple[str, str, str]]:
+def changed_lines(target: Path) -> set[int] | None:
+    """Lines this working tree changed against HEAD, or None if it cannot tell.
+
+    A whole-file run is unusable where it matters most: solo-verify offers 261
+    candidates at 33s per test run — two and a half hours, so it never gets run,
+    and a tool nobody runs measures nothing. This repo's own contract already
+    says the workable use is the narrow one, mutants for the code a change
+    actually touched.
+
+    None, not an empty set, when git cannot answer: an empty set would silently
+    mutate nothing and report a clean sweep, which is the absent-baseline false
+    green in one more place.
+    """
+    # Absolute path, and cwd is the file's directory so git finds the repository.
+    # The first draft passed a repo-relative path while running from scripts/, so
+    # git looked for scripts/scripts/mutate, found nothing, and reported no
+    # changes — a scoping bug that would have quietly mutated nothing and called
+    # it clean.
+    r = subprocess.run(
+        ["git", "diff", "-U0", "HEAD", "--", str(target.resolve())],
+        capture_output=True,
+        text=True,
+        cwd=target.resolve().parent,
+    )
+    if r.returncode != 0:
+        return None
+    lines: set[int] = set()
+    for hunk in re.finditer(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@", r.stdout, re.MULTILINE):
+        start = int(hunk.group(1))
+        count = int(hunk.group(2) or 1)
+        lines.update(range(start, start + count))
+    return lines
+
+
+def candidates(text: str, only: set[int] | None = None) -> list[tuple[str, str, str]]:
     """Every (name, before, after) this file admits, one occurrence each."""
     out = []
     skip = data_lines(text)
@@ -123,6 +162,7 @@ def candidates(text: str) -> list[tuple[str, str, str]]:
             if (
                 after != before
                 and line not in skip
+                and (only is None or line in only)
                 and not any(e.search(before) for e in EQUIVALENT)
             ):
                 out.append((name, before, after))
@@ -140,7 +180,25 @@ def main(argv: list[str]) -> int:
         return 2
 
     text = target.read_text()
-    cands = candidates(text)
+    only = None
+    if "--changed" in argv:
+        only = changed_lines(target)
+        if only is None:
+            print(
+                "UNKNOWN: git could not report what changed, so nothing was scoped",
+                file=sys.stderr,
+            )
+            return 2
+        if not only:
+            print(
+                "UNKNOWN: --changed was asked for and this file has no uncommitted "
+                "changes. Nothing was mutated, which is not the same as nothing "
+                "surviving.",
+                file=sys.stderr,
+            )
+            return 2
+        print(f"  scoped to {len(only)} changed line(s) vs HEAD")
+    cands = candidates(text, only)
     if "--list" in argv:
         for name, before, _ in cands:
             print(f"  {name}: {before.strip()[:70]}")
@@ -205,6 +263,14 @@ def main(argv: list[str]) -> int:
         print("FATAL: the file was NOT restored — check it by hand", file=sys.stderr)
         return 2
 
+    if not killed and not survived:
+        print(
+            "UNKNOWN: no mutation could be applied, so nothing was measured. This is "
+            "not a clean sweep — widen the scope, or check that the operators reach "
+            "the construct you changed.",
+            file=sys.stderr,
+        )
+        return 2
     print(
         f"\n{len(killed)} killed, {len(survived)} survived, of {len(killed) + len(survived)}"
     )

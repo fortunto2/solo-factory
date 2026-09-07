@@ -685,6 +685,22 @@ that a truncated backlog says how many it dropped, and the "manifest has no
 history" branch had never been exercised. Both now have tests, and the file runs
 13 killed / 0 survived.
 
+**Scoping is what makes it usable at all.** `solo-verify` offers 261 candidates
+at 33s a run — two and a half hours, so it never gets run, and a tool nobody runs
+measures nothing. `--changed` restricts mutants to the lines a change touched, and
+returns UNKNOWN both when git cannot answer and when nothing is uncommitted: an
+empty scope that mutates nothing and reports a clean sweep is the absent-baseline
+false green again.
+
+Using the scoping found two defects in the tool the same minute. The query passed
+a repo-relative path while running from `scripts/`, so git looked for
+`scripts/scripts/mutate` and reported no changes. And the run then printed
+`0 killed, 0 survived, of 0` as a result — which is UNKNOWN, not a sweep, and the
+reason it was empty is sharper still: **the condition operators anchored on `:$`,
+so every `if ...:  # note` in any codebase was unmutatable.** An operator that
+cannot reach a construct reports no survivors there, and no survivors reads as
+coverage.
+
 **A survivor is a question, not a verdict.** Sometimes the mutation is behaviour
 nobody promised. The output says so rather than implying a defect.
 
