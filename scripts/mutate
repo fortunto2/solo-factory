@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""Which tests never fail? Break the code and find out.
+
+Every cycle this week ended with the same manual ritual: change one line so the
+behaviour is wrong, run the tests, count how many go red, put the line back,
+check the file hash. It caught real things a checker could not — tests that
+matched a filename instead of a diagnostic, tests that branched on the answer
+they were meant to assert, a control that ran on an input where it could not
+fire. None of those look wrong when you read them.
+
+So it is a command now. It is deliberately narrow: one file, its own test file,
+one mutation at a time.
+
+Three rules taken from this harness's own contract, because a mutation run has
+the same failure modes as any other probe:
+
+  the baseline must be green first  — a mutant proves nothing against a red suite
+  "applied" is a fact about the file — sha256 before and after, never an exit code
+  "restored" is the same fact       — the hash must come back identical
+
+A surviving mutant is not proof a test is worthless; it is a question. Sometimes
+the mutation is behaviour nobody promised. The output says which tests ran, so
+the answer stays with the reader.
+
+    scripts/mutate scripts/check-shippable tests/shippable.bats
+    scripts/mutate --list scripts/check-shippable
+"""
+
+from __future__ import annotations
+
+import hashlib
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+# Small, meaning-changing edits. Each is (name, pattern, replacement) applied to
+# one occurrence at a time. They are chosen to break behaviour rather than syntax:
+# a mutant that does not run teaches nothing.
+MUTATIONS: list[tuple[str, str, str]] = [
+    (
+        "condition always true",
+        r"^(\s*)if (?!True\b|False\b)([^:\n]+):$",
+        r"\1if True:  # mutant",
+    ),
+    (
+        "condition always false",
+        r"^(\s*)if (?!True\b|False\b)([^:\n]+):$",
+        r"\1if False:  # mutant",
+    ),
+    ("comparison flipped", r"([^<>=!])==([^=])", r"\1!=\2"),
+    ("boundary moved", r"([^<>=!])>=([^=])", r"\1>\2"),
+    ("early return", r"^(\s+)(return \w+.*)$", r"\1return None  # mutant"),
+]
+
+
+def sha(p: Path) -> str:
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def run_tests(test_file: Path) -> tuple[int, str]:
+    r = subprocess.run(["bats", str(test_file)], capture_output=True, text=True)
+    return r.returncode, r.stdout
+
+
+# Mutations that cannot change observable behaviour, so a survivor says nothing
+# about the tests. Measured on the first real run: 3 of 5 survivors were these,
+# a 60% noise rate, and a checker at that rate gets ignored within a week.
+#
+#   __name__ guard   flipping it changes nothing when the module is imported,
+#                    and nothing when it is run either
+#   return 0 -> None sys.exit(None) and sys.exit(0) are the same exit status,
+#                    so the mutant is equivalent rather than surviving
+EQUIVALENT = (
+    re.compile(r"__name__\s*==\s*.__main__."),
+    re.compile(r"^\s*return (0|None)\s*$"),
+)
+
+
+def candidates(text: str) -> list[tuple[str, str, str]]:
+    """Every (name, before, after) this file admits, one occurrence each."""
+    out = []
+    for name, pat, rep in MUTATIONS:
+        rx = re.compile(pat, re.MULTILINE)
+        for m in rx.finditer(text):
+            before = m.group(0)
+            after = rx.sub(rep, before, count=1) if rx.match(before) else None
+            if after is None or after == before:
+                # Re-apply against the whole line so anchored patterns still work.
+                after = text[m.start() : m.end()]
+                after = rx.sub(rep, after, count=1)
+            if after != before and not any(e.search(before) for e in EQUIVALENT):
+                out.append((name, before, after))
+    return out
+
+
+def main(argv: list[str]) -> int:
+    args = [a for a in argv[1:] if not a.startswith("--")]
+    if not args:
+        print(__doc__.strip().splitlines()[-2].strip(), file=sys.stderr)
+        return 2
+    target = Path(args[0])
+    if not target.is_file():
+        print(f"UNKNOWN: {target} is not a file — nothing was mutated", file=sys.stderr)
+        return 2
+
+    text = target.read_text()
+    cands = candidates(text)
+    if "--list" in argv:
+        for name, before, _ in cands:
+            print(f"  {name}: {before.strip()[:70]}")
+        print(f"\n{len(cands)} candidate mutation(s)")
+        return 0
+
+    if len(args) < 2:
+        print(
+            "UNKNOWN: no test file given — nothing could be measured", file=sys.stderr
+        )
+        return 2
+    test_file = Path(args[1])
+    if not test_file.is_file():
+        print(f"UNKNOWN: {test_file} is not a file", file=sys.stderr)
+        return 2
+
+    original = text
+    baseline_hash = sha(target)
+    code, out = run_tests(test_file)
+    if code != 0:
+        print(
+            "UNKNOWN: the baseline suite is not green, so no mutant proves anything.\n"
+            + out[-800:],
+            file=sys.stderr,
+        )
+        return 2
+    total_tests = len(
+        [ln for ln in out.splitlines() if ln.startswith(("ok ", "not ok "))]
+    )
+    print(f"  baseline: {total_tests} test(s) green in {test_file.name}\n")
+
+    survived, killed = [], []
+    restored = False
+    try:
+        for name, before, after in cands:
+            mutated = original.replace(before, after, 1)
+            if mutated == original:
+                continue
+            target.write_text(mutated)
+            if sha(target) == baseline_hash:
+                print(
+                    f"  SKIP  {name}: the file did not change — no conclusion",
+                    file=sys.stderr,
+                )
+                continue
+            code, _ = run_tests(test_file)
+            line = original[: original.index(before)].count("\n") + 1
+            entry = f"{target.name}:{line} {name} — {before.strip()[:60]}"
+            (killed if code != 0 else survived).append(entry)
+            print(f"  {'killed ' if code else 'SURVIVED'} {entry}")
+    finally:
+        # No `return` here: a return inside finally swallows whatever exception
+        # brought us here, so a crash mid-run would be reported as a restore
+        # failure — the wrong cause, stated confidently. Caught by ruff B012 on
+        # the first lint of this file, which is the rule set chosen two cycles ago
+        # earning its keep.
+        target.write_text(original)
+        # Restored is a fact about the file, not about the write returning.
+        restored = sha(target) == baseline_hash
+
+    if not restored:
+        print("FATAL: the file was NOT restored — check it by hand", file=sys.stderr)
+        return 2
+
+    print(
+        f"\n{len(killed)} killed, {len(survived)} survived, of {len(killed) + len(survived)}"
+    )
+    if survived:
+        print("\nSurvived — these changes broke nothing that is asserted:")
+        for s in survived:
+            print(f"  {s}")
+        print(
+            "\nA survivor is a question, not a verdict: sometimes the mutation is "
+            "behaviour nobody promised. Decide which, and say so."
+        )
+    return 1 if survived else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

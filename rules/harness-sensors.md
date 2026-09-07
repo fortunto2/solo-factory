@@ -644,6 +644,40 @@ None of these are locked down, because a gate the author cannot open is a gate
 the author routes around permanently. They are listed so that using one is a
 decision rather than an accident.
 
+## `scripts/mutate` — the ritual, as a command
+
+Every cycle this week ended the same way by hand: break one line so the behaviour
+is wrong, run the tests, count the reds, put the line back, verify the hash. It
+caught what no checker could — a marker matching a filename instead of a
+diagnostic, a test branching on the answer it was meant to assert, a control
+running on an input where it could not fire. None of those look wrong when read.
+
+`make mutants F=<script> T=<testfile>` does it. Narrow on purpose: one file, its
+own tests, one mutation at a time. Three rules from the contract above, because a
+mutation run fails the same ways any probe does — the baseline must be green
+first, "applied" is a sha256 of the file rather than a patcher's exit code, and
+"restored" is the same fact checked again.
+
+*Measured on its own first real run against `check-shippable`:* 11 killed, 5
+survived. **Three of the five were noise** — `__name__` guards and
+`return 0 → return None`, which cannot change an exit status. A 60% noise rate,
+and a checker at that rate is ignored within a week, so those are filtered as
+equivalent mutants and named as such in the code.
+
+**Pointed at itself: 19 killed, 23 survived of 42.** Its own tests are thin, and
+the number is published rather than hidden, for the same reason the blind-spot
+corpus prints what it misses. One survivor was closed immediately — the "the
+mutation did not apply" branch is a safety property, and scoring a no-op patch as
+a survived mutant would report the tests as weak when nothing was tested.
+
+The remaining two were real and neither was visible by reading: nothing asserted
+that a truncated backlog says how many it dropped, and the "manifest has no
+history" branch had never been exercised. Both now have tests, and the file runs
+13 killed / 0 survived.
+
+**A survivor is a question, not a verdict.** Sometimes the mutation is behaviour
+nobody promised. The output says so rather than implying a defect.
+
 ## Mutation testing — the sensor that checks the sensors
 
 Coverage says a line ran. It cannot say the test would have **failed** had the

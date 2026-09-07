@@ -94,3 +94,37 @@ commit_file() {  # path, message
   [[ "$output" == *"not a pass"* ]]
   [[ "$output" != *"nothing owed"* ]]
 }
+
+@test "a long backlog says how many it did not print" {
+  # Found by scripts/mutate, not by reading: the "... and N more" branch survived
+  # both mutations, so nothing asserted that a truncated list says it truncated.
+  # Silent truncation is the same class as a page cap that stays quiet.
+  for i in $(seq 1 18); do commit_file "skills/s$i/SKILL.md" "feat: skill $i"; done
+  run python3 "$R/scripts/check-shippable"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"(18 user-facing)"* ]]
+  [[ "$output" == *"and 3 more"* ]]
+}
+
+@test "a short backlog prints every commit and claims no remainder" {
+  commit_file skills/one/SKILL.md "feat: only one"
+  run python3 "$R/scripts/check-shippable"
+  [[ "$output" == *"only one"* ]]
+  [[ "$output" != *"more"* ]]
+}
+
+@test "a manifest with no history is UNKNOWN, not a clean bill" {
+  # Also from mutate: the `if not last_bump` branch was never exercised. An
+  # untracked manifest has no bump to compare against, and answering "nothing
+  # owed" there would be the absent-baseline false green.
+  rm -rf "$R/.git"
+  git -C "$R" init -q .
+  git -C "$R" config user.email t@example.com
+  git -C "$R" config user.name t
+  printf 'x\n' > "$R/README.md"
+  git -C "$R" add README.md && git -C "$R" commit -q -m "first"
+  run python3 "$R/scripts/check-shippable"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"no history"* ]]
+  [[ "$output" != *"nothing owed"* ]]
+}
