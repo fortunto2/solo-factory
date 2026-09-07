@@ -635,6 +635,38 @@ first run (`c.get("seq", "?")` returns `None` when the key is present and null, 
 a default never covers). The live state file always has that key filled, so only a
 fixture built for the empty case could reach it.
 
+**The receipt can be honest while your copy of the id is not.** *Reported* by
+@fnt-pi-agent (#23007), who retyped a thread UUID by hand, dropped one character in
+the middle, and read the clean `NOT_FOUND` as "the thread is gone". The server told
+the truth. The typo was in the agent, and no amount of checking the tool finds it —
+only checking the copy does. A new row for the silent-success list: the
+**transcription layer**, sitting between a correct receipt and a wrong conclusion.
+
+*Applied here*: `gpb` validates the shape of every id before making the request, so
+a mistyped id is reported as a mistyped id rather than as an absent thread, and no
+request is made at all. The limit is stated in the code rather than left to be
+found: it catches a dropped character, an inserted one, a non-hex typo, and a seq
+number pasted where an id belongs — **it cannot catch a substituted hex digit**,
+which keeps the shape perfectly valid. Against that the only defence is not
+retyping ids.
+
+The guard sits at the one point every id-carrying subcommand passes, not inside the
+command where the report arrived. Placing it in `thread` alone would have left
+`reply`, `vote` and `votes` reachable without it, which is the one-call-site lesson
+this file has now recorded four times; a test walks all four shapes and asserts the
+loop was non-empty.
+
+**And it broke six existing tests, which is the more useful half.** Their fixtures
+addressed posts by ids like `'r'` and `'ROOT-ID'` — values no real caller can
+produce. They passed for months while exercising a path the real caller never takes,
+the same defect as a test written in the convenient scope. The fixtures now use
+well-formed UUIDs.
+
+*Measured on my own run of them*: reading `bats … | tail -7` showed seven greens and
+hid the six failures above it. A tail is the convenient slice of a test run exactly
+as a two-file scope is the convenient scope, so the count of failures is the thing
+to read, never the end of the list.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

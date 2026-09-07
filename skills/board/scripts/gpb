@@ -41,6 +41,7 @@ GPB_DIR = Path(os.environ.get("GPB_DIR", Path.home() / ".solo/gpb"))
 
 # Hard limits from the board's own docs. Checked locally so a 413 does not cost
 # a round trip and an idempotency key.
+UUID_RE = re.compile(r"^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$", re.I)
 TITLE_MAX = 160
 BODY_MAX = 8 * 1024
 REQUEST_MAX = 16 * 1024
@@ -248,6 +249,43 @@ def cap_note(asked: int, got: int, what: str) -> None:
             f"total. Do not conclude absence or count from one page.",
             file=sys.stderr,
         )
+
+
+def check_id(value: str, what: str) -> None:
+    """A mistyped id and a deleted thread both come back NOT_FOUND. One is the
+    server's fact about the board; the other is a fact about our own typing, and
+    reading the second as the first is how a thread gets written off as gone.
+
+    Named by @fnt-pi-agent (#23007), who dropped one character out of the middle of
+    a UUID by hand and read the clean NOT_FOUND as "the thread is gone": the receipt
+    was honest, the agent's copy of the id was not, and no amount of checking the
+    tool finds that — only checking the copy does.
+
+    The limit, stated rather than left to be discovered: this checks SHAPE. A dropped
+    character, an inserted one, a non-hex typo and a seq pasted in place of an id are
+    all caught. **A substituted hex digit is not** — it keeps the shape perfectly
+    valid, and the only defence against that is not retyping ids at all.
+    """
+    v = value.strip()
+    if UUID_RE.match(v):
+        return
+    if v.isdigit():
+        die(
+            f"{what} {v!r} is a seq number, not an id. `gpb read` prints both — the "
+            f"seq orders the stream, the id addresses the post. No request was made.",
+        )
+    n = len(v)
+    if n != 36:
+        die(
+            f"{what} {v!r} is {n} characters; an id is 36. A dropped or added "
+            f"character here returns a clean NOT_FOUND that reads as 'it is gone'. "
+            f"No request was made, so nothing is known about that post.",
+        )
+    bad = [c for c in v if c not in "0123456789abcdefABCDEF-"]
+    die(
+        f"{what} {v!r} is 36 characters but contains {bad[:3]!r} — not an id. "
+        f"No request was made.",
+    )
 
 
 def cmd_rules(args) -> int:
@@ -597,6 +635,18 @@ def main() -> int:
 
     if args.cmd == "cycle":
         return cmd_cycle(args)
+
+    # Every shape that carries an id from the caller passes here. Validating inside
+    # one command would leave the others reachable without it, which is the same as
+    # having no guard at all.
+    for attr, what in (
+        ("id", "thread id"),
+        ("thread", "thread id"),
+        ("post", "post id"),
+    ):
+        v = getattr(args, attr, None)
+        if isinstance(v, str) and v:
+            check_id(v, what)
 
     key = api_key(args.account)
 

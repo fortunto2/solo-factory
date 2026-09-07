@@ -224,13 +224,13 @@ loader = importlib.machinery.SourceFileLoader('gpb', '$GPB')
 spec = importlib.util.spec_from_loader('gpb', loader)
 m = importlib.util.module_from_spec(spec); sys.modules['gpb'] = m; loader.exec_module(m)
 
-PAYLOAD = {'post': {'seq': 16930, 'id': 'r', 'kind': 'reply', 'root_id': 'ROOT-ID',
+PAYLOAD = {'post': {'seq': 16930, 'id': '11111111-1111-4111-8111-111111111111', 'kind': 'reply', 'root_id': '22222222-2222-4222-8222-222222222222',
                     'root_seq': 12064, 'thread_reply_count': 41, 'topic': 't',
                     'title': '', 'author': 'a', 'body': 'b'},
            'replies': {'items': []}}
 m.call = lambda *a, **k: PAYLOAD
 m.api_key = lambda *a, **k: 'x'
-sys.argv = ['gpb', 'thread', 'r']
+sys.argv = ['gpb', 'thread', '11111111-1111-4111-8111-111111111111']
 err = io.StringIO()
 with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()) as out:
     m.main()
@@ -240,7 +240,7 @@ print('OUT_HAS_ZERO_REPLIES:' + str('0 replies' in out.getvalue()))
   # It still prints 0 replies for this post — that part is true. What must not
   # happen is printing it alone, with nothing saying the thread has 41.
   [[ "$output" == *"OUT_HAS_ZERO_REPLIES:True"* ]]
-  [[ "$output" == *"ROOT-ID"* ]]
+  [[ "$output" == *"22222222-2222-4222-8222-222222222222"* ]]
   [[ "$output" == *"41 replies"* ]]
   [[ "$output" == *"not a thread root"* ]]
 }
@@ -251,12 +251,12 @@ import sys, io, importlib.util, importlib.machinery, contextlib
 loader = importlib.machinery.SourceFileLoader('gpb', '$GPB')
 spec = importlib.util.spec_from_loader('gpb', loader)
 m = importlib.util.module_from_spec(spec); sys.modules['gpb'] = m; loader.exec_module(m)
-PAYLOAD = {'post': {'seq': 12064, 'id': 'ROOT-ID', 'kind': 'thread', 'topic': 't',
+PAYLOAD = {'post': {'seq': 12064, 'id': '22222222-2222-4222-8222-222222222222', 'kind': 'thread', 'topic': 't',
                     'title': 'the root', 'author': 'a', 'body': 'b'},
-           'replies': {'items': [{'author': 'x', 'seq': 1, 'id': 'i', 'body': 'y'}]}}
+           'replies': {'items': [{'author': 'x', 'seq': 1, 'id': '66666666-6666-4666-8666-666666666666', 'body': 'y'}]}}
 m.call = lambda *a, **k: PAYLOAD
 m.api_key = lambda *a, **k: 'x'
-sys.argv = ['gpb', 'thread', 'ROOT-ID']
+sys.argv = ['gpb', 'thread', '22222222-2222-4222-8222-222222222222']
 err = io.StringIO()
 with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
     m.main()
@@ -280,10 +280,10 @@ loader = importlib.machinery.SourceFileLoader('g', '$GPB')
 spec = importlib.util.spec_from_loader('g', loader)
 m = importlib.util.module_from_spec(spec); sys.modules['g'] = m; loader.exec_module(m)
 m.api_key = lambda *a, **k: 'x'
-POSTED = {'id': 'abc', 'seq': 42}
+POSTED = {'id': '33333333-3333-4333-8333-333333333333', 'seq': 42}
 $1
 m.call = fake
-sys.argv = ['gpb', 'reply', 'root-id', '--body', 'a body long enough to send']
+sys.argv = ['gpb', 'reply', '44444444-4444-4444-8444-444444444444', '--body', 'a body long enough to send']
 err = io.StringIO()
 with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()) as out:
     try:
@@ -297,13 +297,13 @@ print('ERR:' + err.getvalue().replace(chr(10), ' '))
 
 @test "a post that reads back is reported as existing, not merely accepted" {
   load_gpb "
-ROOT = {'post': {'id': 'root-id', 'seq': 1, 'topic': 't', 'title': 'x', 'author': 'a', 'body': 'a body in english for the gate'}, 'replies': {'items': []}}
+ROOT = {'post': {'id': '44444444-4444-4444-8444-444444444444', 'seq': 1, 'topic': 't', 'title': 'x', 'author': 'a', 'body': 'a body in english for the gate'}, 'replies': {'items': []}}
 def fake(method, path, key, payload=None, idempotent=False):
     if method == 'POST':
         return POSTED
-    if 'root-id' in path:
+    if '44444444-4444-4444-8444-444444444444' in path:
         return ROOT
-    return {'post': {'id': 'abc', 'seq': 42, 'topic': 't', 'title': '', 'author': 'a', 'body': 'b'}}
+    return {'post': {'id': '33333333-3333-4333-8333-333333333333', 'seq': 42, 'topic': 't', 'title': '', 'author': 'a', 'body': 'b'}}
 "
   [[ "$output" == *"read back, exists"* ]]
   [[ "$output" != *"UNCONFIRMED"* ]]
@@ -311,13 +311,13 @@ def fake(method, path, key, payload=None, idempotent=False):
 
 @test "a write the read-back cannot find is UNCONFIRMED and goes to stderr" {
   load_gpb "
-ROOT = {'post': {'id': 'root-id', 'seq': 1, 'topic': 't', 'title': 'x', 'author': 'a', 'body': 'a body in english for the gate'}, 'replies': {'items': []}}
+ROOT = {'post': {'id': '44444444-4444-4444-8444-444444444444', 'seq': 1, 'topic': 't', 'title': 'x', 'author': 'a', 'body': 'a body in english for the gate'}, 'replies': {'items': []}}
 def fake(method, path, key, payload=None, idempotent=False):
     if method == 'POST':
         return POSTED
-    if 'root-id' in path:
+    if '44444444-4444-4444-8444-444444444444' in path:
         return ROOT
-    return {'post': {'id': 'somebody-else', 'seq': 1}}
+    return {'post': {'id': '55555555-5555-4555-8555-555555555555', 'seq': 1}}
 "
   [[ "$output" == *"UNCONFIRMED"* ]]
   [[ "$output" == *"Do not cite this seq"* ]]
@@ -327,11 +327,11 @@ def fake(method, path, key, payload=None, idempotent=False):
 @test "a read-back that cannot run is UNCHECKED, never absence" {
   # The distinction the whole harness is about: a failed check is not a finding.
   load_gpb "
-ROOT = {'post': {'id': 'root-id', 'seq': 1, 'topic': 't', 'title': 'x', 'author': 'a', 'body': 'a body in english for the gate'}, 'replies': {'items': []}}
+ROOT = {'post': {'id': '44444444-4444-4444-8444-444444444444', 'seq': 1, 'topic': 't', 'title': 'x', 'author': 'a', 'body': 'a body in english for the gate'}, 'replies': {'items': []}}
 def fake(method, path, key, payload=None, idempotent=False):
     if method == 'POST':
         return POSTED
-    if 'root-id' in path:
+    if '44444444-4444-4444-8444-444444444444' in path:
         return ROOT
     raise RuntimeError('network is down')
 "
@@ -342,11 +342,11 @@ def fake(method, path, key, payload=None, idempotent=False):
 
 @test "the seq is still printed in every case, so it can be chased by hand" {
   load_gpb "
-ROOT = {'post': {'id': 'root-id', 'seq': 1, 'topic': 't', 'title': 'x', 'author': 'a', 'body': 'a body in english for the gate'}, 'replies': {'items': []}}
+ROOT = {'post': {'id': '44444444-4444-4444-8444-444444444444', 'seq': 1, 'topic': 't', 'title': 'x', 'author': 'a', 'body': 'a body in english for the gate'}, 'replies': {'items': []}}
 def fake(method, path, key, payload=None, idempotent=False):
     if method == 'POST':
         return POSTED
-    if 'root-id' in path:
+    if '44444444-4444-4444-8444-444444444444' in path:
         return ROOT
     raise RuntimeError('down')
 "
@@ -444,4 +444,59 @@ stamp_and_verify() {  # the read chain a real cycle goes through
   [ "$status" -eq 2 ]
   [[ "$output" == *"nothing recorded"* ]]
   [[ "$output" != *"cycle    held"* ]]
+}
+
+# ── the transcription layer: my copy of the id, not the tool ─────────────────
+#
+# @fnt-pi-agent (#23007) retyped a thread UUID by hand, dropped one character in
+# the middle, and read the clean NOT_FOUND as "the thread is gone". The server was
+# honest; the agent's copy was wrong. A mistyped id and a deleted thread produce the
+# same answer, and only one of them is a fact about the board.
+
+VALID_ID=1c82f8fd-6a6e-4aa6-935d-a7b95c5e3e7e
+
+@test "a well-formed id is NOT refused — the guard must let real work through" {
+  # Positive control. Without it a guard that refuses everything passes every
+  # negative test below while making the tool useless.
+  GPB_KEYS=/nonexistent/k.json run python3 "$GPB" thread "$VALID_ID"
+  [[ "$output" == *"no key store"* ]]      # it got past the guard to the key step
+  [[ "$output" != *"characters; an id is 36"* ]]
+  [[ "$output" != *"No request was made"* ]]
+}
+
+@test "a dropped character is named as transcription, not as a missing thread" {
+  GPB_KEYS=/nonexistent/k.json run python3 "$GPB" thread "${VALID_ID%e}"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"is 35 characters; an id is 36"* ]]
+  [[ "$output" == *"No request was made"* ]]
+  # The cause it must never state: the server's answer, which was never asked for.
+  [[ "$output" != *"NOT_FOUND"* ]] || [[ "$output" == *"reads as 'it is gone'"* ]]
+  [[ "$output" != *"no key store"* ]]     # and it stopped before the key step
+}
+
+@test "a seq number pasted in place of an id is named as a seq" {
+  GPB_KEYS=/nonexistent/k.json run python3 "$GPB" thread 23007
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"is a seq number, not an id"* ]]
+}
+
+@test "36 characters of the wrong alphabet is not an id either" {
+  GPB_KEYS=/nonexistent/k.json run python3 "$GPB" thread "zzzzzzzz-8ed2-4ea7-a01a-16885e77fc76"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"contains"* ]]
+  [[ "$output" != *"characters; an id is 36"* ]]   # right length, different fault
+}
+
+@test "every subcommand that takes an id reaches the guard" {
+  # The lesson this repo keeps relearning: a guard placed inside one command leaves
+  # the others reachable without it, which is indistinguishable from no guard.
+  local reached=0
+  for shape in "thread 23007" "reply 23007" "vote 23007" "votes 23007"; do
+    # shellcheck disable=SC2086
+    GPB_KEYS=/nonexistent/k.json run python3 "$GPB" $shape
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"is a seq number, not an id"* ]]
+    reached=$((reached + 1))
+  done
+  [ "$reached" -eq 4 ]   # a loop over an empty list would assert nothing
 }
