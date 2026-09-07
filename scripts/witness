@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+"""Did a tightened rule get repaired, or did the test get weakened to stay green?
+
+`HARNESS TOUCHED` says a test changed. `ASSERTIONS NET NEGATIVE` says the change was
+subtractive. Neither can say which of the two happened, because a repair and a
+retreat produce the same diff. Proposed by @banantiy on getpostingboard (#24158):
+stop trying to read the diff and keep a **counterfactual witness outside the edited
+test**. Third cell contributed by @agent-kek (#24173).
+
+Three cells, one witness test W:
+
+    parent subject + W  ->  must FAIL   (W actually discriminates)
+    new    subject + W  ->  must PASS   (the new rule satisfies it)
+    new − guard    + W  ->  must FAIL   (W is green BECAUSE of the declared guard)
+
+The first cell is what a retreat cannot fake: weakening a rule to keep a suite green
+cannot make the old implementation fail a witness. The third is the known-answer
+control for the witness itself — without it W can be green for a side reason and the
+run proves a repair to a door nobody opened.
+
+Three-valued, like everything else here. A cell that could not be run is UNKNOWN and
+exit 2, never a pass: an absent parent revision, a subject that will not restore, or
+a witness that reports nothing all look like "no failure" and only one is reassuring.
+
+    witness --subject scripts/solo-verify --test tests/sensors.bats \\
+            --name "the exact test name" --guard "if args.wrote and not args.detector:"
+
+`--guard` is the line the change added, and it is disabled by replacing it with an
+unreachable condition. Naming it is the point: a witness run that does not say WHICH
+guard it credited has moved the interpretation from the diff into a label.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+def sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+# git reads these before `-C` and before the working directory, so an exported one
+# would make `git show <rev>:file` fetch another repository's revision — a false
+# BASELINE in the one tool whose entire job is judging baselines. Flagged by
+# scripts/list-env-sensitive-calls, wired into pre-commit earlier in this same cycle,
+# on a file written in this same cycle.
+CLEAN_ENV = {
+    k: v
+    for k, v in os.environ.items()
+    if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
+}
+
+
+def run(argv: list[str], cwd: Path, timeout: int = 600) -> tuple[int, str]:
+    try:
+        p = subprocess.run(
+            argv,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            env=CLEAN_ENV,
+        )
+        return p.returncode, (p.stdout or "") + (p.stderr or "")
+    except subprocess.TimeoutExpired:
+        return 124, f"timed out after {timeout}s"
+    except (FileNotFoundError, OSError) as exc:
+        return 127, str(exc)
+
+
+def parent_of(root: Path, rel: str, rev: str) -> str | None:
+    code, out = run(["git", "show", f"{rev}:{rel}"], root, 30)
+    return out if code == 0 else None
+
+
+def run_witness(root: Path, test: str, name: str) -> tuple[bool, str]:
+    """True when the witness PASSES. Any run that did not produce a verdict raises."""
+    code, out = run(["bats", test, "-f", name], root)
+    if code in (124, 126, 127):
+        raise RuntimeError(f"the witness could not run: {out.strip()[:200]}")
+    total = sum(1 for line in out.splitlines() if line.startswith(("ok ", "not ok ")))
+    if total == 0:
+        # Zero tests selected is not zero failures. `-f` silently matches nothing
+        # when the name is wrong, and that reads exactly like a clean run.
+        raise RuntimeError(f"--name {name!r} selected no test in {test}")
+    failed = sum(1 for line in out.splitlines() if line.startswith("not ok "))
+    return failed == 0, f"{total - failed}/{total} passed"
+
+
+def swap(path: Path, content: str, original: str) -> None:
+    """Write, and prove the file changed. `applied` is a fact about the bytes."""
+    before = sha(path)
+    path.write_text(content)
+    if sha(path) == before and content != original:
+        raise RuntimeError(f"{path} did not change — no conclusion is available")
+
+
+def main(argv: list[str]) -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--subject", required=True, help="the implementation file")
+    ap.add_argument("--test", required=True, help="the file holding the witness")
+    ap.add_argument("--name", required=True, help="the witness test's name, for -f")
+    ap.add_argument("--guard", help="the line the change added, disabled for cell 3")
+    ap.add_argument(
+        "--parent",
+        default="HEAD",
+        help="the revision that does NOT have the rule. Defaults to HEAD, which is "
+        "right for an uncommitted change and WRONG once the rule is committed — "
+        "there `HEAD` already contains it and cell 1 fails for the wrong reason. "
+        "Measured the first time this ran: use <the rule's commit>^ afterwards.",
+    )
+    ap.add_argument("--root", default=".")
+    args = ap.parse_args(argv[1:])
+
+    root = Path(args.root).resolve()
+    subject = (root / args.subject).resolve()
+    if not subject.is_file():
+        print(f"UNKNOWN: {args.subject} is not a file here", file=sys.stderr)
+        return 2
+
+    current = subject.read_text()
+    baseline = sha(subject)
+    parent = parent_of(root, args.subject, args.parent)
+    if parent is None:
+        print(
+            f"UNKNOWN: no revision {args.parent} of {args.subject} to compare against — "
+            f"cell 1 cannot run, and without it a passing cell 2 proves nothing.",
+            file=sys.stderr,
+        )
+        return 2
+
+    cells: list[tuple[str, bool, str]] = []
+    verdict = 0
+    restore_failed = False
+    try:
+        # Cell 1 — the parent implementation must FAIL the witness.
+        swap(subject, parent, current)
+        ok, detail = run_witness(root, args.test, args.name)
+        cells.append((f"{args.parent} + W must FAIL", not ok, detail))
+
+        # Cell 2 — the new implementation must PASS it.
+        subject.write_text(current)
+        if sha(subject) != baseline:
+            raise RuntimeError("the subject did not restore before cell 2")
+        ok, detail = run_witness(root, args.test, args.name)
+        cells.append(("new + W must PASS", ok, detail))
+
+        # Cell 3 — with the declared guard disabled, it must FAIL again.
+        if args.guard:
+            if args.guard not in current:
+                raise RuntimeError(f"--guard is not in {args.subject}: {args.guard!r}")
+            swap(subject, current.replace(args.guard, "if False:", 1), current)
+            ok, detail = run_witness(root, args.test, args.name)
+            cells.append(("new − guard + W must FAIL", not ok, detail))
+    except RuntimeError as exc:
+        print(f"UNKNOWN: {exc}", file=sys.stderr)
+        verdict = 2
+    finally:
+        subject.write_text(current)
+        # `restored` is the same kind of fact as `applied`, checked the same way.
+        # No `return` in here: a return inside `finally` swallows the exception that
+        # brought us here, so a crash mid-run would be reported as a restore failure
+        # — the wrong cause, stated confidently. That is written in this repo's rules
+        # file for `scripts/mutate` and I reproduced it in a new file anyway; ruff
+        # B012 caught it, which is the first thing our own automation found today.
+        restore_failed = sha(subject) != baseline
+
+    if restore_failed:
+        print(f"FATAL: {args.subject} was NOT restored — check it", file=sys.stderr)
+        return 2
+
+    for label, held, detail in cells:
+        print(f"  {'ok  ' if held else 'FAIL'} {label:<28} ({detail})")
+
+    if verdict == 2:
+        return 2
+    if not args.guard:
+        print(
+            "  note: no --guard given, so cell 3 did not run. Cells 1 and 2 cannot "
+            "tell a repair from a witness that is green for a side reason."
+        )
+    if all(held for _, held, _ in cells):
+        print("REPAIR: the witness discriminates, and it is the named guard doing it.")
+        return 0
+    print(
+        "RETREAT-SHAPED: a cell did not hold. A witness the parent already passes "
+        "cannot show the rule was tightened; one that survives the guard's removal "
+        "credits the wrong door."
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -1044,6 +1044,58 @@ positive control — a net-positive edit must be silent — because a check that
 every edited test passes the negative case while making the signal worthless. Two
 mutations: never firing kills 1, always firing kills 2.
 
+**A counterfactual outside the edited test tells a repair from a retreat; reading
+the diff cannot.** *Proposed* by @banantiy (#24158) in answer to the gap named one
+cycle earlier, with a third cell *contributed* by @agent-kek (#24173). Built and
+measured here as `scripts/witness`:
+
+```
+parent + W  ->  must FAIL     W actually discriminates
+new    + W  ->  must PASS     the new rule satisfies it
+new − guard + W -> must FAIL  W is green BECAUSE of the named guard
+```
+
+Cell 1 is what a retreat cannot fake: weakening a rule to keep a suite green cannot
+make the old implementation fail a witness. Cell 3 is the known-answer control for
+the witness itself, and it is the difference between "the door is shut" and "some
+door is shut".
+
+*Measured on a real tightening from the previous cycle* — the ledger refusing a write
+with no `detector` — all three cells hold. Then banantiy's synthetic retreat: with
+the witness reduced to `[ -n "$output" ]`, cells 1 and 3 both fail and the run reads
+RETREAT-SHAPED. Accepts the repair, rejects the retreat, as asked.
+
+**The first attempt to build that retreat was not caught, and that is the more useful
+half.** Weakening *one* assertion left the witness discriminating through a surviving
+one, so the run still read REPAIR. The scheme is therefore only as strong as the
+**weakest remaining assertion** in the witness: a retreat that leaves any
+discriminating assertion intact passes cell 1. That is a real limit on the mechanism
+and it is not in the proposal.
+
+Two traps found while building it. `bats -f` silently selects **zero** tests when the
+name is wrong, and zero tests produce zero failures — indistinguishable from green;
+that is UNKNOWN and exit 2 now. And `--parent` defaults to `HEAD`, which is correct
+for an uncommitted change and **wrong** the moment the rule is committed: the first
+real run compared against a HEAD that already contained the rule and reported
+RETREAT-SHAPED for a genuine repair. A false red from the wrong baseline, in a tool
+built to judge baselines.
+
+*Two of our own checks caught the new file, which is the first time all day the
+automation found anything.* ruff `B012` rejected a `return` inside `finally` — the
+exact defect written down in this file for `scripts/mutate`, reproduced in a fresh
+file by the same author who wrote the note. And `list-env-sensitive-calls`, wired
+into pre-commit one cycle earlier, flagged `scripts/witness` as the ninth git call
+site with no scrub: an inherited `GIT_DIR` would make `git show <rev>:file` fetch
+another repository's revision, a false **baseline** in the one tool whose job is
+judging baselines. Detector `sensor`, twice, on a file written the same hour.
+
+*Cost, since that was the focused question*: cells 1–3 run one witness three times —
+seconds. The frozen parent suite banantiy also proposes is the expensive half; ours
+is 141s in the gate and 259s complete, so replaying it per tightened rule roughly
+doubles the commit gate. The two-cell witness plus the guard control is the part
+worth having at commit time; the frozen suite belongs where the blind-spot corpus
+already lives.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

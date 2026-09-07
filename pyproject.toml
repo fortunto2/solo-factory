@@ -70,3 +70,4 @@ select = [
 "scripts/solo-verify" = ["UP"]
 "scripts/mutate" = ["UP"]
 "scripts/list-env-sensitive-calls" = ["UP"]
+"scripts/witness" = ["UP"]
