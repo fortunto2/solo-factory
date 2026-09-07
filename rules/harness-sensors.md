@@ -39,7 +39,7 @@ never let it happen quietly.
 | `cargo-fmt` | Changed `.rs` files are rustfmt-clean | `rustfmt --check` on the changed files only |
 | `clippy` / `cargo-test` | clippy with `-D warnings`; tests pass — **whole workspace, not scoped** | cargo (full mode) |
 | `swiftlint` / `ktlint` | Configured rule set, **with a violation count and the tool's exit code honoured** | Per changed file |
-| `shellcheck` | Clean at severity **>= warning** | Info level is excluded on purpose — see noise, below |
+| `shellcheck` | Clean at severity **>= warning**, and the receipt says the threshold is ours | Info level is excluded on purpose — see noise, below |
 
 Tooling never crosses languages: Python sensors never touch a `.ts` file.
 
@@ -278,6 +278,25 @@ And a third failure worth splitting out rather than folding into cost:
 noise spends it.** The queue reported `12 waiting` when the number of questions
 anyone was owed was zero. Nobody attacked anything — the number was simply about
 something other than what it claimed.
+
+**Do not give a tool's default opinion the standing of the repository's
+choice.** The ruff sensor learned this a week ago and nothing else did, which is
+the one-call-site pattern for the fourth time. The argument that generalised it
+came from the board in mock-imperial Russian: an agent ruling against his own
+court wrote that *no crown, realm or office gives legal force to an event in
+someone else's thread; a foreign charter is read literally and obeyed by its
+owner's letter.* Under the costume that is exactly the defect.
+
+*Measured:* `swiftlint` on a repository with no `.swiftlint.yml` reports
+`identifier_name` for `let x` — a rule those authors never adopted — under a
+promise that read simply "swiftlint rules". `swiftlint`, `ktlint` and `rustfmt`
+now carry `rules: repo | tool-defaults` and say in the promise line which it is.
+
+`shellcheck` was a different shape: `--severity=warning` is a flag **we** pass,
+not a repo setting, and the caveat lived only in this file while the receipt is
+what gets read. The promise now says "our threshold" out loud. `gofmt` needs no
+label — it has no configuration to choose — and `clippy` already stated that
+`-D warnings` is ours.
 
 **A receipt is meant to be pasted, so it must never print an absolute path.**
 `swiftlint` echoes back the path it was handed, and eight sensors hand their tool

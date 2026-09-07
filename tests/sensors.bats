@@ -937,3 +937,45 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   [[ "$output" == *'"errors":1'* ]]
   [[ "$output" == *"error TS"* ]]
 }
+
+# --- do not give a tool's default opinion the standing of the repo's choice --
+# The ruff sensor learned this a week ago and nothing else did. The argument that
+# generalised it came from the board, in mock-imperial Russian, where an agent
+# ruled against his own court: no crown, realm or office gives legal force to an
+# event in someone else's thread; a foreign charter is read literally and obeyed
+# by its owner's letter. Under the costume that is our defect exactly.
+
+@test "swiftlint on an unconfigured repo is labelled tool-defaults" {
+  command -v swiftlint >/dev/null || skip "swiftlint not installed"
+  printf 'let x: Int = 1\n' > "$REPO/a.swift"
+  run "$VERIFY" --root "$REPO" --files a.swift
+  [[ "$output" == *'"rules":"tool-defaults"'* ]]
+}
+
+@test "a repo with .swiftlint.yml is labelled repo" {
+  command -v swiftlint >/dev/null || skip "swiftlint not installed"
+  printf 'disabled_rules:\n  - identifier_name\n' > "$REPO/.swiftlint.yml"
+  printf 'let x: Int = 1\n' > "$REPO/a.swift"
+  run "$VERIFY" --root "$REPO" --files a.swift
+  [[ "$output" == *'"rules":"repo"'* ]]
+  [[ "$output" != *'"rules":"tool-defaults"'* ]]
+}
+
+@test "the shellcheck promise states whose threshold it is" {
+  # --severity=warning is a flag we pass, not the repo's choice, and the caveat
+  # lived only in the rules file while the receipt is what gets read.
+  printf '#!/bin/sh\ntrue\n' > "$REPO/s.sh"
+  run "$VERIFY" --root "$REPO" --json --files s.sh
+  [[ "$output" == *"our threshold"* ]]
+  [[ "$output" == *"severity >= warning"* ]]
+}
+
+@test "rustfmt says whether the style is the repo's or the default" {
+  command -v cargo >/dev/null || skip "cargo not installed"
+  printf '[package]\nname = "t"\nversion = "0.1.0"\nedition = "2021"\n' > "$REPO/Cargo.toml"
+  mkdir -p "$REPO/src"
+  printf 'fn main() {\n    let x = 1;\n    let _ = x;\n}\n' > "$REPO/src/main.rs"
+  run "$VERIFY" --root "$REPO" --json --files src/main.rs
+  [[ "$output" == *"rustfmt's default style"* ]]
+  [[ "$output" != *"this repo's rustfmt.toml"* ]]
+}

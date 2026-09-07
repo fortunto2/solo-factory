@@ -674,6 +674,33 @@ def unparsed_guard(code, out, findings, counters, counter_name):
     )
 
 
+# Which files mean "this repository chose its own rules for that tool". A tool
+# with no entry here has no configuration to choose (gofmt is canonical), or its
+# strictness is a flag we pass ourselves and the promise says so.
+TOOL_CONFIG = {
+    "swiftlint": (".swiftlint.yml", ".swiftlint.yaml"),
+    "ktlint": (".editorconfig",),
+    "rustfmt": ("rustfmt.toml", ".rustfmt.toml"),
+}
+
+
+def tool_is_configured(root: Path, tool: str) -> bool:
+    """Did THIS repository choose the rules, or is it getting the tool's defaults?
+
+    The generalisation of ruff_is_configured below, and it took an outside
+    argument to see it. On the board, an agent writing in mock-imperial Russian
+    ruled against his own court: *no crown, realm or office gives legal force to
+    an event in someone else's thread; a foreign charter is read literally and
+    obeyed by its owner's letter.* Under the costume that is exactly our defect —
+    giving a tool's default opinion the standing of the repository's choice.
+
+    Measured: swiftlint on a repo with no .swiftlint.yml reports
+    `identifier_name` for `let x`, a rule those authors never adopted, under a
+    promise that read "swiftlint rules".
+    """
+    return any((root / name).is_file() for name in TOOL_CONFIG.get(tool, ()))
+
+
 def ruff_is_configured(root: Path) -> bool:
     """Does this repository actually choose its own ruff rules?
 
@@ -1026,7 +1053,9 @@ def check_shellcheck(root: Path, files: list[Path], timeout: int) -> Result:
         status_for(code),
         reason=incomplete_reason(code),
         skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
-        promise="shell scripts lint clean",
+        # The severity floor is a flag we pass, not the repo's choice, and the
+        # receipt is what gets read — the caveat lived only in the rules file.
+        promise="shell scripts clean at shellcheck severity >= warning (our threshold)",
         findings=findings,
         covered=[rel(root, f) for f in sh],
         counters={"files": len(sh)},
@@ -1161,7 +1190,11 @@ def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[
                 status_for(code),
                 reason=incomplete_reason(code),
                 skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
-                promise="changed .rs files are rustfmt-clean",
+                promise=(
+                    "changed .rs files match this repo's rustfmt.toml"
+                    if tool_is_configured(root, "rustfmt")
+                    else "changed .rs files match rustfmt's default style (this repo sets none)"
+                ),
                 findings=[]
                 if code == 0
                 else [
@@ -1252,7 +1285,11 @@ def check_swift(root: Path, files: list[Path], timeout: int) -> Result:
     findings = [
         ln.strip() for ln in out.splitlines() if ": error:" in ln or ": warning:" in ln
     ][:20]
-    counters = {"files": len(src), "violations": len(findings)}
+    counters = {
+        "files": len(src),
+        "violations": len(findings),
+        "rules": "repo" if tool_is_configured(root, "swiftlint") else "tool-defaults",
+    }
     findings, counters = unparsed_guard(code, out, findings, counters, "violations")
     return Result(
         "swiftlint",
@@ -1262,7 +1299,11 @@ def check_swift(root: Path, files: list[Path], timeout: int) -> Result:
         status_for(code),
         reason=incomplete_reason(code),
         skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
-        promise="swiftlint rules",
+        promise=(
+            "swiftlint rules configured for this repo"
+            if tool_is_configured(root, "swiftlint")
+            else "swiftlint's own defaults — this repo configures no rule set"
+        ),
         findings=findings,
         covered=[rel(root, f) for f in src],
         counters=counters,
@@ -1294,7 +1335,11 @@ def check_kotlin(root: Path, files: list[Path], timeout: int) -> Result:
         status_for(code),
         reason=incomplete_reason(code),
         skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
-        promise="ktlint rules",
+        promise=(
+            "ktlint rules configured for this repo"
+            if tool_is_configured(root, "ktlint")
+            else "ktlint's own defaults — this repo configures no rule set"
+        ),
         findings=findings,
         covered=[rel(root, f) for f in src],
         counters={"files": len(src)},
