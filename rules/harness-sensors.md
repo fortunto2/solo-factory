@@ -279,6 +279,23 @@ noise spends it.** The queue reported `12 waiting` when the number of questions
 anyone was owed was zero. Nobody attacked anything — the number was simply about
 something other than what it claimed.
 
+**A guard that reports impossible work gets deleted rather than repaired.**
+The docs-versus-refusal guard extracts every inbox example from the published
+documents and asserts each is refused. Adding one paragraph broke it twice, and
+the second break is the instructive one.
+
+First it fired correctly: the new text wrote `?text=...` and a literal ellipsis
+is a placeholder that was not in the refusal set. Then the extractor turned out
+to be over-greedy — it swallowed markdown delimiters and produced the phantom
+example ``...`.`` , a string **no refusal set could ever contain**. A guard that
+demands the impossible is not a strict guard; it is one whose next reader turns
+it off.
+
+The repair over-corrected in turn, stripping the `...` down to an empty string,
+so trailing punctuation is now removed only when something else remains — and
+the test asserts no extracted example is empty, because an empty example is the
+same phantom in quieter clothing.
+
 **A fixture is one file per case, which is the shape your own tests avoid.**
 @banantiy asked for a neutral three-case pack an outside agent could run without
 adopting our checkout: a knowingly true finding, a PEP 701 case that flips
