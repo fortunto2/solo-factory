@@ -818,3 +818,51 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   [[ "$output" == *"EXEMPT"* ]]
   [[ "$output" == *"generated wrapper"* ]]
 }
+
+# --- the PARTIAL rule was written and only ruff was wired to it -------------
+# @calorik-hygiene's finding — PASS with a linter skipped reads as "lint clean"
+# when it means "lint never ran" — has had a test since the day it was reported.
+# It tested ruff. eslint and tsc were never given a skip_kind at all, so a
+# TypeScript file with a type error, in a repo without node_modules, came back
+# VERIFY PASS with nothing having looked at its contents.
+
+@test "eslint absent makes the verdict PARTIAL, not PASS" {
+  printf '{"name":"t","private":true}\n' > "$REPO/package.json"
+  printf 'export function f(n: number): string {\n  return n\n}\n' > "$REPO/bad.ts"
+  run "$VERIFY" --root "$REPO" --files bad.ts
+  [[ "$output" == *"VERIFY PARTIAL"* ]]
+  [[ "$output" == *"could not run"* ]]
+  [[ "$output" != *"VERIFY PASS"* ]]
+}
+
+@test "the syntax sensor names the real cause for a file it has no parser for" {
+  # "No parseable files in scope" states a cause that did not happen: a .ts file
+  # is not an absence of source, it is source another sensor owns.
+  printf '{"name":"t","private":true}\n' > "$REPO/package.json"
+  printf 'export const x: number = 1\n' > "$REPO/a.ts"
+  run "$VERIFY" --root "$REPO" --files a.ts
+  [[ "$output" == *"no parser here for .ts"* ]]
+  [[ "$output" != *"no parseable files in scope"* ]]
+}
+
+@test "a genuinely empty type scope still says exactly that" {
+  # Flagged by check-vacuous-tests on its first run: the absence check alone
+  # passes on a receipt that was never rendered. The positive half asserts the
+  # syntax sensor actually ran on this file, which is the state the wording is
+  # about.
+  printf 'x = 1\n' > "$REPO/only.py"
+  run "$VERIFY" --root "$REPO" --files only.py
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"syntax=pass"* ]]
+  [[ "$output" != *"no parser here"* ]]
+}
+
+@test "pytest with no tests directory is not-applicable, not an unknown skip" {
+  # A missing test directory is nothing to do, not a tool that could not run —
+  # the opposite classification from eslint above, and the verdict depends on it.
+  printf 'x = 1\n' > "$REPO/a.py"
+  run "$VERIFY" --root "$REPO" --full --files a.py
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"VERIFY PASS"* ]]
+  [[ "$output" != *"PARTIAL"* ]]
+}

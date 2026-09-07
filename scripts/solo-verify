@@ -360,6 +360,10 @@ def project_python_floor(root: Path) -> tuple[int, int] | None:
     return None
 
 
+# Source this sensor deliberately does not parse: another sensor owns it.
+NO_PARSER_HERE = {".ts", ".tsx", ".kt", ".kts", ".rs", ".go"}
+
+
 def check_syntax(root: Path, files: list[Path]) -> Result:
     """Parse-only, per file, no cross-file semantics.
 
@@ -420,10 +424,22 @@ def check_syntax(root: Path, files: list[Path]) -> Result:
                 )
                 findings.append(f"{rel(root, f)} syntax {first}")
     if not covered:
+        # "No parseable files in scope" states a cause that did not happen when
+        # the scope holds source this sensor has no parser for. A .ts file is not
+        # an absence of source; it is source TypeScript owns and this sensor does
+        # not. Same defect as reporting a named-but-unresolved file as "no changed
+        # files were found".
+        unparsed_kinds = sorted({f.suffix for f in files if f.suffix in NO_PARSER_HERE})
+        reason = (
+            f"no parser here for {', '.join(unparsed_kinds)} — tsc and eslint own "
+            f"TypeScript, this sensor covers .py/.js/.swift"
+            if unparsed_kinds
+            else "no parseable files in scope"
+        )
         return Result(
             "syntax",
             "skip",
-            reason="no parseable files in scope",
+            reason=reason,
             skip_kind=NOT_APPLICABLE,
         )
     if unparseable_by_version and not covered:
@@ -792,7 +808,10 @@ def check_pytest(root: Path, timeout: int) -> Result:
     """
     if not ((root / "tests").is_dir() or any(root.glob("test_*.py"))):
         return Result(
-            "pytest", "skip", reason="no tests/ directory and no test_*.py at root"
+            "pytest",
+            "skip",
+            reason="no tests/ directory and no test_*.py at root",
+            skip_kind=NOT_APPLICABLE,
         )
     if not shutil.which("uvx"):
         return Result("pytest", "skip", reason=missing("uvx"), skip_kind=UNAVAILABLE)
@@ -1023,10 +1042,16 @@ def check_node_lint(root: Path, files: list[Path], timeout: int) -> Result:
         )
     binary = root / "node_modules" / ".bin" / "eslint"
     if not binary.exists():
+        # UNAVAILABLE, not a bare skip: eslint APPLIED — there are JS/TS files in
+        # scope — and its tool could not run. Without the kind the verdict came
+        # out PASS on a TypeScript file with a type error, which is the exact
+        # false green @calorik-hygiene reported for ruff. The rule was written and
+        # only ruff was wired to it.
         return Result(
             "eslint",
             "skip",
             reason="node_modules/.bin/eslint absent — run pnpm install",
+            skip_kind=UNAVAILABLE,
         )
     t = time.time()
     code, out = run([str(binary), *[str(f) for f in src]], root, timeout)
@@ -1047,7 +1072,10 @@ def check_node_lint(root: Path, files: list[Path], timeout: int) -> Result:
 def check_tsc(root: Path, timeout: int) -> Result:
     binary = root / "node_modules" / ".bin" / "tsc"
     if not binary.exists():
-        return Result("tsc", "skip", reason="typescript not installed")
+        # Same shape as eslint above: it applied and could not run.
+        return Result(
+            "tsc", "skip", reason="typescript not installed", skip_kind=UNAVAILABLE
+        )
     t = time.time()
     code, out = run([str(binary), "--noEmit"], root, timeout)
     findings = [ln.strip() for ln in out.splitlines() if "error TS" in ln][:15]

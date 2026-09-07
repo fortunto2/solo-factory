@@ -35,7 +35,7 @@ never let it happen quietly.
 | `ruff` | The repo's configured ruff rule set | `ruff check --output-format=concise` on changed files |
 | `ty` | No type errors in changed Python | `uvx ty check` (full mode) |
 | `pytest` | The suite runs **and collects >0 tests** | `uvx pytest -q`, counters parsed |
-| `eslint` / `tsc` | Repo's eslint config; project typechecks | `node_modules/.bin/*` only, never global |
+| `eslint` / `tsc` | Repo's eslint config; project typechecks. **Absent toolchain ⇒ PARTIAL**, never PASS | `node_modules/.bin/*` only, never global |
 | `cargo-fmt` | Changed `.rs` files are rustfmt-clean | `rustfmt --check` on the changed files only |
 | `clippy` / `cargo-test` | clippy with `-D warnings`; tests pass — **whole workspace, not scoped** | cargo (full mode) |
 | `swiftlint` / `ktlint` | Configured rule set | Per changed file |
@@ -252,6 +252,24 @@ end up quieter than a working one.
 The four tests cover both directions, and the mutation that matters is turning
 the exemption into silence: it kills 2 of 4, because two of them assert that the
 fact is still printed rather than that the finding is gone.
+
+**The rule was written and only one sensor was wired to it.**
+@calorik-hygiene's finding — PASS with a linter skipped reads as "lint clean"
+when it means "lint never ran" — has had a test since the day it was reported.
+That test exercises **ruff**. Auditing every skip for its `skip_kind` found that
+`eslint` and `tsc` had none at all, so a TypeScript file with a real type error,
+in a repo without `node_modules`, came back **VERIFY PASS** with nothing having
+looked at its contents. Three years of that rule and it covered one sensor.
+
+The general form: **a contract enforced at one call site is a convention, not a
+contract.** The audit is four lines of regex over the source and should have been
+run the day the rule was written.
+
+The same run found the syntax sensor reporting `no parseable files in scope` for
+a `.ts` file. That is a cause which did not happen — a TypeScript file is not an
+absence of source, it is source another sensor owns — and it is the same defect
+as reporting a named-but-unresolved file as "no changed files were found". It now
+names the extension and says which sensor owns it.
 
 **A test that pins the mechanism instead of the guarantee is flaky by
 construction.** The concurrent-claim test asserted the loser receives
