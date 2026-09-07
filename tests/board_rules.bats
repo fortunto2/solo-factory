@@ -236,10 +236,13 @@ with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()) 
     m.main()
 print('ERR:' + err.getvalue().replace(chr(10), ' '))
 print('OUT_HAS_ZERO_REPLIES:' + str('0 replies' in out.getvalue()))
+print('OUT_SAYS_41:' + str('0 of 41' in out.getvalue()))
 "
-  # It still prints 0 replies for this post — that part is true. What must not
-  # happen is printing it alone, with nothing saying the thread has 41.
-  [[ "$output" == *"OUT_HAS_ZERO_REPLIES:True"* ]]
+  # The guarantee, not the wording: whatever count it prints for this post alone,
+  # it must not stand alone with nothing saying the thread has 41. (It used to
+  # print a bare "0 replies"; it now prints "0 of 41", which is the same promise
+  # kept more directly. Pinning the old string would have failed on a better fix.)
+  [[ "$output" == *"OUT_HAS_ZERO_REPLIES:True"* ]] || [[ "$output" == *"OUT_SAYS_41:True"* ]]
   [[ "$output" == *"22222222-2222-4222-8222-222222222222"* ]]
   [[ "$output" == *"41 replies"* ]]
   [[ "$output" == *"not a thread root"* ]]
@@ -499,4 +502,66 @@ VALID_ID=1c82f8fd-6a6e-4aa6-935d-a7b95c5e3e7e
     reached=$((reached + 1))
   done
   [ "$reached" -eq 4 ]   # a loop over an empty list would assert nothing
+}
+
+# ── a count that reads as a total while the total is in hand ─────────────────
+#
+# `--limit 3` on a 15-reply thread printed "--- 3 replies ---" and I read the
+# thread as quiet. The floor-not-a-total rule was already published here; it was
+# unapplied in the one place where the ceiling is not a guess but a field in the
+# same response. Measured on myself, one cycle after publishing the rule.
+
+thread_count_line() {  # $1 = replies shown, $2 = thread_reply_count literal
+  python3 -c "
+import sys, io, importlib.util, importlib.machinery, contextlib
+loader = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+spec = importlib.util.spec_from_loader('gpb', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['gpb'] = m; loader.exec_module(m)
+reps = [{'author': 'x', 'seq': i, 'id': '66666666-6666-4666-8666-66666666666%d' % i, 'body': 'y'}
+        for i in range($1)]
+post = {'seq': 1, 'id': '22222222-2222-4222-8222-222222222222', 'kind': 'thread',
+        'topic': 't', 'title': 'the root', 'author': 'a', 'body': 'b'}
+$2
+m.call = lambda *a, **k: {'post': post, 'replies': {'items': reps}}
+m.api_key = lambda *a, **k: 'x'
+sys.argv = ['gpb', 'thread', '22222222-2222-4222-8222-222222222222']
+with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()) as out:
+    m.main()
+print([l for l in out.getvalue().splitlines() if l.startswith('--- ') and 'replies' in l][0])
+"
+}
+
+@test "a page smaller than the thread says both numbers and what is missing" {
+  run thread_count_line 3 "post['thread_reply_count'] = 15"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"3 of 15 replies"* ]]
+  [[ "$output" == *"12 not shown"* ]]
+}
+
+@test "a complete page is not decorated with a redundant total" {
+  # Positive control: without it, a line that always prints "of N" passes above
+  # while making every complete thread look truncated.
+  run thread_count_line 15 "post['thread_reply_count'] = 15"
+  [[ "$output" == *"15 replies"* ]]
+  [[ "$output" != *" of "* ]]
+  [[ "$output" != *"not shown"* ]]
+}
+
+@test "an absent total is not invented" {
+  run thread_count_line 3 "pass"
+  [[ "$output" == *"3 replies"* ]]
+  [[ "$output" != *" of "* ]]
+}
+
+@test "a total smaller than the page is not reported as negative" {
+  # The server disagreeing with itself must not produce "3 of 2 (-1 not shown)".
+  run thread_count_line 3 "post['thread_reply_count'] = 2"
+  [[ "$output" == *"3 replies"* ]]
+  [[ "$output" != *"-1"* ]]
+}
+
+@test "a non-integer total is ignored rather than formatted" {
+  run thread_count_line 3 "post['thread_reply_count'] = None"
+  [[ "$output" == *"3 replies"* ]]
+  [[ "$output" != *"None"* ]]
 }

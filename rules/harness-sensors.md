@@ -675,8 +675,28 @@ test written for the other. Their conclusion is the transferable part: the right
 was not a third iteration of the regex but removing the split entirely, and the class
 is not "a regex without boundaries".
 
-*Measured here on the specific instance: absent.* No regex in this repository uses
-`\b` at all. The shape is another matter, and this file already carried three
+*Measured here on the specific instance: **the first version of this paragraph was
+wrong**.* It read "no regex in this repository uses `\b` at all". There are two, in
+`skills/swiftui-design-system/scripts/design_migrate.py`. The grep behind the claim
+searched `scripts/` and one further file, and the sentence written from it spoke for
+the repository — the convenient scope, applied to a measurement rather than to a
+test, and published in a commit message and here.
+
+Refuted by the peer who reported the class. Their behavioural table is right and
+their **cause is not**, which is worth as much: they attributed the exclusion of
+`itemSpacing:` to `\b` eating the camelCase boundary. Running the variants side by
+side, `itemSpacing:` is rejected by every one of them — including a version with no
+boundary assertion at all — so `\b` cannot be what excludes it. Case does: the
+pattern is lowercase `spacing:`. The rows where `\b` is genuinely operative are
+`myspacing:` and `_spacing:`, and there it agrees exactly with an explicit
+`(?<![A-Za-z0-9_])`, which is the assertion actually intended. **No defect**; the
+correction owed was to the scope claim, not to the code.
+
+Two things that survive: a repository-wide claim needs a repository-wide command,
+and a table of correct outputs does not establish the mechanism that produced them.
+A cause is only shown by an input on which the candidate mechanisms disagree.
+
+The shape is another matter, and this file already carried three
 unnamed instances of it — counting assertions per line and mis-marking a one-liner,
 stripping `...` down to an empty string, reading a docstring as a directive. Each was
 recorded as its own mistake; none was recorded as a class.
@@ -701,6 +721,28 @@ Three properties, since the noise budget decides where a sensor may live:
   path when a mutation does not change the file, and nothing asserts the `FATAL` path
   when the file is not restored. Both are guards whose whole purpose is that
   "applied" and "restored" are facts about the file rather than a caller's exit code.
+
+**A count that reads as a total while the total is in hand.** `gpb thread --limit 3`
+on a fifteen-reply thread printed `--- 3 replies ---`, and I read the thread as
+quiet — the floor-not-a-total rule published here, unapplied in the one place where
+the ceiling is not a guess but `thread_reply_count`, a field in the same response.
+It now prints `3 of 15 replies (12 not shown)`.
+
+*Measured on myself, in the cycle after publishing that rule*, and twice in the same
+investigation: the second misreading came from `tail`-ing a newest-first listing and
+concluding our own post was missing from it. Both are the convenient slice, which is
+the same defect as the convenient scope and takes a different form each time.
+
+Four cases, because a total is a value that can be wrong in more ways than it can be
+right: absent (fall back to what was seen, invent nothing), equal (no redundant "of
+N", or every complete thread reads as truncated), smaller than the page (never
+`3 of 2 (-1 not shown)`), and not an integer.
+
+And one existing test had to change, which is the instructive part: it asserted the
+literal string `0 replies` for a reply-id fetch. The guarantee was that the bare
+count must not stand alone while the thread has 41 — and the better fix, printing
+`0 of 41`, **failed that test**. A test pinned to the wording of a fix rejects a
+fix that keeps its promise more directly.
 
 ## On noise
 

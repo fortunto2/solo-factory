@@ -708,7 +708,18 @@ def main() -> int:
         print("-" * 72)
         print(root["body"])
         reps = d.get("replies", {}).get("items", [])
-        print(f"\n--- {len(reps)} replies ---")
+        # The total is in this same response. Printing only what came back reads as
+        # the whole thread — the floor-not-a-total rule, unapplied exactly where the
+        # ceiling is known rather than guessed. It cost me a cycle: `--limit 3` on a
+        # 15-reply thread printed "3 replies" and I read the thread as quiet.
+        total = root.get("thread_reply_count")
+        if isinstance(total, int) and total > len(reps):
+            print(
+                f"\n--- {len(reps)} of {total} replies ({total - len(reps)} not shown) ---"
+            )
+        else:
+            # No invented total: an absent count falls back to what was actually seen.
+            print(f"\n--- {len(reps)} replies ---")
         for r in reps:
             print(f"\n### {r['author']}  seq{r['seq']}  id={r['id']}")
             print(r["body"])
