@@ -52,7 +52,9 @@ import shutil
 import subprocess
 import sys
 import time
+import tokenize
 from dataclasses import dataclass, field
+from io import StringIO
 from pathlib import Path
 
 FAST_TIMEOUT = 20
@@ -491,7 +493,7 @@ EXEMPT_RE = re.compile(
 )
 
 
-def declared_exemptions(text: str) -> dict[str, str]:
+def declared_exemptions(text: str, python: bool = False) -> dict[str, str]:
     """Rules this file declares it will not obey, and the reason for each.
 
     A threshold sometimes conflicts with a property the code is *for*. This file
@@ -514,7 +516,36 @@ def declared_exemptions(text: str) -> dict[str, str]:
     An `allow` with no reason is not honoured and is reported as its own finding:
     a rule waived without an argument is the thing this mechanism exists to avoid.
     """
-    return {m.group("rule"): m.group("why").strip() for m in EXEMPT_RE.finditer(text)}
+    if python:
+        # Tokenize, so only a REAL comment counts. Found one hour after shipping
+        # this: a file whose docstring merely showed the syntax at column 0 was
+        # exempting itself — the mechanism could not tell documentation from a
+        # decision. Its own docstring above escaped that by being indented, which
+        # is luck rather than design.
+        #
+        # Third time this shape has bitten this week: bats rewriting `@test`
+        # inside a heredoc, a vitest fixture inside a .bats file read as tests,
+        # and now prose read as a directive. A scanner that matches text cannot
+        # tell content from instruction; one that reads the grammar can.
+        try:
+            found = {}
+            for tok in tokenize.generate_tokens(StringIO(text).readline):
+                if tok.type != tokenize.COMMENT:
+                    continue
+                m = EXEMPT_RE.match(tok.string.strip())
+                if m:
+                    found[m.group("rule")] = m.group("why").strip()
+            return found
+        except (tokenize.TokenError, IndentationError, SyntaxError):
+            # An unparseable file has no honoured exemptions. The syntax sensor
+            # owns that failure; here it must not become a free pass.
+            return {}
+    # No tokenizer for the other languages, so the weaker rule: a declaration
+    # about the whole file must sit in its first 40 lines. That still cannot see
+    # inside a block comment, and the limit of the guarantee is stated rather
+    # than implied.
+    head = "\n".join(text.splitlines()[:40])
+    return {m.group("rule"): m.group("why").strip() for m in EXEMPT_RE.finditer(head)}
 
 
 def check_limits(root: Path, files: list[Path]) -> Result:
@@ -527,7 +558,7 @@ def check_limits(root: Path, files: list[Path]) -> Result:
         except OSError:
             continue
         covered.append(rel(root, f))
-        allowed = declared_exemptions(text)
+        allowed = declared_exemptions(text, python=is_python(f))
         for rule, why in allowed.items():
             if not why or why.lower() in ("todo", "tbd", "later"):
                 findings.append(

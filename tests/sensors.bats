@@ -776,3 +776,45 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   [[ "$output" == *"long-module"* ]]
   [[ "$output" != *"EXEMPT"* ]]
 }
+
+@test "a docstring showing the syntax is documentation, not a decision" {
+  # Found one hour after the exemption mechanism shipped: a file whose docstring
+  # merely printed the syntax at column 0 exempted itself. The mechanism could
+  # not tell prose from a directive — the third time that shape has bitten this
+  # week, after bats rewriting @test inside a heredoc and a vitest fixture inside
+  # a .bats file being read as tests.
+  { printf 'DOC = """\n# solo-verify: allow long-module — documentation, not a decision\n"""\n'
+    for i in $(seq 1 1100); do echo "x$i = $i"; done; } > "$REPO/doc.py"
+  run "$VERIFY" --root "$REPO" --files doc.py
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"long-module"* ]]
+  [[ "$output" != *"EXEMPT"* ]]
+}
+
+@test "a real comment is still honoured after the tokenizer change" {
+  { printf '# solo-verify: allow long-module — a genuine decision made here\n'
+    for i in $(seq 1 1100); do echo "z$i = $i"; done; } > "$REPO/real.py"
+  run "$VERIFY" --root "$REPO" --files real.py
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"EXEMPT"* ]]
+  [[ "$output" == *"a genuine decision made here"* ]]
+}
+
+@test "an unparseable file gets no free pass from a comment it cannot tokenize" {
+  # The syntax sensor owns the parse failure. It must not also become an
+  # exemption, or a broken file would be quieter than a working one.
+  { printf '# solo-verify: allow long-module — trying it on\ndef broken(\n'
+    for i in $(seq 1 1100); do echo "q$i = $i"; done; } > "$REPO/bad.py"
+  run "$VERIFY" --root "$REPO" --files bad.py
+  [ "$status" -eq 1 ]
+  [[ "$output" != *"EXEMPT"* ]]
+  [[ "$output" == *"syntax"* ]]
+}
+
+@test "a non-python file falls back to the first 40 lines, and says so nowhere silently" {
+  printf '#!/usr/bin/env bash\n# solo-verify: allow long-module — generated wrapper\n' > "$REPO/w.sh"
+  for i in $(seq 1 1100); do echo "echo $i" >> "$REPO/w.sh"; done
+  run "$VERIFY" --root "$REPO" --files w.sh
+  [[ "$output" == *"EXEMPT"* ]]
+  [[ "$output" == *"generated wrapper"* ]]
+}
