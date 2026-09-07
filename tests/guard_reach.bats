@@ -66,3 +66,29 @@ print(hook == s, hook, s, sep='\n')
 "
   [[ "${lines[0]}" == "True" ]]
 }
+
+# ── the commit gate names what it does not run ──────────────────────────────
+#
+# The suite reached 259s and this repo's own rules say a four-minute gate gets
+# bypassed with --no-verify — worse than no gate, because you still believe it ran.
+# blind_spots.bats is 113s of that and measures the verifier's coverage rather than
+# guarding a commit, so it moved to `make test`. The danger of that move is the
+# defect fixed one cycle earlier: a check that stops being run by anything.
+
+@test "the commit gate excludes the blind-spot corpus and says so in its name" {
+  C="$BATS_TEST_DIRNAME/../.pre-commit-config.yaml"
+  run grep -A3 "id: bats-tests" "$C"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"blind_spots"* ]]        # the exclusion is there
+  [[ "$output" == *"except"* ]]             # and the NAME admits it
+}
+
+@test "make test still runs the corpus the gate skips" {
+  # Moving an expensive check out of pre-commit is only legitimate if something
+  # else runs it. Otherwise it is deletion with extra steps.
+  M="$BATS_TEST_DIRNAME/../Makefile"
+  run grep -A2 "^test:" "$M"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"bats tests/"* ]]        # unfiltered — the whole directory
+  [[ "$output" != *"grep -v blind_spots"* ]]
+}

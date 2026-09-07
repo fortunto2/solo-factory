@@ -42,9 +42,15 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+      # The whole suite is 259s, and this file's own rules say a four-minute gate
+      # gets bypassed with --no-verify — a bypassed gate being worse than none,
+      # because you still believe it ran. blind_spots.bats is 113s of that 259 (44%)
+      # and measures the verifier's coverage rather than guarding this commit, so it
+      # runs in `make test` and in CI, not here. Named in the hook title so nobody
+      # reads this gate as "all tests passed".
       - id: bats-tests
-        name: BATS tests (pipeline logic)
-        entry: bats tests/
+        name: BATS tests (all except the 113s blind-spot corpus)
+        entry: bash -c 'bats $(ls tests/*.bats | grep -v blind_spots)'
         language: system
         pass_filenames: false
         always_run: true
