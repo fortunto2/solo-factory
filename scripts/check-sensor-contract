@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""Does every sensor obey the contract the receipt publishes?
+
+`rules/harness-sensors.md` states two things about a skip: it always carries a
+reason, and it is labelled either `not-applicable` (nothing of that type was in
+scope) or `unavailable` (the sensor applied and its tool could not run). The
+second decides the verdict — unavailable makes a run PARTIAL rather than PASS.
+
+Both were true of ruff and neither was enforced. `eslint` and `tsc` shipped with
+no `skip_kind` at all, so a TypeScript file with a real type error came back
+VERIFY PASS in a repo without node_modules: nothing had looked at its contents
+and the receipt said everything was fine. The rule had a test from the day it was
+written; the test exercised one sensor.
+
+**A contract enforced at one call site is a convention.** This walks the source
+and checks every call site, which is what a contract means.
+
+It reads the AST rather than matching text: a `"skip"` inside a docstring or a
+message string is prose, not a call, and this repo has been bitten three times by
+scanners that could not tell the difference.
+
+Exit 0 clean · 1 violations · 2 the source could not be parsed, never a pass.
+"""
+
+from __future__ import annotations
+
+import ast
+import sys
+from pathlib import Path
+
+TARGET = Path(__file__).resolve().parent / "solo-verify"
+KINDS = {"UNAVAILABLE", "NOT_APPLICABLE"}
+
+
+def violations(source: str) -> list[str]:
+    tree = ast.parse(source)
+    out = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        fn = node.func
+        if not (isinstance(fn, ast.Name) and fn.id == "Result"):
+            continue
+        # Result(name, status, ...) — only skips are governed here.
+        if len(node.args) < 2:
+            continue
+        status = node.args[1]
+        if not (isinstance(status, ast.Constant) and status.value == "skip"):
+            continue
+        name = node.args[0].value if isinstance(node.args[0], ast.Constant) else "?"
+        kw = {k.arg: k.value for k in node.keywords}
+        line = node.lineno
+
+        kind = kw.get("skip_kind")
+        if kind is None:
+            out.append(
+                f"solo-verify:{line}: sensor {name!r} skips with no skip_kind. "
+                f"Without it the verdict cannot tell 'nothing to do' from 'the tool "
+                f"could not run', and an unavailable tool reads as PASS."
+            )
+        elif isinstance(kind, ast.Name) and kind.id not in KINDS:
+            out.append(
+                f"solo-verify:{line}: sensor {name!r} uses unknown skip_kind {kind.id}"
+            )
+
+        reason = kw.get("reason")
+        if reason is None:
+            out.append(
+                f"solo-verify:{line}: sensor {name!r} skips with no reason. "
+                f"A skip without one is indistinguishable from never having looked."
+            )
+        elif isinstance(reason, ast.Constant) and not str(reason.value).strip():
+            out.append(
+                f"solo-verify:{line}: sensor {name!r} skips with an empty reason"
+            )
+    return out
+
+
+def main() -> int:
+    try:
+        source = TARGET.read_text()
+        found = violations(source)
+    except (OSError, SyntaxError) as e:
+        print(
+            f"UNKNOWN: cannot read or parse {TARGET.name} ({e}) — not a pass",
+            file=sys.stderr,
+        )
+        return 2
+
+    # A pass over zero call sites proves nothing. Count them and say so.
+    tree = ast.parse(source)
+    skips = sum(
+        1
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "Result"
+        and len(n.args) >= 2
+        and isinstance(n.args[1], ast.Constant)
+        and n.args[1].value == "skip"
+    )
+    if skips == 0:
+        print(
+            "UNKNOWN: no skip call sites were found, so nothing was checked. Either "
+            "the Result constructor changed shape or this script is looking at the "
+            "wrong file.",
+            file=sys.stderr,
+        )
+        return 2
+
+    print(f"  {skips} skip call site(s) checked, {len(found)} violation(s)")
+    for v in found:
+        print(f"  {v}")
+    return 1 if found else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

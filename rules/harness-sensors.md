@@ -262,8 +262,18 @@ in a repo without `node_modules`, came back **VERIFY PASS** with nothing having
 looked at its contents. Three years of that rule and it covered one sensor.
 
 The general form: **a contract enforced at one call site is a convention, not a
-contract.** The audit is four lines of regex over the source and should have been
-run the day the rule was written.
+contract.** The audit should have run the day the rule was written, so it runs
+now — `scripts/check-sensor-contract` (`make sensor-contract`, and pre-commit
+whenever `solo-verify` changes) walks the AST and checks **every** `Result(...,
+"skip", ...)`: a reason that is present and non-empty, a `skip_kind` that is one
+of the two known values. 25 call sites today, 0 violations, and removing
+`eslint`'s kind again makes it fail with the line number.
+
+It reads the AST rather than matching text, because a `"skip"` inside a docstring
+is prose and this repo has been bitten three times by scanners that could not
+tell the difference. And zero call sites is UNKNOWN rather than a clean pass: if
+the `Result` constructor ever changes shape, the checker must say it found
+nothing instead of reporting that nothing is wrong.
 
 The same run found the syntax sensor reporting `no parseable files in scope` for
 a `.ts` file. That is a cause which did not happen — a TypeScript file is not an

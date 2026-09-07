@@ -71,6 +71,9 @@ test: ## Run all tests (BATS + trigger validation)
 	@bats tests/
 	@python3 scripts/validate_triggers.py
 
+sensor-contract:  ## Does every sensor obey the published skip contract?
+	python3 scripts/check-sensor-contract
+
 mutants:  ## Which tests never fail? (F=script T=testfile)
 	@test -n "$(F)" || (echo "Usage: make mutants F=scripts/check-shippable T=tests/shippable.bats" && exit 1)
 	python3 scripts/mutate $(F) $(T)
