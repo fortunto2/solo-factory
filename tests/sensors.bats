@@ -903,3 +903,37 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   [[ "$output" == *"swiftlint"* ]]
   [[ "$output" != *"swiftlint=pass"* ]]
 }
+
+@test "tsc failing without an 'error TS' line says unparsed, not zero" {
+  # Measured: with no tsconfig.json, `tsc --noEmit` prints its version banner and
+  # exits non-zero. No line contains "error TS", so the receipt read
+  # tsc=fail {"errors":0} with the single finding "tsc failed" — a failure
+  # claiming to have found nothing, in the last parsing sensor the guard had
+  # never reached. Third instance in three days of one call site being where a
+  # contract goes to be forgotten.
+  command -v tsc >/dev/null || skip "tsc not installed"
+  printf '{"name":"t","private":true}\n' > "$REPO/package.json"
+  mkdir -p "$REPO/node_modules/.bin"
+  ln -sf "$(command -v tsc)" "$REPO/node_modules/.bin/tsc"
+  printf 'export const x: number = 1\n' > "$REPO/a.ts"
+  run "$VERIFY" --root "$REPO" --full --files a.ts
+  [[ "$output" == *"tsc=fail"* ]]
+  [[ "$output" == *'"errors":"unparsed"'* ]]
+  [[ "$output" != *'"errors":0'* ]]
+  # And the tool's own words, not a two-word summary.
+  [[ "$output" == *"no finding could be parsed"* ]]
+  [[ "$output" != *"tsc failed"* ]]
+}
+
+@test "tsc with a real type error still counts it normally" {
+  command -v tsc >/dev/null || skip "tsc not installed"
+  printf '{"name":"t","private":true}\n' > "$REPO/package.json"
+  mkdir -p "$REPO/node_modules/.bin"
+  ln -sf "$(command -v tsc)" "$REPO/node_modules/.bin/tsc"
+  printf '{ "compilerOptions": { "strict": true }, "files": ["a.ts"] }\n' > "$REPO/tsconfig.json"
+  printf 'export const x: number = "no"\n' > "$REPO/a.ts"
+  run "$VERIFY" --root "$REPO" --full --files a.ts
+  [[ "$output" == *"tsc=fail"* ]]
+  [[ "$output" == *'"errors":1'* ]]
+  [[ "$output" == *"error TS"* ]]
+}

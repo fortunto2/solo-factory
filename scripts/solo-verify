@@ -1079,6 +1079,19 @@ def check_tsc(root: Path, timeout: int) -> Result:
     t = time.time()
     code, out = run([str(binary), "--noEmit"], root, timeout)
     findings = [ln.strip() for ln in out.splitlines() if "error TS" in ln][:15]
+    counters = {"errors": len(findings)}
+    # Measured, not assumed: with no tsconfig.json, `tsc --noEmit` prints its
+    # version banner and exits non-zero. No line contains "error TS", so the
+    # receipt read `tsc=fail {"errors":0}` with the single finding "tsc failed" —
+    # a failure claiming to have found nothing, in the last parsing sensor the
+    # guard had never reached.
+    #
+    # Six other sensors parse output without it and were checked the same way:
+    # shellcheck keeps every non-empty line, ty matches any line containing
+    # "error", pytest attaches its own tail. Whether a pair needs the guard is a
+    # property of the pair, not of the code shape — the same reason go-test did
+    # not need it.
+    findings, counters = unparsed_guard(code, out, findings, counters, "errors")
     return Result(
         "tsc",
         status_for(code),
@@ -1086,7 +1099,7 @@ def check_tsc(root: Path, timeout: int) -> Result:
         skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
         promise="project typechecks",
         findings=findings,
-        counters={"errors": len(findings)},
+        counters=counters,
         seconds=time.time() - t,
     )
 

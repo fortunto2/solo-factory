@@ -639,6 +639,7 @@ agreed with:
 | Sensor | Verdict |
 |---|---|
 | `ruff` | had it. Uncoded diagnostics dropped, `fail` beside `violations: 0` |
+| `tsc` | had it, found three days later. With **no `tsconfig.json`** it prints its version banner and exits non-zero — no line contains `error TS`, so the receipt read `tsc=fail {"errors":0}` |
 | `pytest` | had a variant: on `collected 0` it printed a three-item guess list and **discarded pytest's own output**, which named the file, the line and `RuntimeError: conftest explodes` |
 | `cargo-test` | had it. A crate that does not compile prints neither `FAILED` nor `panicked`, so the filter returned nothing and the receipt read bare `cargo-test=fail` |
 | `clippy` | bare `fail`, no counter at all — "ok alone" wearing red |
@@ -646,7 +647,16 @@ agreed with:
 | `go-test` | **does not have it.** Go prints `FAIL` lines even on a build failure, so its filter still catches them. Measured, not assumed |
 | `syntax`, `limits`, `ty`, `tsc`, `eslint`, `shellcheck`, `swiftlint`, `ktlint` | do not line-parse; nothing to collapse |
 
-`unparsed_guard` now covers the four that had it. A hint is a hypothesis; the
+`unparsed_guard` covers the six that had it. The audit was run three times, three
+days apart, and each pass found one more — ruff, then cargo-test/clippy/go-vet
+with swiftlint, then tsc. **Whether a pair needs the guard is a property of the
+pair, not of the code shape**, so each was measured by feeding the tool one of
+its own failure modes rather than read off the source. Six sensors parse output
+without the guard and were checked the same way: `shellcheck` keeps every
+non-empty line, `ty` matches any line containing `error`, `pytest` attaches its
+own tail, `go-test` gets `FAIL` lines even from a build failure. `ktlint` is the
+one still unmeasured — the tool is not installed here, and that is stated rather
+than assumed. A hint is a hypothesis; the
 tool's own output is evidence, and evidence belongs in the receipt beside it.
 
 **A tool that acts on the property it measures is uniquely prone to exhibiting
