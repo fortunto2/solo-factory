@@ -966,6 +966,40 @@ comparing only the identifying fields. Caught by reading the line the change
 produced rather than by trusting the change; a mutation restoring the whole-dict
 comparison kills the test.
 
+**A detector that could not catch the regression it was built for, three
+attempts running.** The `detector` field added one cycle earlier printed
+`0 of 8 by our own automation`, so the obvious next question was which of the day's
+findings a check *could* have caught. Exactly one: the `GIT_DIR` scrub, by
+`list-env-sensitive-calls` — which had been shipped and never wired to anything.
+
+Asking whether it *would* have caught it took one command and the answer was **no**,
+three times, each failure a lower-level version of the same mistake:
+
+1. It searched the whole file, so a **comment** naming the variable counted as a
+   defence. Fixed by stripping comments.
+2. It then searched the file minus comments, so a **docstring** naming the variable
+   counted. `solo-verify` with its scrub deleted still read as defended, because its
+   own docstring says `GIT_DIR`. Fixing the comment case and stopping there was the
+   error: the comment was the instance that bit, not the class.
+3. Stripping docstrings meant `ast.unparse`, which normalises quotes, so the `"GIT_`
+   needle stopped matching `k.startswith("GIT_")`. Dropping the quote from the needle
+   then matched the **identifier** `GIT_ENV_OVERRIDES`, so an *empty* filter counted
+   as protection — the false negative restored by the fix for the false positive.
+
+What works is structural: **the values of string constants**, docstrings excluded. A
+scrub is a string literal; prose can name anything. Verified in both directions —
+clean tree reports none, `solo-verify` with the scrub removed names `solo-verify` —
+because a check that only reports nothing is indistinguishable from a broken one.
+
+It is wired into pre-commit now, which is the difference between a `probe` and a
+`sensor` in the ledger's own vocabulary. **A list nobody runs measures nothing**, and
+this one sat unrun for two cycles while being cited as the answer to the residual.
+
+*Also measured*: removing the now-dead helper cut three lines too many and took
+`EXEMPT_RE` with it. The tool crashed with a `NameError` on the next run rather than
+silently skipping every exemption, which is the one thing that made it a two-minute
+repair.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

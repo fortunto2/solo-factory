@@ -108,3 +108,9 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
+      - id: env-sensitive-calls
+        name: Calls the environment can redirect, and whether they defend
+        entry: python3 scripts/list-env-sensitive-calls
+        language: system
+        pass_filenames: false
+        files: \.(py)$|^scripts/list-env-sensitive-calls$

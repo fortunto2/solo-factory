@@ -101,3 +101,49 @@ EOF
   [[ "$output" == *"UNKNOWN"* ]]
   [[ "$output" == *"a walk that failed"* ]]
 }
+
+@test "a docstring naming the variable is not a defence either" {
+  # The known-answer control this tool should have had from the start. With the
+  # scrub deleted from solo-verify, the file still read as defended — because its
+  # own docstring says GIT_DIR. Fixing the comment case and stopping there was the
+  # mistake; the comment was only the instance that bit first.
+  cat > "$D/doc.py" <<'EOF'
+"""This module runs git. GIT_DIR would redirect it and nobody has dealt with that."""
+import subprocess
+subprocess.run(["git", "log"])
+EOF
+  run python3 "$L" "$D"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"doc.py"* ]]
+  [[ "$output" == *"UNDEFENDED"* ]]
+}
+
+@test "a variable NAME containing the prefix is not a defence" {
+  # The over-correction after the docstring fix: searching the rendered code for
+  # `GIT_` matched the identifier GIT_ENV_OVERRIDES, so an EMPTY filter counted as
+  # protection. Only the values of string literals count now.
+  cat > "$D/name.py" <<'EOF'
+import os, subprocess
+GIT_ENV_OVERRIDES = ()
+E = {k: v for k, v in os.environ.items() if k not in GIT_ENV_OVERRIDES}
+subprocess.run(["git", "log"], env=E)
+EOF
+  run python3 "$L" "$D"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"name.py"* ]]
+  [[ "$output" == *"UNDEFENDED"* ]]
+}
+
+@test "a real string-literal filter is still recognised" {
+  # Positive control for the two above: without it, a check that calls everything
+  # undefended passes both while making the tool useless.
+  cat > "$D/real.py" <<'EOF'
+import os, subprocess
+E = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE")}
+subprocess.run(["git", "log"], env=E)
+EOF
+  run python3 "$L" "$D"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"defended"* ]]
+  [[ "$output" != *"UNDEFENDED"* ]]
+}

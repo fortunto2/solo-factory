@@ -31,11 +31,9 @@ repository is undefended nowhere".
 from __future__ import annotations
 
 import ast
-import io
 import os
 import re
 import sys
-import tokenize
 from pathlib import Path
 
 # The command, and what redirects it. A caller exporting these decides what the
@@ -83,6 +81,45 @@ def call_sites(path: Path) -> list[tuple[int, str]]:
     return found
 
 
+def string_constants(text: str) -> list[str]:
+    """Every string literal in the file except docstrings.
+
+    Three attempts to answer "does this file defend itself" landed here, and the
+    first two both failed their own known-answer control:
+
+      1. substring of the whole file — a COMMENT naming the variable counted
+      2. substring of the file minus comments — a DOCSTRING naming it counted, and
+         `ast.unparse` then normalised quotes so the `"GIT_` needle stopped matching
+      3. the VALUES of string constants — what a scrub is actually made of
+
+    Prose can name anything; only a string literal is what an env filter compares
+    against. The lesson is the one this repo keeps relearning at successively lower
+    levels: a scanner matching text cannot tell content from a statement about it.
+    """
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return []
+    docstrings = set()
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if isinstance(body, list) and body:
+            first = body[0]
+            if (
+                isinstance(first, ast.Expr)
+                and isinstance(first.value, ast.Constant)
+                and isinstance(first.value.value, str)
+            ):
+                docstrings.add(id(first.value))
+    return [
+        n.value
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Constant)
+        and isinstance(n.value, str)
+        and id(n) not in docstrings
+    ]
+
+
 def defends(code: str, cmd: str) -> bool:
     """Does this file's CODE mention the redirector, or a prefix that covers it?
 
@@ -93,32 +130,18 @@ def defends(code: str, cmd: str) -> bool:
     twenty call sites, measured before shipping.
     """
     names = REDIRECTORS[cmd]
-    if any(v in code for v in names):
+    lits = string_constants(code)
+    if any(v in lits for v in names):
         return True
-    # A prefix filter covers every variable that starts with it.
+    # A prefix filter covers every variable starting with it: k.startswith("GIT_").
     prefix = os.path.commonprefix(names)
-    return bool(prefix.endswith("_") and f'"{prefix}' in code)
+    return bool(prefix.endswith("_") and prefix in lits)
 
 
-def code_only(text: str) -> str:
-    """The file with comment tokens removed. Strings stay: a scrub is a string."""
-    try:
-        toks = tokenize.generate_tokens(io.StringIO(text).readline)
-        return "".join(
-            t.string for t in toks if t.type not in (tokenize.COMMENT, tokenize.NL)
-        )
-    except (tokenize.TokenError, IndentationError, SyntaxError):
-        # An unparseable file gets no free pass: fall back to the whole text, which
-        # can only over-report defence, never under-report it.
-        return text
-
-
-# `\S.*` and not `\s*(.+?)\s*$`. The lazy version let `\s*` consume the newline,
-# so a declaration with NO reason absorbed the next line of the file and the receipt
-# printed `EXEMPT — import subprocess` — the mechanism inventing a justification
-# nobody wrote, which is the exact thing it exists to prevent. solo-verify's older
-# exemption regex already used `\S.*` and was never wrong; this one re-introduced
-# the hole by being written fresh instead of copied from the one that worked.
+# Whitespace REQUIRED on both sides of the separator, and `[^\S\n]` rather than
+# `\s`. `\s*` consumes the newline, so a declaration with NO reason matched the next
+# line of the file; and without the required space the regex backtracks onto a hyphen
+# inside the rule name. Both let a rule be waived with an argument nobody wrote.
 EXEMPT_RE = re.compile(
     r"^#[^\S\n]*list-env-sensitive-calls:[^\S\n]*allow[^\S\n]+(\S+)[^\S\n]+[—-]"
     r"[^\S\n]+(\S.*)$",
@@ -157,7 +180,7 @@ def main(argv: list[str]) -> int:
             # tell content from a statement about content; one reading the grammar
             # can. Strings are KEPT, because a real scrub is written as a string
             # literal: {k: v for ... if k not in ("GIT_DIR", ...)}.
-            guarded = defends(code_only(text), cmd)
+            guarded = defends(text, cmd)
             waived = exemption(text, cmd)
             if guarded:
                 state = "defended"
@@ -192,8 +215,8 @@ def main(argv: list[str]) -> int:
     print(
         "Blind to: shell scripts, argv built at runtime, calls through wrappers. "
         "A clean run means no LITERAL argv is undefended, not that the repo is safe.\n"
-        "'defended' is weak: the file names the variable in code, which is not proof "
-        "that THIS call site is covered. Walk the list; do not read it as a verdict."
+        "'defended' means the file passes a redirector name as a STRING LITERAL, "
+        "which is not proof that THIS call site uses it. Walk the list."
     )
     return 1 if undefended else 0
 
