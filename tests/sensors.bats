@@ -1018,3 +1018,58 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   run "$VERIFY" --root "$REPO" --files 02_pep701.py
   [[ "$output" == *"requires >=3.12"* || "$output" == *"VERIFY PASS"* ]]
 }
+
+# --- a deletion is a change, and saying otherwise states a false cause -------
+# `--diff-filter=ACMR` excludes deletions correctly — there is nothing left to
+# parse — but a deletion-only change then reported "no changed files were found
+# to check". A file WAS found; it is gone. Third instance of the wrong-cause
+# class in this file, after the unresolved --files path and the .ts syntax skip.
+
+@test "a deletion-only change names the deletion, not an absence of changes" {
+  printf 'x = 1\n' > "$REPO/doomed.py"
+  git -C "$REPO" add -A && git -C "$REPO" commit -q -m add
+  rm "$REPO/doomed.py"
+  run "$VERIFY" --root "$REPO"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"only removes files"* ]]
+  [[ "$output" == *"doomed.py"* ]]
+  [[ "$output" != *"no changed files were found"* ]]
+}
+
+@test "a deletion beside a real change does not hide the real one" {
+  printf 'x = 1\n' > "$REPO/doomed.py"
+  printf 'y = 1\n' > "$REPO/kept.py"
+  git -C "$REPO" add -A && git -C "$REPO" commit -q -m add
+  rm "$REPO/doomed.py"
+  printf 'import os\n' >> "$REPO/kept.py"
+  run "$VERIFY" --root "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"kept.py"* ]]
+  [[ "$output" != *"only removes files"* ]]
+}
+
+@test "an ordinary empty change still says exactly that" {
+  git -C "$REPO" add -A && git -C "$REPO" commit -q -m clean
+  run "$VERIFY" --root "$REPO"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"no changed files were found"* ]]
+  [[ "$output" != *"only removes files"* ]]
+}
+
+@test "the two invocation shapes agree on the same tree" {
+  # @huddora-ambassador-1857's question, asked of solo-verify itself. Measured
+  # rather than assumed: same scope, same sensors, same verdict.
+  printf 'x = 1\n' > "$REPO/a.py"
+  git -C "$REPO" add -A && git -C "$REPO" commit -q -m base
+  printf 'import os\n' >> "$REPO/a.py"
+  printf 'import sys\n' > "$REPO/b.py"
+  run "$VERIFY" --root "$REPO"
+  by_git="$output"
+  run "$VERIFY" --root "$REPO" --files a.py b.py
+  by_files="$output"
+  [[ "$by_git" == *"2 changed file(s), 2 covered"* ]]
+  [[ "$by_files" == *"2 changed file(s), 2 covered"* ]]
+  # Same sensor line, which is where a divergence would show.
+  g=$(echo "$by_git" | grep "ran:"); f=$(echo "$by_files" | grep "ran:")
+  [ "$g" = "$f" ]
+}

@@ -279,6 +279,22 @@ noise spends it.** The queue reported `12 waiting` when the number of questions
 anyone was owed was zero. Nobody attacked anything — the number was simply about
 something other than what it claimed.
 
+**A deletion is a change, and reporting it as an absence of changes is the
+wrong cause a third time.** `--diff-filter=ACMR` leaves deletions out of scope
+correctly — there is nothing left to parse — but a change consisting only of
+deletions then printed *"empty scope: no changed files were found to check"*. A
+file was found; it is gone. The verdict stays UNKNOWN, which is right, and the
+reason now names the removed files and says plainly that nothing was verified, so
+an author who deleted a module cannot cite a green run.
+
+*Asked of `solo-verify` itself, the call-shape question came back clean:* the
+git-changed and explicit-`--files` shapes produce the same scope, the same sensor
+line and the same verdict on the same tree. Measured with both, and a test pins
+the sensor line as equal — that is where a divergence would first show. **An
+audit that finds nothing is worth the same as one that finds something, provided
+it was actually run**, and this is the third guard where the honest answer was
+"no defect here".
+
 **A guard reachable under the convenient call and unreachable under the real one
 is indistinguishable from no guard.** *Named* by @huddora-ambassador-1857 on the
 `exclude` / `force-exclude` split: ruff's filesystem walk honours `exclude`, the

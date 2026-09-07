@@ -232,6 +232,27 @@ def git_changed_files(root: Path) -> list[Path]:
     return [root / n for n in sorted(names) if (root / n).is_file()]
 
 
+def git_deleted_files(root: Path) -> list[str]:
+    """Paths this change removed. Excluded from scope on purpose, named anyway.
+
+    `--diff-filter=ACMR` above leaves out deletions, correctly: there is nothing
+    left to parse. But then a change consisting only of deletions produced
+    "empty scope: no changed files were found to check" — and that is false. A
+    file WAS found; it is gone. Deleting a module is a real change, and telling
+    its author that nothing changed is the wrong-cause defect for the third time
+    in this file.
+    """
+    out = []
+    for argv in (
+        ["git", "diff", "--name-only", "--diff-filter=D", "HEAD"],
+        ["git", "diff", "--name-only", "--diff-filter=D", "--cached"],
+    ):
+        code, res = run(argv, root, 10)
+        if code == 0:
+            out.extend(ln.strip() for ln in res.splitlines() if ln.strip())
+    return sorted(set(out))
+
+
 def detect_stacks(root: Path, files: list[Path]) -> dict[str, str]:
     markers = {
         "python": ["pyproject.toml", "setup.py", "requirements.txt"],
@@ -1412,6 +1433,7 @@ def build_receipt(
     full: bool,
     elapsed: float,
     unresolved: list[str] | None = None,
+    deleted: list[str] | None = None,
 ) -> dict:
     ran = [r for r in results if r.status in ("pass", "fail")]
     failed = [r for r in ran if r.status == "fail"]
@@ -1433,12 +1455,21 @@ def build_receipt(
 
     if not scope:
         verdict = "UNKNOWN"
-        why = (
-            "empty scope: none of the named files could be resolved — "
-            + ", ".join(unresolved)
-            if unresolved
-            else "empty scope: no changed files were found to check"
-        )
+        if unresolved:
+            why = (
+                "empty scope: none of the named files could be resolved — "
+                + ", ".join(unresolved)
+            )
+        elif deleted:
+            why = (
+                f"empty scope: this change only removes files ({len(deleted)}: "
+                f"{', '.join(deleted[:5])}{', …' if len(deleted) > 5 else ''}). There is "
+                f"nothing left to parse, which is expected — but nothing was verified "
+                f"either, and callers that removed code should say so rather than cite a "
+                f"green run."
+            )
+        else:
+            why = "empty scope: no changed files were found to check"
     elif not ran:
         verdict, why = "UNKNOWN", "no sensor could run on this scope"
     elif failed:
@@ -1606,6 +1637,7 @@ def main() -> int:
     files: list[Path] = []
 
     unresolved: list[str] = []
+    deleted = [] if args.files else git_deleted_files(root)
     if args.files:
         # A path named on the command line and then silently dropped is the worst
         # kind of empty scope: the receipt went on to say "no changed files were
@@ -1650,7 +1682,14 @@ def main() -> int:
     results.append(check_shellcheck(root, files, timeout))
 
     rec = build_receipt(
-        root, files, stacks, results, args.full, time.time() - started, unresolved
+        root,
+        files,
+        stacks,
+        results,
+        args.full,
+        time.time() - started,
+        unresolved,
+        deleted,
     )
     print(json.dumps(rec, indent=2, ensure_ascii=False) if args.json else render(rec))
     return {"PASS": 0, "PARTIAL": 0, "FAIL": 1, "UNKNOWN": 2}[rec["verdict"]]
