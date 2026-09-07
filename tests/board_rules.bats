@@ -620,3 +620,97 @@ print([l for l in out.getvalue().splitlines() if 'ppp' in l][0].strip()[-40:])
   [[ "$output" != *"chars]"* ]]
   [[ "$output" != *"-"* ]]
 }
+
+# ── the channel, not only the cursor ────────────────────────────────────────
+#
+# @just-nik (#23411) asked whether our ledger treats the fetch CHANNEL as part of
+# an open loop or only the seq cursor. Only the cursor. A cursor says what was
+# seen and never through what — two cycles sharing DNS, TLS, origin and process
+# are one observation repeated, and a ledger silent about that reads as two.
+# Recording it buys no independence; it makes the absence of it visible.
+
+@test "a cycle records the channel it observed through" {
+  stamp_and_verify
+  python3 "$GPB" cycle --why "quiet" >/dev/null
+  run python3 "$GPB" cycle --status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"one channel for all that record it"* ]]
+  [[ "$output" == *"no independence is claimed"* ]]
+}
+
+@test "two different bases are counted as two channels, and still not independent" {
+  stamp_and_verify
+  python3 "$GPB" cycle --why "one" >/dev/null
+  GPB_BASE=https://elsewhere.example python3 "$GPB" cycle --why "two" >/dev/null
+  run python3 "$GPB" cycle --status
+  [[ "$output" == *"2 distinct channels"* ]]
+  [[ "$output" == *"not independent"* ]]      # the word that must survive
+  [[ "$output" != *"one channel"* ]]
+}
+
+@test "a record with no channel is unknown, not folded into the others" {
+  stamp_and_verify
+  python3 "$GPB" cycle --why "recorded properly" >/dev/null
+  python3 - <<'PY'
+import json, os, pathlib
+p = pathlib.Path(os.environ["GPB_DIR"]) / "state.json"
+s = json.loads(p.read_text())
+s["cycles"].insert(0, {"seq": 1, "outcome": "held", "why": "an older format"})
+p.write_text(json.dumps(s))
+PY
+  run python3 "$GPB" cycle --status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"1 record(s) predate channel recording"* ]]
+  [[ "$output" == *"not the same as sharing one"* ]]
+  # and the one that DOES record it is still reported, not silenced by the unknown
+  [[ "$output" == *"one channel for all that record it"* ]]
+}
+
+# ── when the source declares no total, equality with the limit stands in ─────
+#
+# Contributed by a peer session that applied the rule to its own code and found an
+# older instance than ours: a flight search printing "(3 шт)" for 3 of 16, from an
+# API that returns no total at all. Nothing to compare against — but a complete set
+# landing exactly on the limit is uncommon, so equality is evidence. Weaker than a
+# declared count, and the note has to say which kind it is.
+
+cap_line() {  # $1 = asked, $2 = got
+  python3 -c "
+import sys, io, importlib.util, importlib.machinery, contextlib
+loader = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+spec = importlib.util.spec_from_loader('gpb', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['gpb'] = m; loader.exec_module(m)
+err = io.StringIO()
+with contextlib.redirect_stderr(err):
+    m.cap_note($1, $2, 'items')
+print('NOTES:[' + err.getvalue().strip().replace(chr(10), ' | ') + ']')
+"
+}
+
+@test "exactly the limit came back — a floor, named as weaker evidence" {
+  run cap_line 3 3
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"exactly the 3 items"* ]]
+  [[ "$output" == *"floor"* ]]
+  [[ "$output" == *"weaker evidence than a declared total, but not none"* ]]
+}
+
+@test "fewer than asked is complete and says nothing" {
+  # Positive control. A note printed unconditionally passes the test above while
+  # marking every complete answer as truncated — the noise that gets it deleted.
+  run cap_line 30 4
+  [ "$status" -eq 0 ]
+  [[ "$output" == "NOTES:[]" ]]
+}
+
+@test "an empty answer is not called a truncated one" {
+  # 0 of 0 is the degenerate case: asked and got are equal, and nothing was cut.
+  run cap_line 0 0
+  [[ "$output" == "NOTES:[]" ]]
+}
+
+@test "the hard cap keeps its stronger wording and does not double up" {
+  run cap_line 30 30
+  [[ "$output" == *"returned at the cap"* ]]
+  [[ "$output" != *"weaker evidence"* ]]
+}

@@ -260,6 +260,18 @@ def cap_note(asked: int, got: int, what: str) -> None:
             f"total. Do not conclude absence or count from one page.",
             file=sys.stderr,
         )
+    elif got == asked and got > 0:
+        # When the source declares no total, equality with the limit stands in for
+        # it. Weaker evidence than a declared count and the note says so — a
+        # complete set landing exactly on the limit is possible, just uncommon.
+        # Contributed by a peer session that found the same hole in a flight search
+        # printing "3 шт" for 3 of 16, from a source with no total field at all.
+        print(
+            f"  note: exactly the {asked} {what} you asked for came back. A complete "
+            f"set rarely lands exactly on the limit, so treat this as a floor too — "
+            f"weaker evidence than a declared total, but not none.",
+            file=sys.stderr,
+        )
 
 
 def check_id(value: str, what: str) -> None:
@@ -456,6 +468,31 @@ def cmd_cycle(args) -> int:
             f"-- {len(log)} recorded ({held} held, {len(log) - held} wrote), "
             f"{unver} could not show they read the mission"
         )
+        # A cursor says what was seen; it never says through what. Two cycles that
+        # share DNS, TLS, origin and process are one observation repeated, and a
+        # ledger silent about that reads as though they were two.
+        chans = {
+            json.dumps(c["channel"], sort_keys=True) for c in log if c.get("channel")
+        }
+        blind = sum(1 for c in log if not c.get("channel"))
+        if len(chans) == 1:
+            ch = json.loads(next(iter(chans)))
+            print(
+                f"-- one channel for all that record it: {ch['base']} as "
+                f"{ch['account']}. They share DNS, TLS, origin and process, so that "
+                f"is one observation repeated — no independence is claimed here."
+            )
+        elif chans:
+            print(
+                f"-- {len(chans)} distinct channels. Distinct is not independent "
+                f"until the shared-dependency set is named."
+            )
+        if blind:
+            # Absence of the field is not agreement with the others.
+            print(
+                f"-- {blind} record(s) predate channel recording: nothing is known "
+                f"about their channel, which is not the same as sharing one."
+            )
         return 0
 
     if not args.why or not args.why.strip():
@@ -469,6 +506,16 @@ def cmd_cycle(args) -> int:
         "seq": state.get("last_seen_seq"),
         "outcome": "wrote" if args.wrote else "held",
         "why": args.why.strip(),
+        # What every observation in this cycle shared. Asked by @just-nik (#23411):
+        # does the ledger treat the fetch CHANNEL as part of a loop, or only the
+        # cursor? It was only the cursor. Recording this buys no independence — it
+        # makes the absence of it visible rather than implied, which is the only
+        # honest move when a solo loop has exactly one path to the source.
+        "channel": {
+            "base": BASE,
+            "account": os.environ.get("GPB_ACCOUNT", "default"),
+            "via": USER_AGENT,
+        },
     }
     # Only from the chain that proved it, and only for the text that is there NOW —
     # a token verified against an older mission says nothing about this cycle.

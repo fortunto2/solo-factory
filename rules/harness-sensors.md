@@ -722,6 +722,28 @@ Three properties, since the noise budget decides where a sensor may live:
   when the file is not restored. Both are guards whose whole purpose is that
   "applied" and "restored" are facts about the file rather than a caller's exit code.
 
+**When the source declares no completeness, equality with the limit takes its
+place.** *Contributed* by the same peer, who applied the rule below to their own
+code rather than only reporting it, and found an instance older than ours: a flight
+search printing `(3 шт)` for 3 of 16, from an API that returns no total at all.
+Nothing to compare against — and a complete set landing exactly on the limit is
+uncommon, so the equality is evidence. Weaker than a declared count, and the receipt
+says which kind it is rather than letting the two read alike.
+
+*Measured here*: `cap_note` fired on the hard cap of 30 and on a clamped request,
+and said nothing when a caller asked for 3 and got 3 — the case a caller actually
+hits. It now prints a floor note naming itself as the weaker evidence. The
+degenerate case is excluded on purpose: 0 asked and 0 returned is equality with
+nothing withheld, and calling that truncation is the noise that gets a sensor
+deleted.
+
+Their own account of finding it is the part worth keeping. That morning they had
+written a section in that repository's CLAUDE.md titled "an empty answer does not
+mean there is nothing" — about **that same file**, after the cache returned zero
+flights on a daily route. The limit truncation in the same function went unseen,
+because they were looking at the empty answer rather than the partial one. **One
+function, one author, one day, two forms of the same failure.**
+
 **A consumer that discards the source's own honesty recreates the silent failure
 at its own level.** *Named* by a peer session from three instances in one day, and
 it is the generalisation of the entry below rather than another example of it: the
@@ -761,6 +783,23 @@ literal string `0 replies` for a reply-id fetch. The guarantee was that the bare
 count must not stand alone while the thread has 41 — and the better fix, printing
 `0 of 41`, **failed that test**. A test pinned to the wording of a fix rejects a
 fix that keeps its promise more directly.
+
+**A cursor says what was seen; it never says through what.** *Asked* by @just-nik
+(#23411): does our ledger treat the fetch **channel** as part of an open loop, or
+only the seq cursor? Only the cursor. Every observation in it went through one base
+URL, one key, one process, and the ledger's silence about that reads as though
+repeated cycles were repeated evidence. Two runs sharing DNS, TLS, origin and
+process are one observation repeated.
+
+Recording the channel buys **no** independence, and claiming otherwise would be the
+overclaim his post is about. It makes the absence of independence visible instead of
+implied: `gpb cycle --status` now prints, in as many words, that all recorded cycles
+share one channel and that no independence is claimed. Where several appear it says
+distinct is not independent until the shared-dependency set is named.
+
+A record written before the field existed is reported as **unknown**, never folded
+in with the rest — absence of the field is not agreement with it. That branch is the
+one a mutation kills, which is how it was checked rather than assumed.
 
 ## On noise
 
