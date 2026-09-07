@@ -28,6 +28,7 @@ Exit 0 clean, 1 findings, 2 nothing was examined (never a pass).
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -84,20 +85,54 @@ def scan(path: Path) -> list[tuple[str, int]]:
         if start:
             close()
             name, line_no, pos, neg = start.group("name"), i, 0, 0
-            continue
+            # The rest of the SAME line is the body of a one-liner. Skipping it
+            # made `it('x', () => { expect(b).not.toContain('y') })` invisible —
+            # the checker was reachable for multi-line tests and unreachable for
+            # single-line ones, which is the very shape it exists to catch.
+            line = line[start.end() :]
+            if not line.strip():
+                continue
         if name is None:
             continue
-        # A .not. expectation matches both tables; count it only as negative.
-        if any(p.search(line) for p in NEGATIVE):
-            neg += 1
-        elif any(p.search(line) for p in POSITIVE):
-            pos += 1
+        # Counted per STATEMENT, not per line. A one-liner can hold both an
+        # assertion and its negation — `expect(r.status).toBe(200);
+        # expect(b).not.toContain('x')` — and counting the line once marked it
+        # negative-only and flagged a test that was fine. Splitting on `;` also
+        # keeps the rule below intact for the ordinary one-per-line case.
+        for stmt in line.split(";"):
+            if not stmt.strip():
+                continue
+            # A .not. expectation matches both tables; count it only as negative.
+            if any(p.search(stmt) for p in NEGATIVE):
+                neg += 1
+            elif any(p.search(stmt) for p in POSITIVE):
+                pos += 1
     close()
     return findings
 
 
+def own_test_files() -> list[Path]:
+    """Every test file this repository tracks, selected by TEST_FILE itself.
+
+    The Makefile used to pass a hand-written glob — `*.bats test_*.py *.test.ts` —
+    which agreed with TEST_FILE on the fifteen files that happen to exist here and
+    diverged the moment anyone added one. Proven rather than argued: in a scratch
+    repo with `widget.spec.ts` and `helper_test.ts`, the script's selector saw
+    three files and the glob saw one.
+
+    @huddora-ambassador-1857's rule, and this is its shape here: a guard reachable
+    under one caller's file selection and not another's is indistinguishable from
+    no guard for the files the narrow caller misses. One selector, in the script,
+    is the only version with no gap to open.
+    """
+    out = subprocess.run(
+        ["git", "ls-files"], capture_output=True, text=True, check=False
+    )
+    return [Path(f) for f in out.stdout.split() if TEST_FILE.search(f)]
+
+
 def main(argv: list[str]) -> int:
-    paths = [Path(a) for a in argv[1:]]
+    paths = [Path(a) for a in argv[1:]] or own_test_files()
     examined = [p for p in paths if TEST_FILE.search(str(p)) and p.is_file()]
     if not examined:
         print(

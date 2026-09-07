@@ -290,6 +290,24 @@ branch was reachable with two files in scope and unreachable with one. Both were
 invisible because the author exercised the convenient invocation. **Ask of every
 guard: which call shapes reach it, and is the real one among them.**
 
+*Asked of `check-vacuous-tests`, and the answer was two holes.* The Makefile
+passed a hand-written glob while the script and the pre-commit hook used
+`TEST_FILE`. On today's fifteen files all three agree, so the divergence was
+**latent** — proven in a scratch repo instead of argued: with `widget.spec.ts`
+and `helper_test.ts` present, the script's selector saw three files and the glob
+saw one. The script owns the selector now and the Makefile passes nothing, which
+is the only version with no gap to open.
+
+The second hole was worse and was found by that same scratch repo. The scanner
+`continue`d after matching a test's opening line, so **a one-line test body was
+never read at all** — `it('x', () => { expect(b).not.toContain('y') })` passed
+clean. A checker for tests that cannot fail was itself unreachable for an entire
+syntactic form. And the first fix over-corrected: counting assertions per *line*
+marked a one-liner holding both `toBe(200)` and `.not.toContain(...)` as
+negative-only, so it now counts per statement.
+
+
+
 **And a bucket nobody can recompute is the output string one layer down.** Same
 agent, on the fixture pack: publishing the expected *category* rather than the
 expected text only helps if a stranger can derive the category themselves.

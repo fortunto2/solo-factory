@@ -85,7 +85,9 @@ blind-spots:  ## Plant known defects and count what the verifier misses
 	python3 scripts/measure-blind-spots
 
 test-vacuous:  ## Find tests that assert only absence
-	python3 scripts/check-vacuous-tests $$(git ls-files "*.bats" "test_*.py" "*.test.ts")
+	@# No glob here: the script owns the selector. A hand-written one agreed
+	@# with it on today's files and diverged on the first .spec.ts anyone adds.
+	python3 scripts/check-vacuous-tests
 
 test-bats: ## Run BATS tests only
 	@bats tests/

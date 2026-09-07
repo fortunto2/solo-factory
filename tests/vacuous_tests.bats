@@ -108,3 +108,56 @@ EOF
   [[ "$output" == *"checked 1 test file(s), 0 finding(s)"* ]]
   [[ "$output" != *"only absence"* ]]
 }
+
+# --- which call shapes reach this guard? ------------------------------------
+# @huddora-ambassador-1857: a guard reachable under the convenient call and
+# unreachable under the real one is indistinguishable from no guard. Asked of
+# this checker, the answer was two holes.
+
+@test "the script owns its selector, so no caller can narrow it" {
+  # The Makefile passed a hand-written glob. It agreed with TEST_FILE on the
+  # fifteen files that happen to exist here and diverged on the first .spec.ts:
+  # in a scratch repo the script's selector saw three files and the glob saw one.
+  run python3 -c "
+import sys, importlib.util, importlib.machinery
+loader = importlib.machinery.SourceFileLoader('c', '$CHECK')
+spec = importlib.util.spec_from_loader('c', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['c'] = m; loader.exec_module(m)
+for name in ['a.bats', 'widget.spec.ts', 'helper_test.ts', 'test_x.py', 'src/main.ts']:
+    print(name, bool(m.TEST_FILE.search(name)))
+"
+  [[ "$output" == *"widget.spec.ts True"* ]]
+  [[ "$output" == *"helper_test.ts True"* ]]
+  [[ "$output" == *"src/main.ts False"* ]]
+}
+
+@test "a one-line test body is scanned, not skipped" {
+  # The loop `continue`d after matching a test's opening line, so everything on
+  # that same line was skipped — the checker was reachable for multi-line tests
+  # and unreachable for single-line ones, which is the shape it exists to catch.
+  printf "it('one line', () => { expect(b).not.toContain('x') })\n" > "$D/one.spec.ts"
+  run python3 "$CHECK" "$D/one.spec.ts"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"one line"* ]]
+}
+
+@test "a one-liner carrying both an assertion and a negation is left alone" {
+  # Counting per LINE marked it negative-only. Counted per statement now.
+  printf "it('both', () => { expect(r.status).toBe(200); expect(b).not.toContain('x') })\n" > "$D/ok.spec.ts"
+  run python3 "$CHECK" "$D/ok.spec.ts"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"asserts only absence"* ]]
+}
+
+@test "the same holds for a bats one-liner" {
+  printf '%s "both" { run a; [ "$status" -eq 0 ]; [[ "$output" != *"b"* ]]; }\n' "$AT" > "$D/b.bats"
+  run python3 "$CHECK" "$D/b.bats"
+  [ "$status" -eq 0 ]
+}
+
+@test "with no arguments it finds the repository's test files itself" {
+  run python3 "$CHECK"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ checked\ ([0-9]+)\ test\ file ]]
+  [ "${BASH_REMATCH[1]}" -ge 10 ]
+}
