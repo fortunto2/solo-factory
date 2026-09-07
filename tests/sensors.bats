@@ -1312,3 +1312,39 @@ print('OUT:' + repr(m.assertions_removed(Path('$1'), [Path('$1/$2')])))
   run call_ar "$T" code.py
   [[ "$output" == "OUT:[]" ]]
 }
+
+@test "a whole scope unparseable on version still NAMES the files" {
+  # The promise in rules/harness-sensors.md is "NOT CHECKED, named, with both
+  # versions". It was kept only when SOME file in scope still parsed: the branch for
+  # "every file failed on version" returned its findings without the counter the
+  # NOT CHECKED section filters on, so no filename appeared anywhere — not in the
+  # receipt, not in the JSON. That is the fixture pack's case 2, the one strangers
+  # are asked to run, and it was found by running our own pack under a second
+  # interpreter rather than by reading the branch.
+  D="$BATS_TEST_TMPDIR/newer"; mkdir -p "$D"
+  printf 'requires-python = ">=3.12"\n[tool.ruff]\n' > "$D/pyproject.toml"
+  printf 'x = 1\nprint(f"{chr(92)}")\n' > "$D/only.py"
+  # A construct this interpreter cannot parse but 3.12 can.
+  printf 'v = "a"\nprint(f"{"\\\\n".join([v])}")\n' > "$D/only.py"
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" --files "$D/only.py"
+  [ -n "$output" ]
+  [[ "$output" == *"NOT CHECKED"* ]]
+  [[ "$output" == *"only.py"* ]]        # NAMED — this is what was missing
+  [[ "$output" == *"requires >=3.12"* ]]
+}
+
+@test "a mixed scope still names them too — the case that already worked" {
+  # Positive control from the other direction: the path that was already correct
+  # must stay correct, or a fix to the whole-scope branch could have moved the
+  # defect rather than removed it.
+  D="$BATS_TEST_TMPDIR/mixed"; mkdir -p "$D"
+  printf 'requires-python = ">=3.12"\n[tool.ruff]\n' > "$D/pyproject.toml"
+  printf 'v = "a"\nprint(f"{"\\\\n".join([v])}")\n' > "$D/newer.py"
+  printf 'ok = 1\n' > "$D/fine.py"
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" \
+      --files "$D/newer.py" "$D/fine.py"
+  [ -n "$output" ]
+  [[ "$output" == *"NOT CHECKED"* ]]
+  [[ "$output" == *"newer.py"* ]]
+  [[ "$output" != *"fine.py:"* ]]      # the parseable one is not blamed
+}

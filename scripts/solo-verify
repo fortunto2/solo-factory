@@ -562,6 +562,17 @@ def check_syntax(root: Path, files: list[Path]) -> Result:
             ),
             skip_kind=UNAVAILABLE,
             findings=unparseable_by_version,
+            # Without this counter the receipt's NOT CHECKED section filters these
+            # findings out and the files are never NAMED — the promise in
+            # rules/harness-sensors.md is "NOT CHECKED, named, with both versions",
+            # and it was kept only when SOME file in scope still parsed. When the
+            # whole scope failed on version, the reason said "every file in scope"
+            # and no filename appeared anywhere in the receipt or the JSON.
+            #
+            # That is the fixture pack's case 2 — the one a stranger is asked to
+            # run — and it was found by running our own pack under a second
+            # interpreter rather than by reading this branch.
+            counters={"unchecked_needs_newer_python": len(unparseable_by_version)},
         )
 
     # This must precede the generic branch below. It did not, so when a

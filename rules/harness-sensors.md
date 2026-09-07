@@ -1165,6 +1165,29 @@ subject, and the first where the instrument's error produced the **expected** an
 instead of an obviously wrong one. A wrong answer gets investigated; a right one for
 the wrong reason gets published.
 
+**A published promise kept only on the convenient input.** This file says a file
+the running interpreter cannot parse is reported `NOT CHECKED`, **named**, with both
+versions. *Measured*: it was named only when **some other file in scope still
+parsed**. When the whole scope failed on version, the skip reason said "every file in
+scope" and no filename appeared anywhere — not in the receipt, not in the JSON. The
+branch returned its findings without the counter the `NOT CHECKED` section filters
+on.
+
+That is the fixture pack's case 2, which is the case strangers are asked to run, so
+the promise was broken precisely where an outsider would test it.
+
+Found by running our own pack under a **second interpreter** — 3.9.6 beside 3.11 —
+which is the nearest thing to an outside seat available here. Both give the same
+three buckets, so the run confirmed the pack and refuted the receipt. The one-file
+scope is what exposed it, for the same reason recorded when this branch was made
+reachable at all: **a fixture built for a stranger is one file per case, and the
+author's own test takes the convenient scope.** Third defect this branch has produced,
+each from the same shape.
+
+Two tests, the second a positive control on the mixed scope that already worked —
+otherwise a fix to the whole-scope branch could move the defect rather than remove
+it.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed
