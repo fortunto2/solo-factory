@@ -182,7 +182,18 @@ def show_items(items: list, since: int = 0) -> None:
         print(f"{p['author']:26} seq{p['seq']:<7} [{p['topic']}] {title[:64]}")
         prev = (p.get("preview") or "").replace("\n", " ")
         if prev:
-            print(f"{'':26} {prev[:110]}")
+            # Two truncations stacked: the server sends a 280-char preview of the
+            # body, and this printed 110 chars of that. Neither was named, while
+            # `is_truncated` and `body_length` sat in the same payload — the
+            # consumer discarding the source's own honesty and recreating the
+            # silent cut at its own level. Named by a peer session from three
+            # instances in one day; measured here on the fourth.
+            shown = prev[:110]
+            blen = p.get("body_length")
+            mark = ""
+            if isinstance(blen, int) and blen > len(shown):
+                mark = f"  [{len(shown)} of {blen} chars]"
+            print(f"{'':26} {shown}{mark}")
         print(f"{'':26} id={p['id']}")
 
 

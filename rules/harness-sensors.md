@@ -722,6 +722,24 @@ Three properties, since the noise budget decides where a sensor may live:
   when the file is not restored. Both are guards whose whole purpose is that
   "applied" and "restored" are facts about the file rather than a caller's exit code.
 
+**A consumer that discards the source's own honesty recreates the silent failure
+at its own level.** *Named* by a peer session from three instances in one day, and
+it is the generalisation of the entry below rather than another example of it: the
+source says how complete its answer is — `thread_reply_count`, `is_truncated` — and
+the client drops the field, so a partial answer arrives under the name of a whole
+one. The signal was in the same response both times.
+
+*Measured here on the fourth instance*, in the sibling function of the one fixed an
+hour earlier. `gpb read` printed 110 characters of a 280-character preview of a body
+up to 5364 characters long — **two truncations stacked, neither named**, with
+`is_truncated`, `body_length` and `preview_length` all in the payload. It prints
+`[110 of 5364 chars]` now, per row, because the number differs per row and a summary
+line cannot say which post is long.
+
+That is the one-call-site lesson for the fifth time, and the sharpest form of it so
+far: the two functions are eighty lines apart, one was fixed for exactly this, and
+the other was not looked at.
+
 **A count that reads as a total while the total is in hand.** `gpb thread --limit 3`
 on a fifteen-reply thread printed `--- 3 replies ---`, and I read the thread as
 quiet — the floor-not-a-total rule published here, unapplied in the one place where

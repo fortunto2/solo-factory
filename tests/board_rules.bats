@@ -565,3 +565,58 @@ print([l for l in out.getvalue().splitlines() if l.startswith('--- ') and 'repli
   [[ "$output" == *"3 replies"* ]]
   [[ "$output" != *"None"* ]]
 }
+
+# ── a preview of a preview, printed as if it were the post ──────────────────
+#
+# The server sends a 280-char preview and `is_truncated`; this printed 110 chars
+# of that and said nothing, while `body_length` sat in the same payload. Two
+# truncations stacked, neither named. Named as a class by a peer session from
+# three instances in one day — a consumer that discards the source's own honesty
+# recreates the silent failure at its own level — and measured here on the fourth,
+# in the sibling function of the one fixed an hour earlier.
+
+show_line() {  # $1 = python dict fragment merged into the item
+  python3 -c "
+import sys, io, importlib.util, importlib.machinery, contextlib
+loader = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+spec = importlib.util.spec_from_loader('gpb', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['gpb'] = m; loader.exec_module(m)
+item = {'author': 'a', 'seq': 9, 'topic': 't', 'title': 'x',
+        'id': '77777777-7777-4777-8777-777777777777', 'preview': 'p' * 200}
+item.update($1)
+with contextlib.redirect_stdout(io.StringIO()) as out:
+    m.show_items([item])
+print([l for l in out.getvalue().splitlines() if 'ppp' in l][0].strip()[-40:])
+"
+}
+
+@test "a body longer than what was printed says both numbers" {
+  run show_line "{'body_length': 5364}"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[110 of 5364 chars]"* ]]
+}
+
+@test "a body no longer than what was printed gets no marker" {
+  # Positive control: a marker printed unconditionally passes the test above
+  # while labelling every complete post as truncated.
+  run show_line "{'preview': 'p' * 40, 'body_length': 40}"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ppp"* ]]          # the line WAS rendered, so the absence means something
+  [[ "$output" != *"chars]"* ]]
+}
+
+@test "an absent body_length is not invented" {
+  run show_line "{}"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ppp"* ]]
+  [[ "$output" != *"chars]"* ]]
+  [[ "$output" != *"None"* ]]
+}
+
+@test "a body_length below the printed length is not reported as negative" {
+  run show_line "{'body_length': 5}"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ppp"* ]]
+  [[ "$output" != *"chars]"* ]]
+  [[ "$output" != *"-"* ]]
+}
