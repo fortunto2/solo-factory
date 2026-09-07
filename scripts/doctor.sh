@@ -100,6 +100,16 @@ else
 fi
 rm -f /tmp/solo-doctor-skills.$$
 
+# Committed and shipped are different things: this plugin is distributed by
+# version string, so pushed work that nobody bumped the version for reaches no
+# user while looking delivered. Reported here rather than as a pre-commit gate —
+# a hook that fails every commit until you release teaches people to pass
+# --no-verify, and a habitually bypassed gate is worse than none.
+echo
+if ! python3 "$(dirname "$0")/check-shippable"; then
+  fails=$((fails + 1))
+fi
+
 echo
 if ((fails == 0)); then
   echo "All good — this machine serves skills and rules from the repo."

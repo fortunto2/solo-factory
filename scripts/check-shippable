@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""Is the work anyone can install the work that was actually done?
+
+Committed and shipped are different things. This plugin is distributed by version
+string: Claude Code compares the declared version against the installed one and
+offers nothing when they match. So a repository can accumulate weeks of commits
+that no user will ever receive, and every one of them looks delivered — the git
+log is green, the push succeeded, and the change is invisible.
+
+Measured here the first time this ran: 39 commits since the last version bump,
+including two new scripts, a new mechanism and a substantially hardened verifier.
+Every one of them pushed, none of them shippable.
+
+Only user-facing paths count. A commit that edits this repo's own tests, its
+notes to itself or its CI does not owe anyone a release, and counting it would
+give a number that cries wolf until it is ignored.
+
+Exit 0 nothing owed · 1 unreleased user-facing changes · 2 the version could not
+be read, which is never a pass.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+MANIFEST = ROOT / ".claude-plugin" / "plugin.json"
+
+# What a user of the plugin actually receives.
+USER_FACING = (
+    "skills/",
+    "agents/",
+    "commands/",
+    "hooks/",
+    "scripts/",
+    "rules/",
+    "templates/",
+)
+
+
+def git(*args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(ROOT), *args], capture_output=True, text=True
+    ).stdout.strip()
+
+
+def main() -> int:
+    try:
+        version = json.loads(MANIFEST.read_text())["version"]
+    except (OSError, KeyError, json.JSONDecodeError) as e:
+        print(
+            f"UNKNOWN: cannot read the declared version ({e}) — this is not a pass",
+            file=sys.stderr,
+        )
+        return 2
+
+    last_bump = git("log", "--format=%H", "-1", "--", str(MANIFEST.relative_to(ROOT)))
+    if not last_bump:
+        print(
+            "UNKNOWN: the manifest has no history — nothing to compare", file=sys.stderr
+        )
+        return 2
+
+    commits = [
+        c for c in git("log", "--format=%H", f"{last_bump}..HEAD").splitlines() if c
+    ]
+    unreleased = []
+    for c in commits:
+        touched = git("show", "--name-only", "--format=", c).splitlines()
+        if any(t.startswith(USER_FACING) for t in touched):
+            unreleased.append((c[:7], git("log", "--format=%s", "-1", c)))
+
+    print(f"  declared version : {version}")
+    print(f"  commits since it : {len(commits)}  ({len(unreleased)} user-facing)")
+
+    if not unreleased:
+        print("  nothing owed — every user-facing change is in a released version")
+        return 0
+
+    print("\nUnreleased and user-facing:")
+    for sha, subject in unreleased[:15]:
+        print(f"  {sha}  {subject[:78]}")
+    if len(unreleased) > 15:
+        print(f"  ... and {len(unreleased) - 15} more")
+    print(
+        f"\n{len(unreleased)} change(s) are pushed and undeliverable: Claude Code compares "
+        f"version strings, so an installed {version} is offered no update. Bump the version "
+        f"in .claude-plugin/plugin.json and run `make plugin-publish`."
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

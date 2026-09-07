@@ -71,6 +71,9 @@ test: ## Run all tests (BATS + trigger validation)
 	@bats tests/
 	@python3 scripts/validate_triggers.py
 
+shippable:  ## Is the committed work actually installable by anyone?
+	python3 scripts/check-shippable
+
 blind-spots:  ## Plant known defects and count what the verifier misses
 	python3 scripts/measure-blind-spots
 

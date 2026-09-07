@@ -290,6 +290,35 @@ placeholders, stores nothing, and answers with what happened plus a working
 example, because the trap will be re-set by anyone who paraphrases the docs.
 Removing the bait fixes today; refusing the bait fixes the next author.
 
+**Committed is not shipped, and the git log cannot tell you which.** This plugin
+is distributed by version string: Claude Code compares the declared version with
+the installed one and offers nothing when they match. So a repository accumulates
+pushed commits that reach no user, and every one of them looks delivered — the
+log is green, the push succeeded, the change is invisible.
+
+*Measured* the first time `scripts/check-shippable` ran: **39 unreleased
+user-facing commits**, including two new scripts, a new mechanism and a
+substantially hardened verifier. And the previous declared version had never been
+installed either — the runtime was two releases behind what the manifest claimed.
+
+It reports rather than blocks, and that is deliberate: a pre-commit hook that
+fails every commit until you cut a release teaches people to pass `--no-verify`,
+and a habitually bypassed gate is worse than none. It lives in `make doctor` and
+`make shippable`, and only user-facing paths count — counting a README edit would
+give a number that cries wolf until it is ignored.
+
+**The first tests for it could not fail.** They ran against this repository and
+branched on the answer — *if it says nothing owed expect 0, else expect 1* — which
+accepts both outcomes. The mutation that made every path non-user-facing killed
+**0 of 4**. Rewritten against a scratch repository the tests build themselves,
+two mutations now kill 3 of 6 each.
+
+Note what `check-vacuous-tests` could not see here: those assertions were
+positive, not negative. **A conditional assertion adapts to the answer instead of
+stating it**, and that is a second shape of the same defect, invisible to the
+checker built for the first. The corpus knows about it now; the checker still
+does not.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed
