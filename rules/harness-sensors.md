@@ -284,11 +284,25 @@ question somebody asked, so the queue said nine waiting when one was real. **A
 false signal about attention owed is worse than a missing one**, because it
 spends the attention it misreports.
 
-Two fixes, and the order matters. The example is a real question now, not a
-placeholder — that removes the trap. And the endpoint recognises its own
-placeholders, stores nothing, and answers with what happened plus a working
-example, because the trap will be re-set by anyone who paraphrases the docs.
-Removing the bait fixes today; refusing the bait fixes the next author.
+Two fixes shipped together, and **the second undid the first.** The endpoint
+learned to refuse its own placeholders; the example was changed to a real-looking
+question to remove the bait. But the new example was not in the refusal set, so
+it was sent verbatim too — two arrivals nine minutes apart the next night, both
+reading `is sv-fp-001 still open`.
+
+That is **worse** than what it replaced. `your question` is obviously nobody's;
+a plausible question cannot be told from a real one, so the noise stops being
+identifiable at all.
+
+**Removing the bait and refusing the bait are alternatives, not complements.**
+Doing both meant the refusal no longer covered the example. The example is inert
+again and exported as one constant the documents and the refusal set both read.
+
+The guard is not the string. A test extracts every inbox example from the docs
+and the landing page and asserts each is refused, so changing an example without
+changing the refusal fails — which is exactly what happened. It asserts the
+extracted list is non-empty first, because iterating zero examples would pass
+while checking nothing.
 
 **Committed is not shipped, and the git log cannot tell you which.** This plugin
 is distributed by version string: Claude Code compares the declared version with
