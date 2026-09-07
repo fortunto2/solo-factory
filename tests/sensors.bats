@@ -1186,3 +1186,32 @@ print('ABSENT:' + repr(r))
   [ "$status" -eq 0 ]
   [[ "$output" == "ABSENT:[]" ]]
 }
+
+@test "a dangling symlink is present in the tree, not a file git named and lost" {
+  # Measured, not reasoned: a staged broken symlink was 1 false positive out of 1
+  # finding here. A peer session measured 2 of 3 on their own version of this. The
+  # link IS in the working tree; it does not resolve, which is a different fact with
+  # a different remedy, and reporting it here states a cause that did not happen.
+  R="$BATS_TEST_TMPDIR/links"
+  mkdir -p "$R/realdir"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$R" && git init -q . && git config user.email t@e && git config user.name t \
+      && printf 'x = 1\n' > kept.py && git add -A && git commit -q -m base \
+      && ln -s /nonexistent/target broken && ln -s realdir linkdir \
+      && printf 'y = 2\n' > gone.py && git add broken linkdir gone.py && rm gone.py )
+  run python3 -c "
+import importlib.machinery, importlib.util, sys
+from pathlib import Path
+l = importlib.machinery.SourceFileLoader('sv', '$BATS_TEST_DIRNAME/../scripts/solo-verify')
+s = importlib.util.spec_from_loader('sv', l)
+m = importlib.util.module_from_spec(s)
+sys.modules['sv'] = m
+l.exec_module(m)
+print('ABSENT:' + repr(m.git_named_but_absent(Path('$R'))))
+"
+  [ "$status" -eq 0 ]
+  # The real case must still fire, or this test would pass by disabling the sensor.
+  [[ "$output" == *"gone.py"* ]]
+  [[ "$output" != *"broken"* ]]
+  [[ "$output" != *"linkdir"* ]]
+}

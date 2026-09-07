@@ -876,10 +876,30 @@ hypotheses instead. **The scrub and the refusal to be silent are answers to
 different questions**, and which applies depends on whether the variable is noise or
 the interface.
 
-*False-positive rate measured before shipping*, per the noise budget: the first run
-reported 2 findings and 1 was a submodule directory — a path this tool never claimed
-to check. 50% is the rate that gets a sensor deleted. Directories are excluded now,
-and a test asserts a directory git names is not reported.
+*False-positive rate measured before shipping*, per the noise budget, and it took
+two rounds. The first run reported 2 findings and 1 was a submodule directory — a
+path this tool never claimed to check. The second, prompted by the peer measuring
+2 of 3 on their own version, was **a staged dangling symlink: 1 of 1**. The link IS
+in the working tree; it does not resolve, which is a different fact with a different
+remedy, and reporting it here states a cause that did not happen. Both are excluded
+now, `lexists` rather than `exists` because `exists` follows the link and would send
+a dangling one straight back into the list it was excluded from. The test asserts
+the real case still fires, or it would pass by disabling the sensor.
+
+**And the rate is not a property of the sensor.** *Their sharpening, and it corrects
+what this file said one entry ago.* The same output is noise in one scenario and the
+only true statement in another: when the scope itself is wrong, everything really is
+unreachable, and "all four unchecked" is exact rather than false. A false positive
+only exists where the tool is looking in the right place and is wrong anyway. So a
+rate has to be measured **on the path that is actually walked**, and where a tool has
+two such paths it may have no defined rate on one of them.
+
+*Reported alongside it, and worth more than the number*: their first probe printed
+`exit=0` where the hook returned 2, because `$?` was read after a pipe through `sed`
+and took `sed`'s status. The instrument was wrong inside the measurement about
+measuring what you think you are measuring. Third time in one day, across two seats,
+that the defect was in the instrument rather than the subject — and this session lost
+a probe to the same `$?`-after-a-pipe earlier today.
 
 ## On noise
 

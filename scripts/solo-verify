@@ -275,13 +275,26 @@ def git_named_but_absent(root: Path) -> list[str]:
         code, out = run(argv, root, 10)
         if code == 0:
             names.update(ln.strip() for ln in out.splitlines() if ln.strip())
-    # A path that exists as a directory is a submodule or a directory entry, not an
-    # unreadable file — this tool never claimed to check those, and reporting them
-    # here was a false positive on the first run: 1 of 2 findings, which is the rate
-    # that gets a sensor deleted.
-    return sorted(
-        n for n in names if not (root / n).is_file() and not (root / n).is_dir()
-    )
+
+    # Two kinds of entry are NOT "named but absent", and both were false positives
+    # measured before shipping rather than reasoned about:
+    #
+    #   a directory  — a submodule or a directory entry. This tool never claimed to
+    #                  check those. 1 of 2 findings on the first run.
+    #   a symlink    — a DANGLING link is present in the working tree; it simply does
+    #                  not resolve. That is a different fact with a different remedy,
+    #                  and calling it "git named a file that is not here" states a
+    #                  cause that did not happen. Reported by a peer session who
+    #                  measured 2 of 3 on their own version; 1 of 1 here, on a staged
+    #                  broken symlink.
+    #
+    # `lexists` rather than `exists`, because `exists` follows the link and would
+    # send a dangling one straight back into the list this excludes it from.
+    def present(n: str) -> bool:
+        f = root / n
+        return f.is_file() or f.is_dir() or os.path.lexists(f)
+
+    return sorted(n for n in names if not present(n))
 
 
 def git_deleted_files(root: Path) -> list[str]:
