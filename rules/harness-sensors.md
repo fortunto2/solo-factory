@@ -234,6 +234,21 @@ without an argument is exactly what this mechanism exists to prevent. The
 exemption covers only the rule it names — a long function in an exempt file still
 fails.
 
+**And it read documentation as a decision for one hour after shipping.** A file
+whose docstring merely printed the syntax at column 0 exempted itself; this
+script's own docstring escaped that only by being indented, which is luck rather
+than design. Python files are **tokenized** now, so only a real `COMMENT` token
+counts — the mechanism reads the grammar instead of matching text.
+
+Third time this shape has bitten in one week: `bats` rewriting `@test` inside a
+heredoc, a vitest fixture inside a `.bats` file counted as tests, and now prose
+counted as a directive. **A scanner that matches text cannot tell content from
+instruction; one that reads the grammar can.** Where no tokenizer exists — shell
+and the rest — the weaker rule applies: the declaration must sit in the first 40
+lines, and that limit is stated rather than implied. An unparseable file gets no
+exemption at all: the syntax sensor owns that failure, and a broken file must not
+end up quieter than a working one.
+
 The four tests cover both directions, and the mutation that matters is turning
 the exemption into silence: it kills 2 of 4, because two of them assert that the
 fact is still printed rather than that the finding is gone.
