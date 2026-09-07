@@ -390,6 +390,48 @@ def rel(root: Path, p: Path) -> str:
         return str(p)
 
 
+ASSERTION_LINE = re.compile(
+    r"^\s*(?:\[\[|\[ |assert\b|expect\(|self\.assert|EXPECT_|XCTAssert|#\[test\])"
+)
+
+
+def assertions_removed(root: Path, files: list[Path]) -> list[str]:
+    """Test files in this change where more assertions left than arrived.
+
+    `HARNESS TOUCHED` says a test was edited. It cannot say whether the edit was a
+    repair or a retreat, and the two look identical in a diff: when a rule tightens,
+    the test that encoded the old rule must change — and so must the test that is
+    being weakened to keep a red gate green. Named here after tightening a rule and
+    updating its test, which was correct, while noticing nothing in this receipt
+    could have told the difference.
+
+    This does not tell the difference either. It reports the SHAPE — assertions net
+    negative — the way HARNESS TOUCHED reports the edit: visible next to the green
+    light, judged by a person. Consolidating tests and deleting an obsolete one both
+    produce it legitimately, which is exactly why it must never be a finding.
+    """
+    out = []
+    for f in files:
+        s = rel(root, f)
+        if not any(pat in "/" + s for pat in TEST_PATTERNS):
+            continue
+        added = removed = 0
+        for argv in (["git", "diff", "--", s], ["git", "diff", "--cached", "--", s]):
+            code, diff = run(argv, root, 10)
+            if code != 0:
+                continue
+            for line in diff.splitlines():
+                if line.startswith("+++") or line.startswith("---"):
+                    continue
+                if line.startswith("+") and ASSERTION_LINE.match(line[1:]):
+                    added += 1
+                elif line.startswith("-") and ASSERTION_LINE.match(line[1:]):
+                    removed += 1
+        if removed > added:
+            out.append(f"{s}: -{removed} assertions, +{added}")
+    return out
+
+
 def harness_touched(root: Path, files: list[Path]) -> list[str]:
     """Files in this change that ARE the measuring apparatus.
 
@@ -1599,6 +1641,7 @@ def build_receipt(
         "covered": sorted(covered),
         "unchecked": unchecked,
         "harness_touched": harness_touched(root, files),
+        "assertions_removed": assertions_removed(root, files),
         "harness_gaps": harness_gaps(files, results),
         "named_but_absent": absent or [],
         "ran": [
@@ -1690,6 +1733,20 @@ def render(rec: dict) -> str:
         out.append(
             "    Legitimate when the rule was wrong. Say which promise changed and why."
         )
+    if rec.get("assertions_removed"):
+        out.append("  ASSERTIONS NET NEGATIVE — more left these tests than arrived:")
+        for a in rec["assertions_removed"][:10]:
+            out.append(f"    {a}")
+        out.append(
+            "    A repair and a retreat look identical in a diff: when a rule tightens"
+        )
+        out.append(
+            "    the test encoding the old rule must change, and so must a test being"
+        )
+        out.append(
+            "    weakened to keep a red gate green. This says which SHAPE it is, not"
+        )
+        out.append("    which one it was. Consolidation produces it legitimately too.")
     if rec["skipped"]:
         out.append(
             "  skipped:  "

@@ -1239,3 +1239,76 @@ print('ABSENT:' + repr(m.git_named_but_absent(Path('$R'))))
   [[ "$output" == *"EXEMPT"* ]]
   [[ "$output" == *"a stated reason"* ]]
 }
+
+# ── a repair and a retreat look identical in a diff ─────────────────────────
+#
+# HARNESS TOUCHED says a test was edited; it cannot say whether the edit repaired
+# the test to match a tightened rule or weakened it to keep a red gate green. Named
+# after doing the first and noticing the receipt could not have distinguished it
+# from the second. This does not distinguish them either — it reports the SHAPE.
+
+setup_test_repo() {   # a repo with a committed test file
+  T="$BATS_TEST_TMPDIR/tr"
+  mkdir -p "$T/tests"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$T" && git init -q . && git config user.email t@e && git config user.name t
+    cat > tests/a.bats <<'EOF'
+@test "one" { run true; [ "$status" -eq 0 ]; }
+@test "two" {
+  [[ "x" == "x" ]]
+  [[ "y" == "y" ]]
+  [[ "z" == "z" ]]
+}
+EOF
+    git add -A && git commit -q -m base )
+}
+
+call_ar() {  # $1 = repo root, $2 = file
+  python3 -c "
+import importlib.machinery, importlib.util, sys
+from pathlib import Path
+l = importlib.machinery.SourceFileLoader('sv', '$BATS_TEST_DIRNAME/../scripts/solo-verify')
+sp = importlib.util.spec_from_loader('sv', l)
+m = importlib.util.module_from_spec(sp); sys.modules['sv'] = m; l.exec_module(m)
+print('OUT:' + repr(m.assertions_removed(Path('$1'), [Path('$1/$2')])))
+"
+}
+
+@test "deleting assertions is reported with both counts" {
+  setup_test_repo
+  ( cd "$T" && grep -v '"y" == "y"' tests/a.bats | grep -v '"z" == "z"' > /tmp/t.$$ \
+      && mv /tmp/t.$$ tests/a.bats )
+  run call_ar "$T" tests/a.bats
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"tests/a.bats"* ]]
+  [[ "$output" == *"-2 assertions"* ]]
+  [[ "$output" == *"+0"* ]]
+}
+
+@test "adding more than was removed is not reported" {
+  # Positive control. Without it a check that flags every edited test passes the
+  # test above while making the signal worthless — and this repo's last twelve
+  # test-touching commits are all net positive, so it would fire on all of them.
+  setup_test_repo
+  ( cd "$T" && printf '@test "three" {\n  [[ 1 == 1 ]]\n  [[ 2 == 2 ]]\n}\n' >> tests/a.bats )
+  run call_ar "$T" tests/a.bats
+  [ "$status" -eq 0 ]
+  [[ "$output" == "OUT:[]" ]]
+}
+
+@test "a swap of equal size is not reported" {
+  # One assertion replaced by another is the commonest legitimate edit, and net
+  # zero is not net negative.
+  setup_test_repo
+  ( cd "$T" && sed -i '' 's/\[\[ "y" == "y" \]\]/[[ "q" == "q" ]]/' tests/a.bats )
+  run call_ar "$T" tests/a.bats
+  [[ "$output" == "OUT:[]" ]]
+}
+
+@test "a non-test file is not examined for this at all" {
+  setup_test_repo
+  ( cd "$T" && printf 'x = 1\nassert x\n' > code.py && git add code.py && git commit -q -m c \
+      && printf 'x = 1\n' > code.py )
+  run call_ar "$T" code.py
+  [[ "$output" == "OUT:[]" ]]
+}

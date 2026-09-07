@@ -1017,6 +1017,33 @@ silence it replaces: **a gate that can only be passed by lying is a gate that
 manufactures the data it exists to collect.** The test asserts `reading` passes, not
 only that silence fails.
 
+**A repair and a retreat look identical in a diff.** Named here after tightening a
+rule, updating the test that encoded the old one — the correct move — and noticing
+that nothing in the receipt could have distinguished it from weakening a test to
+keep a red gate green. `HARNESS TOUCHED` prints that a test changed; it cannot print
+which of those two happened.
+
+Neither can the new line, and it does not pretend to. It reports the **shape**:
+assertions net negative in a changed test file, with both counts.
+
+```
+ASSERTIONS NET NEGATIVE — more left these tests than arrived:
+  tests/guard_reach.bats: -3 assertions, +0
+```
+
+*False-positive rate measured before shipping, on real history rather than on
+reasoning*: the last twelve test-touching commits here are `+10/-0`, `+26/-0`,
+`+13/-1` and so on — **0 of 12 would be flagged**. Consolidating tests and deleting
+an obsolete one both produce a net negative legitimately, which is exactly why this
+is a statement beside the verdict and never a finding.
+
+And 0 of 12 is a number from an instrument nobody had seen fire, so it was fired
+deliberately: three assertions deleted from a real test file produced
+`-3 assertions, +0`, and restoring the file produced silence. A test carries the
+positive control — a net-positive edit must be silent — because a check that flags
+every edited test passes the negative case while making the signal worthless. Two
+mutations: never firing kills 1, always firing kills 2.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed
