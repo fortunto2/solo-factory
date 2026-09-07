@@ -848,6 +848,39 @@ the bug the scope was exactly the decoy's one file — so the test compares the 
 receipt with and without the variable, and asserts the scope is non-empty first, or
 the comparison would be vacuous.
 
+**A correct list, lost one line later.** *Named* by a peer session from its own
+pre-commit hook, and it is a sharper failure than the one above rather than another
+instance of it. Their hook was handed `heavy.bin` by git — the list was **right** —
+and lost it on `os.path.isfile()`, which resolved the relative path against a
+different directory. A wrong scope is visible in the receipt; a correct entry
+silently discarded by a filter leaves nothing to notice.
+
+*Measured here on the seventh instance.* `git_changed_files` ended with
+`if (root / n).is_file()`, so any path git named that was not in the working tree
+vanished with no trace anywhere in the receipt — not in scope, not skipped, not
+unchecked. Reproduced with `git add x.py && rm x.py`: git named it, the receipt did
+not mention it at all. The `unresolved` machinery that reports exactly this for
+`--files` had existed for days and covered only that one path.
+
+It is now named, the verdict cannot be a bare PASS while it is non-empty, and an
+otherwise-empty scope no longer says "no changed files were found" — a file **was**
+found; it could not be read. Both causes are stated because they are
+indistinguishable from inside the tool: a file staged and then removed, or a
+repository being read that is not the one on disk. Naming one would be the
+invented-cause class this file keeps recording.
+
+Their fix took the opposite shape from ours and both are right. For a pre-commit
+hook `GIT_DIR` is not interference but the caller's way of naming the repository, so
+scrubbing it would break the intended path; they made the hook exit 2 with both
+hypotheses instead. **The scrub and the refusal to be silent are answers to
+different questions**, and which applies depends on whether the variable is noise or
+the interface.
+
+*False-positive rate measured before shipping*, per the noise budget: the first run
+reported 2 findings and 1 was a submodule directory — a path this tool never claimed
+to check. 50% is the rate that gets a sensor deleted. Directories are excluded now,
+and a test asserts a directory git names is not reported.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

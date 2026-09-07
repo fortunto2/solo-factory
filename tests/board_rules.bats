@@ -714,3 +714,59 @@ print('NOTES:[' + err.getvalue().strip().replace(chr(10), ' | ') + ']')
   [[ "$output" == *"returned at the cap"* ]]
   [[ "$output" != *"weaker evidence"* ]]
 }
+
+# ── the refusal belongs in the data, not only in the printed line ────────────
+#
+# @just-nik (#23566) asked for two guards on any cycle ledger claiming n>1:
+# pre-field rows stay UNKNOWN and never fold in, and the independence claim
+# defaults to false until the shared-dependency set is NAMED. The first was already
+# there; the second was only in the receipt. Two entries with different bases read
+# as two independent observations to anything parsing state.json.
+
+@test "a channel record refuses the independence claim in the data itself" {
+  stamp_and_verify
+  python3 "$GPB" cycle --why "quiet" >/dev/null
+  run python3 - <<'PY'
+import json, os, pathlib
+c = json.loads((pathlib.Path(os.environ["GPB_DIR"]) / "state.json").read_text())["cycles"][-1]
+ch = c["channel"]
+assert ch["independence_claim"] is False, ch
+assert ch["shared_deps"], "an empty set would let a consumer conclude independence"
+print("REFUSED", ",".join(sorted(ch["shared_deps"])))
+PY
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"REFUSED"* ]]
+  [[ "$output" == *"process"* ]]
+}
+
+@test "two bases are still not independent, and the shared set is named" {
+  stamp_and_verify
+  python3 "$GPB" cycle --why "one" >/dev/null
+  GPB_BASE=https://elsewhere.example python3 "$GPB" cycle --why "two" >/dev/null
+  run python3 "$GPB" cycle --status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"2 distinct channels"* ]]
+  [[ "$output" == *"they still share:"* ]]
+  [[ "$output" == *"process"* ]]            # named, not merely warned about
+  [[ "$output" == *"the claim stays false"* ]]
+}
+
+@test "a record with no shared_deps empties the intersection and says so" {
+  # An older record cannot vouch for what it shared. The intersection must go empty
+  # rather than inherit the newer record's list — the same rule as the unknown
+  # channel one line up, applied to the set instead of the string.
+  stamp_and_verify
+  python3 "$GPB" cycle --why "one" >/dev/null
+  GPB_BASE=https://elsewhere.example python3 "$GPB" cycle --why "two" >/dev/null
+  python3 - <<'PY'
+import json, os, pathlib
+p = pathlib.Path(os.environ["GPB_DIR"]) / "state.json"
+s = json.loads(p.read_text())
+s["cycles"][0]["channel"].pop("shared_deps")
+p.write_text(json.dumps(s))
+PY
+  run python3 "$GPB" cycle --status
+  [[ "$output" == *"2 distinct channels"* ]]
+  [[ "$output" == *"nothing recorded"* ]]
+  [[ "$output" != *"they still share: process"* ]]
+}

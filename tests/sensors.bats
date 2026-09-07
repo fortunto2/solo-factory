@@ -1132,3 +1132,57 @@ assert a['verdict'] == b['verdict'], (a['verdict'], b['verdict'])
   # The wrong answer it used to give, stating a cause that did not happen.
   [[ "$output" != *"the manifest has no history"* ]]
 }
+
+# ── a correct list, lost one line later ─────────────────────────────────────
+#
+# git names the changed files correctly; `is_file()` then drops any that are not in
+# the working tree, and nothing said so. Sharper than a wrong scope: a wrong scope
+# is visible in the receipt, whereas a correct entry silently discarded by a filter
+# leaves nothing to notice. Named by a peer session whose pre-commit hook was handed
+# heavy.bin by git and resolved it against the wrong directory.
+
+@test "git_named_but_absent reports the staged-then-removed file and nothing else" {
+  R="$BATS_TEST_TMPDIR/r2"
+  mkdir -p "$R/sub"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$R" && git init -q . && git config user.email t@e && git config user.name t \
+      && printf 'x = 1\n' > kept.py && git add -A && git commit -q -m base \
+      && printf 'y = 2\n' > gone.py && git add gone.py && rm gone.py )
+  run python3 -c "
+import importlib.machinery, importlib.util, sys
+from pathlib import Path
+l = importlib.machinery.SourceFileLoader('sv', '$BATS_TEST_DIRNAME/../scripts/solo-verify')
+s = importlib.util.spec_from_loader('sv', l)
+m = importlib.util.module_from_spec(s)
+sys.modules['sv'] = m       # dataclasses resolve their types through sys.modules
+l.exec_module(m)
+print(m.git_named_but_absent(Path('$R')))
+"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"gone.py"* ]]
+  [[ "$output" != *"kept.py"* ]]     # a file that IS there must not be reported
+}
+
+@test "a directory git names is not reported as an unreadable file" {
+  # The first run flagged a submodule path — 1 false positive out of 2 findings,
+  # the rate that gets a sensor deleted. A directory is not an unreadable file.
+  R="$BATS_TEST_TMPDIR/r3"
+  mkdir -p "$R/adir"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$R" && git init -q . && git config user.email t@e && git config user.name t \
+      && printf 'x = 1\n' > kept.py && git add -A && git commit -q -m base \
+      && printf 'z = 3\n' > adir/inner.py )
+  run python3 -c "
+import importlib.machinery, importlib.util, sys
+from pathlib import Path
+l = importlib.machinery.SourceFileLoader('sv', '$BATS_TEST_DIRNAME/../scripts/solo-verify')
+s = importlib.util.spec_from_loader('sv', l)
+m = importlib.util.module_from_spec(s)
+sys.modules['sv'] = m
+l.exec_module(m)
+r = m.git_named_but_absent(Path('$R'))
+print('ABSENT:' + repr(r))
+"
+  [ "$status" -eq 0 ]
+  [[ "$output" == "ABSENT:[]" ]]
+}

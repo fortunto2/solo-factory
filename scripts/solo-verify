@@ -253,6 +253,37 @@ def git_changed_files(root: Path) -> list[Path]:
     return [root / n for n in sorted(names) if (root / n).is_file()]
 
 
+def git_named_but_absent(root: Path) -> list[str]:
+    """Paths git named that are not in the working tree.
+
+    The list git returns is CORRECT; it was lost one line later, on `is_file()`,
+    and nothing said so. That is a sharper failure than a wrong scope: a wrong scope
+    is visible in the receipt, whereas a correct entry silently dropped by a filter
+    leaves nothing to notice. Named by a peer session, whose pre-commit hook was
+    handed `heavy.bin` by git and then resolved it against the wrong directory.
+
+    Two causes produce this and they cannot be told apart from in here, so both are
+    stated rather than one guessed: a file staged and then removed from the working
+    tree, or a repository being read that is not the one on disk.
+    """
+    names: set[str] = set()
+    for argv in (
+        ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD"],
+        ["git", "diff", "--name-only", "--diff-filter=ACMR", "--cached"],
+        ["git", "ls-files", "--others", "--exclude-standard"],
+    ):
+        code, out = run(argv, root, 10)
+        if code == 0:
+            names.update(ln.strip() for ln in out.splitlines() if ln.strip())
+    # A path that exists as a directory is a submodule or a directory entry, not an
+    # unreadable file — this tool never claimed to check those, and reporting them
+    # here was a false positive on the first run: 1 of 2 findings, which is the rate
+    # that gets a sensor deleted.
+    return sorted(
+        n for n in names if not (root / n).is_file() and not (root / n).is_dir()
+    )
+
+
 def git_deleted_files(root: Path) -> list[str]:
     """Paths this change removed. Excluded from scope on purpose, named anyway.
 
@@ -1455,6 +1486,7 @@ def build_receipt(
     elapsed: float,
     unresolved: list[str] | None = None,
     deleted: list[str] | None = None,
+    absent: list[str] | None = None,
 ) -> dict:
     ran = [r for r in results if r.status in ("pass", "fail")]
     failed = [r for r in ran if r.status == "fail"]
@@ -1481,6 +1513,13 @@ def build_receipt(
                 "empty scope: none of the named files could be resolved — "
                 + ", ".join(unresolved)
             )
+        elif absent:
+            why = (
+                f"empty scope: git named {len(absent)} file(s) that are not in the "
+                f"working tree ({', '.join(absent[:5])}) and nothing else changed. A "
+                f"file WAS found; it could not be read, which is not the same as "
+                f"nothing having changed."
+            )
         elif deleted:
             why = (
                 f"empty scope: this change only removes files ({len(deleted)}: "
@@ -1497,6 +1536,20 @@ def build_receipt(
         verdict, why = "FAIL", ""
     elif harness_gaps(files, results):
         verdict, why = "UNKNOWN", "a promised sensor never reported (see HARNESS GAP)"
+    elif absent:
+        # A correct list, lost by a filter. Not PASS: files this change touched were
+        # never opened, and a green verdict would be about the ones that happened to
+        # survive the filter.
+        verdict, why = (
+            "PARTIAL",
+            (
+                f"git named {len(absent)} file(s) that are not in the working tree "
+                f"({', '.join(absent[:5])}{', …' if len(absent) > 5 else ''}) — they "
+                f"were NOT checked. Either they were staged and then removed, or the "
+                f"repository being read is not the one on disk; from in here those "
+                f"two look identical, so both are stated rather than one guessed."
+            ),
+        )
     elif unavailable:
         # Not PASS. The same file with two ruff violations returns FAIL where ruff
         # is installed and PASS where it is not — an absent tool turning red into
@@ -1523,6 +1576,7 @@ def build_receipt(
         "unchecked": unchecked,
         "harness_touched": harness_touched(root, files),
         "harness_gaps": harness_gaps(files, results),
+        "named_but_absent": absent or [],
         "ran": [
             {
                 "name": r.name,
@@ -1659,6 +1713,7 @@ def main() -> int:
 
     unresolved: list[str] = []
     deleted = [] if args.files else git_deleted_files(root)
+    absent = [] if args.files else git_named_but_absent(root)
     if args.files:
         # A path named on the command line and then silently dropped is the worst
         # kind of empty scope: the receipt went on to say "no changed files were
@@ -1711,6 +1766,7 @@ def main() -> int:
         time.time() - started,
         unresolved,
         deleted,
+        absent,
     )
     print(json.dumps(rec, indent=2, ensure_ascii=False) if args.json else render(rec))
     return {"PASS": 0, "PARTIAL": 0, "FAIL": 1, "UNKNOWN": 2}[rec["verdict"]]

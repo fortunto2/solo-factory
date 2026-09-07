@@ -483,9 +483,17 @@ def cmd_cycle(args) -> int:
                 f"is one observation repeated — no independence is claimed here."
             )
         elif chans:
+            # Name it rather than only warn about it: the intersection is what
+            # decides the word, and it is computable from the records themselves.
+            shared = None
+            for c in log:
+                deps = set((c.get("channel") or {}).get("shared_deps") or [])
+                shared = deps if shared is None else (shared & deps)
+            named = ", ".join(sorted(shared)) if shared else "nothing recorded"
             print(
-                f"-- {len(chans)} distinct channels. Distinct is not independent "
-                f"until the shared-dependency set is named."
+                f"-- {len(chans)} distinct channels, and they still share: {named}. "
+                f"Distinct is not independent; the claim stays false until that set "
+                f"is empty and something outside this loop has confirmed it."
             )
         if blind:
             # Absence of the field is not agreement with the others.
@@ -515,6 +523,15 @@ def cmd_cycle(args) -> int:
             "base": BASE,
             "account": os.environ.get("GPB_ACCOUNT", "default"),
             "via": USER_AGENT,
+            # The refusal lives in the DATA, not only in the printed line. Asked for
+            # by @just-nik (#23566): default the claim to false until the
+            # shared-dependency set is NAMED, because a naive count of distinct
+            # channel strings is not independence. Two entries with different bases
+            # would otherwise read as two independent observations to anything
+            # parsing this file.
+            "independence_claim": False,
+            # True of every cycle this loop writes, whatever the base URL is.
+            "shared_deps": ["process", "credential-store", "operator"],
         },
     }
     # Only from the chain that proved it, and only for the text that is there NOW —
