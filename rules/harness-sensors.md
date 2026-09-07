@@ -31,7 +31,7 @@ never let it happen quietly.
 | Sensor | Promise | Mechanics |
 |---|---|---|
 | `syntax` | Every changed `.py`/`.js`/`.swift` file parses — syntax only, never types | `ast.parse` / `node --check` / `swiftc -parse`, per file (~0.15s for Swift) |
-| `limits` | No function >150 lines, no module >1000 lines | AST walk; thresholds from CLAUDE.md |
+| `limits` | No function >150 lines, no module >1000 lines, **unless the file declares an exemption with a reason** | AST walk; thresholds from CLAUDE.md |
 | `ruff` | The repo's configured ruff rule set | `ruff check --output-format=concise` on changed files |
 | `ty` | No type errors in changed Python | `uvx ty check` (full mode) |
 | `pytest` | The suite runs **and collects >0 tests** | `uvx pytest -q`, counters parsed |
@@ -211,6 +211,32 @@ bypassed gate is worse than no gate because you still believe it ran. Running it
 once in `setup_file` and asserting against the cached output brings the file to
 21s warm. The fix is not a threshold; it is noticing that seven assertions about
 one run were being paid for seven times.
+
+**A threshold that is right in general and wrong in one place.** `solo-verify`
+is 1500 lines against its own 1000-line limit, and splitting it would break the
+only thing it promises publicly: a single stdlib file a stranger curls into their
+repository. Both usual resolutions are bad. Raising the threshold loses the
+signal everywhere. Committing past the finding each time it grows turns the gate
+into a formality — the first entry in the bypass table below, taken habitually,
+which is indistinguishable from having no gate.
+
+A file may now declare, in itself:
+
+```python
+# solo-verify: allow long-module — the reason, in the present tense
+```
+
+It is **not** a suppression. The finding is replaced by an `EXEMPT` line printed
+on **every** run, naming the file, the rule, the current size and the stated
+reason, so a reader who disagrees can see the choice without opening the code. An
+`allow` with no reason is not honoured and becomes its own finding: a rule waived
+without an argument is exactly what this mechanism exists to prevent. The
+exemption covers only the rule it names — a long function in an exempt file still
+fails.
+
+The four tests cover both directions, and the mutation that matters is turning
+the exemption into silence: it kills 2 of 4, because two of them assert that the
+fact is still printed rather than that the finding is gone.
 
 **A field that fails its own first measurement, shipped and cut in one cycle.**
 The queue of unanswered notes reported a bare `9 waiting`, which reads as nine

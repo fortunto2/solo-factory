@@ -730,3 +730,49 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   [[ "$output" == *"E0308"* || "$output" == *"unparsed"* ]]
   [[ "$output" != *"cargo-test failed"* ]]
 }
+
+# --- a threshold that is right in general and wrong here ---------------------
+# solo-verify is 1500 lines against a 1000-line limit, and splitting it would
+# break the one thing it promises publicly: a single stdlib file a stranger curls
+# into their own repo. The two usual resolutions are both bad — raising the
+# threshold loses the signal everywhere, and committing past the finding every
+# cycle turns the gate into a formality, which is the first entry in this
+# harness's own list of bypasses.
+
+@test "a declared exemption replaces the finding with a standing statement" {
+  { echo "# solo-verify: allow long-module — distributed as one file on purpose"
+    for i in $(seq 1 1100); do echo "x$i = $i"; done; } > "$REPO/big.py"
+  run "$VERIFY" --root "$REPO" --files big.py
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"EXEMPT"* ]]
+  [[ "$output" == *"distributed as one file on purpose"* ]]
+  [[ "$output" == *'"exempt":1'* ]]
+  # Replaced, not silenced: the finding is gone but the fact is printed.
+  [[ "$output" != *"long-module 1101 lines —"* ]]
+}
+
+@test "an exemption with no reason is not honoured, and is its own finding" {
+  { echo "# solo-verify: allow long-module — TODO"
+    for i in $(seq 1 1100); do echo "x$i = $i"; done; } > "$REPO/lazy.py"
+  run "$VERIFY" --root "$REPO" --files lazy.py
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"carries no reason"* ]]
+}
+
+@test "an exemption covers only the rule it names" {
+  { echo "# solo-verify: allow long-module — one file on purpose"
+    echo "def huge():"
+    for i in $(seq 1 200); do echo "    y$i = $i"; done; } > "$REPO/mixed.py"
+  run "$VERIFY" --root "$REPO" --files mixed.py
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"long-function"* ]]
+  [[ "$output" == *"EXEMPT"* ]]
+}
+
+@test "a file with no exemption is unaffected" {
+  { for i in $(seq 1 1100); do echo "z$i = $i"; done; } > "$REPO/plain.py"
+  run "$VERIFY" --root "$REPO" --files plain.py
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"long-module"* ]]
+  [[ "$output" != *"EXEMPT"* ]]
+}
