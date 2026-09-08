@@ -343,6 +343,7 @@ def main() -> int:
         )
 
         cases_all = [(st, c) for st, cs in suites for c in cs]
+        planted = len(cases_all)
         for stack, (name, filename, source, expect) in cases_all:
             out = run_case(
                 tmp, filename, source, full or stack in ("go", "rust"), stack
@@ -362,10 +363,24 @@ def main() -> int:
             else:
                 print(f"  MISSED   {name}")
 
+    # The denominator comes from what was PLANTED, never from what came back. The
+    # old one was len(caught) + len(missed) — derived from the numerator's own
+    # source, so a case that failed to run vanished from both halves and the score
+    # read 9/22 instead of saying two cases produced no verdict. Self-consistent by
+    # construction and unable to detect its own loss: the same defect as a test
+    # runner that collects nothing and exits 0, one level up.
     total = len(caught) + len(missed)
+    if total != planted:
+        print(
+            f"\nUNKNOWN: {planted} defects were planted and {total} produced a "
+            f"verdict. {planted - total} case(s) ran without being scored, so this "
+            f"is not a coverage number — it is a broken run.",
+            file=sys.stderr,
+        )
+        return 2
     print(
-        f"\n{len(caught)}/{total} caught, {len(missed)}/{total} missed"
-        f"  (mode: {'full' if full else 'fast'})"
+        f"\n{len(caught)}/{planted} caught, {len(missed)}/{planted} missed"
+        f"  (mode: {'full' if full else 'fast'}, {planted} planted)"
     )
     if incidental:
         print(

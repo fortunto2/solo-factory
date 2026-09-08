@@ -133,3 +133,44 @@ EOF
   # And no score at all, not merely a lower one.
   [[ "$output" != *"caught,"* ]]
 }
+
+@test "the denominator is what was planted, not what came back" {
+  # It was len(caught) + len(missed) — derived from the numerator's own source, so
+  # a case that ran without being scored vanished from both halves and the line
+  # read 9/22 instead of saying two cases produced no verdict. Self-consistent by
+  # construction and unable to detect its own loss: a test runner that collects
+  # nothing and exits 0, one level up.
+  run cat "$BLIND_OUT"
+  [ -n "$output" ]
+  [[ "$output" == *"planted)"* ]]
+  # The two halves and the stated total must agree, or the score is about a
+  # different set from the one the corpus defines.
+  python3 -c "
+import re, sys
+t = sys.argv[1]
+m = re.search(r'(\d+)/(\d+) caught, (\d+)/(\d+) missed.*?(\d+) planted', t, re.S)
+assert m, 'no score line with a planted count'
+c, t1, ms, t2, planted = (int(x) for x in m.groups())
+assert t1 == t2 == planted, (t1, t2, planted)
+assert c + ms == planted, (c, ms, planted)
+print('OK', c, ms, planted)
+" "$output"
+}
+
+@test "a case that produces no verdict is UNKNOWN, not a lower score" {
+  # Known answer: drop one case from scoring while leaving it planted. Without the
+  # guard this prints 11/23 and reads as worse coverage rather than a broken run.
+  cp "$M" "$BATS_TEST_TMPDIR/m"
+  python3 - "$BATS_TEST_TMPDIR/m" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1]); s = p.read_text()
+a = "            missed.append(name)"
+assert a in s
+p.write_text(s.replace(a, "            if 'off-by-one in a loop' in name: continue\n" + a, 1))
+PY
+  run python3 "$BATS_TEST_TMPDIR/m"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"UNKNOWN"* ]]
+  [[ "$output" == *"produced a verdict"* ]]
+  [[ "$output" == *"it is a broken run"* ]]
+}

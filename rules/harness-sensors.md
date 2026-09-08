@@ -112,7 +112,20 @@ that until `scripts/measure-blind-spots` (`make blind-spots`). It plants one
 known defect at a time — each one a competent reviewer would block a pull request
 for — runs the verifier, and records whether a finding **names** it.
 
-**11 of 24 caught, 13 missed**, across three stacks. The thirteen, published rather than summarised:
+**11 of 24 caught, 13 missed**, across three stacks. *Re-measured after a week of
+changes to the receipt — `unparsed_guard`, the named-but-absent list, the version
+cliff, three new limit states — and the score did not move by one.* That is the
+right result and worth stating plainly: none of that work was coverage work. It made
+the receipt say what it did and did not look at; what it looks at is unchanged.
+
+*The denominator was also computed from the numerator's own source.*
+`total = len(caught) + len(missed)` — so a case that ran without being scored
+vanished from both halves, and the line would have read `11/23`, indistinguishable
+from a real drop in coverage. Self-consistent by construction and unable to detect
+its own loss. It comes from the planted set now, and a mismatch is `UNKNOWN` with
+exit 2: *"24 defects were planted and 23 produced a verdict — this is not a coverage
+number, it is a broken run."* Known-answer checked by dropping one case from scoring
+while leaving it planted. The thirteen, published rather than summarised:
 
 - an off-by-one in a loop bound
 - a wrong comparison operator (`>` where `>=` was meant)
