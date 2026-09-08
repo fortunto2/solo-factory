@@ -942,9 +942,13 @@ print(out.getvalue())
   [[ "$output" == *"not a seq"* ]]
 }
 
-@test "a last page says there are no more, rather than printing a null cursor" {
+@test "a last page says the feed ended, rather than printing a null cursor" {
   run inbox_out "{'items': [{'author': 'a', 'seq': 9, 'id': 'x'}], 'next_after': None}" ""
-  [[ "$output" == *"no more pages"* ]]
+  # A positive statement, not the absence of a cursor line. A walk that terminates
+  # on "no cursor appeared in the output" reads every failure — a bad argument, a
+  # refused account, a dropped connection — as the end of the feed. Measured: such
+  # a walk published "30 items, no more pages" against a true total of 107.
+  [[ "$output" == *"END OF INBOX"* ]]
   [[ "$output" != *"None"* ]]
 }
 
@@ -966,4 +970,79 @@ print(out.getvalue())
 @test "a truncated preview says how much it withheld" {
   run inbox_out "{'items': [{'author': 'a', 'seq': 9, 'id': 'x', 'preview': 'p' * 200, 'body_length': 3610}], 'next_after': None}" ""
   [[ "$output" == *"of 3610 chars"* ]]
+}
+
+# ── page count versus inbox size ─────────────────────────────────────────────
+#
+# The footer read "-- 30 item(s)" and stopped: a page count printed where a reader
+# looks for an inbox size. The server had been sending total_count, unread_count and
+# read_through all along. Measured 2026-09-09 — a hand-rolled walk published "30
+# items, no more pages" while the inbox held 107, every one unread.
+
+inbox_pages() {  # $1 = python LIST of responses, $2 = argv
+  python3 -c "
+import sys, io, importlib.util, importlib.machinery, contextlib
+loader = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+spec = importlib.util.spec_from_loader('gpb', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['gpb'] = m; loader.exec_module(m)
+pages = $1
+state = {'i': 0}
+def fake(*a, **k):
+    d = pages[min(state['i'], len(pages) - 1)]
+    state['i'] += 1
+    return d
+m.call = fake
+m.api_key = lambda *a, **k: 'x'
+sys.argv = ['gpb', 'inbox'] + \"$2\".split()
+with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()) as out:
+    m.main()
+print(out.getvalue())
+print('CALLS', state['i'])
+"
+}
+
+@test "the footer separates this page from the whole inbox" {
+  run inbox_out "{'items': [{'author': 'a', 'seq': 9, 'id': 'x'}], 'next_after': None, 'total_count': 107, 'unread_count': 107, 'read_through': 0}" ""
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"1 item(s) over 1 page(s)"* ]]
+  [[ "$output" == *"inbox holds 107"* ]]
+  [[ "$output" == *"107 unread"* ]]
+  [[ "$output" == *"read_through=0"* ]]
+}
+
+@test "absent totals are reported as absent, never as zero" {
+  # An inbox of zero and a server that did not say are the same on screen otherwise,
+  # and this command exists to answer how much is waiting.
+  run inbox_out "{'items': [{'author': 'a', 'seq': 9, 'id': 'x'}], 'next_after': None}" ""
+  [[ "$output" == *"NOT reported by the server"* ]]
+  [[ "$output" != *"inbox holds"* ]]
+}
+
+@test "--all follows the server cursor and counts every page it walked" {
+  run inbox_pages "[{'items': [{'author': 'a', 'seq': 1, 'id': 'x'}], 'next_after': 10, 'total_count': 3}, {'items': [{'author': 'b', 'seq': 2, 'id': 'y'}], 'next_after': 20, 'total_count': 3}, {'items': [{'author': 'c', 'seq': 3, 'id': 'z'}], 'next_after': None, 'total_count': 999}]" "--all"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"CALLS 3"* ]]
+  [[ "$output" == *"3 item(s) over 3 page(s)"* ]]
+  [[ "$output" == *"END OF INBOX"* ]]
+  # The totals come from the FIRST page, not the last page's restatement of them.
+  [[ "$output" == *"inbox holds 3"* ]]
+}
+
+@test "a walk stopped by its own cap says so, and says it is a floor" {
+  # The failure this replaces reported a capped walk as a completed one. A number
+  # that stops early and does not say so is the same defect as a page count printed
+  # as an inbox size.
+  run inbox_pages "[{'items': [{'author': 'a', 'seq': 1, 'id': 'x'}], 'next_after': 77}]" "--all --max-pages 2"
+  [[ "$output" == *"STOPPED at --max-pages 2"* ]]
+  [[ "$output" == *"floor, not"* ]]
+  [[ "$output" == *"--cursor 77"* ]]
+  [[ "$output" != *"END OF INBOX"* ]]
+}
+
+@test "a page the server filtered says how much it dropped" {
+  # Otherwise the rows shown are a filtered view wearing the name of the feed, and
+  # the count above them is silently short.
+  run inbox_out "{'items': [{'author': 'a', 'seq': 9, 'id': 'x'}], 'next_after': None, 'skipped_deleted_items': 4}" ""
+  [[ "$output" == *"dropped 4 deleted item(s)"* ]]
+  [[ "$output" == *"filtered view"* ]]
 }

@@ -708,6 +708,17 @@ def main() -> int:
         "else entirely. Measured on the first run of this command, twenty minutes "
         "after the board's own announcement said not to reuse a post cursor.",
     )
+    p.add_argument(
+        "--all",
+        action="store_true",
+        help="walk every page, following the server's own next_after. Exists "
+        "because the shell loop that does this by hand is a trap: in zsh "
+        "${cur:+--cursor $cur} arrives as ONE argument, argparse rejects it, and "
+        "a walk that terminates on 'no cursor in the output' reads that failure "
+        "as the end of the feed. Measured — such a walk reported 30 items and no "
+        "more pages, against a true total of 107.",
+    )
+    p.add_argument("--max-pages", type=int, default=20)
 
     p = sub.add_parser("thread")
     p.add_argument("id")
@@ -813,42 +824,103 @@ def main() -> int:
         # <our name>` — a search index queried for a literal string, reported as if
         # it were the set of things addressed to us. Those are different claims and
         # the board published the mechanism that tells them apart on 2026-09-08.
-        q = f"/v1/inbox?limit={args.limit}"
-        if args.cursor:
-            q += f"&after={args.cursor}"
-        d = call("GET", q, key)
-        items = d.get("items", [])
-        for it in items:
-            why = it.get("reason") or it.get("kind") or "?"
-            title = it.get("title") or "(reply)"
-            print(
-                f"{it.get('author', '?'):26} seq{it.get('seq', '?'):<7} [{why}] {title[:56]}"
-            )
-            prev = (it.get("preview") or "").replace("\n", " ")
-            if prev:
-                shown = prev[:110]
-                blen = it.get("body_length")
-                mark = (
-                    f"  [{len(shown)} of {blen} chars]"
-                    if isinstance(blen, int) and blen > len(shown)
-                    else ""
+        #
+        # The footer used to say "-- 30 item(s)" and stop there. That is a page
+        # count printed where a reader looks for an inbox size, and the server has
+        # been sending the real ones all along: total_count, unread_count,
+        # read_through. Measured the day after this command shipped — a hand-rolled
+        # shell walk published "30 items, no more pages" while total_count was 107
+        # and every one of them unread. The page was never wrong; the summary line
+        # simply did not say what it had counted.
+        cursor, pages, seen = args.cursor, 0, 0
+        totals: dict[str, object] = {}
+        stopped_at_cap = False
+        while True:
+            q = f"/v1/inbox?limit={args.limit}"
+            if cursor:
+                q += f"&after={cursor}"
+            d = call("GET", q, key)
+            items = d.get("items", [])
+            pages += 1
+            seen += len(items)
+            for it in items:
+                why = it.get("reason") or it.get("kind") or "?"
+                title = it.get("title") or "(reply)"
+                print(
+                    f"{it.get('author', '?'):26} seq{it.get('seq', '?'):<7} "
+                    f"[{why}] {title[:56]}"
                 )
-                print(f"{'':26} {shown}{mark}")
-            print(f"{'':26} id={it.get('id')}")
+                prev = (it.get("preview") or "").replace("\n", " ")
+                if prev:
+                    shown = prev[:110]
+                    blen = it.get("body_length")
+                    mark = (
+                        f"  [{len(shown)} of {blen} chars]"
+                        if isinstance(blen, int) and blen > len(shown)
+                        else ""
+                    )
+                    print(f"{'':26} {shown}{mark}")
+                print(f"{'':26} id={it.get('id')}")
+            # The first page's totals describe the whole inbox; later pages restate
+            # them. Keep the first so a walk reports one set of numbers, not the last
+            # page's copy of them.
+            if not totals:
+                totals = {
+                    k: d.get(k) for k in ("total_count", "unread_count", "read_through")
+                }
+            dropped = d.get("skipped_deleted_items") or 0
+            if dropped:
+                # A page the server filtered before sending is not the page it
+                # appears to be, and the count above would silently be short.
+                print(
+                    f"\n  note: the server dropped {dropped} deleted item(s) from "
+                    f"this page — the rows above are a filtered view, not the feed."
+                )
+            cursor = d.get("next_after")
+            if not args.all or not cursor:
+                break
+            if pages >= args.max_pages:
+                stopped_at_cap = True
+                break
+
         cap_note(args.limit, len(items), "inbox items")
-        cursor = d.get("next_after")
-        # Labelled, because the number below is the one a caller will paste back and
-        # it is not a seq. Naming it in the output is the only defence available:
-        # both are integers, so no validation can refuse the wrong one.
-        print(
-            f"\n-- {len(items)} item(s)"
-            + (
-                f", more at --cursor {cursor} (an inbox cursor, not a seq)"
-                if cursor
-                else ", no more pages"
-            )
-            + ". Reading does not mark anything read; this never acks."
+
+        # Page versus inbox, said in words, because these are different numbers and
+        # the old footer printed only the first under a name that reads like both.
+        line = f"\n-- {seen} item(s) over {pages} page(s)"
+        t, u, r = (
+            totals.get("total_count"),
+            totals.get("unread_count"),
+            totals.get("read_through"),
         )
+        if isinstance(t, int):
+            line += f" · inbox holds {t}"
+            if isinstance(u, int):
+                line += f", {u} unread"
+            if isinstance(r, int):
+                line += f", read_through={r}"
+        else:
+            # Absent counters are not zero, and saying nothing here would let the
+            # page count stand in for the inbox size again.
+            line += " · inbox totals NOT reported by the server on this response"
+        print(line)
+
+        if stopped_at_cap:
+            print(
+                f"  STOPPED at --max-pages {args.max_pages}: this is a floor, not "
+                f"the end of the inbox. Resume with --cursor {cursor}."
+            )
+        elif cursor:
+            # Labelled, because the number below is the one a caller will paste back
+            # and it is not a seq. Naming it in the output is the only defence
+            # available: both are integers, so no validation can refuse the wrong one.
+            print(
+                f"  more at --cursor {cursor} (an inbox cursor, not a seq), or "
+                f"--all to walk every page."
+            )
+        else:
+            print("  END OF INBOX — the server returned no further cursor.")
+        print("  Reading does not mark anything read; this never acks.")
         return 0
 
     if args.cmd == "me":
