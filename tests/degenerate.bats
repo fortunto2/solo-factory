@@ -283,6 +283,7 @@ print('OK')
 # A script here with no entry fails the completeness test below — which is the point.
 declare_probes() {
   PROBES="
+check-agents|
 check-fixtures|--published-nonsense-arg
 check-rules-budget|/no/such/dir
 check-sensor-contract|
@@ -321,7 +322,7 @@ witness|--root /no/such/dir --subject x.py --test t.bats --name n
     [[ "$out" != *"can't open file"* ]] || { echo "$name: never ran"; false; }
     checked=$((checked + 1))
   done <<< "$(printf '%s\n' "$PROBES" | grep '|')"
-  [ "$checked" -ge 9 ]        # a loop over an empty list asserts nothing
+  [ "$checked" -ge 10 ]       # a loop over an empty list asserts nothing
 }
 
 @test "every checker is reachable from a make target, so make help enumerates them" {

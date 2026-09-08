@@ -12,6 +12,37 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**Three agents, no validator, and the audit found nothing wrong.** Skills have two
+checks; `agents/*.md` had none, and their contract is just as real — an agent is
+model-invoked by its `description` and addressed by a `name` that must match its
+filename. Both fail **silently**: the agent simply never triggers.
+
+All three are valid today. That is worth stating rather than dressing a gap as a
+discovery: what was missing is not a fix but the thing that would notice a future
+break. `check-agents` is that, with the house contract — `UNKNOWN` and exit 2 for an
+absent directory *and* for an empty one, since zero agents and a mistyped path
+produce the same absence of problems.
+
+`commands/*.md` are deliberately left alone. They are plain markdown whose content is
+the prompt, Claude Code's frontmatter for them is optional, and this repository
+documents no requirement — so enforcing one would be **inventing a rule to have
+something to enforce**, which is the failure mode of a cycle that needs a finding.
+
+**Two of my own guards fired on the new file within minutes of each other**, which is
+the first time this week the harness caught something before I did: the
+make-target enumeration said `no make target invokes: check-agents`, and the
+degenerate-probe table said `no degenerate probe for: check-agents`. Both were written
+in earlier cycles precisely so a new checker could not join quietly, and both did
+their job on the first new checker to arrive.
+
+*And the make target had to be committed out of a file somebody else is editing.* The
+`Makefile` carries a concurrent session's uncommitted work, so the change was staged
+as a **single hunk** — `git diff`, split on `@@`, keep the one containing
+`agents-check`, `git apply --cached`. Their two lines stayed in the working tree and
+out of the commit. Committing the file wholesale would have taken their unfinished
+work with it; not adding the target would have shipped a checker my own test rejects.
+
+
 **The only one of these tools that writes, and the one nobody could afford to test.**
 Four scripts this week could not be exercised without mutating what they produce. The
 other three report; `add-openclaw-meta.py` rewrites every `SKILL.md` in place, so its

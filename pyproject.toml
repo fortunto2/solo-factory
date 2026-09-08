@@ -72,3 +72,4 @@ select = [
 "scripts/list-env-sensitive-calls" = ["UP"]
 "scripts/witness" = ["UP"]
 "scripts/check-rules-budget" = ["UP"]
+"scripts/check-agents" = ["UP"]

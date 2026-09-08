@@ -84,6 +84,9 @@ shippable:  ## Is the committed work actually installable by anyone?
 fixtures-published:  ## Does the pack a stranger fetches match the one we verified
 	python3 scripts/check-fixtures --published
 
+agents-check:  ## Agent frontmatter — name matches file, description, tools, model
+	python3 scripts/check-agents
+
 env-calls:  ## Every call the environment can redirect, and whether it defends
 	python3 scripts/list-env-sensitive-calls
 

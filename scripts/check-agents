@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""Frontmatter validation for `agents/*.md` — the artifacts nothing checked.
+
+Skills have two validators. The three agents had none, and their contract is just as
+real: an agent is model-invoked by its `description`, and addressed by a `name` that
+must match its filename or nobody can call it.
+
+*The audit that produced this found nothing wrong today.* All three agents are valid.
+That is worth stating rather than dressing a gap as a discovery: what was missing is
+not a fix but the thing that would notice a future break, since a name/filename
+mismatch or a lost description fails silently — the agent simply never triggers.
+
+`commands/*.md` are deliberately NOT checked here. They are plain markdown whose
+content is the prompt; Claude Code's frontmatter for them is optional and this
+repository documents no requirement, so enforcing one would be inventing a rule to
+have something to enforce.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import sys
+from pathlib import Path
+
+AGENTS_DIR = Path(
+    os.environ.get("SOLO_AGENTS_DIR", Path(__file__).resolve().parent.parent / "agents")
+)
+
+# Long enough to carry the situations that should invoke it. The skills validator
+# uses the same reasoning: a description too short cannot describe when to trigger.
+MIN_DESCRIPTION = 60
+
+
+def frontmatter(text: str) -> dict[str, str] | None:
+    m = re.match(r"^---\n(.*?)\n---", text, re.S)
+    if not m:
+        return None
+    return dict(re.findall(r"^([a-z_]+):\s*(.*)$", m.group(1), re.M))
+
+
+def check(path: Path) -> list[str]:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        # In scope and unreadable is its own state: not a valid agent, and not an
+        # invalid one either.
+        return [f"{path.name}: could not be read ({exc.strerror or exc})"]
+
+    fm = frontmatter(text)
+    if fm is None:
+        return [f"{path.name}: no YAML frontmatter — an agent is addressed by it"]
+
+    problems = []
+    name = fm.get("name", "").strip()
+    if not name:
+        problems.append(f"{path.name}: no `name`")
+    elif name != path.stem:
+        problems.append(
+            f"{path.name}: `name: {name}` does not match the filename — an agent is "
+            f"invoked as `{path.stem}`, so this must be `{path.stem}`"
+        )
+
+    desc = fm.get("description", "").strip()
+    if not desc:
+        problems.append(
+            f"{path.name}: no `description` — this is what decides when the agent is "
+            f"invoked, so without it the agent never triggers"
+        )
+    elif len(desc) < MIN_DESCRIPTION:
+        problems.append(
+            f"{path.name}: description is {len(desc)} chars, under {MIN_DESCRIPTION} "
+            f"— too short to say when this agent should be chosen"
+        )
+
+    for field in ("tools", "model"):
+        if not fm.get(field, "").strip():
+            problems.append(f"{path.name}: no `{field}`")
+    return problems
+
+
+def main(argv: list[str]) -> int:
+    if not AGENTS_DIR.is_dir():
+        print(
+            f"UNKNOWN: {AGENTS_DIR} is not a directory here — nothing was checked, "
+            f"which is not the same as nothing being wrong.",
+            file=sys.stderr,
+        )
+        return 2
+
+    files = sorted(AGENTS_DIR.glob("*.md"))
+    if not files:
+        # Zero agents and a wrong path produce the same absence of problems.
+        print(
+            f"UNKNOWN: no *.md under {AGENTS_DIR}. An empty directory and a mistyped "
+            f"path are indistinguishable from the finding count alone.",
+            file=sys.stderr,
+        )
+        return 2
+
+    problems = [p for f in files for p in check(f)]
+    for p in problems:
+        print(f"FAIL  {p}")
+    if problems:
+        print(f"\n{len(problems)} problem(s) in {len(files)} agent(s).")
+        return 1
+    print(f"OK    {len(files)} agents — frontmatter valid ({AGENTS_DIR.name}/ only)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
