@@ -1289,6 +1289,34 @@ And the fixture committed everything, leaving a **clean tree** whose receipt is
 Two of four failed on the fixture rather than the code. The convenient fixture again,
 in the file where that phrase has now been written four times.
 
+**Two caller-shaped mistakes that produced a verdict about somewhere else.** Found
+by asking what happens when the *caller* is wrong rather than the tree — a shape not
+probed before, since every earlier audit varied the input and held the invocation
+fixed.
+
+**A `--root` that does not exist returned `PARTIAL` and exit 0.** Every subprocess
+failed with `FileNotFoundError` on its working directory; `run()` maps that to 127;
+127 renders as *"command not found — a nested tool is missing, not the wrapper"*.
+Ruff was installed. So a typo in a path produced an invented cause and a
+green-enough exit code, in the tool whose whole subject is inventing causes. It is
+`UNKNOWN` and exit 2 now, naming the real one.
+
+**A file outside `--root` was verified and reported with an absolute path.** The
+receipt said `root: /tmp/shp` while its findings read `/private/tmp/other/far.py:1:8`
+— misattribution, and a direct breach of the published promise that *a receipt is
+meant to be pasted, so it must never print an absolute path*. `rel()` falls back to
+the full path when `relative_to` fails, which is correct in isolation and wrong here:
+the fallback is the breach. Refused now, because a receipt that states one root
+cannot honestly carry findings from another tree.
+
+*And the refusal printed an absolute path in the message objecting to absolute
+paths.* It reported our resolved path rather than the caller's own spelling. Fixed to
+echo what was typed — `../other/far.py`.
+
+A positive control asserts a file inside the root is still verified, since refusing
+everything passes both new tests while making `--files` useless, and `--files` is
+exactly the shape the fixture pack tells strangers to use.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

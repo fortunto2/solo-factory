@@ -69,3 +69,47 @@ assert_unknown() {
   [[ "$output" != *"UNKNOWN"* ]]           # and nothing to show it ran
   [[ "$output" == *"can't open file"* ]]
 }
+
+# ── two caller-shaped mistakes that produced a verdict about somewhere else ──
+
+@test "a --root that is not a directory is UNKNOWN, not PARTIAL with exit 0" {
+  # Measured: every subprocess failed with FileNotFoundError on its cwd, which run()
+  # maps to 127, which the receipt rendered as "command not found — a nested tool is
+  # missing". Ruff was installed. An invented cause, and the verdict was PARTIAL
+  # with EXIT 0: a typo in --root reading as a clean-enough run.
+  printf 'import os\nx = 1\n' > "$D/f.py"
+  run python3 "$S/solo-verify" --root "$D/no-such-dir" --files "$D/f.py"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"UNKNOWN"* ]]
+  [[ "$output" == *"is not a directory"* ]]
+  [[ "$output" != *"command not found"* ]]     # the cause it used to invent
+  [[ "$output" != *"PARTIAL"* ]]
+}
+
+@test "a file outside --root is refused rather than misattributed" {
+  # It returned VERIFY FAIL with /private/tmp/other/far.py in the findings — a
+  # receipt stating one root while reporting on another tree, with an ABSOLUTE path,
+  # which breaks the published promise that a receipt never prints one.
+  mkdir -p "$D/inside" "$BATS_TEST_TMPDIR/elsewhere"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$D/inside" && git init -q . && git config user.email t@e && git config user.name t )
+  printf 'import sys\ny = 1\n' > "$BATS_TEST_TMPDIR/elsewhere/far.py"
+  run python3 "$S/solo-verify" --root "$D/inside" --files "$BATS_TEST_TMPDIR/elsewhere/far.py"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"outside --root"* ]]
+  [[ "$output" != *"F401"* ]]                  # it did not go on to verify it
+}
+
+@test "a file inside the root is still verified — the guard is not a wall" {
+  # Positive control. Refusing everything passes both tests above while making the
+  # tool useless, and --files is the shape the fixture pack tells strangers to use.
+  mkdir -p "$D/ok"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$D/ok" && git init -q . && git config user.email t@e && git config user.name t )
+  printf 'import os\nx = 1\n' > "$D/ok/g.py"
+  run python3 "$S/solo-verify" --root "$D/ok" --files "$D/ok/g.py"
+  [ "$status" -eq 1 ]                          # the unused import is found
+  [[ "$output" == *"VERIFY FAIL"* ]]
+  [[ "$output" == *"g.py"* ]]
+  [[ "$output" != *"outside --root"* ]]
+}

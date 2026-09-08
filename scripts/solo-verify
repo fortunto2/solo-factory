@@ -1884,6 +1884,19 @@ def main() -> int:
     args = ap.parse_args()
 
     root = Path(args.root).resolve()
+    if not root.is_dir():
+        # Measured: with a --root that does not exist, every subprocess failed with
+        # FileNotFoundError on its cwd, which run() maps to 127, which the receipt
+        # renders as "command not found ... a nested tool is missing". Ruff was
+        # installed. The cause was invented, and the verdict was PARTIAL with
+        # exit 0 — a caller's typo in the root path reading as a clean-enough run.
+        print(
+            f"UNKNOWN: --root {args.root} is not a directory here. Nothing was "
+            f"verified, and nothing about it can be: a missing root makes every "
+            f"sensor fail on its working directory, which reads as a missing tool.",
+            file=sys.stderr,
+        )
+        return 2
     timeout = FULL_TIMEOUT if args.full else FAST_TIMEOUT
     started = time.time()
     files: list[Path] = []
@@ -1911,6 +1924,26 @@ def main() -> int:
                 unresolved.append(f)
     else:
         files = git_changed_files(root)
+
+    # A file outside --root cannot be honestly attributed. The receipt states one
+    # root and would report findings about somewhere else, with an ABSOLUTE path —
+    # breaking the promise in rules/harness-sensors.md that a receipt never prints
+    # one, because rel() falls back to the full path when relative_to fails.
+    # Measured: --root /tmp/shp --files /tmp/other/far.py returned VERIFY FAIL with
+    # `/private/tmp/other/far.py:1:8` in it.
+    # Named as the CALLER typed them. The first version printed our resolved paths —
+    # absolute — inside the message objecting to absolute paths in a receipt.
+    given = {str(Path(f).resolve()): f for f in (args.files or [])}
+    outside = [given.get(str(f), str(f)) for f in files if root not in f.parents]
+    if outside:
+        print(
+            f"UNKNOWN: {len(outside)} named file(s) are outside --root {args.root}"
+            f" ({', '.join(outside[:5])}). A receipt states one root; reporting on "
+            f"files elsewhere misattributes them, and the paths print absolute. "
+            f"Point --root at the tree that contains them.",
+            file=sys.stderr,
+        )
+        return 2
 
     stacks = detect_stacks(root, files)
     results: list[Result] = [check_syntax(root, files), check_limits(root, files)]
