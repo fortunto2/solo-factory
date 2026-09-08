@@ -152,6 +152,12 @@ class Result:
     # exemption either — there is no stated reason to show. A separate list because
     # a waiver with an argument and debt without one are different facts.
     undeclared: list[str] = field(default_factory=list)
+    # In scope, and this sensor could not read it. Distinct from "not applicable"
+    # (nothing of that type here) and from a finding (the file is wrong): the file
+    # is right there and the check did not happen. It used to be `except OSError:
+    # pass` — the sensor silently narrowing its own scope, leaving a difference
+    # between `scope: 2 covered` and `parsed: 1` as the only trace.
+    unreadable: list[str] = field(default_factory=list)
     seconds: float = 0.0
 
 
@@ -511,7 +517,8 @@ def check_syntax(root: Path, files: list[Path]) -> Result:
     # a syntax error that is really a version artefact. A project on an older
     # floor gets the ordinary verdict.
     newer_than_us = floor is not None and floor > running
-    unparseable_by_version = []
+    unparseable_by_version: list[str] = []
+    unreadable: list[str] = []
 
     for f in files:
         if is_python(f):
@@ -533,8 +540,8 @@ def check_syntax(root: Path, files: list[Path]) -> Result:
                 findings.append(
                     f"{rel(root, f)}:{exc.lineno or 1} syntax {exc.msg} — {FIX_HINTS['syntax']}"
                 )
-            except OSError:
-                pass
+            except OSError as exc:
+                unreadable.append(f"{rel(root, f)} — {exc.strerror or exc}")
         elif f.suffix in {".js", ".jsx"} and shutil.which("node"):
             code, out = run(["node", "--check", str(f)], root, 10)
             covered.append(rel(root, f))
@@ -625,6 +632,7 @@ def check_syntax(root: Path, files: list[Path]) -> Result:
         findings=findings + unparseable_by_version,
         covered=covered,
         counters=counters,
+        unreadable=unreadable,
     )
 
 
@@ -730,12 +738,14 @@ def declared_exemptions(text: str, python: bool = False) -> dict[str, str]:
 
 def check_limits(root: Path, files: list[Path]) -> Result:
     findings, covered, exempt, undeclared = [], [], [], []
+    unreadable: list[str] = []
     for f in files:
         if f.suffix not in SOURCE_SUFFIXES and not (is_python(f) or is_shell(f)):
             continue
         try:
             text = f.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+        except OSError as exc:
+            unreadable.append(f"{rel(root, f)} — {exc.strerror or exc}")
             continue
         covered.append(rel(root, f))
         allowed = declared_exemptions(text, python=is_python(f))
@@ -823,6 +833,7 @@ def check_limits(root: Path, files: list[Path]) -> Result:
         },
         exemptions=exempt,
         undeclared=undeclared,
+        unreadable=unreadable,
     )
 
 
@@ -1695,6 +1706,10 @@ def build_receipt(
         "unavailable": [r.name for r in unavailable],
         "exemptions": [e for r in results for e in r.exemptions],
         "over_undeclared": [u for r in results for u in r.undeclared],
+        # Attributed to the sensor that hit it. Deduping across sensors made the
+        # syntax sensor's branch unverifiable: removing it killed 0 tests, because
+        # limits reported the same file and the receipt read identically.
+        "unreadable": sorted(f"{r.name}: {u}" for r in results for u in r.unreadable),
         # A passing sensor's findings are never rendered, so a file it declined to
         # check would leave only a counter behind. Named here instead.
         "not_checked_version": [
@@ -1796,6 +1811,16 @@ def render(rec: dict) -> str:
         out.append("  EXEMPT — declared in the file, with the reason given there:")
         for e in rec["exemptions"]:
             out.append(f"    {e}")
+    if rec.get("unreadable"):
+        out.append(
+            "  IN SCOPE, UNREADABLE — the file is there and the check did not run:"
+        )
+        for u in rec["unreadable"]:
+            out.append(f"    {u}")
+        out.append(
+            "    Not a finding about the file and not a skip: a sensor narrowing its "
+            "own scope in silence is how `2 covered` sits beside `parsed: 1`."
+        )
     if rec.get("over_undeclared"):
         out.append("  OVER A LIMIT, UNDECLARED — inherited debt, not this change:")
         for u in rec["over_undeclared"]:

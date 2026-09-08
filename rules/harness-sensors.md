@@ -1368,6 +1368,32 @@ making the default invocation useless. And **an empty scope in a real repository
 still say exactly that**: the message the guards took over has to survive where it is
 true, or the fix has replaced one invented cause with another.
 
+**Fourth axis: a file that is there and cannot be read.** `except OSError: pass` in
+the syntax sensor and `except OSError: continue` in limits — each **silently
+narrowing its own scope**. On a tree with one unreadable file the receipt read
+`scope: 2 changed file(s), 2 covered` beside `syntax=pass {"parsed":1}` and
+`limits=pass {"files":1}`. The only trace was a discrepancy between three numbers,
+which a reader has to notice unaided; "ok alone is forbidden" was satisfied in letter
+and defeated in fact.
+
+It is its own state now — not a finding (the file is not wrong) and not a skip
+(there was something to do):
+
+```
+IN SCOPE, UNREADABLE — the file is there and the check did not run:
+  limits: b.py — Permission denied
+  syntax: b.py — Permission denied
+```
+
+**And the first version made the syntax sensor's branch unverifiable.** Entries were
+deduped across sensors, so removing that branch killed **0 tests** — limits reported
+the same file and the receipt read identically. A guard whose removal changes nothing
+is a guard nobody has seen work. Attributing each entry to the sensor that hit it
+fixes both the receipt and the test: the two mutations now kill 1 and 2.
+
+A third test pins the counter as well as the line, because naming the file while
+still claiming it parsed would trade one false green for a louder one.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

@@ -215,3 +215,59 @@ assert_unknown() {
   [[ "$output" == *"no changed files were found"* ]]
   [[ "$output" != *"git could not run"* ]]
 }
+
+# ── fourth axis: a file that is there and cannot be read ────────────────────
+#
+# `except OSError: pass` in the syntax sensor and `except OSError: continue` in
+# limits — each silently narrowing its own scope. The only trace was a difference
+# between `scope: 2 covered` and `parsed: 1`, which a reader has to notice unaided.
+
+setup_unreadable() {
+  U="$BATS_TEST_TMPDIR/perm"; mkdir -p "$U"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$U" && git init -q . && git config user.email t@e && git config user.name t
+    printf 'x = 1\n' > a.py && printf 'y = 2\n' > b.py && git add -A && git commit -q -m base
+    printf 'import os\nx = 1\n' > a.py && printf 'import sys\ny = 2\n' > b.py )
+}
+
+@test "a file in scope that cannot be read is named, not silently dropped" {
+  setup_unreadable
+  chmod 000 "$U/b.py"
+  run python3 "$S/solo-verify" --root "$U"
+  chmod 644 "$U/b.py"
+  [ -n "$output" ]
+  [[ "$output" == *"IN SCOPE, UNREADABLE"* ]]
+  [[ "$output" == *"Permission denied"* ]]
+  # Attributed per sensor. Deduped, removing the syntax sensor's branch killed 0
+  # tests — limits reported the same file and the receipt read identically, so a
+  # guard could have regressed with nothing to notice.
+  [[ "$output" == *"syntax: b.py"* ]]
+  [[ "$output" == *"limits: b.py"* ]]
+}
+
+@test "a readable tree says nothing about unreadability" {
+  # Positive control: a line printed unconditionally passes the test above while
+  # labelling every ordinary run as incomplete.
+  setup_unreadable
+  run python3 "$S/solo-verify" --root "$U"
+  [[ "$output" == *"scope:"* ]]           # the run really happened
+  [[ "$output" != *"UNREADABLE"* ]]
+}
+
+@test "the unreadable file is still not counted as parsed" {
+  # The counter has to stay honest as well as the new line: naming the file while
+  # also claiming it parsed would trade one false green for a louder one.
+  setup_unreadable
+  chmod 000 "$U/b.py"
+  run python3 "$S/solo-verify" --root "$U" --json
+  chmod 644 "$U/b.py"
+  python3 -c "
+import json, sys
+d = json.loads(sys.argv[1])
+assert d['unreadable'], 'nothing reported as unreadable'
+syntax = [r for r in d['ran'] if r['name'] == 'syntax'][0]
+assert syntax['counters']['parsed'] == 1, syntax['counters']
+assert len(d['scope']) == 2, d['scope']
+print('OK')
+" "$output"
+}
