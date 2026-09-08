@@ -12,6 +12,36 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**The half of the harness this repository exists for had no tests at all.** Weeks
+went into the sensors; they carry 395 tests. The two checks guarding the **46
+skills** — the product — carried **zero**, so nobody had seen either produce a red.
+The instrument was correct today and nothing would have noticed if it stopped being,
+which is exactly the state `check-vacuous-tests` exists to prevent, one level up.
+
+*Correct today, measured rather than assumed*: a planted skill with a mismatched
+name, no description and no version produces three findings and exit 1, and the
+hook's title — *"name matches dir, description, version"* — turns out to understate
+it. It also rejects a description too short to trigger reliably.
+
+**It was unexercisable, and that is why it had no tests.** Anchored to its own
+repository, which is right for a repo-only check, the only way to test it was to
+plant a broken skill in the real `skills/` directory — and a test failing midway
+would leave one behind. **A test must not be able to damage the thing it tests**, so
+the fix is a seam (`SOLO_SKILLS_DIR`) rather than an argument about how careful the
+test will be. Second time this week that an untested guard turned out to be an
+untestable one.
+
+Six tests, and the two that matter least at first glance matter most: the summary's
+count must equal the number examined, and an **empty** skills directory must not read
+as everything being fine — zero skills and a mistyped path produce the same absence of
+problems. Mutation on the failure path kills 3.
+
+*My first probe pointed at the wrong tree*: run from a scratch directory holding one
+broken skill, the script reported `OK 46 skills` — its own repo's, not the one I was
+standing in. Correct behaviour, wrong probe, and it read exactly like a validator that
+misses things.
+
+
 **The discovery surface had the gap.** `make help` lists 31 targets and is how a
 reader finds out what this repository can do. Two checkers were not among them:
 `witness` and `list-env-sensitive-calls` existed, were tested, and were invocable

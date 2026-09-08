@@ -19,13 +19,21 @@ Usage:
     python3 scripts/check_skills.py research   # one skill
 """
 
+import os
 import re
 import sys
 from pathlib import Path
 
 import yaml
 
-SKILLS_DIR = Path(__file__).resolve().parent.parent / "skills"
+# Anchored to this repository, which is right for a repo-only check — and it left
+# the script unexercisable: a test had to plant a broken skill in the real skills/
+# directory and remove it, and a test that fails midway would leave one behind. This
+# repo's own rule is that a test must not be able to damage the thing it tests, so
+# the seam is here rather than in an argument about how careful the test will be.
+SKILLS_DIR = Path(
+    os.environ.get("SOLO_SKILLS_DIR", Path(__file__).resolve().parent.parent / "skills")
+)
 MIN_DESCRIPTION_LEN = 40
 
 
