@@ -717,12 +717,33 @@ def declared_exemptions(text: str, python: bool = False) -> dict[str, str]:
         # tell content from instruction; one that reads the grammar can.
         try:
             found = {}
+            # A wrapped reason is one reason. Only the first comment line was kept,
+            # so a five-line argument printed as "…documented in" — a sentence
+            # ending mid-clause in a receipt whose whole point is that a waiver
+            # carries its argument. A truncated argument is a weaker version of no
+            # argument, and this was found by using the mechanism for real rather
+            # than by testing it.
+            pending: str | None = None
+            prev_line = -2
             for tok in tokenize.generate_tokens(StringIO(text).readline):
                 if tok.type != tokenize.COMMENT:
                     continue
-                m = EXEMPT_RE.match(tok.string.strip())
+                body = tok.string.strip()
+                m = EXEMPT_RE.match(body)
                 if m:
-                    found[m.group("rule")] = m.group("why").strip()
+                    pending = m.group("rule")
+                    found[pending] = m.group("why").strip()
+                    prev_line = tok.start[0]
+                    continue
+                # A comment on the very next line continues the reason — unless it
+                # opens a new declaration, which the branch above already took.
+                if pending and tok.start[0] == prev_line + 1:
+                    found[pending] = (
+                        found[pending] + " " + body.lstrip("# ").strip()
+                    ).strip()
+                    prev_line = tok.start[0]
+                else:
+                    pending = None
             return found
         except (tokenize.TokenError, IndentationError, SyntaxError):
             # An unparseable file has no honoured exemptions. The syntax sensor

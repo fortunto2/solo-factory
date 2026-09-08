@@ -12,6 +12,32 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**A waiver's argument was cut at the first line, and I found it by using the
+mechanism rather than testing it.** Two files had been sitting over the 1000-line
+limit undeclared since the receipt learned to say so. One of them, `memory_map.py`,
+has a real argument — a single stdlib file documented as run directly, six lines over
+— so it was declared; `solo-dev.sh` has no equivalent argument and stays undeclared
+and visible, because declaring it without one is exactly what the mechanism forbids.
+
+Writing that declaration exposed the defect. The reason spans five comment lines and
+the receipt printed *"…documented in"* — a sentence ending mid-clause, in the record
+whose entire purpose is that a waiver carries its argument. **A truncated argument is
+a weaker version of no argument**, and it had been recorded one cycle earlier as *"a
+limitation rather than a defect"* in the sibling mechanism, on the strength of never
+having written a long one.
+
+A wrapped reason is one reason now: comment lines immediately following the
+declaration continue it. A blank line ends it, and a second declaration starts its
+own — otherwise absorbing every following comment would make an unrelated note part
+of somebody's argument, which is the invented-argument defect this same mechanism
+already had twice.
+
+*Negative result the same cycle, stated because it was run*: the hop question was
+asked of `check-vacuous-tests` — 24 files checked, 23 run by the commit gate, 24 by
+`make test`. No orphan test file, and none possible, since `make test` runs the
+directory rather than a list.
+
+
 **The same hop question, asked one cycle later, of the budget check.** It measured
 `rules/` in this repository. A session reads `~/.claude/rules/` — and here that
 directory holds **six** files: five symlinked to this repo, plus an `ai-sdk-6.md`

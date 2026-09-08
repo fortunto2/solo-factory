@@ -1509,3 +1509,43 @@ assert want == rec['verdict_digest'], (want, rec['verdict_digest'])
 print('OK')
 " "$output"
 }
+
+@test "a wrapped exemption reason is kept whole, not cut at the first line" {
+  # Only the first comment line was kept, so a five-line argument printed as
+  # "…documented in" — a sentence ending mid-clause in a receipt whose whole point
+  # is that a waiver carries its argument. Found by using the mechanism for real
+  # rather than by testing it.
+  D="$BATS_TEST_TMPDIR/wrap"; mkdir -p "$D"
+  { printf '# solo-verify: allow long-module — the first clause of the reason,\n'
+    printf '# and the second clause that finishes the sentence.\n'
+    python3 -c "print('x = 1\n' * 1200, end='')"; } > "$D/big.py"
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" --files "$D/big.py"
+  [[ "$output" == *"EXEMPT"* ]]
+  [[ "$output" == *"the first clause of the reason"* ]]
+  [[ "$output" == *"finishes the sentence"* ]]
+}
+
+@test "a comment separated by a blank line is not swallowed into the reason" {
+  # Positive control on the other side: absorbing every following comment would
+  # make an unrelated note part of somebody's argument for waiving a rule, which
+  # is the invented-argument defect this mechanism already had twice.
+  D="$BATS_TEST_TMPDIR/gap"; mkdir -p "$D"
+  { printf '# solo-verify: allow long-module — the whole reason is this line.\n'
+    printf '\n'
+    printf '# An unrelated note that happens to follow.\n'
+    python3 -c "print('x = 1\n' * 1200, end='')"; } > "$D/big.py"
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" --files "$D/big.py"
+  [[ "$output" == *"the whole reason is this line"* ]]
+  [[ "$output" != *"unrelated note"* ]]
+}
+
+@test "a second declaration is not absorbed into the first one's reason" {
+  D="$BATS_TEST_TMPDIR/two"; mkdir -p "$D"
+  { printf '# solo-verify: allow long-module — the module reason.\n'
+    printf '# solo-verify: allow long-function — the function reason.\n'
+    python3 -c "print('x = 1\n' * 1200, end='')"; } > "$D/big.py"
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" --files "$D/big.py"
+  [[ "$output" == *"the module reason"* ]]
+  [[ "$output" != *"the module reason. solo-verify"* ]]
+  [[ "$output" != *"the module reason solo-verify"* ]]
+}

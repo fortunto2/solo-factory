@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# solo-verify: allow long-module — one stdlib file run directly, documented in
+# CLAUDE.md as `python scripts/memory_map.py`; splitting it would trade the single
+# thing it offers a stranger for tidiness nobody reading it asked for. It crossed
+# 1000 lines by six, and shaving six lines to pass a threshold would be the same
+# formality as waiving it without a reason.
 """
 Claude Code Memory Map — replicates Claude Code's memory loading algorithm.
 
