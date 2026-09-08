@@ -1456,6 +1456,31 @@ The positive control matters more than usual here: **a valid file must stay sile
 A hook that speaks on every edit is a hook that gets turned off, and this one fires
 after every single write.
 
+**The third hook, and the one nobody read because it only warns.** Both sensors had
+been probed and both had defects; `context-drift.sh` advises rather than blocks,
+which is exactly what made it look harmless. A hook that only warns is fine until
+its warning is about the wrong tree.
+
+**It searched the current directory, not the repository.** A `SessionStart` hook runs
+wherever the session started. *Measured*: from the repo root it found the AI-TODO
+file; from a **subdirectory of the same repository** it found none and reported no
+drift at all. The scope depended silently on something the caller chose — the
+`GIT_DIR` defect wearing a different coat, and the second time this week that a tool's
+answer turned on a path nobody stated.
+
+**A capped count was printed as an exact one.** Sixty files with `AI-TODO` were
+reported as a flat *"50 files have unresolved AI-TODO items"*. That is the defect
+`cap_note` was written for in `gpb` — *N returned at the cap is a floor, not a total*
+— sitting untouched in a hook written before it and never revisited. It says
+*"at least 50 … this is a floor, not a total"* now, and a count below the cap is
+still stated plainly, because hedging every number makes an exact one unreadable as
+exact.
+
+*All three hooks are now probed.* Each had at least one defect, and none of them had
+ever been read after the day it was written. **A gate that runs on every turn and a
+hook that runs on every edit accumulate the same rot as any other code; being
+infrastructure is not the same as being maintained.**
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed
