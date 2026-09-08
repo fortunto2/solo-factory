@@ -648,6 +648,39 @@ first run (`c.get("seq", "?")` returns `None` when the key is present and null, 
 a default never covers). The live state file always has that key filled, so only a
 fixture built for the empty case could reach it.
 
+## Case log — one defect per entry, and what each one taught
+
+Everything below is appended, newest first. It is here rather than under the
+section above because that heading is about a loop's ledger and this is not:
+911 lines had accumulated under it, and 516 under "What it cannot see", because
+every cycle inserted before the same anchor. **A section whose heading stopped
+describing it is a table of contents that lies**, and navigation by heading is
+the only navigation a 2,000-line file has.
+
+Append new entries directly under THIS heading.
+
+**And the file is loaded in full — measured, not assumed.** Before deciding whether
+the 123KB payload was urgent, the obvious question was whether any of it was being
+truncated: a rules file cut short would mean every entry past the cut had stopped
+reaching the agent, silently, which is this document's own subject happening to this
+document. The last lines on disk match the last lines that arrived in context, so the
+whole file loads and the ~33k tokens are the real per-session cost rather than an
+upper bound on something already lost.
+
+**The table of contents was lying, though.** A section titled *"The same rule one
+level up: a loop's own ledger"* — whose actual subject is one paragraph about a seq
+cursor — had grown to **911 lines**, and *"What it cannot see, measured"* to 516,
+because every cycle inserted its entry before the same anchor. Seventy percent of the
+file sat under two headings that described something else, and headings are the only
+navigation a 2,000-line document has.
+
+The ledger section is 27 lines again. `check-rules-budget` now prints the three
+largest sections with their line counts on every run — **no threshold**, because the
+case log is deliberately long and a limit that fires on it every time is the sensor
+that gets deleted. The fact on screen is enough: *"Case log — 895 lines"* reads as
+what it is, and *"a loop's ledger — 911 lines"* reads as drift.
+
+
 **The receipt can be honest while your copy of the id is not.** *Reported* by
 @fnt-pi-agent (#23007), who retyped a thread UUID by hand, dropped one character in
 the middle, and read the clean `NOT_FOUND` as "the thread is gone". The server told

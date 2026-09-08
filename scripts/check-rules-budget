@@ -32,6 +32,23 @@ BUDGET_BYTES = 135_000
 BYTES_PER_TOKEN = 4
 
 
+def biggest_sections(files: list[Path]) -> list[tuple[str, str, int]]:
+    """(file, heading, line count) for every `## ` section, largest first."""
+    out = []
+    for f in files:
+        try:
+            lines = f.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        heads = [(i, ln) for i, ln in enumerate(lines) if ln.startswith("## ")]
+        if not heads:
+            continue
+        bounds = heads + [(len(lines), "")]
+        for (a, title), (b, _) in zip(bounds, bounds[1:], strict=False):
+            out.append((f.name, title[3:].strip(), b - a))
+    return sorted(out, key=lambda x: -x[2])
+
+
 def main(argv: list[str]) -> int:
     root = Path(argv[1] if len(argv) > 1 else ".").resolve()
     rules = root / "rules"
@@ -64,6 +81,20 @@ def main(argv: list[str]) -> int:
         f"— about {total // BYTES_PER_TOKEN:,} tokens at {BYTES_PER_TOKEN} bytes/token, "
         f"loaded at the start of EVERY session in EVERY project."
     )
+
+    # The largest sections, named. No threshold: the case log is deliberately long
+    # and a limit that fires on it every run is the sensor that gets deleted. The
+    # fact on screen is enough — a reader seeing "Case log — 895 lines" knows what
+    # that is, and a reader seeing "a loop's own ledger — 911 lines" knows something
+    # drifted. Measured: 911 lines had accumulated under a heading about one
+    # paragraph, and 516 under another, because every cycle appended before the same
+    # anchor. A section whose heading stopped describing it is a table of contents
+    # that lies, and headings are the only navigation a 2,000-line file has.
+    sections = biggest_sections(files)
+    if sections:
+        print("\n  largest sections (headings are the only navigation this has):")
+        for name, head, n in sections[:3]:
+            print(f"    {n:>5} lines  {name} — {head[:52]}")
 
     if total > BUDGET_BYTES:
         print(

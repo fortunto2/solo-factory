@@ -58,3 +58,40 @@ pathlib.Path(sys.argv[1]).write_text('x' * 200_000)
   [[ "$output" == *"harness-sensors.md"* ]]
   [[ "$output" == *"EVERY session in EVERY project"* ]]
 }
+
+@test "the largest sections are named, with their line counts" {
+  # 911 lines had accumulated under a heading about one paragraph, and 516 under
+  # another, because every cycle appended before the same anchor. A section whose
+  # heading stopped describing it is a table of contents that lies, and headings are
+  # the only navigation a 2,000-line file has.
+  { printf '# Doc\n\n## Small\n\nx\n\n## Huge\n\n'; printf 'line\n%.0s' $(seq 1 400); } > "$R/rules/a.md"
+  run python3 "$C" "$R"
+  [ -n "$output" ]
+  [[ "$output" == *"largest sections"* ]]
+  [[ "$output" == *"Huge"* ]]
+  [[ "$output" == *"a.md"* ]]
+}
+
+@test "a file with no headings contributes no sections and does not crash" {
+  printf 'just prose, no headings at all\n' > "$R/rules/flat.md"
+  printf '# Doc\n\n## One\n\nx\n' > "$R/rules/b.md"
+  run python3 "$C" "$R"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"One"* ]]
+  [[ "$output" != *"flat.md —"* ]]
+}
+
+@test "the section list is ordered largest first" {
+  { printf '# D\n\n## Tiny\n\nx\n\n## Middle\n\n'; printf 'm\n%.0s' $(seq 1 50)
+    printf '\n## Biggest\n\n'; printf 'b\n%.0s' $(seq 1 300); } > "$R/rules/c.md"
+  run python3 "$C" "$R"
+  python3 -c "
+import re, sys
+lines = [l for l in sys.argv[1].splitlines() if 'lines  ' in l]
+assert lines, 'no section lines printed'
+counts = [int(re.search(r'(\d+) lines', l).group(1)) for l in lines]
+assert counts == sorted(counts, reverse=True), counts
+assert 'Biggest' in lines[0], lines[0]
+print('OK', counts)
+" "$output"
+}
