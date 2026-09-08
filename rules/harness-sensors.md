@@ -1258,6 +1258,37 @@ filtered, so "37 of the last 60" was about something else entirely. A number tha
 does not say what it counted, in the probe measuring a line added to stop exactly
 that.
 
+**The receipt was comparable and nothing checked that it stayed so.** Two runs on
+one tree differ in four lines — `elapsed` and each sensor's `seconds` — measured
+rather than assumed. But if set-iteration order ever reached `scope`, or a temp path
+reached a finding, the receipt would quietly stop being diffable and no test would
+notice. So it is a field: `verdict_digest`, a sha256 over the whole receipt with the
+timing keys removed, JSON only because a hash in the text receipt is noise on every
+run.
+
+It answers "did anything about the verdict change between these two runs" with one
+comparison — which matters most for the reader who does not know which of our fields
+vary, the same reader the fixture pack is written for.
+
+*Three probe defects on the way, and each is a rule this file already states.*
+
+The field was **unreachable** at first — appended after `return {`, so the assignment
+was dead code — and the probe printed `STABLE` from comparing **two empty strings**.
+An equality check must assert its operands are non-empty; here it declared success
+from two absences, in a probe about whether two things are the same.
+
+Then the digest looked **blind**: it did not move when a line was added. It was
+right. The receipt records what was checked and what was found, not the file's
+contents, and the added line changed no finding. *A probe that edits an input without
+changing an outcome proves nothing about a digest*, and the correct input is one that
+changes a finding. Both directions are tests now, so the next reader meets the
+surprise as a stated property.
+
+And the fixture committed everything, leaving a **clean tree** whose receipt is
+`UNKNOWN` with an empty scope — a different receipt from the one the tests are about.
+Two of four failed on the fixture rather than the code. The convenient fixture again,
+in the file where that phrase has now been written four times.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

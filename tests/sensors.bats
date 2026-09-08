@@ -1429,3 +1429,83 @@ print('OUT:' + repr(m.assertions_removed(Path('$1'), [Path('$1/$2')])))
   [[ "$output" == *"ASSERTIONS NET NEGATIVE"* ]]   # the question is still raised
   [[ "$output" != *"scripts/witness"* ]]           # but no command is promised
 }
+
+# ── the receipt is comparable, and that is now checked ──────────────────────
+#
+# Two runs on the same tree already differed only in `elapsed` and each sensor's
+# `seconds` — measured, four lines of diff. Nothing CHECKED it: if set-iteration
+# order reached `scope`, or a temp path reached a finding, the receipt would quietly
+# stop being comparable and no test would notice.
+
+digest_of() {  # $1 = repo root
+  python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$1" --json 2>&1 \
+    | python3 -c "import json,sys; print(json.load(sys.stdin)['verdict_digest'])"
+}
+
+setup_det() {
+  DR="$BATS_TEST_TMPDIR/det"; mkdir -p "$DR"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$DR" && git init -q . && git config user.email t@e && git config user.name t
+    printf 'x = 1\n' > a.py && git add -A && git commit -q -m base )
+  # Left MODIFIED on purpose. A committed clean tree gives an empty scope and an
+  # UNKNOWN receipt, so the first digest would be of "nothing was checked" — which
+  # is a different receipt from the one these tests are about. My first fixture did
+  # exactly that and two of the four tests failed on the fixture, not the code.
+  printf 'import os\nx = 1\n' > "$DR/a.py"
+}
+
+@test "two runs on one tree produce the same verdict digest" {
+  setup_det
+  run digest_of "$DR"; [ "$status" -eq 0 ]; d1="$output"
+  run digest_of "$DR"; [ "$status" -eq 0 ]; d2="$output"
+  # Non-empty FIRST. My own probe printed STABLE while comparing two empty strings,
+  # because the field was unreachable — an equality of two absences.
+  [ -n "$d1" ]
+  [ ${#d1} -eq 16 ]
+  [ "$d1" = "$d2" ]
+}
+
+@test "the digest moves when a finding changes" {
+  # Positive control, and the case that fooled me: adding a line that changes NO
+  # finding correctly leaves the digest alone, because the receipt records what was
+  # checked and what was found, not the file's contents. A probe that edits a file
+  # without changing an outcome proves nothing about a digest.
+  setup_det
+  run digest_of "$DR"; before="$output"
+  printf 'import os\nimport sys\nx = 1\n' > "$DR/a.py"      # a second unused import
+  run digest_of "$DR"; after="$output"
+  [ -n "$before" ]
+  [ -n "$after" ]
+  [ "$before" != "$after" ]
+}
+
+@test "a line that changes no finding leaves the digest alone" {
+  # The other direction, stated rather than left as a surprise for the next reader.
+  setup_det
+  run digest_of "$DR"; before="$output"
+  printf 'import os\nx = 1\nz = 3\n' > "$DR/a.py"           # still exactly one finding
+  run digest_of "$DR"; after="$output"
+  [ -n "$before" ]
+  [ "$before" = "$after" ]
+}
+
+@test "timings are excluded, so a slower run is not a different verdict" {
+  setup_det
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$DR" --json
+  [ "$status" -eq 1 ]      # an unused import: this receipt is a FAIL, not UNKNOWN
+  [[ "$output" == *"elapsed"* ]]        # the timings are still reported
+  [[ "$output" == *"verdict_digest"* ]]
+  python3 -c "
+import json, sys, hashlib
+rec = json.loads(sys.argv[1])
+def strip(o):
+    if isinstance(o, dict):
+        return {k: strip(v) for k, v in sorted(o.items()) if k not in ('elapsed','seconds')}
+    if isinstance(o, list): return [strip(v) for v in o]
+    return o
+r = dict(rec); r.pop('verdict_digest')
+want = hashlib.sha256(json.dumps(strip(r), sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
+assert want == rec['verdict_digest'], (want, rec['verdict_digest'])
+print('OK')
+" "$output"
+}

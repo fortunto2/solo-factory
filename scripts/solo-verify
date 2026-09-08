@@ -1664,7 +1664,7 @@ def build_receipt(
     else:
         verdict, why = "PASS", ""
 
-    return {
+    rec = {
         "verdict": verdict,
         "why": why,
         "mode": "full" if full else "fast",
@@ -1718,6 +1718,39 @@ def build_receipt(
         ],
         "elapsed": round(elapsed, 2),
     }
+    rec["verdict_digest"] = verdict_digest(rec)
+    return rec
+
+
+TIMING_FIELDS = ("elapsed", "seconds")
+
+
+def verdict_digest(rec: dict) -> str:
+    """sha256 of everything in this receipt except how long it took.
+
+    Two runs on the same tree already differed only in `elapsed` and each sensor's
+    `seconds` — measured, four lines of diff. But nothing CHECKED that: if a future
+    change let set-iteration order into `scope`, or a temp path into a finding, the
+    receipt would quietly stop being comparable and no test would notice.
+
+    So the property is a field rather than a claim. It answers "did anything about
+    the verdict change between these two runs" with one comparison, which matters
+    most for the reader who does not know which of our fields vary — the same reader
+    the fixture pack is written for.
+
+    JSON only, deliberately: the text receipt is for reading and a hash in it would
+    be noise on every run.
+    """
+
+    def strip(o):
+        if isinstance(o, dict):
+            return {k: strip(v) for k, v in sorted(o.items()) if k not in TIMING_FIELDS}
+        if isinstance(o, list):
+            return [strip(v) for v in o]
+        return o
+
+    payload = json.dumps(strip(rec), sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
 def witness_available(root: str) -> bool:
