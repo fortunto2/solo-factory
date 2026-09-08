@@ -12,6 +12,29 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**The shippable check watched the wrong hop, and the gap grew to forty versions.**
+It asked *is the manifest ahead of the code?* and called that shippable. It never
+asked the next hop — *is what a user actually loads ahead of nothing?*
+
+*Measured*: the manifest declares **1.63.0**; the only directory in the plugin cache
+is **1.23.0**. Forty versions, with `check-shippable` printing *"nothing owed — every
+user-facing change is in a released version"* the whole time. Everything from six
+weeks of cycles is in the repository and in nobody's runtime.
+
+This exact gap is already in this log at **two** versions, and the fix then was to
+count unreleased commits — which measures the manifest hop again. Nothing has watched
+the runtime hop since, so it grew by a factor of twenty in silence. **A check written
+in response to a gap can restate the gap instead of closing it, and the way to tell
+is whether the new measurement crosses the hop the old one stopped at.**
+
+The receipt now names the installed version beside the declared one. Reporting only:
+what is installed on somebody's machine is not this repository's to change, and a
+check that failed on it would fail for every contributor who never installed the
+plugin. No cache at all, and a cache without this plugin, are both `UNCHECKED` with
+the reason — an empty list is produced by a missing machine and by a missing install
+alike.
+
+
 **And the split itself was the last entry written into the loaded file.** The budget
 check reported 1,156 bytes of headroom the cycle before — so the next entry, whatever
 it said, would have breached it. That is the mechanism working as designed: the

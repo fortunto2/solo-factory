@@ -62,9 +62,36 @@ def git(*args: str) -> str:
     ).stdout.strip()
 
 
+def installed_versions(name: str) -> tuple[list[str], str | None]:
+    """What is actually in the plugin cache. Returns (versions, why-not-known).
+
+    This script answered "is the manifest ahead of the code?" and called that
+    shippable. It never asked the next hop — *is what a user loads ahead of
+    nothing?* — and that hop is where the gap lives: measured here, the manifest
+    said 1.63.0 while the only directory in the cache was **1.23.0**, forty
+    versions behind, with the check printing "nothing owed" throughout.
+
+    The same gap was recorded once before at two versions and the fix then counted
+    unreleased commits, which measures the manifest hop again. Nothing has watched
+    the runtime hop since, and it grew to forty.
+
+    Reporting only: what is installed on somebody's machine is not this
+    repository's to change, and a check that fails on it would fail for every
+    contributor who never installed the plugin at all.
+    """
+    base = Path.home() / ".claude" / "plugins" / "cache"
+    if not base.is_dir():
+        return [], "no plugin cache on this machine"
+    hits = [d for d in base.glob(f"*/{name}/*") if d.is_dir()]
+    if not hits:
+        return [], f"{name} is not installed from any marketplace here"
+    return sorted({d.name for d in hits}), None
+
+
 def main() -> int:
     try:
         version = json.loads(MANIFEST.read_text())["version"]
+        plugin_name = json.loads(MANIFEST.read_text()).get("name", "")
     except (OSError, KeyError, json.JSONDecodeError) as e:
         print(
             f"UNKNOWN: cannot read the declared version ({e}) — this is not a pass",
@@ -89,6 +116,18 @@ def main() -> int:
             unreleased.append((c[:7], git("log", "--format=%s", "-1", c)))
 
     print(f"  declared version : {version}")
+    installed, why_not = installed_versions(plugin_name)
+    if why_not:
+        print(f"  installed        : UNCHECKED — {why_not}")
+    elif version in installed:
+        print(f"  installed        : {', '.join(installed)}")
+    else:
+        print(
+            f"  installed        : {', '.join(installed)}  <-- NOT {version}. "
+            f"Every change since is in the repository and in nobody's runtime; a "
+            f"version string is how this plugin is distributed, so a manifest bump "
+            f"that was never installed reaches no one."
+        )
     print(f"  commits since it : {len(commits)}  ({len(unreleased)} user-facing)")
 
     if not unreleased:

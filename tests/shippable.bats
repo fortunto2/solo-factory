@@ -128,3 +128,68 @@ commit_file() {  # path, message
   [[ "$output" == *"no history"* ]]
   [[ "$output" != *"nothing owed"* ]]
 }
+
+# ── the hop this check never looked at ─────────────────────────────────────
+#
+# It asked "is the manifest ahead of the code?" and called that shippable. It never
+# asked "is what a user loads ahead of nothing?" — and that is where the gap lived:
+# the manifest said 1.63.0 while the only directory in the plugin cache was 1.23.0,
+# forty versions behind, with the check printing "nothing owed" throughout. The same
+# gap was recorded once before at TWO versions; the fix then counted unreleased
+# commits, which measures the manifest hop again.
+
+iv() {  # installed_versions(name), against a fake HOME
+  python3 -c "
+import importlib.machinery, importlib.util, sys
+l = importlib.machinery.SourceFileLoader('cs', '$C')
+sp = importlib.util.spec_from_loader('cs', l)
+m = importlib.util.module_from_spec(sp); sys.modules['cs'] = m; l.exec_module(m)
+print(m.installed_versions('$1'))
+"
+}
+
+@test "an installed version is found and reported" {
+  export HOME="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$HOME/.claude/plugins/cache/solo/solo/1.23.0"
+  run iv solo
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"1.23.0"* ]]
+  [[ "$output" == *"None"* ]]        # nothing prevented the check
+}
+
+@test "no cache at all is UNCHECKED, not 'nothing installed'" {
+  # A contributor who never installed the plugin and a machine where the cache was
+  # wiped look identical from an empty list. The reason has to be carried.
+  export HOME="$BATS_TEST_TMPDIR/bare"
+  mkdir -p "$HOME"
+  run iv solo
+  [[ "$output" == *"no plugin cache on this machine"* ]]
+}
+
+@test "a cache without this plugin says which plugin was looked for" {
+  export HOME="$BATS_TEST_TMPDIR/other"
+  mkdir -p "$HOME/.claude/plugins/cache/elsewhere/somethingelse/2.0.0"
+  run iv solo
+  [[ "$output" == *"solo is not installed"* ]]
+}
+
+@test "the receipt says NOT <version> when the runtime is behind" {
+  export HOME="$BATS_TEST_TMPDIR/behind"
+  mkdir -p "$HOME/.claude/plugins/cache/solo/solo/1.23.0"
+  run python3 "$C"
+  [ -n "$output" ]
+  [[ "$output" == *"installed"* ]]
+  [[ "$output" == *"NOT "* ]]
+  [[ "$output" == *"reaches no one"* ]]
+}
+
+@test "a matching installed version is reported without the warning" {
+  # Positive control: a line that always warns passes the test above while telling
+  # every up-to-date machine it is behind.
+  export HOME="$BATS_TEST_TMPDIR/match"
+  V=$(python3 -c "import json;print(json.load(open('$BATS_TEST_DIRNAME/../.claude-plugin/plugin.json'))['version'])")
+  mkdir -p "$HOME/.claude/plugins/cache/solo/solo/$V"
+  run python3 "$C"
+  [[ "$output" == *"installed        : $V"* ]]
+  [[ "$output" != *"NOT $V"* ]]
+}
