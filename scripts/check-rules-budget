@@ -60,7 +60,21 @@ def main(argv: list[str]) -> int:
         )
         return 2
 
-    files = sorted(rules.glob("*.md"))
+    # The LOADED directory when it exists, not the repository's copy of it. Same hop
+    # problem as the shippable check one cycle earlier: measuring the source while a
+    # session reads the destination. Measured here — ~/.claude/rules/ held SIX files,
+    # five symlinked to this repo plus an `ai-sdk-6.md` that is not in the repo at
+    # all, so 908 bytes were loaded into every session and counted by nothing. The
+    # reverse is worse and equally invisible: a repo file whose symlink is missing
+    # gets counted here and never loaded.
+    loaded = Path.home() / ".claude" / "rules"
+    measured, where = rules, f"{rules} (the repository; this machine loads elsewhere)"
+    if loaded.is_dir():
+        measured, where = loaded, str(loaded)
+    else:
+        where = f"{rules} — ~/.claude/rules does not exist here, so this is the source, not what any session loads"
+
+    files = sorted(measured.glob("*.md"))
     if not files:
         # An empty directory and a walk that failed look identical from the total.
         print(
@@ -69,6 +83,16 @@ def main(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 2
+
+    print(f"  measuring: {where}\n")
+
+    # Divergence between what is loaded and what this repository holds, in both
+    # directions. Either alone is a silent difference between the number and the
+    # thing the number is about.
+    repo_names = {f.name for f in rules.glob("*.md")} if rules.is_dir() else set()
+    loaded_names = {f.name for f in files}
+    only_loaded = sorted(loaded_names - repo_names)
+    only_repo = sorted(repo_names - loaded_names)
 
     sizes = [(f.name, f.stat().st_size) for f in files]
     total = sum(n for _, n in sizes)
@@ -90,6 +114,17 @@ def main(argv: list[str]) -> int:
     # paragraph, and 516 under another, because every cycle appended before the same
     # anchor. A section whose heading stopped describing it is a table of contents
     # that lies, and headings are the only navigation a 2,000-line file has.
+    if only_loaded:
+        print(
+            f"\n  loaded but NOT in this repository: {', '.join(only_loaded)}"
+            f"  — counted above, and nothing here can keep them from growing."
+        )
+    if only_repo:
+        print(
+            f"\n  in this repository but NOT loaded: {', '.join(only_repo)}"
+            f"  — written for a session that never reads them."
+        )
+
     sections = biggest_sections(files)
     if sections:
         print("\n  largest sections (headings are the only navigation this has):")

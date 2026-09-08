@@ -12,6 +12,27 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**The same hop question, asked one cycle later, of the budget check.** It measured
+`rules/` in this repository. A session reads `~/.claude/rules/` — and here that
+directory holds **six** files: five symlinked to this repo, plus an `ai-sdk-6.md`
+that is not in the repo at all. **908 bytes loaded into every session and counted by
+nothing.**
+
+The reverse is worse and equally invisible: a repository file whose symlink is
+missing gets counted here and never loaded — a rule written for a reader that never
+sees it. Both directions are named now, and the number is taken from the loaded
+directory when one exists. On a machine without it (CI, a fresh checkout) the receipt
+says the figure is about the source *"not what any session loads"*, rather than
+presenting one as the other.
+
+**Six of this file's own tests broke on the change, correctly.** They passed a
+scratch repository and never set `HOME`, so the moment the check learned to look at
+what actually loads, they measured the real machine instead of their own fixture. A
+test that names its input and then reads a global is measuring something it did not
+choose — the same defect as the code it was written for, in the tests written for the
+code.
+
+
 **The shippable check watched the wrong hop, and the gap grew to forty versions.**
 It asked *is the manifest ahead of the code?* and called that shippable. It never
 asked the next hop — *is what a user actually loads ahead of nothing?*

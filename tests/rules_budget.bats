@@ -11,6 +11,12 @@ C="${BATS_TEST_DIRNAME}/../scripts/check-rules-budget"
 
 setup() {
   R="$BATS_TEST_TMPDIR/repo"; mkdir -p "$R/rules"
+  # The check measures the LOADED directory when one exists, and that is machine
+  # global (~/.claude/rules), not per-repository. Without this, every test below
+  # measured the real machine instead of its own fixture — which is how six of them
+  # started failing the moment the check learned to look at what actually loads.
+  export HOME="$BATS_TEST_TMPDIR/nohome"
+  mkdir -p "$HOME"
 }
 
 @test "it reports the total, the share per file, and the token estimate" {
@@ -133,4 +139,56 @@ total = int(m.group(1).replace(',', ''))
 assert total < 100_000, total
 print('OK', total)
 " "$output"
+}
+
+# ── the hop this check stopped one short of ─────────────────────────────────
+#
+# It measured rules/ in the repository. A session loads ~/.claude/rules/, which here
+# is five symlinks plus a real file that is not in the repository at all — 908 bytes
+# loaded into every session and counted by nothing. Same shape as the shippable
+# check one cycle earlier: measuring the source while the reader reads the
+# destination.
+
+@test "it measures the loaded directory when one exists" {
+  export HOME="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$HOME/.claude/rules" "$R/rules"
+  printf 'in the repo only\n' > "$R/rules/repo.md"
+  printf 'loaded only, not in any repo\n' > "$HOME/.claude/rules/local.md"
+  run python3 "$C" "$R"
+  [ -n "$output" ]
+  [[ "$output" == *"measuring: $HOME/.claude/rules"* ]]
+  [[ "$output" == *"local.md"* ]]
+}
+
+@test "a file loaded but absent from the repository is named" {
+  export HOME="$BATS_TEST_TMPDIR/h2"
+  mkdir -p "$HOME/.claude/rules" "$R/rules"
+  printf 'x\n' > "$R/rules/shared.md"
+  printf 'x\n' > "$HOME/.claude/rules/shared.md"
+  printf 'y\n' > "$HOME/.claude/rules/stray.md"
+  run python3 "$C" "$R"
+  [[ "$output" == *"loaded but NOT in this repository: stray.md"* ]]
+  [[ "$output" != *"in this repository but NOT loaded"* ]]
+}
+
+@test "a repository file that no session loads is named too" {
+  # The reverse, and the worse one: written for a reader that never sees it.
+  export HOME="$BATS_TEST_TMPDIR/h3"
+  mkdir -p "$HOME/.claude/rules" "$R/rules"
+  printf 'x\n' > "$HOME/.claude/rules/shared.md"
+  printf 'x\n' > "$R/rules/shared.md"
+  printf 'z\n' > "$R/rules/orphan.md"
+  run python3 "$C" "$R"
+  [[ "$output" == *"in this repository but NOT loaded: orphan.md"* ]]
+}
+
+@test "with no loaded directory it says the number is about the source" {
+  # A machine with no ~/.claude/rules — CI, a fresh checkout — must not present the
+  # repository's bytes as what a session loads.
+  export HOME="$BATS_TEST_TMPDIR/h4"
+  mkdir -p "$HOME" "$R/rules"
+  printf 'x\n' > "$R/rules/a.md"
+  run python3 "$C" "$R"
+  [[ "$output" == *"does not exist here"* ]]
+  [[ "$output" == *"not what any session loads"* ]]
 }
