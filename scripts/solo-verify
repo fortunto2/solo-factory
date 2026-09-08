@@ -1720,6 +1720,17 @@ def build_receipt(
     }
 
 
+def witness_available(root: str) -> bool:
+    """Is the tool that answers this question actually here?
+
+    Naming a command that is not present is worse than silence: the reader spends
+    the trust once, finds nothing, and discounts the next pointer too. solo-verify
+    is distributed as a single file people curl on its own, so `scripts/witness`
+    beside it is the exception rather than the rule.
+    """
+    return (Path(root) / "scripts" / "witness").is_file()
+
+
 def render(rec: dict) -> str:
     out = [f"VERIFY {rec['verdict']} ({rec['mode']}, {rec['elapsed']}s)"]
     if rec["why"]:
@@ -1789,6 +1800,16 @@ def render(rec: dict) -> str:
             "    weakened to keep a red gate green. This says which SHAPE it is, not"
         )
         out.append("    which one it was. Consolidation produces it legitimately too.")
+        # The tool that answers the remaining question exists and nothing pointed
+        # at it. Two cycles ago the same gap made a shipped checker sit unrun for
+        # days while being cited as the answer to a residual — a tool nobody is
+        # told about is a tool nobody runs. Only printed where the question is
+        # actually open, so it is a pointer rather than an advert.
+        if witness_available(rec.get("root", ".")):
+            out.append(
+                "    To answer it: scripts/witness --subject <impl> --test <file> "
+                "--name <test> --guard <the line the change added>"
+            )
     if rec["skipped"]:
         out.append(
             "  skipped:  "

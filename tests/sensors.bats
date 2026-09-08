@@ -1397,3 +1397,35 @@ print('OUT:' + repr(m.assertions_removed(Path('$1'), [Path('$1/$2')])))
   [[ "$output" != *"UNDECLARED"* ]]
   [[ "$output" != *"EXEMPT"* ]]
 }
+
+@test "the assertion-delta line points at the tool that answers it, when present" {
+  # Two cycles ago a shipped checker sat unrun for days while being cited as the
+  # answer to a residual. A tool nobody is told about is a tool nobody runs.
+  R="$BATS_TEST_TMPDIR/withw"
+  mkdir -p "$R/tests" "$R/scripts"
+  cp "$BATS_TEST_DIRNAME/../scripts/witness" "$R/scripts/"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$R" && git init -q . && git config user.email t@e && git config user.name t
+    printf '@test "a" {\n  [[ 1 == 1 ]]\n  [[ 2 == 2 ]]\n  [[ 3 == 3 ]]\n}\n' > tests/a.bats
+    git add -A && git commit -q -m base
+    printf '@test "a" {\n  [[ 1 == 1 ]]\n}\n' > tests/a.bats )
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$R" --files "$R/tests/a.bats"
+  [[ "$output" == *"ASSERTIONS NET NEGATIVE"* ]]
+  [[ "$output" == *"scripts/witness --subject"* ]]
+}
+
+@test "it names no command when that command is not there" {
+  # Naming a tool that is absent is worse than silence: the reader spends the trust
+  # once, finds nothing, and discounts the next pointer. solo-verify is curled on
+  # its own, so witness beside it is the exception.
+  R="$BATS_TEST_TMPDIR/now"
+  mkdir -p "$R/tests"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$R" && git init -q . && git config user.email t@e && git config user.name t
+    printf '@test "a" {\n  [[ 1 == 1 ]]\n  [[ 2 == 2 ]]\n}\n' > tests/a.bats
+    git add -A && git commit -q -m base
+    printf '@test "a" {\n  [[ 1 == 1 ]]\n}\n' > tests/a.bats )
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$R" --files "$R/tests/a.bats"
+  [[ "$output" == *"ASSERTIONS NET NEGATIVE"* ]]   # the question is still raised
+  [[ "$output" != *"scripts/witness"* ]]           # but no command is promised
+}

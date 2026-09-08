@@ -1219,6 +1219,32 @@ limit is a **crossing**, which is correctly a finding, so the fixture had to com
 the file first. The convenient fixture again — a scratch directory with no history
 exercises a different branch from the repository the sensor actually runs in.
 
+**Three mechanisms, and nothing pointed from one to the next.** `HARNESS TOUCHED`
+raises the question, `ASSERTIONS NET NEGATIVE` sharpens it, and `witness` answers it
+— and a reader who saw the second had no way to learn the third existed. Two cycles
+earlier the identical gap left a shipped checker unrun for days while being cited as
+the answer to a residual. **A tool nobody is told about is a tool nobody runs**, and
+building it is the cheap half.
+
+The pointer is printed only where the question is actually open, so it stays a
+pointer rather than an advert — and only when the file is present. Naming an absent
+command is worse than silence: the reader spends the trust once, finds nothing, and
+discounts the next pointer too. `solo-verify` is curled on its own by design, so
+`scripts/witness` beside it is the exception rather than the rule. A test covers each
+direction, and a mutation making it always-available kills the absent case.
+
+*Two negative results the same cycle, both stated because an audit that finds nothing
+is worth the same as one that finds something, provided it ran.* The text and JSON
+receipts agree on the new `over_undeclared` state, counter included. And the noise
+rate I shipped without measuring — against my own rule — is **1 of the last 30
+commits**, which is fine for a statement.
+
+*My first attempt at that rate was mislabelled.* `git log -60 -- <path>` returns up
+to sixty commits touching that path **anywhere in history**, not sixty recent commits
+filtered, so "37 of the last 60" was about something else entirely. A number that
+does not say what it counted, in the probe measuring a line added to stop exactly
+that.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed
