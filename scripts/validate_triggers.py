@@ -23,6 +23,7 @@ If no triggers.yaml exists, the script extracts test cases from
 the skill description's trigger phrases and negative triggers.
 """
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -135,6 +136,18 @@ def run_tests(
     all_passed = True
     total_tests = 0
     passed_tests = 0
+    # Skills for which nothing positive was ever asserted. Measured before this
+    # line existed: 30 of 33 reported skills had ZERO positive cases, while the
+    # summary said "PASS — 48/48 tests passed". For those thirty the green means
+    # "this description does not trigger on one phrase we invented" and nothing
+    # about whether it triggers on anything a user would say — an empty description
+    # would pass identically.
+    no_positive: list[str] = []
+    # Worse than "no positive case": a skill with NO case at all was `continue`d and
+    # its SKIP line printed only under --verbose, so it vanished from the default
+    # report entirely. Measured: 46 skills on disk, 33 in the report, 13 invisible
+    # while the summary said PASS.
+    no_cases: list[str] = []
 
     skill_dirs = sorted(skills_dir.iterdir())
     if target_skill:
@@ -156,6 +169,7 @@ def run_tests(
         should_not = tests.get("should_not_trigger", [])
 
         if not should and not should_not:
+            no_cases.append(skill_name)
             if verbose:
                 print(f"  SKIP  {skill_name} — no test cases")
             continue
@@ -188,6 +202,8 @@ def run_tests(
                 all_passed = False
                 print(f'  FAIL  {skill_name} should NOT trigger for "{prompt}"')
 
+        if not should:
+            no_positive.append(skill_name)
         if skill_passed and not verbose:
             tag = "(auto)" if auto else ""
             print(f"  OK    {skill_name} — {len(should)}+ / {len(should_not)}- {tag}")
@@ -195,6 +211,28 @@ def run_tests(
     print(
         f"\n{'PASS' if all_passed else 'FAIL'} — {passed_tests}/{total_tests} tests passed"
     )
+    if no_cases:
+        print(
+            f"  {len(no_cases)} skill(s) contributed NO TEST CASE AT ALL and are "
+            f"absent from the list above — nothing was asserted about them in either "
+            f'direction. Their descriptions carry no `Use when user says "…"` '
+            f"phrases, which is the only form this extractor reads:"
+        )
+        print("    " + ", ".join(sorted(no_cases)))
+    if no_positive:
+        # Stated, never failed: writing positive cases for thirty skills is not a
+        # cycle's work, and a check that suddenly fails thirty of them is a check
+        # that gets disabled. The number on screen is what makes the gap a decision.
+        print(
+            f"  {len(no_positive)} skill(s) asserted NOTHING POSITIVE — only that "
+            f"they do not trigger on an invented phrase. A green here says nothing "
+            f"about whether they trigger on what a user would actually say:"
+        )
+        print("    " + ", ".join(sorted(no_positive)))
+        print(
+            "    Add tests/triggers.yaml with should_trigger examples to turn a "
+            "skill's green into a claim about triggering."
+        )
     return all_passed
 
 
@@ -206,9 +244,13 @@ def main():
         if arg == "--skill" and i < len(sys.argv) - 1:
             target_skill = sys.argv[i + 1]
 
-    # Find skills directory
-    script_dir = Path(__file__).parent.parent
-    skills_dir = script_dir / "skills"
+    # Overridable for the same reason its sibling needed it: anchored to its own
+    # repository, the only way to test this was to plant a skill in the real
+    # skills/ directory, and a test failing midway would leave it behind. A test
+    # must not be able to damage the thing it tests.
+    skills_dir = Path(
+        os.environ.get("SOLO_SKILLS_DIR", Path(__file__).parent.parent / "skills")
+    )
 
     if not skills_dir.exists():
         print(f"Skills directory not found: {skills_dir}")

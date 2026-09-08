@@ -12,6 +12,36 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**"PASS — 48/48 tests passed" over 46 skills, three of which were actually tested.**
+The sibling validator got tests yesterday and I stopped there, which is the
+one-call-site pattern this log has recorded nine times. Asked of
+`validate_triggers.py`, the answer was worse than a missing test:
+
+- **13 skills contributed no test case at all** and were `continue`d out of the
+  report, their `SKIP` line printed only under `--verbose`. 46 on disk, 33 in the
+  output, thirteen invisible while the summary said PASS.
+- **30 more asserted nothing positive** — only that they do not trigger on a phrase
+  the tool invented. For those, an empty description passes identically.
+
+The cause is one line: `extract_trigger_phrases` reads exactly the form
+`Use when user says "…"`, with the quotes, and most descriptions are not written that
+way. So the coverage depends on a format nothing enforces, and the shortfall was
+reported as a pass.
+
+Both states are named now, and neither fails the run: writing positive cases for
+thirty skills is not a cycle's work, and a check that suddenly fails thirty of them
+is a check that gets disabled. The number on screen is what turns a gap into a
+decision.
+
+*The `no_positive` branch killed 0 tests when first written* — five tests covered
+skills with **no** case and none covered a skill with a negative case and no positive
+one, which is the exact state thirty skills are in. Found by running the mutation
+rather than by reading, and the sixth test exists because of it.
+
+*And the seam again*: like its sibling, this was anchored to its own repository, so
+every test would have had to plant skills in the real `skills/` directory.
+
+
 **The half of the harness this repository exists for had no tests at all.** Weeks
 went into the sensors; they carry 395 tests. The two checks guarding the **46
 skills** — the product — carried **zero**, so nobody had seen either produce a red.
