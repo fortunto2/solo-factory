@@ -81,6 +81,9 @@ mutants:  ## Which tests never fail? (F=script T=testfile)
 shippable:  ## Is the committed work actually installable by anyone?
 	python3 scripts/check-shippable
 
+rules-budget:  ## What the always-loaded rules cost every session
+	python3 scripts/check-rules-budget
+
 blind-spots:  ## Plant known defects and count what the verifier misses
 	python3 scripts/measure-blind-spots
 

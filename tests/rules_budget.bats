@@ -95,3 +95,42 @@ assert 'Biggest' in lines[0], lines[0]
 print('OK', counts)
 " "$output"
 }
+
+@test "the case log is not in the loaded rules directory" {
+  # It was 55,904 bytes — 42% of the always-loaded payload and the only part that
+  # grew every cycle, so leaving it there meant every future entry raised the
+  # standing cost of every session in every project.
+  R2="$BATS_TEST_DIRNAME/.."
+  [ -f "$R2/docs/harness-case-log.md" ]
+  [ ! -f "$R2/rules/harness-case-log.md" ]
+  run grep -c "^\*\*" "$R2/docs/harness-case-log.md"
+  [ "$output" -gt 40 ]                       # the entries really moved, not vanished
+}
+
+@test "the loaded rules point at the log rather than dropping it" {
+  # Moving an archive out of context is only honest if what stays says where it went.
+  R2="$BATS_TEST_DIRNAME/.."
+  # The whole file, not a -A6 window. The first version picked six lines of context
+  # and the sentence it was looking for sat on the eighth — a convenient slice
+  # failing a test about content that was actually there.
+  run cat "$R2/rules/harness-sensors.md"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"case log lives"* ]]
+  [[ "$output" == *"docs/harness-case-log.md"* ]]
+  [[ "$output" == *"append new entries"* ]]
+}
+
+@test "the loaded payload is well under budget after the move" {
+  # The number that motivated it, asserted so a future cycle that quietly moves the
+  # log back has to fail a test rather than just raise a threshold.
+  run python3 "$C" "$BATS_TEST_DIRNAME/.."
+  [ "$status" -eq 0 ]
+  python3 -c "
+import re, sys
+m = re.search(r'([\d,]+) bytes across', sys.argv[1])
+assert m, sys.argv[1][:200]
+total = int(m.group(1).replace(',', ''))
+assert total < 100_000, total
+print('OK', total)
+" "$output"
+}
