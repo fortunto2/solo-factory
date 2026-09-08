@@ -1433,6 +1433,29 @@ were load from the 4000-file probe repository running concurrently — the same
 contamination that once made this suite look like it took ten minutes. **A machine
 busy with your own probe is an instrument you are also measuring.**
 
+**The other hook, asked the same four questions.** The Stop gate was probed last
+cycle and three defects fell out; stopping there is the one-call-site pattern this
+file has now recorded eight times. `hooks/sensor-edit.sh` runs after every Edit and
+Write, and had never been examined. Two defects, and one of them is a **false red**
+— the rarer and sharper kind.
+
+**An unreadable file was reported as `SYNTAX BROKEN`.** Reading and parsing shared
+one `try`, so a file that could not be *opened* produced a message telling the agent
+to fix syntax in a file whose syntax was never examined. Measured with `chmod 000`.
+Every other false green in this document costs a missed defect; this one costs work
+on a file that may be perfectly fine, and it arrives with the authority of a
+blocking-looking message.
+
+**JavaScript with no `node` on PATH passed in silence.** `command -v node || exit 0`
+— an absent tool turning *unchecked* into *fine*, which the contract forbids
+everywhere else in this repo and permitted here in the hook that fires most often.
+Both now say `NOT CHECKED` and name the reason; the JS one names the PATH, since a
+hook's PATH is not your shell's.
+
+The positive control matters more than usual here: **a valid file must stay silent.**
+A hook that speaks on every edit is a hook that gets turned off, and this one fires
+after every single write.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

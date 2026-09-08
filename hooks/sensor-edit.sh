@@ -25,13 +25,37 @@ emit() {
 
 case "$FILE" in
   *.py)
-    if ! OUT=$(python3 -c 'import ast,sys; ast.parse(open(sys.argv[1],encoding="utf-8",errors="replace").read())' "$FILE" 2>&1); then
+    # Reading and parsing are separated on purpose. Joined, a file that could not be
+    # OPENED was reported as SYNTAX BROKEN — a false red telling the agent to fix
+    # syntax in a file whose syntax was never examined. Measured with chmod 000.
+    OUT=$(python3 -c '
+import ast, sys
+try:
+    src = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+except OSError as exc:
+    print("UNREADABLE:" + (exc.strerror or str(exc)))
+    raise SystemExit(3)
+try:
+    ast.parse(src)
+except SyntaxError as exc:
+    print(f"{exc.lineno or 1}: {exc.msg}")
+    raise SystemExit(1)
+' "$FILE" 2>&1); RC=$?
+    if [[ "$RC" -eq 3 ]]; then
+      emit "NOT CHECKED — $FILE could not be read (${OUT#UNREADABLE:}).
+Its syntax is unknown, which is not the same as fine."
+    elif [[ "$RC" -ne 0 ]]; then
       emit "SYNTAX BROKEN in $FILE — fix before continuing:
 $(printf '%s' "$OUT" | tail -3)"
     fi
     ;;
   *.js|*.jsx|*.mjs|*.cjs)
-    command -v node >/dev/null || exit 0
+    # An absent tool must not turn "unchecked" into "fine". This used to `exit 0`
+    # without a word, so on a machine with no node every .js edit passed silently.
+    if ! command -v node >/dev/null; then
+      emit "NOT CHECKED — $FILE is JavaScript and node is not on this PATH.
+Its syntax is unknown. A hook's PATH is not your shell's."
+    fi
     if ! OUT=$(node --check "$FILE" 2>&1); then
       emit "SYNTAX BROKEN in $FILE — fix before continuing:
 $(printf '%s' "$OUT" | head -3)"
