@@ -1506,6 +1506,32 @@ ever been read after the day it was written. **A gate that runs on every turn an
 hook that runs on every edit accumulate the same rot as any other code; being
 infrastructure is not the same as being maintained.**
 
+**This file is the largest cost in the harness, and nothing had measured it.**
+`rules/*.md` is read into context at the start of every session, in every project.
+*Measured*: **123,696 bytes across 2,029 lines here**, against 6,277 for the other
+four rules files combined — 95% of the payload, roughly **32,600 tokens per
+session**, growing a few thousand bytes every cycle because each cycle appends its
+finding to it.
+
+The document arguing that a green light must state its cost had become the cost, in
+the one place nobody was looking: the instrument was never pointed at the instrument
+manual.
+
+`scripts/check-rules-budget` publishes the number, the per-file share and the token
+estimate with its conversion stated, against a budget of 135,000 bytes — about
+4,500 of headroom at the time of writing. It **does not forbid growth**. Going past
+the budget is exit 1 with the words *"not a failure of the content — a decision that
+has not been made"*, and raising the number is a diff like every other threshold
+here.
+
+An absent rules directory and an empty one are both `UNKNOWN`, because zero files and
+a bad path produce the same total.
+
+**What this does not solve**: the honest remedy is a split — a short contract loaded
+every session, and this case log read on demand — and that is a decision about the
+operator's context budget rather than one to make unilaterally in a cycle. The number
+exists now so the decision can be made on it.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

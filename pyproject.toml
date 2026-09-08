@@ -71,3 +71,4 @@ select = [
 "scripts/mutate" = ["UP"]
 "scripts/list-env-sensitive-calls" = ["UP"]
 "scripts/witness" = ["UP"]
+"scripts/check-rules-budget" = ["UP"]

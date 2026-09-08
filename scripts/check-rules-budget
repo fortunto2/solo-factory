@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""What the rules directory costs, every session, in every project.
+
+`~/.claude/rules/*.md` is loaded into context at the start of every session. Nothing
+here measured that, in a repository whose whole subject is measuring things — so the
+file arguing that a green light must state its cost had become the largest cost in
+the harness with nobody watching it grow.
+
+Measured the day this was written: `harness-sensors.md` alone was 123,696 bytes
+across 2,029 lines, against 6,277 for the other three files combined. Roughly 30k
+tokens of every session, in every project, growing by a few thousand bytes per cycle
+because each cycle appends its finding to it.
+
+This does not forbid growth. It publishes the number and a budget, so growing past
+the budget is a decision somebody made rather than something that happened. The
+budget is written in this file and changing it is a diff — the same mechanism as
+every other threshold here.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+# The whole rules directory, not one file: a payload split across five files costs
+# the same as one, and a per-file budget invites moving text rather than cutting it.
+BUDGET_BYTES = 135_000
+
+# Roughly 4 bytes per token for English prose. Stated rather than implied, because a
+# byte count is not what the reader is paying and a token estimate that hides its
+# conversion is the kind of number this repository keeps objecting to.
+BYTES_PER_TOKEN = 4
+
+
+def main(argv: list[str]) -> int:
+    root = Path(argv[1] if len(argv) > 1 else ".").resolve()
+    rules = root / "rules"
+    if not rules.is_dir():
+        print(
+            f"UNKNOWN: {rules} is not a directory here, so nothing was measured. "
+            f"That is not the same as a payload of zero.",
+            file=sys.stderr,
+        )
+        return 2
+
+    files = sorted(rules.glob("*.md"))
+    if not files:
+        # An empty directory and a walk that failed look identical from the total.
+        print(
+            f"UNKNOWN: no .md files under {rules}. A rules payload of zero is "
+            f"possible and so is a bad path; this cannot tell them apart.",
+            file=sys.stderr,
+        )
+        return 2
+
+    sizes = [(f.name, f.stat().st_size) for f in files]
+    total = sum(n for _, n in sizes)
+
+    for name, n in sorted(sizes, key=lambda x: -x[1]):
+        share = 100 * n / total
+        print(f"  {n:>7,} bytes  {share:5.1f}%  {name}")
+    print(
+        f"\n  {total:,} bytes across {len(sizes)} file(s) "
+        f"— about {total // BYTES_PER_TOKEN:,} tokens at {BYTES_PER_TOKEN} bytes/token, "
+        f"loaded at the start of EVERY session in EVERY project."
+    )
+
+    if total > BUDGET_BYTES:
+        print(
+            f"\nOVER BUDGET: {total:,} > {BUDGET_BYTES:,}. Not a failure of the "
+            f"content — a decision that has not been made. Cut, split into an "
+            f"on-demand reference, or raise BUDGET_BYTES in this file and say why.",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"  budget {BUDGET_BYTES:,} — {BUDGET_BYTES - total:,} bytes of headroom")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -120,3 +120,9 @@ repos:
         language: system
         pass_filenames: false
         files: \.(py)$|^scripts/list-env-sensitive-calls$
+      - id: rules-budget
+        name: What the always-loaded rules cost every session
+        entry: python3 scripts/check-rules-budget
+        language: system
+        pass_filenames: false
+        files: ^rules/.*\.md$|^scripts/check-rules-budget$
