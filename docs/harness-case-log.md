@@ -12,6 +12,33 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**The only one of these tools that writes, and the one nobody could afford to test.**
+Four scripts this week could not be exercised without mutating what they produce. The
+other three report; `add-openclaw-meta.py` rewrites every `SKILL.md` in place, so its
+idempotence claim — *"skips skills that already have openclaw metadata"* — was
+verified by nobody, and a non-idempotent run would have corrupted 46 files at once.
+
+With a seam, three degenerate inputs and the claim itself all came back clean:
+running twice changes nothing, a file with no frontmatter is untouched, an empty file
+is untouched, and a body containing its own `---` survives — `split("---", 2)` keeps
+the remainder whole. **Four negative results, and worth the cycle: the claim had
+never been checked and the risk was every skill file at once.**
+
+**Then the test written to show that a writing tool needs a seam used the tool
+without it.** Its first line was a bare `run python3 "$A"`, which rewrote two real
+skills — `knowledge` and `sgr` — in the repository. Reverted: if that metadata belongs
+there it is a decision, not a test's side effect.
+
+It was caught by `git status` afterwards, which is luck rather than a mechanism, so
+there is now a test asserting **every** invocation in that file carries
+`SOLO_SKILLS_DIR` — with a floor on the count, since zero calls would satisfy it
+vacuously. Verified by appending a bare call and watching it fail.
+
+*Audit the same cycle, negative*: every commit of mine this session contains only
+files I intended. The concurrent session's five uncommitted files were never swept
+in, because their work began after my last `git add -A`.
+
+
 **A convention enforced by a validator, emitted by a generator, and documented
 nowhere the author reads.** Three of 46 skills carry positive trigger cases, and they
 are exactly the three whose descriptions use `Use when user says "…"`. That form

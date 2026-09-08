@@ -5,9 +5,17 @@ Makes skills dual-compatible: Claude Code + OpenClaw ClawHub.
 Idempotent — skips skills that already have openclaw metadata.
 """
 
+import os
 from pathlib import Path
 
-SKILLS_DIR = Path(__file__).parent.parent / "skills"
+# Overridable, and here it matters more than in the other four: those tools REPORT,
+# this one REWRITES every SKILL.md in place. Anchored to its own repository it could
+# not be exercised at all without editing 46 real files, so its idempotence claim —
+# "skips skills that already have openclaw metadata" — had been verified by nobody,
+# and a non-idempotent run would corrupt all of them at once.
+SKILLS_DIR = Path(
+    os.environ.get("SOLO_SKILLS_DIR", Path(__file__).parent.parent / "skills")
+)
 
 # Emoji mapping per skill
 EMOJIS = {
