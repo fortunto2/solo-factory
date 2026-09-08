@@ -148,6 +148,10 @@ class Result:
     # Rules this scope declared it will not obey, with the stated reason. Printed
     # on every run: an exemption that stops being visible is a suppression.
     exemptions: list[str] = field(default_factory=list)
+    # Over a limit with NO declaration. Not a finding about this change, and not an
+    # exemption either — there is no stated reason to show. A separate list because
+    # a waiver with an argument and debt without one are different facts.
+    undeclared: list[str] = field(default_factory=list)
     seconds: float = 0.0
 
 
@@ -725,7 +729,7 @@ def declared_exemptions(text: str, python: bool = False) -> dict[str, str]:
 
 
 def check_limits(root: Path, files: list[Path]) -> Result:
-    findings, covered, exempt = [], [], []
+    findings, covered, exempt, undeclared = [], [], [], []
     for f in files:
         if f.suffix not in SOURCE_SUFFIXES and not (is_python(f) or is_shell(f)):
             continue
@@ -764,6 +768,15 @@ def check_limits(root: Path, files: list[Path]) -> Result:
                 f"{rel(root, f)}:1 long-module grew {before[0]} -> {n} lines, already over "
                 f"{MAX_MODULE_LINES}. Not your debt, but this change adds to it."
             )
+        elif n > MAX_MODULE_LINES and "long-module" not in allowed:
+            # Already over and not growing: correctly NOT a finding about this
+            # change, and it was also silent — the only way to learn a file sat
+            # over the limit undeclared was to write a one-off script, which is
+            # how these two were found. Its own list, NOT the exempt one: a waiver
+            # with a stated reason and debt with none are different facts, and the
+            # first draft put them under a header reading "declared in the file,
+            # with the reason given there" over an entry saying it was not.
+            undeclared.append(f"{rel(root, f)} long-module ({n} lines)")
         if not is_python(f):
             continue
         try:
@@ -796,11 +809,20 @@ def check_limits(root: Path, files: list[Path]) -> Result:
     return Result(
         "limits",
         "fail" if findings else "pass",
-        promise=f"no function >{MAX_FUNCTION_LINES} lines, no module >{MAX_MODULE_LINES} lines",
+        promise=(
+            f"no function >{MAX_FUNCTION_LINES} lines, no module >{MAX_MODULE_LINES} "
+            f"lines — about THIS change: a file already over the limit is inherited "
+            f"debt, reported but not failed"
+        ),
         findings=findings,
         covered=covered,
-        counters={"files": len(covered), **({"exempt": len(exempt)} if exempt else {})},
+        counters={
+            "files": len(covered),
+            **({"exempt": len(exempt)} if exempt else {}),
+            **({"over_undeclared": len(undeclared)} if undeclared else {}),
+        },
         exemptions=exempt,
+        undeclared=undeclared,
     )
 
 
@@ -1672,6 +1694,7 @@ def build_receipt(
         ],
         "unavailable": [r.name for r in unavailable],
         "exemptions": [e for r in results for e in r.exemptions],
+        "over_undeclared": [u for r in results for u in r.undeclared],
         # A passing sensor's findings are never rendered, so a file it declined to
         # check would leave only a counter behind. Named here instead.
         "not_checked_version": [
@@ -1729,6 +1752,14 @@ def render(rec: dict) -> str:
         out.append("  EXEMPT — declared in the file, with the reason given there:")
         for e in rec["exemptions"]:
             out.append(f"    {e}")
+    if rec.get("over_undeclared"):
+        out.append("  OVER A LIMIT, UNDECLARED — inherited debt, not this change:")
+        for u in rec["over_undeclared"]:
+            out.append(f"    {u}")
+        out.append(
+            "    Nothing here says why it is allowed. Declare it with a reason or "
+            "split it; this run does not fail on it."
+        )
     if rec.get("not_checked_version"):
         out.append("  NOT CHECKED — this interpreter is older than the project:")
         for line in rec["not_checked_version"]:

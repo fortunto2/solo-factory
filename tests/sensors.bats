@@ -1348,3 +1348,52 @@ print('OUT:' + repr(m.assertions_removed(Path('$1'), [Path('$1/$2')])))
   [[ "$output" == *"newer.py"* ]]
   [[ "$output" != *"fine.py:"* ]]      # the parseable one is not blamed
 }
+
+# ── over a limit with no declaration is a third state ───────────────────────
+#
+# The promises table said "no module >1000 lines, unless the file declares an
+# exemption with a reason". The sensor fires only when a change CROSSES the limit or
+# grows a file already over it — inherited debt is deliberately not a finding about
+# this change, which is right and was undocumented. So the promise said more than
+# the sensor did, and two files in this repo sat over the limit undeclared in total
+# silence: the only way to learn it was a one-off script.
+
+@test "a file already over the limit and undeclared is stated, not failed" {
+  D="$BATS_TEST_TMPDIR/over"; mkdir -p "$D"
+  python3 -c "open('$D/big.py','w').write('x = 1\n' * 1200)"
+  # It has to be over the limit ALREADY. A new file that crosses it is a finding
+  # about this change, correctly — the first version of this test forgot that and
+  # was measuring the crossing branch.
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$D" && git init -q . && git config user.email t@e && git config user.name t \
+      && git add -A && git commit -q -m base )
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" --files "$D/big.py"
+  [ -n "$output" ]
+  [[ "$output" == *"OVER A LIMIT, UNDECLARED"* ]]
+  [[ "$output" == *"big.py"* ]]
+  [[ "$output" == *"1201 lines"* ]]   # 1200 newlines is 1201 lines
+  [[ "$output" != *"VERIFY FAIL"* ]]        # inherited debt does not fail the run
+}
+
+@test "a declared exemption keeps its own wording and its reason" {
+  # The first draft put both under the EXEMPT header, so an entry saying UNDECLARED
+  # appeared under "declared in the file, with the reason given there".
+  D="$BATS_TEST_TMPDIR/dec"; mkdir -p "$D"
+  { printf '# solo-verify: allow long-module — one file on purpose, stated here\n'
+    python3 -c "print('x = 1\n' * 1200, end='')"; } > "$D/big.py"
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" --files "$D/big.py"
+  [[ "$output" == *"EXEMPT"* ]]
+  [[ "$output" == *"one file on purpose"* ]]
+  [[ "$output" != *"UNDECLARED"* ]]
+}
+
+@test "a file under the limit says neither" {
+  # Positive control: a line printed unconditionally passes both tests above while
+  # labelling every ordinary file as debt.
+  D="$BATS_TEST_TMPDIR/small"; mkdir -p "$D"
+  printf 'x = 1\n' > "$D/small.py"
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" --files "$D/small.py"
+  [[ "$output" == *"limits=pass"* ]]      # the sensor really ran
+  [[ "$output" != *"UNDECLARED"* ]]
+  [[ "$output" != *"EXEMPT"* ]]
+}

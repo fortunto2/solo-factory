@@ -31,7 +31,7 @@ never let it happen quietly.
 | Sensor | Promise | Mechanics |
 |---|---|---|
 | `syntax` | Every changed `.py`/`.js`/`.swift` file parses — syntax only, never types | `ast.parse` / `node --check` / `swiftc -parse`, per file (~0.15s for Swift) |
-| `limits` | No function >150 lines, no module >1000 lines, **unless the file declares an exemption with a reason** | AST walk; thresholds from CLAUDE.md |
+| `limits` | No function >150 lines, no module >1000 lines, **unless the file declares an exemption with a reason**. About THIS change: a file already over the limit is inherited debt — reported, never failed | AST walk; thresholds from CLAUDE.md |
 | `ruff` | The repo's configured ruff rule set | `ruff check --output-format=concise` on changed files |
 | `ty` | No type errors in changed Python | `uvx ty check` (full mode) |
 | `pytest` | The suite runs **and collects >0 tests** | `uvx pytest -q`, counters parsed |
@@ -1187,6 +1187,37 @@ each from the same shape.
 Two tests, the second a positive control on the mixed scope that already worked —
 otherwise a fix to the whole-scope branch could move the defect rather than remove
 it.
+
+**A promise that said more than the sensor did, and two files sitting over the
+limit in silence.** The table above promised "no module >1000 lines unless the file
+declares an exemption". The sensor fires when a change **crosses** the limit or grows
+a file already over it; pre-existing size is deliberately not a finding about this
+change. That design is right and it was undocumented, so the promise overstated.
+
+*Measured on this repository*: `scripts/memory_map.py` at 1001 lines and
+`scripts/solo-dev.sh` at 1021, both undeclared, both reported `limits=pass`. The
+1001 was crossed **by an edit in this same session** and nothing said so — the only
+way to learn either of them existed was a one-off script written for this audit.
+
+Two fixes, and the promise is the one that changed: the row now states the
+inherited-debt rule, and the receipt gained a third state beside `EXEMPT`:
+
+```
+OVER A LIMIT, UNDECLARED — inherited debt, not this change:
+  scripts/memory_map.py long-module (1001 lines)
+  Nothing here says why it is allowed. Declare it with a reason or split it.
+```
+
+Its own list and its own header, because the first draft appended it to `exemptions`
+and printed **"declared in the file, with the reason given there"** above an entry
+whose text said it was not declared. A waiver with a stated argument and debt with
+none are different facts; one list for both makes the receipt contradict itself in
+two adjacent lines.
+
+*And the first version of the test measured the wrong branch*: a new file over the
+limit is a **crossing**, which is correctly a finding, so the fixture had to commit
+the file first. The convenient fixture again — a scratch directory with no history
+exercises a different branch from the repository the sensor actually runs in.
 
 ## On noise
 
