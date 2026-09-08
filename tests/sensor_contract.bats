@@ -82,3 +82,17 @@ sys.exit(m.main())
   [ "$status" -eq 2 ]
   [[ "$output" == *"nothing was checked"* ]]
 }
+
+@test "the summary names the file it walked, and what it does not cover" {
+  # It printed "25 skip call site(s) checked, 0 violation(s)" — a sentence that
+  # reads as a statement about the repository and is a statement about one file.
+  # Twelve scripts here have UNKNOWN paths; this contract governs the Result
+  # dataclass only solo-verify uses. The remit was right, the sentence was not.
+  run python3 "$C"
+  [ -n "$output" ]
+  [[ "$output" == *"in solo-verify"* ]]
+  [[ "$output" == *"scope: solo-verify only"* ]]
+  [[ "$output" == *"not covered here"* ]]
+  # The count is still there — naming the scope must not have replaced the number.
+  [[ "$output" =~ [0-9]+" skip call site" ]]
+}

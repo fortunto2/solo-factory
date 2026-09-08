@@ -12,6 +12,29 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**A count that read as repo-wide and was about one file.** `check-sensor-contract`
+printed *"25 skip call site(s) checked, 0 violation(s)"*. Nine scripts here claim the
+UNKNOWN contract; this one governs the `Result(...)` dataclass that only `solo-verify`
+uses. **The remit was right and the sentence was not** — the third instance this week
+of a number that does not say what it counted. It names the file and states what it
+does not cover now.
+
+**And the set of probed scripts was recalled rather than enumerated.** Five had a
+degenerate-input probe and four did not, because the list lived in whichever ones I
+thought of at the time — the same failure as *"all three hooks are probed"* (there
+were four) and *"six scripts call git"* (there were eight). Three times is a habit,
+not an accident.
+
+The fix is the shape that has worked every other time: **enumerate from disk.** A
+test greps `scripts/` for the ones claiming the contract, compares that against a
+table of degenerate calls, and fails naming any script with no probe. Verified by
+adding a throwaway script that prints `UNKNOWN` and nothing else — the test names it
+immediately. The second test runs every probe and asserts the output contains no
+`can't open file`, because exit 2 is satisfied by an interpreter that never reached
+the script, and asserts the loop ran at least nine times, because a loop over an
+empty list asserts nothing.
+
+
 **The last hop in the fixture chain: what a stranger actually fetches.**
 `check-fixtures` verifies the working tree; the invitation on the board points at
 `raw.githubusercontent`. Between them sit *committed* and *pushed*, and nothing

@@ -271,3 +271,55 @@ assert len(d['scope']) == 2, d['scope']
 print('OK')
 " "$output"
 }
+
+# ── the list, enumerated rather than remembered ────────────────────────────
+#
+# Five scripts were probed for the UNKNOWN contract and five were not, because the
+# set lived in whichever ones I happened to think of. That is the same failure as
+# "all three hooks are probed" (there were four) and "six scripts call git" (there
+# were eight): a set recalled instead of enumerated.
+
+# Every script claiming the contract, and the degenerate call that exercises it.
+# A script here with no entry fails the completeness test below — which is the point.
+declare_probes() {
+  PROBES="
+check-fixtures|--published-nonsense-arg
+check-rules-budget|/no/such/dir
+check-sensor-contract|
+check-shippable|
+check-vacuous-tests|/no/such/file.txt
+list-env-sensitive-calls|/no/such/dir
+mutate|--list /no/such/file.py
+solo-verify|--root /no/such/dir
+witness|--root /no/such/dir --subject x.py --test t.bats --name n
+"
+}
+
+@test "every script that claims the UNKNOWN contract has a degenerate probe here" {
+  # Enumerated from disk. A new check that prints UNKNOWN and is never probed would
+  # otherwise join the harness with nobody having seen its unknown path fire.
+  declare_probes
+  cd "$BATS_TEST_DIRNAME/.."
+  claiming=$(grep -l '"UNKNOWN' scripts/* 2>/dev/null | grep -v __pycache__ | sed 's|scripts/||' | sort)
+  [ -n "$claiming" ]
+  missing=""
+  for s in $claiming; do
+    printf '%s\n' "$PROBES" | grep -q "^$s|" || missing="$missing $s"
+  done
+  [ -z "$missing" ] || { echo "no degenerate probe for:$missing"; false; }
+}
+
+@test "each probed script answers UNKNOWN and proves it ran" {
+  declare_probes
+  cd "$BATS_TEST_DIRNAME/.."
+  checked=0
+  while IFS='|' read -r name args; do
+    [ -n "$name" ] || continue
+    # shellcheck disable=SC2086
+    out=$(python3 "scripts/$name" $args 2>&1 || true)
+    # Exit 2 alone is satisfied by an interpreter that never reached the script.
+    [[ "$out" != *"can't open file"* ]] || { echo "$name: never ran"; false; }
+    checked=$((checked + 1))
+  done <<< "$(printf '%s\n' "$PROBES" | grep '|')"
+  [ "$checked" -ge 9 ]        # a loop over an empty list asserts nothing
+}

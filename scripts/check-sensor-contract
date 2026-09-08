@@ -108,7 +108,17 @@ def main() -> int:
         )
         return 2
 
-    print(f"  {skips} skip call site(s) checked, {len(found)} violation(s)")
+    # The scope, named. "25 skip call site(s) checked, 0 violation(s)" reads as a
+    # statement about the repository, and it is a statement about ONE FILE: twelve
+    # scripts here have UNKNOWN paths and this contract governs the Result dataclass
+    # that only solo-verify uses. The remit is right; the sentence was not, and a
+    # count that does not say what it counted is the third instance of that shape
+    # this week.
+    print(
+        f"  {skips} skip call site(s) in {TARGET.name}, {len(found)} violation(s)\n"
+        f"  scope: {TARGET.name} only — this contract governs its Result(...) skips. "
+        f"Other scripts have their own UNKNOWN paths and are not covered here."
+    )
     for v in found:
         print(f"  {v}")
     return 1 if found else 0
