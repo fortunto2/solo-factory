@@ -1317,6 +1317,28 @@ A positive control asserts a file inside the root is still verified, since refus
 everything passes both new tests while making `--files` useless, and `--files` is
 exactly the shape the fixture pack tells strangers to use.
 
+*Then the shape was asked of the sibling tools, because fixing it in one place and
+stopping is the mistake this file has now recorded seven times.* Two of five had it,
+each with a different invented cause:
+
+- `list-env-sensitive-calls` with a nonexistent root reported **"no literal argv for
+  any tracked command was found"** — the walk's empty result standing in for a walk
+  that never happened.
+- `witness` with a mistyped `--root` reported **"s.py is not a file here"**. The
+  subject is resolved against the root and fails first, so the file the caller got
+  *right* took the blame for the one they got wrong.
+
+`mutate` and `check-vacuous-tests` named their causes correctly, which is the useful
+negative half: the defect is not automatic, it comes from a check ordered after the
+thing it depends on.
+
+**The transferable part is the probe shape, not the two fixes.** Every earlier audit
+here varied the *input* and held the *invocation* fixed. Asking instead "what if the
+caller is wrong" found four defects across two cycles, all of them cases where a
+tool answered confidently about a tree that was not there.
+
+
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

@@ -145,6 +145,16 @@ def main(argv: list[str]) -> int:
     args = ap.parse_args(argv[1:])
 
     root = Path(args.root).resolve()
+    if not root.is_dir():
+        # A typo in --root used to be reported as a missing SUBJECT, because the
+        # subject is resolved against the root and fails first. Blaming the file the
+        # caller got right for a mistake in the one they got wrong.
+        print(
+            f"UNKNOWN: --root {args.root} is not a directory here. Nothing about "
+            f"{args.subject} can be established from a tree that is not there.",
+            file=sys.stderr,
+        )
+        return 2
     subject = (root / args.subject).resolve()
     if not subject.is_file():
         print(f"UNKNOWN: {args.subject} is not a file here", file=sys.stderr)

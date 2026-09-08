@@ -113,3 +113,47 @@ assert_unknown() {
   [[ "$output" == *"g.py"* ]]
   [[ "$output" != *"outside --root"* ]]
 }
+
+# ── the same wrong-caller shape, asked of the siblings ──────────────────────
+#
+# One cycle earlier a nonexistent --root made solo-verify report an invented cause.
+# Fixing it there and stopping is the one-call-site lesson; asked of the other tools,
+# two had the same defect with different invented causes.
+
+@test "list-env-sensitive-calls says the root is missing, not that it found nothing" {
+  run python3 "$S/list-env-sensitive-calls" "$D/no-such-dir"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"is not a directory"* ]]
+  [[ "$output" == *"not the same as finding nothing"* ]]
+  # The cause it used to state: the walk's empty result standing in for a walk that
+  # never happened.
+  [[ "$output" != *"no literal argv"* ]]
+}
+
+@test "a root that is a file is refused too, not walked as empty" {
+  printf 'x = 1\n' > "$D/plain.py"
+  run python3 "$S/list-env-sensitive-calls" "$D/plain.py"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"is not a directory"* ]]
+}
+
+@test "witness blames the root the caller got wrong, not the subject" {
+  run python3 "$S/witness" --root "$D/no-such-dir" --subject s.py --test t.bats --name x
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"--root"* ]]
+  [[ "$output" == *"is not a directory"* ]]
+  # It used to say "s.py is not a file here" — the subject is resolved against the
+  # root and fails first, so the file the caller got RIGHT took the blame.
+  [[ "$output" != *"s.py is not a file here"* ]]
+}
+
+@test "a real directory is still walked — the guards are not walls" {
+  # Positive control for all three: refusing every root passes them while making
+  # both tools useless.
+  mkdir -p "$D/real"
+  printf 'import subprocess\nsubprocess.run(["git", "log"])\n' > "$D/real/c.py"
+  run python3 "$S/list-env-sensitive-calls" "$D/real"
+  [ "$status" -eq 1 ]                     # one undefended git call site
+  [[ "$output" == *"c.py"* ]]
+  [[ "$output" == *"UNDEFENDED"* ]]
+}

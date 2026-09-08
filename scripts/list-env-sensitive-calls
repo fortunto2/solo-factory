@@ -166,6 +166,18 @@ def exemption(text: str, cmd: str) -> str | None:
 
 def main(argv: list[str]) -> int:
     root = Path(argv[1] if len(argv) > 1 else ".").resolve()
+    if not root.is_dir():
+        # Without this, a root that does not exist walked nothing and reported
+        # "no literal argv for any tracked command was found" — the walk's empty
+        # result standing in for a walk that never happened. Same defect fixed in
+        # solo-verify one cycle earlier and left here, which is the one-call-site
+        # lesson for the seventh time.
+        print(
+            f"UNKNOWN: {argv[1] if len(argv) > 1 else '.'} is not a directory here, "
+            f"so nothing was walked. That is not the same as finding nothing.",
+            file=sys.stderr,
+        )
+        return 2
     rows, undefended = [], set()
     for path in sources(root):
         sites = call_sites(path)
