@@ -84,6 +84,13 @@ shippable:  ## Is the committed work actually installable by anyone?
 fixtures-published:  ## Does the pack a stranger fetches match the one we verified
 	python3 scripts/check-fixtures --published
 
+env-calls:  ## Every call the environment can redirect, and whether it defends
+	python3 scripts/list-env-sensitive-calls
+
+witness:  ## Did a tightened rule get repaired, or the test weakened? (see --help)
+	@echo "usage: python3 scripts/witness --subject <impl> --test <file> --name <test> --guard <line>"
+	@python3 scripts/witness --help 2>&1 | tail -n +2
+
 rules-budget:  ## What the always-loaded rules cost every session
 	python3 scripts/check-rules-budget
 

@@ -12,6 +12,25 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**The discovery surface had the gap.** `make help` lists 31 targets and is how a
+reader finds out what this repository can do. Two checkers were not among them:
+`witness` and `list-env-sensitive-calls` existed, were tested, and were invocable
+only by typing their path.
+
+That is the same defect as the one fixed two cycles ago — *a tool nobody is told
+about is a tool nobody runs* — and it had survived that fix because the fix added a
+**pointer in a receipt** rather than an entry in the list people actually read.
+Closing a discovery gap in one channel says nothing about the other.
+
+Both have targets now, and a test enumerates the nine scripts claiming the UNKNOWN
+contract and fails naming any that no Makefile recipe invokes. A second test asserts
+`make help` really prints them, because a Makefile could mention a script in a
+comment and satisfy the first while help stayed silent.
+
+*Same shape as the previous two cycles, third list in a row*: the fix is never the
+entry, it is enumerating the set instead of recalling it.
+
+
 **A count that read as repo-wide and was about one file.** `check-sensor-contract`
 printed *"25 skip call site(s) checked, 0 violation(s)"*. Nine scripts here claim the
 UNKNOWN contract; this one governs the `Result(...)` dataclass that only `solo-verify`

@@ -323,3 +323,32 @@ witness|--root /no/such/dir --subject x.py --test t.bats --name n
   done <<< "$(printf '%s\n' "$PROBES" | grep '|')"
   [ "$checked" -ge 9 ]        # a loop over an empty list asserts nothing
 }
+
+@test "every checker is reachable from a make target, so make help enumerates them" {
+  # `make help` is the discovery surface: 31 targets, and two checkers were not
+  # among them — witness and list-env-sensitive-calls existed and were invocable
+  # only by typing their path. A tool nobody is told about is a tool nobody runs,
+  # and a list that IS the discovery surface must not be the one with the gap.
+  cd "$BATS_TEST_DIRNAME/.."
+  claiming=$(grep -l '"UNKNOWN' scripts/* 2>/dev/null | grep -v __pycache__ | sed 's|scripts/||' | sort)
+  [ -n "$claiming" ]
+  checked=0
+  missing=""
+  for s in $claiming; do
+    grep -q "scripts/$s" Makefile || missing="$missing $s"
+    checked=$((checked + 1))
+  done
+  [ "$checked" -ge 9 ]        # a loop over an empty list asserts nothing
+  [ -z "$missing" ] || { echo "no make target invokes:$missing"; false; }
+}
+
+@test "make help really lists the targets, so the guarantee above means something" {
+  # Positive control: a Makefile that mentions a script in a comment would satisfy
+  # the grep above while help stayed silent. help must actually print them.
+  cd "$BATS_TEST_DIRNAME/.."
+  run make help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"env-calls"* ]]
+  [[ "$output" == *"rules-budget"* ]]
+  [[ "$output" == *"blind-spots"* ]]
+}
