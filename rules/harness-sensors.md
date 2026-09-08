@@ -1476,7 +1476,32 @@ reported as a flat *"50 files have unresolved AI-TODO items"*. That is the defec
 still stated plainly, because hedging every number makes an exact one unreadable as
 exact.
 
-*All three hooks are now probed.* Each had at least one defect, and none of them had
+*All **four** hooks are now probed.* The previous version of this paragraph said
+three, counted from memory rather than from `ls hooks/*.sh` — the third published
+count this week that was never enumerated, after "no regex uses `\b`" and "six
+scripts call git". **The one my count omitted was the largest**, 321 lines, driving
+the pipeline's done/redo signals, its timeout and its iteration counter.
+
+Two defects in it, the first serious. `set -euo pipefail` is on, and each of twelve
+frontmatter fields was read with its own `grep '^field:'` — so a state file **missing
+any one optional field** made grep exit 1 and killed the hook outright: silently,
+with exit 1, before the signal check, the timeout check and the iteration counter had
+run. Every field fatal by absence, and nothing said so. One tolerant reader now
+serves all twelve; removing its `|| true` kills 3 tests.
+
+And an unreadable transcript was indistinguishable from a turn with no signal in it.
+They decide the same thing and are not the same fact: a lost `<solo:done/>` re-runs a
+finished stage, a lost `<solo:redo/>` advances past work the agent asked to redo.
+
+*Three instrument errors while probing this one*, all the same shape as the code
+under test. The fixture was never written — a heredoc mangled by shell quoting — so
+three "silent" results were measured against a state file that did not exist. Then
+the hook **deletes its state file** when a pipeline completes, so the second and
+third probes in one fixture ran against no pipeline at all. **A probe whose subject
+consumes the fixture needs a fresh one per run**, and neither failure announced
+itself: both looked exactly like the finding I was hoping to confirm.
+
+Each hook had at least one defect, and none of them had
 ever been read after the day it was written. **A gate that runs on every turn and a
 hook that runs on every edit accumulate the same rot as any other code; being
 infrastructure is not the same as being maintained.**

@@ -68,23 +68,35 @@ HOOK_INPUT=$(cat)
 # --- Parse YAML frontmatter ---
 FRONTMATTER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$STATE_FILE")
 
+# One reader for every frontmatter field. `set -euo pipefail` is on, and each of
+# these used to be its own `grep '^field:'` pipeline — so a state file MISSING ANY
+# ONE optional field made grep exit 1 and killed the hook outright, silently, with
+# exit 1, before the signal check, the timeout check and the iteration counter had
+# run. Measured: a fixture without `signals:` died at that line; adding it moved the
+# death to the next absent field. Twelve fields, every one of them fatal by absence,
+# and nothing said so.
+fm() {
+  printf '%s\n' "$FRONTMATTER" | grep "^$1:" | sed "s/^$1: *//" | sed 's/^"\(.*\)"$/\1/' || true
+}
+
+
 # --- Skip if Big Head is managing this pipeline ---
-MODE=$(echo "$FRONTMATTER" | grep '^mode:' | sed 's/mode: *//')
+MODE=$(fm mode)
 if [[ "$MODE" == "bighead" ]]; then
   exit 0
 fi
 
-ACTIVE=$(echo "$FRONTMATTER" | grep '^active:' | sed 's/active: *//')
-ITERATION=$(echo "$FRONTMATTER" | grep '^iteration:' | sed 's/iteration: *//')
-MAX_ITERATIONS=$(echo "$FRONTMATTER" | grep '^max_iterations:' | sed 's/max_iterations: *//')
-SIGNALS=$(echo "$FRONTMATTER" | grep '^signals:' | sed 's/signals: *//' | sed 's/^"\(.*\)"$/\1/')
-PIPELINE_TYPE=$(echo "$FRONTMATTER" | grep '^pipeline:' | sed 's/pipeline: *//')
-IDEA=$(echo "$FRONTMATTER" | grep '^idea:' | sed 's/idea: *//' | sed 's/^"\(.*\)"$/\1/')
-PROJECT=$(echo "$FRONTMATTER" | grep '^project:' | sed 's/project: *//' | sed 's/^"\(.*\)"$/\1/')
-CONTEXT_FILE=$(echo "$FRONTMATTER" | grep '^context_file:' | sed 's/context_file: *//' | sed 's/^"\(.*\)"$/\1/')
-PROJECT_ROOT=$(echo "$FRONTMATTER" | grep '^project_root:' | sed 's/project_root: *//' | sed 's/^"\(.*\)"$/\1/')
-LOG_FILE=$(echo "$FRONTMATTER" | grep '^log_file:' | sed 's/log_file: *//' | sed 's/^"\(.*\)"$/\1/')
-STARTED_AT=$(echo "$FRONTMATTER" | grep '^started_at:' | sed 's/started_at: *//' | sed 's/^"\(.*\)"$/\1/')
+ACTIVE=$(fm active)
+ITERATION=$(fm iteration)
+MAX_ITERATIONS=$(fm max_iterations)
+SIGNALS=$(fm signals)
+PIPELINE_TYPE=$(fm pipeline)
+IDEA=$(fm idea)
+PROJECT=$(fm project)
+CONTEXT_FILE=$(fm context_file)
+PROJECT_ROOT=$(fm project_root)
+LOG_FILE=$(fm log_file)
+STARTED_AT=$(fm started_at)
 
 # Fallback log file path if not in frontmatter (backward compat)
 if [[ -z "$LOG_FILE" ]]; then
@@ -126,6 +138,20 @@ fi
 TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | jq -r '.transcript_path')
 SIGNAL_DONE=false
 SIGNAL_REDO=false
+
+# "No signal was emitted" and "the transcript could not be read" decide the same
+# thing here and are not the same fact. A lost <solo:done/> re-runs a finished
+# stage; a lost <solo:redo/> advances past work the agent asked to redo. Measured:
+# a missing transcript produced output identical to a transcript with no signal.
+if [[ ! -f "$TRANSCRIPT_PATH" ]]; then
+  echo "Pipeline ($PROJECT): transcript not readable at ${TRANSCRIPT_PATH:-<empty>} — \
+signals were NOT checked this turn. That is not the same as no signal." >&2
+  log_entry "$LOG_FILE" "NOSIG" "transcript unreadable: ${TRANSCRIPT_PATH:-<empty>}"
+elif ! grep -q '"role":"assistant"' "$TRANSCRIPT_PATH"; then
+  echo "Pipeline ($PROJECT): no assistant turn found in the transcript — signals \
+were NOT checked this turn." >&2
+  log_entry "$LOG_FILE" "NOSIG" "no assistant turn in $TRANSCRIPT_PATH"
+fi
 
 if [[ -f "$TRANSCRIPT_PATH" ]] && grep -q '"role":"assistant"' "$TRANSCRIPT_PATH"; then
   LAST_LINE=$(grep '"role":"assistant"' "$TRANSCRIPT_PATH" | tail -1)
