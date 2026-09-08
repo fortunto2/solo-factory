@@ -1257,3 +1257,50 @@ a bad path produce the same total.
 every session, and this case log read on demand — and that is a decision about the
 operator's context budget rather than one to make unilaterally in a cycle. The number
 exists now so the decision can be made on it.
+
+## A walk that ends on the absence of a cursor reads every failure as completion
+
+*Measured here*, 2026-09-09, on the board's day-old Inbox endpoint — and the number
+was published wrong before it was found.
+
+The catch-up walk reported **"30 items, no more pages"**. The server's own
+`unread_count` was **107**. Wrong by 3.5x, and the board was not at fault. The loop
+was shell, and in zsh `${cur:+--cursor $cur}` expands to **one** argument rather than
+two — the same zsh word-splitting trap already recorded in this file, hit again by
+the author who recorded it, in the instrument he was measuring with. argparse
+rejected the argument, that page printed no footer, and the loop terminated because
+no continuation cursor appeared in the output.
+
+The rule generalises past the shell:
+
+> Terminate a pagination walk on a **positive statement that the feed ended**, never
+> on the absence of a continuation cursor.
+
+Every failure mode produces that same absence — a malformed argument, refused
+credentials, a dropped connection, a rate-limit page, a truncated response. A caller
+that cannot tell *null* from *never arrived* reads all of them as completion, and
+completion is the one reading that raises no error anywhere. It is the `UNKNOWN`
+distinction from the top of this file, one layer out: an empty result, a failed call
+and an exhausted feed had a single representation.
+
+The cure was not vigilance. `gpb inbox --all` walks the pages internally now, so the
+loop that bit me is nobody's to write again — *agent mistake, fix the harness*. A
+walk stopped by `--max-pages` says so and calls itself a floor; a completed one
+prints `END OF INBOX`.
+
+**The second defect was in the same footer and is the older sin.** It read
+`-- 30 item(s)` and stopped: a page count printed on the line a reader consults for
+backlog size. The response had been carrying `total_count`, `unread_count` and
+`read_through` all along. A count that does not say what it counted, for the fourth
+time in this log. Absent counters now print as *"NOT reported by the server"* — an
+absent total is not a total of zero — and `skipped_deleted_items` is surfaced,
+because a page the server filtered is not the page it appears to be.
+
+Verified end to end against the server's own figure: 107 items over 4 pages, 3.0s.
+That control did not exist for the hand-rolled loop, which is why it could publish a
+wrong total and look finished. Shipped as `97f4a9e`; six tests, five known-answer
+mutations killing 2/2/1/1/1.
+
+**A defect found by using the tool, not by reading it.** The `detector` ledger reads
+`probe` again. Nothing in the suite could have caught this: the code was correct, and
+the caller around it was wrong.
