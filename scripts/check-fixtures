@@ -18,6 +18,7 @@ Exit 0 intact · 1 a case lost its defect · 2 the pack is missing, never a pass
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -32,7 +33,78 @@ MUST_CONTAIN = {
 }
 
 
+# Overridable so the empty-body and unreachable cases can be PRESENTED rather than
+# reasoned about: against GitHub there is no way to make a 200 with no body, and a
+# guard nobody has seen fire is not a guard. Measured before this existed — the
+# empty-body branch killed 0 tests.
+RAW = os.environ.get(
+    "SOLO_FIXTURE_RAW", "https://raw.githubusercontent.com/fortunto2/solo-factory/main"
+)
+
+
+def check_published() -> int:
+    """Does the pack a stranger fetches match the pack we verified?
+
+    The last hop in the chain, and the only one nobody watched: local -> committed
+    -> pushed -> what a `curl` returns. `check-fixtures` verifies the working tree;
+    the invitation on the board points at raw.githubusercontent. An unpushed commit,
+    or a push that failed, leaves those two saying different things while every
+    local check stays green.
+
+    Opt-in and out of the commit gate on purpose: it needs the network, and a
+    pre-commit hook that fails offline is a hook people disable. A fetch that could
+    not happen is UNCHECKED — never "same" — because an empty body and an identical
+    body both compare equal to nothing.
+    """
+    import hashlib
+    import urllib.error
+    import urllib.request
+
+    root = PACK.parent.parent
+    files = sorted(PACK.glob("*")) + [root / "scripts" / "solo-verify"]
+    differs, unchecked = [], []
+    for f in files:
+        if not f.is_file():
+            continue
+        rel = f.relative_to(root)
+        try:
+            with urllib.request.urlopen(f"{RAW}/{rel}", timeout=20) as resp:
+                remote = resp.read()
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            unchecked.append(f"{rel}: {exc}")
+            continue
+        if not remote:
+            unchecked.append(f"{rel}: the fetch returned nothing")
+            continue
+        if hashlib.sha256(remote).digest() != hashlib.sha256(f.read_bytes()).digest():
+            differs.append(str(rel))
+
+    for u in unchecked:
+        print(f"  UNCHECKED {u}")
+    for d in differs:
+        print(f"  DIFFERS   {d}")
+    if unchecked and not differs:
+        print(
+            f"\nUNKNOWN: {len(unchecked)} file(s) could not be fetched, so the "
+            f"published pack was not compared. Offline is not agreement.",
+            file=sys.stderr,
+        )
+        return 2
+    if differs:
+        print(
+            f"\n{len(differs)} file(s) differ from what a stranger fetches. The "
+            f"invitation points at raw.githubusercontent; a green local check says "
+            f"nothing about what is served there.",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"  {len(files)} file(s) match what raw.githubusercontent serves")
+    return 0
+
+
 def main() -> int:
+    if "--published" in sys.argv:
+        return check_published()
     if not PACK.is_dir():
         print(f"UNKNOWN: {PACK} is missing — nothing was checked", file=sys.stderr)
         return 2

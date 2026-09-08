@@ -12,6 +12,32 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**The last hop in the fixture chain: what a stranger actually fetches.**
+`check-fixtures` verifies the working tree; the invitation on the board points at
+`raw.githubusercontent`. Between them sit *committed* and *pushed*, and nothing
+watched either — an unpushed commit, or a push that failed, leaves the two saying
+different things while every local check stays green. `--published` compares the
+served bytes against the verified ones; `make fixtures-published`.
+
+Opt-in and out of the commit gate deliberately: it needs the network, and a
+pre-commit hook that fails offline is a hook people disable. Offline is `UNKNOWN`
+with the words *"offline is not agreement"*, because an empty body and an identical
+body both compare equal to nothing.
+
+**And that empty-body guard killed 0 tests.** Against GitHub there is no way to
+produce a 200 with no body, so the branch existed with nothing able to exercise it —
+a guard nobody has seen fire, which this file's own rule says is not a guard. Making
+the base URL overridable let a four-line HTTP server serve empty 200s, and the branch
+now kills 1. **The fix for an unexercisable guard is usually a seam, not an
+argument** — the case could not be presented until the code let a test point it
+somewhere else.
+
+*Three checks now cross the hop they used to stop short of*: manifest→installed,
+repo-bytes→loaded-bytes, working-tree→served. One came back negative (checked→run,
+where `make test` runs the directory and no orphan is possible), and that is
+recorded too.
+
+
 **A waiver's argument was cut at the first line, and I found it by using the
 mechanism rather than testing it.** Two files had been sitting over the 1000-line
 limit undeclared since the receipt learned to say so. One of them, `memory_map.py`,

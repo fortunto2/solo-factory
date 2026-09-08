@@ -142,3 +142,71 @@ print(' '.join(o.split(':')[0] for o in h['observe']))
   # And it must still name the defect, so the case is `finding` and not `clean`.
   [[ "$output" == *"01_true_finding.py:"* ]]
 }
+
+# ── the last hop: what a stranger actually fetches ─────────────────────────
+#
+# check-fixtures verifies the working tree. The invitation on the board points at
+# raw.githubusercontent — so local -> committed -> pushed -> served is a chain whose
+# last link nobody watched. An unpushed commit, or a push that failed, leaves the
+# two saying different things while every local check stays green.
+
+@test "the published pack is compared, and a local-only edit is caught" {
+  F="$BATS_TEST_DIRNAME/../fixtures/classification/expected.json"
+  cp "$F" "$BATS_TEST_TMPDIR/keep"
+  printf '\n' >> "$F"
+  run python3 "$BATS_TEST_DIRNAME/../scripts/check-fixtures" --published
+  cp "$BATS_TEST_TMPDIR/keep" "$F"
+  if [[ "$output" == *"UNCHECKED"* ]]; then
+    skip "no network here — the comparison could not run, which the tool says itself"
+  fi
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"DIFFERS"* ]]
+  [[ "$output" == *"expected.json"* ]]
+  [[ "$output" == *"says nothing about what is served"* ]]
+}
+
+@test "a fetch that could not happen is UNCHECKED, never 'same'" {
+  # An empty body and an identical body both compare equal to nothing, so offline
+  # has to be its own answer. Forced with a proxy pointing at a closed port.
+  run env http_proxy=http://127.0.0.1:9 https_proxy=http://127.0.0.1:9 \
+      python3 "$BATS_TEST_DIRNAME/../scripts/check-fixtures" --published
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"UNCHECKED"* ]]
+  [[ "$output" == *"Offline is not agreement"* ]]
+}
+
+@test "without --published it still checks the working tree only" {
+  # Positive control: the network check must not have replaced the local one, and
+  # the local one must stay runnable with no network at all.
+  run env http_proxy=http://127.0.0.1:9 https_proxy=http://127.0.0.1:9 \
+      python3 "$BATS_TEST_DIRNAME/../scripts/check-fixtures"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"raw.githubusercontent"* ]]
+}
+
+@test "a 200 with an empty body is UNCHECKED, not a match" {
+  # An empty body and an identical body both compare equal to nothing. Against
+  # GitHub there is no way to produce a 200 with no body, so the branch killed 0
+  # tests until the URL became overridable — a guard nobody has seen fire.
+  run python3 - <<'PY'
+import http.server, socketserver, subprocess, sys, threading, os
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200); self.send_header("Content-Length", "0"); self.end_headers()
+    def log_message(self, *a): pass
+srv = socketserver.TCPServer(("127.0.0.1", 0), H)
+port = srv.server_address[1]
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+root = os.path.dirname(os.path.dirname(os.path.abspath("tests/.")))
+r = subprocess.run([sys.executable, "scripts/check-fixtures", "--published"],
+                   env=dict(os.environ, SOLO_FIXTURE_RAW=f"http://127.0.0.1:{port}"),
+                   capture_output=True, text=True, timeout=120)
+srv.shutdown()
+print(r.returncode)
+print(r.stdout + r.stderr)
+PY
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"the fetch returned nothing"* ]]
+  [[ "$output" == *"Offline is not agreement"* ]]
+  [[ "$output" != *"match what"* ]]
+}

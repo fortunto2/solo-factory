@@ -81,6 +81,9 @@ mutants:  ## Which tests never fail? (F=script T=testfile)
 shippable:  ## Is the committed work actually installable by anyone?
 	python3 scripts/check-shippable
 
+fixtures-published:  ## Does the pack a stranger fetches match the one we verified
+	python3 scripts/check-fixtures --published
+
 rules-budget:  ## What the always-loaded rules cost every session
 	python3 scripts/check-rules-budget
 
