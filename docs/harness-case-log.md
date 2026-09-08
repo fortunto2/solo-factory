@@ -12,6 +12,39 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**A convention enforced by a validator, emitted by a generator, and documented
+nowhere the author reads.** Three of 46 skills carry positive trigger cases, and they
+are exactly the three whose descriptions use `Use when user says "…"`. That form
+lives in `new-skill.sh` and in the validator's regex. It was **not** in `CLAUDE.md`,
+which is what an agent reads before hand-creating a skill — so the thirty skills
+asserting nothing positive are not carelessness, they are the measured cost of a rule
+that existed only in code.
+
+It is documented now, with the consequence stated rather than the rule alone: a
+description written any other way still appears green.
+
+*The hop held*: what `make new-skill` produces passes both validators and yields two
+positive cases. That agreement was verified by nobody until now, and nothing but a
+test connects the generator's prose to the extractor's one accepted form.
+
+**The generator had no seam either** — `SKILL_DIR="$REPO/skills/$NAME"`, so a probe
+passing `SKILLS_ROOT` was ignored and a scratch skill appeared in the repository.
+Third tool this week that could not be exercised without mutating what it produces.
+
+*And the mutation proving the seam's value did the damage the seam prevents.* With
+it removed, the four new tests wrote `probe-one`, `probe-two` and `probe-three` into
+the real `skills/` directory. **A guard whose removal cannot be tested safely costs a
+cleanup every time it is measured** — worth knowing before running that mutation
+again, rather than rediscovering it.
+
+*Caveat on this cycle's verification.* Five files in the working tree carry another
+session's uncommitted work (`Makefile`, `solo-verify`, `check-shippable`,
+`doctor.sh`, `link-plugin.sh` — profile handling via `CLAUDE_CONFIG_DIR`, and a new
+per-repository verification command). The full-suite green was measured against a
+tree containing it, so it is not a statement about this change alone. Only my own
+three files are in the commit; `git add -A` would have swept theirs in.
+
+
 **"PASS — 48/48 tests passed" over 46 skills, three of which were actually tested.**
 The sibling validator got tests yesterday and I stopped there, which is the
 one-call-site pattern this log has recorded nine times. Asked of

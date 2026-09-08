@@ -20,7 +20,12 @@ if [[ ! "$NAME" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
   exit 1
 fi
 
-SKILL_DIR="$REPO/skills/$NAME"
+# Overridable so the generator can be tested without writing into the real skills/
+# directory. Measured the hard way: a probe run passed SKILLS_ROOT, it was ignored,
+# and a scratch skill appeared in the repository — the third tool this week that
+# could not be exercised without mutating the thing it produces.
+SKILLS_ROOT="${SOLO_SKILLS_DIR:-$REPO/skills}"
+SKILL_DIR="$SKILLS_ROOT/$NAME"
 if [[ -e "$SKILL_DIR" ]]; then
   echo "Already exists: skills/$NAME — edit skills/$NAME/SKILL.md instead." >&2
   exit 1

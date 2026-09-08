@@ -115,6 +115,28 @@ make plugin-link    # symlinks cache → solo-factory dir, changes are instant
 
 Run `python3 scripts/add-openclaw-meta.py` — idempotently adds `openclaw:` block to all SKILL.md files. Edit `EMOJIS` dict in the script for new skill emoji.
 
+## Skill Description Convention
+
+A skill's `description` must carry its trigger phrases in this exact form:
+
+```yaml
+description: What it does, in one line. Use when user says "phrase they'd actually
+  type", "another phrase". Do NOT use for the neighbouring skill's job (use /that-skill).
+```
+
+**The quotes and the literal words `Use when user says` are load-bearing.**
+`scripts/validate_triggers.py` reads that one form and nothing else, so a description
+written any other way yields **no positive test cases at all** — the skill still
+appears green, having asserted only that it does not trigger on a phrase the tool
+invented.
+
+Measured 2026-09-08: 3 of 46 skills use the form; 30 assert nothing positive and 13
+contribute no case at all. `make new-skill` emits the form, so this matters only when
+a skill is hand-created — which is exactly when nobody reads the generator.
+
+`Do NOT use for …` is what produces the negative cases, and `(use /other-skill)`
+splits them.
+
 ## Skill Naming Convention
 
 All skills MUST use `solo-` prefix in SKILL.md frontmatter:
