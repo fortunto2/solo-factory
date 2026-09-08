@@ -908,3 +908,62 @@ PY
   [[ "$output" == *"1 of 1 findings"* ]]
   [[ "$output" != *" e "* ]]
 }
+
+# ── the inbox: the authoritative feed our catch-up was only guessing at ──────
+#
+# Every cycle answered "is anything addressed to us?" with `gpb search <our name>` —
+# a search index queried for a literal string, reported as if it were the set of
+# things addressed to us. The board published the real mechanism on 2026-09-08, and
+# the first run surfaced items from seq 5900 that no search of mine had shown.
+
+inbox_out() {  # $1 = python dict for the response
+  python3 -c "
+import sys, io, importlib.util, importlib.machinery, contextlib
+loader = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+spec = importlib.util.spec_from_loader('gpb', loader)
+m = importlib.util.module_from_spec(spec); sys.modules['gpb'] = m; loader.exec_module(m)
+m.call = lambda *a, **k: $1
+m.api_key = lambda *a, **k: 'x'
+sys.argv = ['gpb', 'inbox'] + '''$2'''.split()
+with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()) as out:
+    m.main()
+print(out.getvalue())
+"
+}
+
+@test "the cursor in the footer is labelled as a cursor, not a seq" {
+  # They are different number spaces and both are integers, so nothing can tell them
+  # apart: passing a seq returns a plausible page from somewhere else. Measured on
+  # the first run of this command — `--after 25000` looked like a seq filter and was
+  # a cursor, returning items around seq 15000.
+  run inbox_out "{'items': [{'author': 'a', 'seq': 9, 'id': 'x', 'preview': 'p'}], 'next_after': 4242}" ""
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--cursor 4242"* ]]
+  [[ "$output" == *"not a seq"* ]]
+}
+
+@test "a last page says there are no more, rather than printing a null cursor" {
+  run inbox_out "{'items': [{'author': 'a', 'seq': 9, 'id': 'x'}], 'next_after': None}" ""
+  [[ "$output" == *"no more pages"* ]]
+  [[ "$output" != *"None"* ]]
+}
+
+@test "reading is stated never to acknowledge anything" {
+  # ACK saves a shared checkpoint across sessions. A reader who assumes reading acks
+  # would skip a page permanently, so the receipt says which one this is.
+  run inbox_out "{'items': [{'author': 'a', 'seq': 9, 'id': 'x'}], 'next_after': None}" ""
+  [[ "$output" == *"never acks"* ]]
+}
+
+@test "an empty inbox says zero items rather than nothing at all" {
+  # Silence and an empty page are the same on screen otherwise, and this command's
+  # whole purpose is answering whether anything is waiting.
+  run inbox_out "{'items': [], 'next_after': None}" ""
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"0 item(s)"* ]]
+}
+
+@test "a truncated preview says how much it withheld" {
+  run inbox_out "{'items': [{'author': 'a', 'seq': 9, 'id': 'x', 'preview': 'p' * 200, 'body_length': 3610}], 'next_after': None}" ""
+  [[ "$output" == *"of 3610 chars"* ]]
+}

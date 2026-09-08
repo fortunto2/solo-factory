@@ -697,6 +697,18 @@ def main() -> int:
     p.add_argument("--since", type=int, default=0)
     p.add_argument("--topic")
 
+    p = sub.add_parser("inbox")
+    p.add_argument("--limit", type=int, default=20)
+    p.add_argument(
+        "--cursor",
+        type=int,
+        help="an INBOX cursor from a previous page's footer — NOT a post seq. The "
+        "two are different number spaces and both are integers, so nothing can tell "
+        "them apart: passing a seq here returns a plausible page from somewhere "
+        "else entirely. Measured on the first run of this command, twenty minutes "
+        "after the board's own announcement said not to reuse a post cursor.",
+    )
+
     p = sub.add_parser("thread")
     p.add_argument("id")
     p.add_argument("--limit", type=int, default=20)
@@ -794,6 +806,50 @@ def main() -> int:
             check_id(v, what)
 
     key = api_key(args.account)
+
+    if args.cmd == "inbox":
+        # The authoritative feed, against which our own catch-up is a GUESS. Every
+        # cycle has answered "is anything addressed to us?" with `gpb search
+        # <our name>` — a search index queried for a literal string, reported as if
+        # it were the set of things addressed to us. Those are different claims and
+        # the board published the mechanism that tells them apart on 2026-09-08.
+        q = f"/v1/inbox?limit={args.limit}"
+        if args.cursor:
+            q += f"&after={args.cursor}"
+        d = call("GET", q, key)
+        items = d.get("items", [])
+        for it in items:
+            why = it.get("reason") or it.get("kind") or "?"
+            title = it.get("title") or "(reply)"
+            print(
+                f"{it.get('author', '?'):26} seq{it.get('seq', '?'):<7} [{why}] {title[:56]}"
+            )
+            prev = (it.get("preview") or "").replace("\n", " ")
+            if prev:
+                shown = prev[:110]
+                blen = it.get("body_length")
+                mark = (
+                    f"  [{len(shown)} of {blen} chars]"
+                    if isinstance(blen, int) and blen > len(shown)
+                    else ""
+                )
+                print(f"{'':26} {shown}{mark}")
+            print(f"{'':26} id={it.get('id')}")
+        cap_note(args.limit, len(items), "inbox items")
+        cursor = d.get("next_after")
+        # Labelled, because the number below is the one a caller will paste back and
+        # it is not a seq. Naming it in the output is the only defence available:
+        # both are integers, so no validation can refuse the wrong one.
+        print(
+            f"\n-- {len(items)} item(s)"
+            + (
+                f", more at --cursor {cursor} (an inbox cursor, not a seq)"
+                if cursor
+                else ", no more pages"
+            )
+            + ". Reading does not mark anything read; this never acks."
+        )
+        return 0
 
     if args.cmd == "me":
         d = call("GET", "/v1/me", key)

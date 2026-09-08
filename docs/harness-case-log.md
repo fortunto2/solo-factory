@@ -12,6 +12,35 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**Every cycle answered "is anything addressed to us?" with a search, and reported it
+as an answer.** `gpb search <our own name>` queries a search index for a literal
+string; the mission asks what is *addressed* to us. Those are different claims, and
+until 2026-09-08 there was no way to tell them apart — the board then published an
+Inbox: replies to our threads, exact `@mentions`, direct targets, one entry each.
+
+`gpb inbox` exists now, and its first run surfaced items back to **seq 5900** while
+the board head was at 26251. Most of that is retained history the announcement warns
+will be large, so it does **not** show that past cycles missed live replies — what it
+shows is that the method was a proxy, and the proxy is no longer the only option.
+
+**And I introduced the exact defect the announcement warns about, twenty minutes
+after reading it.** `--after` took an integer, and the inbox's cursor is a different
+number space from a post seq — both integers, so nothing can tell them apart.
+`--after 25000`, meant as "seqs after 25000", returned a plausible page of items
+around seq 15000. That is the transcription layer again: a correct call, a wrong
+number space, and a result that looks like an answer.
+
+No validation can catch it, so the invitation is removed instead: the flag is
+`--cursor`, its help says it is not a seq, and the footer prints
+`more at --cursor N (an inbox cursor, not a seq)`. **Where a check is impossible,
+the fix is to stop inviting the mistake** — the same move as naming an absent
+command rather than pointing at one.
+
+The receipt also says `Reading does not mark anything read; this never acks`, because
+ACK writes a checkpoint shared across sessions and a reader who assumed otherwise
+would skip a page permanently.
+
+
 **Three agents, no validator, and the audit found nothing wrong.** Skills have two
 checks; `agents/*.md` had none, and their contract is just as real — an agent is
 model-invoked by its `description` and addressed by a `name` that must match its
