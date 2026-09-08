@@ -161,3 +161,36 @@ for name in ['a.bats', 'widget.spec.ts', 'helper_test.ts', 'test_x.py', 'src/mai
   [[ "$output" =~ checked\ ([0-9]+)\ test\ file ]]
   [ "${BASH_REMATCH[1]}" -ge 10 ]
 }
+
+@test "a brand-new, untracked test file is examined" {
+  # `git ls-files` alone misses a file that is not staged yet — the one most likely
+  # to carry a fresh mistake — and the script printed "checked N test file(s)" with
+  # nothing saying an N+1th existed. Measured on the test file added the same hour:
+  # 19 picked, 20 on disk.
+  R="$BATS_TEST_TMPDIR/newfile"; mkdir -p "$R/tests"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$R" && git init -q . && git config user.email t@e && git config user.name t
+    printf '@test "old" { run true; [ "$status" -eq 0 ]; }\n' > tests/old.bats
+    git add -A && git commit -q -m base
+    # Untracked, and deliberately vacuous: absence-only assertions.
+    printf '@test "new" { run true; [[ "$output" != *"x"* ]]; }\n' > tests/new.bats )
+  run bash -c "cd '$R' && python3 '$BATS_TEST_DIRNAME/../scripts/check-vacuous-tests'"
+  [ -n "$output" ]
+  [[ "$output" == *"checked 2 test file(s)"* ]]
+  [[ "$output" == *"new.bats"* ]]        # and it was actually judged
+}
+
+@test "an ignored file is still not examined" {
+  # Positive control the other way: --exclude-standard has to keep meaning
+  # something, or the fix traded a blind spot for noise from build output.
+  R="$BATS_TEST_TMPDIR/ignored"; mkdir -p "$R/tests"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$R" && git init -q . && git config user.email t@e && git config user.name t
+    printf '@test "old" { run true; [ "$status" -eq 0 ]; }\n' > tests/old.bats
+    printf 'tests/gen.bats\n' > .gitignore
+    git add -A && git commit -q -m base
+    printf '@test "gen" { run true; [[ "$output" != *"x"* ]]; }\n' > tests/gen.bats )
+  run bash -c "cd '$R' && python3 '$BATS_TEST_DIRNAME/../scripts/check-vacuous-tests'"
+  [[ "$output" == *"checked 1 test file(s)"* ]]
+  [[ "$output" != *"gen.bats"* ]]
+}

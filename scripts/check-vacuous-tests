@@ -137,10 +137,21 @@ def own_test_files() -> list[Path]:
     no guard for the files the narrow caller misses. One selector, in the script,
     is the only version with no gap to open.
     """
-    out = subprocess.run(
-        ["git", "ls-files"], capture_output=True, text=True, check=False, env=GIT_ENV
-    )
-    return [Path(f) for f in out.stdout.split() if TEST_FILE.search(f)]
+    # Tracked AND untracked-but-not-ignored. `git ls-files` alone misses a brand new
+    # test file — the one most likely to carry a fresh mistake — and the script then
+    # printed "checked 19 test file(s)" with nothing saying a twentieth existed.
+    # Measured on the file added the same hour: 19 picked, 20 on disk.
+    names: list[str] = []
+    for argv in (
+        ["git", "ls-files"],
+        ["git", "ls-files", "--others", "--exclude-standard"],
+    ):
+        out = subprocess.run(
+            argv, capture_output=True, text=True, check=False, env=GIT_ENV
+        )
+        if out.returncode == 0:
+            names.extend(out.stdout.split())
+    return sorted({Path(f) for f in names if TEST_FILE.search(f)})
 
 
 def main(argv: list[str]) -> int:

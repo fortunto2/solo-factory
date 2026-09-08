@@ -1394,6 +1394,45 @@ fixes both the receipt and the test: the two mutations now kill 1 and 2.
 A third test pins the counter as well as the line, because naming the file while
 still claiming it parsed would trade one false green for a louder one.
 
+**The gate itself had never been probed, and it failed open.** Four axes had each
+found a defect in the *tools*; `hooks/sensor-stop.sh` — the thing that decides
+whether a turn may end — had been examined by nobody.
+
+Three defects in one reading:
+
+- `[[ -z "$REC" ]] && exit 0`. **A verifier that produced nothing let the turn end,
+  in silence.** The exact false green this document exists to prevent, in the gate.
+- `2>/dev/null`. Every named cause `solo-verify` learned to print over two cycles —
+  *git could not run*, *this is not a repository*, *--root is not a directory* — went
+  straight to `/dev/null`. Two cycles of work on honest causes, discarded by the one
+  caller that matters.
+- **No bound at all.** *Measured*: a 4000-file change takes **163s in fast mode**,
+  and the published budget for this placement is <120s. The gate could hold a turn
+  for minutes with no output, and our own rule says a gate that costs minutes gets
+  bypassed.
+
+**And the first fix pretended to be bounded.** It set `UNBOUNDED=1` in the branch
+where no `timeout(1)` exists — the ordinary case on macOS — and never read the
+variable, directly under a comment saying *"say so rather than pretend the run was
+bounded"*. Found by asking for a 3-second budget on the 4000-file tree and watching
+it run 114 seconds in silence. The receipt now carries the fact that the budget was
+not enforced.
+
+**A brand-new test file was invisible to the vacuous-test checker.** `git ls-files`
+lists tracked files only, so `tests/stop_gate.bats` — written minutes earlier — was
+not examined, and the script printed *"checked 19 test file(s)"* with nothing saying
+a twentieth existed. The newest file is the one most likely to carry a fresh mistake.
+Untracked-but-not-ignored files are included now, with a control asserting an
+**ignored** file still is not: otherwise the fix trades a blind spot for build-output
+noise.
+
+*Two transient measurements this cycle were wrong and are retracted rather than
+quietly dropped.* A full-suite run reported one failure that did not reproduce, and
+`tests/stop_gate.bats` appeared to hang as a file while passing test-by-test. Both
+were load from the 4000-file probe repository running concurrently — the same
+contamination that once made this suite look like it took ten minutes. **A machine
+busy with your own probe is an instrument you are also measuring.**
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

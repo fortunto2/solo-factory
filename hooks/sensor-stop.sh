@@ -41,8 +41,52 @@ git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 ARGS=(--root "$ROOT" --json)
 [[ "$MODE" == "full" ]] && ARGS+=(--full)
 
-REC=$("$VERIFY" "${ARGS[@]}" 2>/dev/null) || true
-[[ -z "$REC" ]] && exit 0
+# Bounded, and the bound is the one this repo publishes for this placement. A
+# 4000-file change took 163s in FAST mode, measured — so the gate could block a
+# turn for minutes with no output at all, and our own rule says a gate that costs
+# minutes gets bypassed.
+BUDGET="${SOLO_SENSOR_BUDGET:-150}"
+ERR=$(mktemp)
+if command -v timeout >/dev/null 2>&1; then
+  REC=$(timeout "$BUDGET" "$VERIFY" "${ARGS[@]}" 2>"$ERR"); RC=$?
+elif command -v gtimeout >/dev/null 2>&1; then
+  REC=$(gtimeout "$BUDGET" "$VERIFY" "${ARGS[@]}" 2>"$ERR"); RC=$?
+else
+  # No timeout binary — the ordinary case on macOS, where neither `timeout` nor
+  # `gtimeout` exists without coreutils. The first version set UNBOUNDED=1 here and
+  # never read it: a comment saying "say so rather than pretend the run was bounded"
+  # above code that pretended. Measured by asking for a 3s budget on a 4000-file
+  # tree and watching it take 114s in silence.
+  REC=$("$VERIFY" "${ARGS[@]}" 2>"$ERR"); RC=$?
+  UNBOUNDED="  (ran UNBOUNDED: no timeout(1) here, so SOLO_SENSOR_BUDGET=${BUDGET}s was not enforced — install coreutils or narrow the scope yourself)"
+fi
+STDERR=$(cat "$ERR"); rm -f "$ERR"
+
+if [[ "$RC" -eq 124 ]]; then
+  # A timed-out run never observed the thing under test. Rule 3a: not a pass.
+  jq -n --arg ctx "The turn cannot end yet: verification did not finish within ${BUDGET}s.
+
+A run that was killed observed nothing. This is not a pass and not a failure —
+it is an absence of a result. Narrow the change, run \`solo-verify --files ...\`
+on what matters, or set SOLO_SENSOR_BUDGET deliberately and say why." \
+    '{hookSpecificOutput:{hookEventName:"Stop", continue:true, additionalContext:$ctx}}'
+  exit 0
+fi
+
+if [[ -z "$REC" ]]; then
+  # This used to `exit 0` in silence: a verifier that produced nothing reading as a
+  # turn that passed — the false green this whole harness exists to prevent, in the
+  # gate itself. Its stderr was discarded too, so every named cause solo-verify
+  # learned to print went straight to /dev/null.
+  jq -n --arg ctx "The turn cannot end yet: the verifier produced no receipt (exit ${RC}).
+
+${STDERR:-It printed nothing on stderr either.}
+
+Nothing was verified. Say plainly that this change is unchecked, or make the
+verifier runnable." \
+    '{hookSpecificOutput:{hookEventName:"Stop", continue:true, additionalContext:$ctx}}'
+  exit 0
+fi
 
 VERDICT=$(printf '%s' "$REC" | jq -r '.verdict // "UNKNOWN"' 2>/dev/null)
 SCOPE=$(printf '%s' "$REC" | jq -r '.scope | length' 2>/dev/null)
@@ -60,6 +104,9 @@ HUMAN=$(printf '%s' "$REC" | jq -r '
   (if (.findings|length) > 0 then "  findings:" else empty end),
   (.findings[:15][] | "    " + .)
 ' 2>/dev/null)
+# A budget that was not enforced must be visible next to the time it did not bound.
+[[ -n "${UNBOUNDED:-}" ]] && HUMAN="${HUMAN}
+${UNBOUNDED}"
 
 block() {
   jq -n --arg ctx "$1" \
