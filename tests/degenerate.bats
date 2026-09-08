@@ -157,3 +157,61 @@ assert_unknown() {
   [[ "$output" == *"c.py"* ]]
   [[ "$output" == *"UNDEFENDED"* ]]
 }
+
+# ── the third axis: the environment ────────────────────────────────────────
+#
+# Input was probed many times, invocation twice. The environment a tool runs in is
+# the axis nobody varied — and it is the one a hook changes without being asked.
+
+@test "git unreachable is named, not reported as no changed files" {
+  # With an empty PATH git cannot run, git_changed_files returns nothing, and the
+  # receipt said "empty scope: no changed files were found to check" while a
+  # MODIFIED file sat in the tree. The scope query's failure reported as its result.
+  R="$BATS_TEST_TMPDIR/nopath"; mkdir -p "$R"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$R" && git init -q . && git config user.email t@e && git config user.name t
+    printf 'import os\nx = 1\n' > a.py && git add -A && git commit -q -m base
+    printf 'import os\nx = 2\n' > a.py )
+  run env PATH= "$(command -v python3)" "$S/solo-verify" --root "$R"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"git could not run"* ]]
+  [[ "$output" == *"A hook's PATH is not your shell's"* ]]
+  [[ "$output" != *"no changed files were found"* ]]
+}
+
+@test "a directory that is not a repository says so" {
+  R="$BATS_TEST_TMPDIR/plain"; mkdir -p "$R"
+  printf 'import os\nx = 1\n' > "$R/a.py"
+  run python3 "$S/solo-verify" --root "$R"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"is not a git repository"* ]]
+  [[ "$output" == *"an empty scope is not a finding"* ]]
+  [[ "$output" != *"no changed files were found"* ]]
+}
+
+@test "a real repository with a real change is still verified" {
+  # Positive control: refusing both cases above by refusing everything passes them
+  # while making the default invocation — no --files at all — useless.
+  R="$BATS_TEST_TMPDIR/live"; mkdir -p "$R"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$R" && git init -q . && git config user.email t@e && git config user.name t
+    printf 'x = 1\n' > a.py && git add -A && git commit -q -m base
+    printf 'import os\nx = 1\n' > a.py )
+  run python3 "$S/solo-verify" --root "$R"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"VERIFY FAIL"* ]]
+  [[ "$output" == *"a.py"* ]]
+}
+
+@test "an empty scope in a real repository still says exactly that" {
+  # The message the two guards took over must survive where it is TRUE, or the fix
+  # replaced one invented cause with another.
+  R="$BATS_TEST_TMPDIR/clean"; mkdir -p "$R"
+  ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+    cd "$R" && git init -q . && git config user.email t@e && git config user.name t
+    printf 'x = 1\n' > a.py && git add -A && git commit -q -m base )
+  run python3 "$S/solo-verify" --root "$R"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"no changed files were found"* ]]
+  [[ "$output" != *"git could not run"* ]]
+}

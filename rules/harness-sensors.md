@@ -1339,6 +1339,35 @@ tool answered confidently about a tree that was not there.
 
 
 
+**The third axis: the environment.** Input had been probed many times, invocation
+twice. The environment a tool *runs in* is the one nobody varied — and it is the one
+a hook changes without asking.
+
+`LC_ALL=C`, a piped stdout, and a missing `HOME` all survive. **An empty `PATH` does
+not**, and the failure is the same class as the last two cycles': with git
+unreachable, `git_changed_files` returns nothing and the receipt said
+
+> `empty scope: no changed files were found to check`
+
+while a **modified file sat in the tree**. The scope query's *failure* reported as
+its *result*. Worse than the earlier cases because this is the documented hook trap —
+*a hook's PATH is not your shell's* — so the environment where it happens is the
+environment the gate normally runs in.
+
+The same invented cause came from a second direction: a `--root` that is a real
+directory but **not a repository**, where "changed since HEAD" has no meaning at all.
+
+One probe fixes both, and it has to run *before* the silence is read as an answer:
+`git rev-parse --show-toplevel`, with 124/126/127 separated from a non-zero exit,
+because "git could not run" and "this is not a repository" are different facts with
+different remedies. Both now name `--files` as the way to proceed.
+
+Two positive controls rather than one. A real repository with a real change is still
+verified — refusing both cases by refusing everything would pass the new tests while
+making the default invocation useless. And **an empty scope in a real repository must
+still say exactly that**: the message the guards took over has to survive where it is
+true, or the fix has replaced one invented cause with another.
+
 ## On noise
 
 A sensor's false-positive rate decides where it can live, more than its speed

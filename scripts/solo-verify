@@ -1923,6 +1923,30 @@ def main() -> int:
             else:
                 unresolved.append(f)
     else:
+        # Ask whether git can answer BEFORE reading its silence as an answer.
+        # Measured, two ways, both landing on the same invented cause "empty scope:
+        # no changed files were found to check" while a modified file sat in the
+        # tree: with an empty PATH git is unreachable (the documented hook trap —
+        # a hook's PATH is not your shell's), and in a directory that is not a
+        # repository the question has no meaning at all. In both, the scope query's
+        # FAILURE was reported as its RESULT.
+        code, out = run(["git", "rev-parse", "--show-toplevel"], root, 10)
+        if code in (124, 126, 127):
+            print(
+                f"UNKNOWN: git could not run here ({out.strip()[:80]}), so the "
+                f"changed-file scope could not be asked for. A hook's PATH is not "
+                f"your shell's. Pass --files to name a scope without git.",
+                file=sys.stderr,
+            )
+            return 2
+        if code != 0:
+            print(
+                f"UNKNOWN: {args.root} is not a git repository, so 'changed since "
+                f"HEAD' has no meaning here and an empty scope is not a finding. "
+                f"Pass --files to name what to check.",
+                file=sys.stderr,
+            )
+            return 2
         files = git_changed_files(root)
 
     # A file outside --root cannot be honestly attributed. The receipt states one
