@@ -1080,3 +1080,80 @@ print('CALLS', state['i'])
   [[ "$output" == *"resume_after 999"* ]]
   [[ "$output" != *"resume_after 111"* ]]
 }
+
+# ── the read-back's three outcomes were labels, not branches ─────────────────
+#
+# *Asked* by @just-nik (#27404): does the read-back path treat the unknown branch as
+# hard — refusing to mark a post confirmed — or does it only name it? Measured: only
+# named it. All three outcomes exited 0, so a caller acting on the status could not
+# tell a confirmed post from one the board does not show.
+#
+# The same action-vs-decision shape found in three operator controls the cycle
+# before: the state is computed correctly and nothing downstream can act on it.
+
+post_rc() {  # $1 = 'true' | 'false' | 'boom'  -> prints "rc=N reached=BOOL"
+  python3 -c "
+import sys, io, importlib.util, importlib.machinery, contextlib
+l = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+sp = importlib.util.spec_from_loader('gpb', l)
+m = importlib.util.module_from_spec(sp); sys.modules['gpb'] = m; l.exec_module(m)
+RID = '7b8fcf04-7a10-4060-b2cf-778bb6024129'
+PID = 'aaaaaaaa-1111-2222-3333-444444444444'
+mode = '$1'
+def fake(method, path, key, body=None, **kw):
+    if method == 'POST':
+        return {'id': PID, 'seq': 999}
+    if '/v1/posts/' + PID in path:
+        if mode == 'boom':
+            raise RuntimeError('read-back exploded')
+        found = mode == 'true'
+        return {'post': {'id': PID if found else 'other', 'title': 't',
+                         'body': 'an english body'}, 'replies': {'items': []}}
+    return {'post': {'id': RID, 'title': 't', 'body': 'an english body here'},
+            'replies': {'items': [{'id': PID, 'body': 'an english reply'}]}}
+m.call = fake
+m.api_key = lambda *a, **k: 'x'
+sys.argv = ['gpb', '--account', 'harness-librarian', 'reply', RID, '--body', 'x' * 60]
+buf, err = io.StringIO(), io.StringIO()
+try:
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
+        rc = m.main()
+except SystemExit as e:
+    rc = e.code
+text = buf.getvalue() + err.getvalue()
+# The probe must be shown to have REACHED the mechanism. Three earlier probes in
+# this family failed before reaching it and produced exactly the expected symptoms.
+print('rc=%s reached=%s' % (rc, 'posted id=' in text))
+print(text)
+"
+}
+
+@test "a confirmed read-back exits 0 and says the post exists" {
+  run post_rc true
+  [[ "$output" == *"reached=True"* ]]
+  [[ "$output" == *"rc=0"* ]]
+  [[ "$output" == *"read back, exists"* ]]
+}
+
+@test "an UNCONFIRMED read-back is a hard branch, not a label" {
+  # The write returned 201 and the board does not show it. Citing that seq is what
+  # MISSION.md forbids, so the status has to carry it: a cycle recording the post as
+  # published would otherwise be recording something that may not exist.
+  run post_rc false
+  [[ "$output" == *"reached=True"* ]]
+  [[ "$output" == *"rc=1"* ]]
+  [[ "$output" == *"UNCONFIRMED"* ]]
+  [[ "$output" == *"Do not cite this seq"* ]]
+}
+
+@test "an UNCHECKED read-back exits 0, because absent is not the same as unavailable" {
+  # The read-back could not run. That is the unavailable-tool case, which this
+  # harness answers with PARTIAL — honesty in the word, not a failed pipeline.
+  # Collapsing it into the UNCONFIRMED branch would report a network blip as a
+  # missing post.
+  run post_rc boom
+  [[ "$output" == *"reached=True"* ]]
+  [[ "$output" == *"rc=0"* ]]
+  [[ "$output" == *"existence UNCHECKED"* ]]
+  [[ "$output" != *"UNCONFIRMED"* ]]
+}

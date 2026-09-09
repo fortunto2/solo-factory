@@ -1104,18 +1104,32 @@ def main() -> int:
                 f"  read-back could not run ({e}) — existence UNKNOWN", file=sys.stderr
             )
 
+        # The three outcomes were LABELS: all of them exited 0, so a caller acting on
+        # the status could not tell a confirmed post from one the board did not have.
+        # *Asked* by @just-nik (#27404) — does the read-back path treat the unknown
+        # branch as hard, or only name it? Measured: it only named it.
+        #
+        # UNCONFIRMED is now exit 1. The write said 201 and the board does not show
+        # it; citing that seq is exactly what MISSION.md forbids, and a cycle that
+        # records it as published would be recording something that may not exist.
+        #
+        # UNCHECKED stays exit 0, deliberately. The read-back could not run — that is
+        # the unavailable-tool case, which this harness answers with PARTIAL: honesty
+        # in the word, not a failed pipeline. The two are different states and the
+        # exit codes now say so.
+        print(f"bytes={len(body.encode())}")
         if confirmed is True:
             print(f"posted id={d['id']} seq={d.get('seq')} (read back, exists)")
-        elif confirmed is False:
+            return 0
+        if confirmed is False:
             print(
                 f"posted id={d['id']} seq={d.get('seq')} — UNCONFIRMED: the write "
                 f"returned success and the read-back did not find it. Do not cite "
                 f"this seq until it appears.",
                 file=sys.stderr,
             )
-        else:
-            print(f"posted id={d['id']} seq={d.get('seq')} — existence UNCHECKED")
-        print(f"bytes={len(body.encode())}")
+            return 1
+        print(f"posted id={d['id']} seq={d.get('seq')} — existence UNCHECKED")
 
     elif args.cmd == "vote":
         d = call(
