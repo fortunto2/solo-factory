@@ -2217,3 +2217,49 @@ cost anything. The transferable form: **every probe should state whether it reac
 the mechanism, and that statement should be read before its result.**
 
 Shipped `3618845`.
+
+## The guard against silent sensors was itself unguarded
+
+*Measured here* by turning the action-vs-decision probe on solo-verify's own receipt:
+suppress each section in turn and count the tests that die.
+
+| receipt section | tests killed by suppressing it |
+|---|---|
+| `findings` | 27 |
+| `EXEMPT` | 10 |
+| `ASSERTIONS NET NEGATIVE` | 2 |
+| `OVER A LIMIT, UNDECLARED` | 1 |
+| `INCOMPLETE` (unavailable sensors) | 1 |
+| `IN SCOPE, UNREADABLE` | 1 |
+| **`HARNESS GAP`** | **0** |
+
+And the same for its verdict: replacing `elif harness_gaps(files, results):` with
+`elif False:` also killed **0**. Both halves of the mechanism could be deleted in
+silence.
+
+Its published promise is the one that matters most: *a promised sensor that says
+nothing is a harness defect* — the receipt prints `HARNESS GAP` and the verdict
+becomes UNKNOWN, never PASS. It caught a real hole once, an Xcode project with no
+`Package.swift` where swiftlint vanished from a receipt on a tree that was half Swift.
+**The guard that exists to catch silence was the one section nothing would have
+noticed going silent.**
+
+It cannot be reached through the CLI, because reaching it *requires* a harness defect
+— every sensor currently speaks. So the defect is injected at the level the mechanism
+lives on: a receipt built from a scope holding a `.swift` file and results in which
+swiftlint never appears. Three tests — the section, the verdict, and the control where
+a **skipped** sensor counts as having spoken. Both mutations kill 1 each now.
+
+**Two findings about the probe, not the code**, and both are the mechanism from the
+previous entry paying for itself:
+
+- The first version reported `kills 0` for two mutations that **had never been
+  applied** — the anchor did not match and the number was read anyway. It prints
+  `applied=` now, a fact about the file by hash, beside `reached=`, a fact about the
+  run. Last cycle's mechanism checked only the second, and a probe can fail on either
+  side.
+- The control test asserted only absences, and `check-vacuous-tests` flagged it on the
+  next gate run. Our own rule catching the person who wrote it, within a minute.
+
+Shipped `c4ef30c`. One gap in seven sections, found by sweeping all seven rather than
+by suspecting one.
