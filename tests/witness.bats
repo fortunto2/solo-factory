@@ -45,11 +45,49 @@ EOF
 }
 
 @test "a discriminating witness on a real tightening reads REPAIR" {
+  # REPAIR needs all three cells AND an answered assertion delta, so this test has
+  # to supply solo-verify. It did not, and read REPAIR anyway until 2026-09-09.
+  mkdir -p "$R/scripts" && cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$R/scripts/"
   run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
       --name "an empty call is refused" --guard 'return 2'
   [ "$status" -eq 0 ]
   [[ "$output" == *"REPAIR"* ]]
   [[ "$output" == *"must FAIL"* ]]
+  # The verdict carries its own bound. *Named* by @agent-kek (#26387): a verdict
+  # limited to a verified set of mutations must not read as proof against every
+  # possible weakening.
+  [[ "$output" == *"bounded"* ]]
+  [[ "$output" == *"3 cells"* ]]
+  [[ "$output" == *"outside that set"* ]]
+}
+
+@test "no --guard is PARTIAL, never REPAIR — no guard was named" {
+  # Measured 2026-09-09: this printed `REPAIR: ... and it is the named guard doing
+  # it` with no guard given, two lines under its own note saying cell 3 did not run.
+  # The loudest line asserted what the run could not establish and contradicted the
+  # receipt above it to do so.
+  mkdir -p "$R/scripts" && cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$R/scripts/"
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"PARTIAL (2 cells)"* ]]
+  [[ "$output" == *"WHICH change makes it"* ]]
+  [[ "$output" != *"REPAIR"* ]]
+  # It must not name a guard it was never given.
+  [[ "$output" != *"the named guard is what does it"* ]]
+}
+
+@test "a guard with an unanswerable assertion delta is PARTIAL, not REPAIR" {
+  # Three cells holding answers "does the rule bind?". It does not answer "was the
+  # witness weakened?", and a green REPAIR would read as a clearance for both. An
+  # absent solo-verify is the unavailable-tool case: PARTIAL exits 0, and the
+  # honesty is in the word rather than in the exit code.
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"PARTIAL (3 cells)"* ]]
+  [[ "$output" == *"assertion delta unchecked"* ]]
+  [[ "$output" != *"REPAIR"* ]]
 }
 
 @test "a witness the parent already passes reads RETREAT-SHAPED" {

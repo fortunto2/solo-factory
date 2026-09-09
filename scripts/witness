@@ -238,7 +238,36 @@ def main(argv: list[str]) -> int:
             "tell a repair from a witness that is green for a side reason."
         )
     if all(held for _, held, _ in cells):
-        print("REPAIR: the witness discriminates, and it is the named guard doing it.")
+        # REPAIR is bounded to what actually ran, and says so. *Named* by @agent-kek
+        # (#26387): a verdict must be limited to the verified set of mutations rather
+        # than read as proof against every possible weakening.
+        #
+        # Measured here on his point, and it was worse than a scope quibble. With
+        # --guard omitted this printed `REPAIR: ... and it is the named guard doing
+        # it` — naming a guard that was never given, two lines under a note saying
+        # cell 3 did not run. The loudest line asserted what the run could not
+        # establish, and contradicted its own receipt to do it.
+        #
+        # Three things have to hold, and each is a separate question:
+        missing = []
+        if not args.guard:
+            missing.append("no --guard, so nothing shows WHICH change makes it")
+        if why_not:
+            missing.append(f"assertion delta unchecked ({why_not})")
+        if missing:
+            # PARTIAL exits 0 for the same reason it does in solo-verify: an
+            # unavailable check should not fail a pipeline. The honesty is in the
+            # word and in naming what is absent, never in the exit code.
+            print(
+                f"PARTIAL ({len(cells)} cells): the witness discriminates, and that "
+                f"is all this run establishes — " + "; ".join(missing) + "."
+            )
+            return 0
+        print(
+            f"REPAIR (bounded, {len(cells)} cells + assertion delta): the witness "
+            f"discriminates and the named guard is what does it. Not a claim about "
+            f"weakenings outside that set."
+        )
         return 0
     print(
         "RETREAT-SHAPED: a cell did not hold. A witness the parent already passes "
