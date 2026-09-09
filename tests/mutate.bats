@@ -299,3 +299,126 @@ print(m.one_sided($1))
   [[ "$output" == *"killed"* ]]          # the run actually happened
   [[ "$output" != *"ONE-SIDED"* ]]
 }
+
+# ── an interrupted run must not leave a mutant on disk ───────────────────────
+#
+# Measured 2026-09-09: SIGTERM mid-run left `if True:  # mutant` in the subject and
+# nothing said so. try/finally covers exceptions — including Ctrl-C, which raises
+# KeyboardInterrupt — and covers neither SIGTERM nor SIGKILL. A command timeout, a
+# cancelled CI job and a closed terminal all produce exactly that, and this tool is
+# pointed at the file somebody is editing.
+
+mut_fixture() {
+  M="$BATS_TEST_TMPDIR/mk"; mkdir -p "$M/tests"
+  cat > "$M/subj.py" <<'EOF'
+import sys
+def main(argv):
+    if len(argv) < 2:
+        return 2
+    return 0
+sys.exit(main(sys.argv))
+EOF
+  # Slow on purpose: the run has to still be inside the mutation loop when the
+  # signal lands, or the test measures a finished run and passes for free.
+  printf 'setup() { sleep 4; }\n' > "$M/tests/t.bats"
+  { printf '@%s "slow" {\n' test
+    printf '  run python3 "%s/subj.py"\n' "$M"
+    printf '  [ "$status" -eq 2 ]\n}\n'; } >> "$M/tests/t.bats"
+}
+
+@test "SIGTERM mid-run restores the subject" {
+  mut_fixture
+  before=$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)
+  ( cd "$M" && python3 "$BATS_TEST_DIRNAME/../scripts/mutate" --file subj.py \
+      --test tests/t.bats >/dev/null 2>&1 ) &
+  bg=$!
+  sleep 5
+  pkill -TERM -f "scripts/mutate --file subj.py" || true
+  wait $bg 2>/dev/null || true
+  sleep 1
+  after=$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)
+  [ "$before" = "$after" ]
+  [ ! -f "$M/subj.py.mutate-original" ]
+}
+
+@test "a crumb from a killed run makes the next one refuse, not measure" {
+  # SIGKILL cannot be caught, so the crumb is the entire defence. A run that starts
+  # on a mutated file would measure a baseline of somebody else's injected defect,
+  # and every verdict after that is about the wrong program.
+  mut_fixture
+  cp "$M/subj.py" "$M/subj.py.mutate-original"
+  run bash -c "cd '$M' && python3 '$BATS_TEST_DIRNAME/../scripts/mutate' --file subj.py --test tests/t.bats 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"UNKNOWN"* ]]
+  [[ "$output" == *"killed before it could restore"* ]]
+  [[ "$output" == *"Nothing was measured"* ]]
+  # And it says how to undo it, naming both files.
+  [[ "$output" == *"mv subj.py.mutate-original subj.py"* ]]
+}
+
+@test "the crumb holds the original, so the undo it prints actually works" {
+  # A recovery instruction nobody has run is a guess. This runs it.
+  mut_fixture
+  before=$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)
+  cp "$M/subj.py" "$M/subj.py.mutate-original"
+  printf 'import sys\nif True:  # mutant\n    pass\n' > "$M/subj.py"
+  [ "$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)" != "$before" ]
+  mv "$M/subj.py.mutate-original" "$M/subj.py"
+  [ "$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)" = "$before" ]
+}
+
+@test "a clean run leaves no crumb behind" {
+  # The control. A crumb left after every run would make the refusal above fire on
+  # every second invocation — a guard that blocks honest work gets deleted.
+  mut_fixture
+  printf 'setup() { :; }\n' > "$M/tests/t.bats"
+  { printf '@%s "quick" {\n' test
+    printf '  run python3 "%s/subj.py"\n' "$M"
+    printf '  [ "$status" -eq 2 ]\n}\n'; } >> "$M/tests/t.bats"
+  run bash -c "cd '$M' && python3 '$BATS_TEST_DIRNAME/../scripts/mutate' --file subj.py --test tests/t.bats 2>&1"
+  [ ! -f "$M/subj.py.mutate-original" ]
+}
+
+@test "mutate itself writes the crumb, and it holds the original" {
+  # The mutation "no crumb is written" killed 0 tests: every case above created the
+  # crumb by hand, so nothing checked that the tool writes one. The entire SIGKILL
+  # defence rests on that write, and it was the one step untested.
+  mut_fixture
+  before=$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)
+  ( cd "$M" && python3 "$BATS_TEST_DIRNAME/../scripts/mutate" --file subj.py \
+      --test tests/t.bats >/dev/null 2>&1 ) &
+  bg=$!
+  sleep 5
+  # While the run is still inside the mutation loop.
+  [ -f "$M/subj.py.mutate-original" ]
+  [ "$(shasum -a256 "$M/subj.py.mutate-original" | cut -d' ' -f1)" = "$before" ]
+  # And the subject really is mutated at this moment, or the crumb is guarding
+  # nothing and this test would pass on a tool that never mutates at all.
+  [ "$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)" != "$before" ]
+  pkill -TERM -f "scripts/mutate --file subj.py" || true
+  wait $bg 2>/dev/null || true
+}
+
+@test "a failed restore keeps the crumb, which is the only record left" {
+  # The other survivor. If the restore fails, removing the crumb would erase the
+  # single copy of the original — turning a recoverable accident into a loss.
+  # Forced by having the test that mutate runs make the subject unwritable.
+  M="$BATS_TEST_TMPDIR/fail"; mkdir -p "$M/tests"
+  cat > "$M/subj.py" <<'EOF'
+import sys
+def main(argv):
+    if len(argv) < 2:
+        return 2
+    return 0
+sys.exit(main(sys.argv))
+EOF
+  before=$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)
+  { printf '@%s "locks the subject" {\n' test
+    printf '  chmod 000 "%s/subj.py"\n' "$M"
+    printf '  [ 1 -eq 1 ]\n}\n'; } > "$M/tests/t.bats"
+  run bash -c "cd '$M' && python3 '$BATS_TEST_DIRNAME/../scripts/mutate' --file subj.py --test tests/t.bats 2>&1"
+  chmod 644 "$M/subj.py" 2>/dev/null || true
+  # Whatever the verdict, the original must still be recoverable.
+  [ -f "$M/subj.py.mutate-original" ]
+  [ "$(shasum -a256 "$M/subj.py.mutate-original" | cut -d' ' -f1)" = "$before" ]
+}

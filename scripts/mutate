@@ -32,6 +32,7 @@ import ast
 import hashlib
 import os
 import re
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -262,6 +263,24 @@ def main(argv: list[str]) -> int:
 
     original = text
     baseline_hash = sha(target)
+
+    # A crumb from a previous run means that run never restored the file — killed by
+    # SIGKILL, a power loss, or anything else no handler can catch. Refusing is the
+    # only honest move: the file on disk is a mutant, so a baseline measured on it
+    # would be a baseline of somebody else's injected defect, and every verdict after
+    # that is about the wrong program.
+    stale = target.with_suffix(target.suffix + ".mutate-original")
+    if stale.is_file():
+        print(
+            f"UNKNOWN: {stale.name} exists, so a previous run was killed before it "
+            f"could restore {target.name}. The file on disk may still hold a mutant. "
+            f"Compare them, then either `mv {stale.name} {target.name}` to undo it or "
+            f"delete {stale.name} if the current content is what you want. Nothing "
+            f"was measured.",
+            file=sys.stderr,
+        )
+        return 2
+
     code, out = run_tests(test_file)
     if code != 0:
         print(
@@ -277,6 +296,33 @@ def main(argv: list[str]) -> int:
 
     survived, killed, outcomes = [], [], []
     restored = False
+
+    # A crumb that outlives this process. try/finally covers exceptions, including
+    # the KeyboardInterrupt from Ctrl-C — it does NOT cover SIGTERM or SIGKILL.
+    # Measured 2026-09-09: SIGTERM mid-run left `if True:  # mutant` in the file and
+    # nothing said so. A command timeout, a cancelled CI job or a closed terminal all
+    # do that, and this tool exists to be pointed at the code somebody is editing.
+    #
+    # So: the original is written beside the target BEFORE the first mutation and
+    # removed after a verified restore. SIGTERM and SIGINT restore and re-raise;
+    # SIGKILL cannot be caught, and for that the crumb is the whole defence — the
+    # next run refuses to start and says exactly how to undo it.
+    crumb = target.with_suffix(target.suffix + ".mutate-original")
+
+    def restore_and_exit(signum, _frame):
+        target.write_text(original)
+        crumb.unlink(missing_ok=True)
+        print(
+            f"\n  interrupted by signal {signum} — {target.name} restored, "
+            f"sha {sha(target)[:12]}",
+            file=sys.stderr,
+        )
+        raise SystemExit(130)
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, restore_and_exit)
+    crumb.write_text(original)
+
     try:
         for name, before, after in cands:
             mutated = original.replace(before, after, 1)
@@ -304,6 +350,18 @@ def main(argv: list[str]) -> int:
         target.write_text(original)
         # Restored is a fact about the file, not about the write returning.
         restored = sha(target) == baseline_hash
+        if restored:
+            # Only after the file is provably back. A crumb removed on the way out
+            # regardless would erase the one record of an unrestored file.
+            #
+            # SURVIVING MUTANT, published rather than hidden: changing this to
+            # `if True:` kills no test. The protection that actually fires is the
+            # exception — an unwritable target raises before this line is reached,
+            # so the crumb survives either way. The case this guard is for is a
+            # write that RETURNS while leaving different bytes, and that cannot be
+            # constructed on this filesystem. It stays because the cost is one
+            # condition and the loss would be the only copy of somebody's file.
+            crumb.unlink(missing_ok=True)
 
     if not restored:
         print("FATAL: the file was NOT restored — check it by hand", file=sys.stderr)
