@@ -681,7 +681,12 @@ EOF
   [ -f "$P/subj.py.mutate-original" ]   # or the kill below lands before anything ran
   pkill -TERM -f "scripts/witness --root . --subject subj.py" || true
   wait $bg 2>/dev/null || true
-  sleep 1
+  # Same as in mutate.bats: no fixed sleep. The crumbs disappearing IS the restore
+  # completing, so that is what the test waits for.
+  for _ in $(seq 1 100); do
+    [ -f "$P/subj.py.mutate-original" ] || break
+    sleep 0.1
+  done
   [ "$(shasum -a256 "$P/subj.py" | cut -d' ' -f1)" = "$sb" ]
   [ "$(shasum -a256 "$P/tests/w.bats" | cut -d' ' -f1)" = "$tb" ]
   # A clean interruption leaves no records behind either.

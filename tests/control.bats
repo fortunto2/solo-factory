@@ -44,12 +44,26 @@ setup() {
 }
 
 @test "check_control pause blocks until file removed" {
+  # This test used to assert only the post-conditions: the control file gone and
+  # SKIP_STAGE false. Both are true even if check_control returns IMMEDIATELY —
+  # `wait` then blocks for the background job and the state looks identical.
+  # Measured 2026-09-09: replacing the whole `while [[ -f ... ]]; do sleep 2; done`
+  # with `:` killed 0 tests. The pause is how an operator halts a running pipeline,
+  # and nothing verified that it pauses.
+  #
+  # The discriminating observation, with no clock in it: the background job touches
+  # a marker BEFORE removing the control file. If check_control blocked, the marker
+  # exists by the time it returns. If it did not, the marker does not exist yet.
   echo "pause" > "$CONTROL_FILE"
+  MARKER="$BATS_TEST_TMPDIR/resumed"
 
-  (sleep 1 && rm -f "$CONTROL_FILE") &
+  (sleep 0.5; touch "$MARKER"; rm -f "$CONTROL_FILE") &
   BG_PID=$!
 
   check_control
+
+  # The property in this test's name.
+  [ -f "$MARKER" ]
 
   wait $BG_PID 2>/dev/null || true
 

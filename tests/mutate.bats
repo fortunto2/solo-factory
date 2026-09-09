@@ -363,7 +363,13 @@ EOF
   [ -f "$M/subj.py.mutate-original" ]
   pkill -TERM -f "scripts/mutate --file subj.py" || true
   wait $bg 2>/dev/null || true
-  sleep 1
+  # The handler restores before exiting, so `wait` returning is already enough — but
+  # a fixed `sleep 1` afterwards was a clock with no property attached, and under
+  # load a clock is either wasted or insufficient. Wait for the observable instead.
+  for _ in $(seq 1 100); do
+    [ -f "$M/subj.py.mutate-original" ] || break
+    sleep 0.1
+  done
   after=$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)
   [ "$before" = "$after" ]
   [ ! -f "$M/subj.py.mutate-original" ]
