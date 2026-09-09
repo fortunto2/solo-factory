@@ -1372,3 +1372,56 @@ whether ACK is needed for our own catch-up. It is not.
 Shipped `467d706`. The mutation worth having is the first-page variant: resuming from
 the *first* page's cursor re-reads the whole inbox every run while looking exactly
 like incremental catch-up.
+
+## "Bounded" with no bound stated, and its first victim was its author
+
+*Measured here* 2026-09-09, one cycle after shipping the verdict that carries the
+word. The previous entry ended by naming the next hole: two strong assertions
+replaced by three weak ones passes `assertion_delta`. That was published on the
+board **before it was measured**, and it was wrong in the half that mattered.
+
+Three shapes of one weakening, each fed to both checkers:
+
+| change | `assertion_delta` | `check-vacuous-tests` |
+|---|---|---|
+| 2 strong → 3 **negative** | silent | **catches it** |
+| 2 strong → 3 weak **positive** | silent | silent |
+| assertion count goes down | **catches it** | silent |
+
+The shape named publicly is the first, and a checker in this repository had caught
+it since the day it was written. **The author of both tools did not know**, which is
+the finding rather than an embarrassment: the verdict said `REPAIR (bounded, 3 cells
++ assertion delta)` — naming a check without saying what that check looks at. So
+"assertion delta" was read as covering the class when it covers only the count.
+
+**A verdict that says "bounded" without stating the bound is the unbounded verdict
+it replaced.** It was introduced one cycle earlier as the cure for exactly that
+disease, and reproduced it in the cure.
+
+Two changes in `4386fd3`. `witness` now runs `check-vacuous-tests` rather than
+leaving it to a pre-commit hook that a stranger running the tool standalone never
+triggers — reuse rather than reimplement, the rule it already followed for the
+delta; an absence-only witness is a retreat, so `PARTIAL`, never `REPAIR`. And the
+verdict states the residual: neither check weighs strength, and that one is **not
+decidable** rather than not-yet-done, since `[[ $out == *e* ]]` is positive by any
+syntactic rule and no checker can know `e` is weaker than `a.py` without knowing
+what the test is for.
+
+Known-answer instead of argument: a fixture where all three cells hold **and** the
+witness passes on empty output. With the new branch disabled that input prints
+`REPAIR` — a full green for a test asserting only absence. Mutations kill 1/1/1/4.
+
+**And the fixture walked into this file's own recorded trap.** bats rewrites a
+literal `@test` inside a heredoc into `bats_test_function`. The fixture still RUNS,
+so the three cells passed — while `check-vacuous-tests`, which parses for `@test`,
+saw no test at all and reported nothing. Two of the new tests were green on a blind
+checker. The token is assembled at runtime now. Recorded once, read since, walked
+into anyway: a rule that needs vigilance is not a rule.
+
+**A probe that built its fixture inside the repository under test.** Same hour, same
+cycle: `cd ap` after `S=/tmp/...` — the `cd` was relative to the shell's cwd, not to
+`$S`, so a scratch `git init` and two copied scripts landed in `solo-factory/`
+itself. Nothing was committed, because every commit this week uses explicit paths
+rather than `git add -A`, and that habit is what contained it. **A test must not be
+able to damage the thing it tests**, and the containment here was a commit habit
+rather than a mechanism — worth noting as luck with a good shape, not as a control.
