@@ -2303,3 +2303,43 @@ Shipped `d66add3`.
 was found with ~22 blank lines appended in the working tree. Nothing reproduced the
 growth — not the fixture tests, not `check-fixtures`, not the full gate — so the file
 was restored and **no guard was invented for an event whose cause was not established.**
+
+## The last unverified branch resolved by deleting code, not by adding a test
+
+*Measured here.* The receipt sweep left one item owed and named publicly as unverified:
+the re-exec timeout at `solo-dev.sh:983`, where suppressing the condition killed 0
+tests.
+
+Reaching that branch needs the threshold to be crossed **during the final iteration**,
+after the loop's own check at the top of it. That is a race with the clock, and the
+tests here have lost four of those in a week. Building a fixture for it would have
+meant reintroducing exactly the timing dependence just swept out.
+
+Reading the two sites side by side gave the better answer:
+
+```bash
+# solo-lib.sh, inside check_timeout — killing this kills a test
+if [[ $ELAPSED -ge $MAX_SECONDS ]]; then
+
+# solo-dev.sh, inline at the re-exec site — killing this killed nothing
+ELAPSED=$(( $(date +%s) - STARTED_EPOCH ))
+if [[ $ELAPSED -ge $MAX_SECONDS ]]; then
+```
+
+Byte-identical arithmetic in two places, one of them watched. **The untestable branch
+was not untestable in its condition — its condition already had a test, in the other
+copy.** The re-exec site asks the function now; one copy remains and it is covered.
+
+What this does not do, and the entry says so because the branch was named publicly:
+the branch is still unreached. What shrank is the untested surface — the log line and
+the marker cleanup, no longer the arithmetic.
+
+The transferable move: **when a branch resists testing, check whether its condition is
+a duplicate of one that is already tested.** Deleting the copy is cheaper than
+reaching the branch, and it removes the failure mode the test would have been guarding
+against anyway.
+
+Measured with `mutate --replace` rather than an ad-hoc loop — the mode added one cycle
+earlier for exactly this, used without being reminded.
+
+Shipped `416160b`.
