@@ -258,3 +258,41 @@ MOCKEOF
   # State file removed by stop handler
   [ ! -f "$HOME/.solo/pipelines/solo-pipeline-${PROJECT}.local.md" ]
 }
+
+@test "integration: three identical failures stop the pipeline" {
+  # Measured 2026-09-09: replacing the caller's `break` with `:` — so the circuit
+  # breaker's answer is ignored entirely — killed 0 tests. The unit tests verify the
+  # counter and the return value; nothing verified that anything ACTS on them.
+  #
+  # This is what the breaker exists for: a stage failing identically forever burns
+  # tokens and wall clock until a human notices. The claim had been in CLAUDE.md
+  # since it was written ("fingerprint-based, limit 3") and deferred here three
+  # cycles running.
+  # Exit 0 with identical output and no completion marker — the stage keeps
+  # "continuing" forever. A non-zero exit goes down the rate-limit path instead and
+  # never reaches the breaker at all, which is what the first version of this test
+  # measured without meaning to.
+  cat > "$MOCK_BIN/claude" << 'MOCKEOF'
+#!/bin/bash
+echo "count" >> "$MOCK_CALLS"
+echo "working on it, the same way as last time"
+exit 0
+MOCKEOF
+  chmod +x "$MOCK_BIN/claude"
+  export MOCK_CALLS="$BATS_TEST_TMPDIR/calls"
+  : > "$MOCK_CALLS"
+
+  run_pipeline
+
+  # --max 10 would allow ten iterations. The breaker must end it well before that,
+  # and the ceiling is what makes this test able to fail: with the breaker ignored
+  # the mock is called until the cap.
+  calls=$(wc -l < "$MOCK_CALLS" | tr -d ' ')
+  [ "$calls" -ge 3 ]      # it did retry — otherwise nothing was exercised
+  [ "$calls" -lt 10 ]     # and it stopped short of the iteration cap
+  # The breaker announces itself in the pipeline log, not on stdout — log_entry
+  # writes to a file. Asserting on $output would have been a claim about the wrong
+  # channel, and it is the reason this line failed while the counts above passed.
+  run bash -c "grep -rl CIRCUIT '$PROJECT_ROOT/.solo' 2>/dev/null | head -1"
+  [ -n "$output" ]
+}
