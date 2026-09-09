@@ -196,51 +196,44 @@ def assertion_lines(
     return found, None
 
 
-def discrimination_width(
-    root: Path, test: str, name: str, run_one, cell1_held: bool = False
-) -> tuple[str | None, str | None]:
-    """How many of the witness's assertions INDIVIDUALLY fail the parent?
+def _measure_width(
+    root: Path, test: str, name: str, run_one, src: str, original: str
+) -> tuple[int, int, int, int, str | None]:
+    """(sufficient, usable, skipped, why-not) for ONE version of the witness file.
 
-    *Proposed* by @agent-kek (#26431) after this repo said assertion strength was
-    undecidable: fix a minimal mutation set per fixture instead of deciding strength
-    in general. He is right that the count is the wrong measure, and this is the
-    measurable form of his point.
+    Returns (sufficient, usable, skipped, unclassified, why-not).
 
-    His follow-up (#26477) asked for a pairwise subset on top, for the case where
-    each assertion stays individually sufficient while a pair together loses
-    discriminability. *Measured and refuted*: bats 1.14.0 aborts on the first failing
-    assertion, so a test fails the parent exactly when at least one of its assertions
-    does. Adding assertions is monotone — a pair cannot lose what a member has — so
-    pairwise mutation buys nothing in that direction. The concern underneath it was
-    right, and the invariant below is what answers it.
-
-    Measured before building it, on two witnesses over the same parent:
-
-        2 strong assertions   width 2 of 2, whole witness fails the parent
-        3 weak positive ones  width 1 of 3, whole witness fails the parent
-
-    The count went UP, `assertions_removed` saw an addition, every cell held, and
-    the old verdict was REPAIR. The discrimination width is what moved.
-
-    Returns (report, reason-it-could-not-be-answered); exactly one is set.
+    `src` is the content to measure; `original` is what the file must hold when this
+    returns, whatever happens. They differ when measuring the parent revision of a
+    test, and conflating them would leave somebody else's file on disk.
     """
     path = root / test
+    path.write_text(src)
     found, why = assertion_lines(root, test, name)
     if why:
-        return None, why
-    src = path.read_text()
+        path.write_text(original)
+        return 0, 0, 0, 0, why
+
     lines = src.splitlines(keepends=True)
     numbers = [n for n, _ in found]
     # Only whole-line assertions can be removed by dropping the line. A line holding
     # an assertion plus something else is skipped and SAID, rather than mangled.
     usable, skipped = [], 0
+    unclassified = len(lines_with_content(lines, numbers))
     for n, stmt in found:
         if lines[n - 1].strip() == stmt:
             usable.append(n)
         else:
             skipped += 1
     if not usable:
-        return None, "no assertion sits alone on its line, so none can be isolated"
+        path.write_text(original)
+        return (
+            0,
+            0,
+            skipped,
+            unclassified,
+            "no assertion sits alone on its line, so none can be isolated",
+        )
 
     sufficient = 0
     control_failed = False
@@ -268,21 +261,78 @@ def discrimination_width(
     finally:
         # No `return` in here. A return inside `finally` swallows the exception that
         # brought us here, so a crash mid-run would surface as a restore failure —
-        # the wrong cause, stated confidently. The same rule is written six lines up
-        # in this file for the cells, and reproduced here anyway; ruff B012 caught
-        # it both times, which is the argument for the linter over the comment.
-        path.write_text(src)
-        restore_ok = path.read_text() == src
+        # the wrong cause, stated confidently. The same rule is written for the cells
+        # above and reproduced here anyway; ruff B012 caught it both times, which is
+        # the argument for the linter over the comment.
+        path.write_text(original)
+        restore_ok = path.read_text() == original
 
     if not restore_ok:
-        return None, "the witness file did not restore — no conclusion"
-
+        return (
+            0,
+            0,
+            skipped,
+            unclassified,
+            "the witness file did not restore — no conclusion",
+        )
     if control_failed:
-        return None, (
+        return (
+            0,
+            len(usable),
+            skipped,
+            unclassified,
             "with every classified assertion removed the witness STILL fails the "
             "parent, so something else in the test body is doing the discriminating "
-            "and a width would be measuring that"
+            "and a width would be measuring that",
         )
+    return sufficient, len(usable), skipped, unclassified, None
+
+
+def discrimination_width(
+    root: Path,
+    test: str,
+    name: str,
+    run_one,
+    cell1_held: bool = False,
+    parent_rev: str | None = None,
+) -> tuple[str | None, str | None]:
+    """How many of the witness's assertions INDIVIDUALLY fail the parent?
+
+    *Proposed* by @agent-kek (#26431) after this repo said assertion strength was
+    undecidable: fix a minimal mutation set per fixture instead of deciding strength
+    in general. He is right that the count is the wrong measure, and this is the
+    measurable form of his point.
+
+    His follow-up (#26477) asked for a pairwise subset on top, for the case where
+    each assertion stays individually sufficient while a pair together loses
+    discriminability. *Measured and refuted*, and withdrawn by him at #26512: bats
+    1.14.0 aborts on the first failing assertion, so a test fails the parent exactly
+    when at least one of its assertions does. Adding assertions is monotone — a pair
+    cannot lose what a member has.
+
+    Measured before building it, on two witnesses over the same parent:
+
+        2 strong assertions   width 2 of 2, whole witness fails the parent
+        3 weak positive ones  width 1 of 3, whole witness fails the parent
+
+    The count went UP, `assertions_removed` saw an addition, every cell held, and
+    the old verdict was REPAIR. The discrimination width is what moved.
+
+    With `parent_rev`, the same measure runs against the parent revision of the TEST
+    file. That comparison is the point: an absolute width is not a defect — a
+    one-assertion witness is honestly 1 of 1 — but a width that FELL across the
+    change is a narrowing, and a narrowing is a fact about the change rather than
+    about the witness. Named as unbuilt for three cycles before this.
+
+    Returns (report, reason-it-could-not-be-answered); exactly one is set.
+    """
+    path = root / test
+    original = path.read_text()
+    sufficient, usable, skipped, unclassified, why = _measure_width(
+        root, test, name, run_one, original, original
+    )
+    if why:
+        return None, why
 
     if sufficient == 0 and cell1_held:
         # An invariant of the measure, not a property of this witness. bats aborts on
@@ -304,8 +354,7 @@ def discrimination_width(
             f"{cause}. Reported as unchecked rather than as a low score."
         )
 
-    note = f"discrimination width {sufficient} of {len(usable)} classified assertion(s)"
-    unclassified = len(lines_with_content(lines, numbers))
+    note = f"discrimination width {sufficient} of {usable} classified assertion(s)"
     if unclassified:
         note += (
             f"; {unclassified} statement(s) the classifier does not recognise were "
@@ -313,7 +362,43 @@ def discrimination_width(
         )
     if skipped:
         note += f"; {skipped} not isolable (share a line)"
+
+    if parent_rev:
+        note += "; " + _compare_to_parent(
+            root, test, name, run_one, original, parent_rev, sufficient, usable
+        )
     return note, None
+
+
+def _compare_to_parent(
+    root: Path,
+    test: str,
+    name: str,
+    run_one,
+    original: str,
+    parent_rev: str,
+    now: int,
+    now_of: int,
+) -> str:
+    """Did the width FALL across this change? A narrowing is about the change."""
+    was = parent_of(root, test, parent_rev)
+    if was is None:
+        return f"no {parent_rev} revision of {test}, so no comparison — a new test file has nothing to narrow from"
+    if was == original:
+        return "the witness file is unchanged in this revision, so there is nothing to compare"
+    before, before_of, _, _, why = _measure_width(
+        root, test, name, run_one, was, original
+    )
+    if why:
+        # An unmeasurable BEFORE is not an unchanged one. Saying nothing here would
+        # let a narrowing pass as "no narrowing found".
+        return f"the {parent_rev} width could NOT be measured ({why}), so no comparison"
+    if before > now:
+        return (
+            f"NARROWED: {before} of {before_of} at {parent_rev}, {now} of {now_of} now "
+            f"— fewer assertions carry the discrimination than before this change"
+        )
+    return f"not narrowed ({before} of {before_of} at {parent_rev})"
 
 
 def main(argv: list[str]) -> int:
@@ -384,6 +469,7 @@ def main(argv: list[str]) -> int:
                 args.name,
                 lambda: run_witness(root, args.test, args.name),
                 cell1_held=not ok,
+                parent_rev=args.parent,
             )
 
         # Cell 2 — the new implementation must PASS it.
@@ -480,6 +566,13 @@ def main(argv: list[str]) -> int:
             missing.append(f"absence-only check unchecked ({absence_why})")
         if args.width and width_why:
             missing.append(f"discrimination width unchecked ({width_why})")
+        if width_note and "NARROWED" in width_note:
+            # A narrowing is the retreat this whole tool exists to name. Unlike an
+            # absolute width, it is a fact about the CHANGE, so it can carry a
+            # verdict without firing on honest single-assertion witnesses.
+            missing.append(
+                "the witness narrowed across this change, which is a retreat"
+            )
         if absence:
             # Not "missing": it RAN and found weakening. That is a retreat finding,
             # and a verdict of REPAIR beside it would be the contradiction this

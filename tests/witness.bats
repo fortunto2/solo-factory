@@ -429,3 +429,133 @@ width_witness() {  # $1 = the assertion block
   [ "$status" -ne 0 ]
   [[ "$output" == *"not ok"* ]]
 }
+
+# ── narrowing: a width that FELL across the change ───────────────────────────
+#
+# An absolute width is not a defect — a one-assertion witness is honestly 1 of 1,
+# and a threshold on it fires on honest witnesses and gets the check deleted. A
+# width that fell IS a defect, because it is a fact about the change rather than
+# about the witness. Named as unbuilt for three cycles before this.
+
+narrow_fixture() {  # $1 = parent test body, $2 = current test body
+  N="$BATS_TEST_TMPDIR/narrow"
+  mkdir -p "$N/tests" "$N/scripts"
+  ( cd "$N" && git init -q . && git config user.email t@e && git config user.name t
+    cat > subj.py <<'EOF'
+import sys
+def main(argv):
+    if len(argv) < 2:
+        print("warning: no argument given")
+        return 0
+    return 0
+sys.exit(main(sys.argv))
+EOF
+    { printf '@%s "an empty call is refused" {\n' test
+      printf '  run python3 "$SUBJ"\n'; printf '%s' "$1"; printf '}\n'; } > tests/w.bats
+    git add -A && git commit -q -m parent )
+  cat > "$N/subj.py" <<'EOF'
+import sys
+def main(argv):
+    if len(argv) < 2:
+        print("refused: an argument is required")
+        return 2
+    return 0
+sys.exit(main(sys.argv))
+EOF
+  { printf '@%s "an empty call is refused" {\n' test
+    printf '  run python3 "$SUBJ"\n'; printf '%s' "$2"; printf '}\n'; } > "$N/tests/w.bats"
+  cp "$BATS_TEST_DIRNAME/../scripts/check-vacuous-tests" "$N/scripts/"
+  cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$N/scripts/"
+  export SUBJ="$N/subj.py"
+}
+
+@test "a witness that narrowed across the change is a retreat, not a REPAIR" {
+  # Every cell holds. The assertion count went UP, so assertions_removed reports an
+  # addition. All three are positive, so check-vacuous-tests is silent. Before this
+  # comparison existed, the verdict was REPAIR — verified by disabling the branch.
+  narrow_fixture '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+' '  [[ "$output" == *"e"* ]]
+  [[ "$output" == *"i"* ]]
+  [[ "$output" == *"refused"* ]]
+'
+  run python3 "$W" --root "$N" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ok   new − guard + W must FAIL"* ]]
+  [[ "$output" == *"NARROWED: 2 of 2 at HEAD, 1 of 3 now"* ]]
+  [[ "$output" == *"narrowed across this change, which is a retreat"* ]]
+  [[ "$output" != *"REPAIR"* ]]
+}
+
+@test "a witness that did not narrow says so, rather than staying silent" {
+  # Silence would make "not narrowed" and "never compared" the same line.
+  narrow_fixture '  [ "$status" -eq 2 ]
+' '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+'
+  run python3 "$W" --root "$N" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"not narrowed (1 of 1 at HEAD)"* ]]
+  [[ "$output" == *"REPAIR"* ]]
+}
+
+@test "an unchanged witness file says there is nothing to compare" {
+  narrow_fixture '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+' '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+'
+  run python3 "$W" --root "$N" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [[ "$output" == *"unchanged in this revision"* ]]
+  [[ "$output" != *"NARROWED"* ]]
+}
+
+@test "the witness file survives a comparison that rewrites it twice" {
+  # The parent revision is written to the same path to be measured. `restored` is a
+  # fact about the bytes, and this one has two chances to go wrong.
+  narrow_fixture '  [ "$status" -eq 2 ]
+' '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+'
+  before=$(shasum -a256 "$N/tests/w.bats" | cut -d" " -f1)
+  run python3 "$W" --root "$N" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  after=$(shasum -a256 "$N/tests/w.bats" | cut -d" " -f1)
+  [ "$before" = "$after" ]
+}
+
+@test "an equal width is not a narrowing" {
+  # `>` versus `>=` — the mutation that survived the first round of these tests,
+  # because every case had before < now or before > now and none had them equal.
+  # A file that changed without changing the width must not read as a retreat.
+  narrow_fixture '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+' '  # a comment added by this change
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+'
+  run python3 "$W" --root "$N" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"not narrowed (2 of 2 at HEAD)"* ]]
+  [[ "$output" != *"NARROWED"* ]]
+  [[ "$output" == *"REPAIR"* ]]
+}
+
+@test "a parent width that could not be measured is not 'not narrowed'" {
+  # Silence-as-clean, one level down: an unmeasurable BEFORE and a BEFORE that did
+  # not narrow are different facts, and the second is a claim the run cannot make.
+  # Here the parent's assertions share a line, so none can be isolated.
+  narrow_fixture '  [ "$status" -eq 2 ]; [[ "$output" == *"refused"* ]]
+' '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+'
+  run python3 "$W" --root "$N" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [[ "$output" == *"could NOT be measured"* ]]
+  [[ "$output" == *"so no comparison"* ]]
+  [[ "$output" != *"not narrowed"* ]]
+}
