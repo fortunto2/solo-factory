@@ -1046,3 +1046,37 @@ print('CALLS', state['i'])
   [[ "$output" == *"dropped 4 deleted item(s)"* ]]
   [[ "$output" == *"filtered view"* ]]
 }
+
+# ── the end of the feed is not the end of the story ──────────────────────────
+#
+# The final page carries resume_after even when next_after is null — measured
+# 42852 on such a page. The first version of --all dropped it, so a client that
+# never ACKs had to re-walk the whole inbox to find one new item: 108 re-read to
+# reach the single one above the previous cursor.
+
+@test "a completed walk hands back the cursor to resume from" {
+  run inbox_pages "[{'items': [{'author': 'a', 'seq': 1, 'id': 'x'}], 'next_after': None, 'resume_after': 42852}]" ""
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"END OF INBOX"* ]]
+  [[ "$output" == *"resume_after 42852"* ]]
+  [[ "$output" == *"WITHOUT acking"* ]]
+  # ACK is a different act with a different blast radius, and conflating them is
+  # how a shared checkpoint gets moved past unprocessed items.
+  [[ "$output" == *"shared across sessions"* ]]
+}
+
+@test "an absent resume_after says catch-up is unavailable, not nothing" {
+  # Silence here would read as "there is nothing to resume from", which is the
+  # same sentence as "I did not look".
+  run inbox_pages "[{'items': [{'author': 'a', 'seq': 1, 'id': 'x'}], 'next_after': None}]" ""
+  [[ "$output" == *"no resume_after on the final page"* ]]
+  [[ "$output" == *"NOT available"* ]]
+}
+
+@test "the resume cursor comes from the last page, not the first" {
+  # The first page's resume_after points at the oldest end. Resuming from it would
+  # re-read the entire inbox every run while looking like incremental catch-up.
+  run inbox_pages "[{'items': [{'author': 'a', 'seq': 1, 'id': 'x'}], 'next_after': 10, 'resume_after': 111}, {'items': [{'author': 'b', 'seq': 2, 'id': 'y'}], 'next_after': None, 'resume_after': 999}]" "--all"
+  [[ "$output" == *"resume_after 999"* ]]
+  [[ "$output" != *"resume_after 111"* ]]
+}

@@ -833,6 +833,7 @@ def main() -> int:
         # and every one of them unread. The page was never wrong; the summary line
         # simply did not say what it had counted.
         cursor, pages, seen = args.cursor, 0, 0
+        resume: object = None
         totals: dict[str, object] = {}
         stopped_at_cap = False
         while True:
@@ -868,6 +869,9 @@ def main() -> int:
                 totals = {
                     k: d.get(k) for k in ("total_count", "unread_count", "read_through")
                 }
+            # From the LAST page seen, not the first: it is the newest point the
+            # walk reached, and that is what a later run resumes from.
+            resume = d.get("resume_after")
             dropped = d.get("skipped_deleted_items") or 0
             if dropped:
                 # A page the server filtered before sending is not the page it
@@ -920,6 +924,24 @@ def main() -> int:
             )
         else:
             print("  END OF INBOX — the server returned no further cursor.")
+            # The end of the feed is not the end of the story, and the first version
+            # of this command dropped the one field that says so. The final page
+            # carries `resume_after` even when `next_after` is null — measured 42852
+            # on a page whose next_after was None — so a client that never ACKs can
+            # still catch up incrementally by keeping it. Without it the only way to
+            # find one new item is to re-walk the whole inbox, which is what this
+            # cycle did: 108 items re-read to reach the single one above the cursor.
+            if isinstance(resume, int):
+                print(
+                    f"  resume_after {resume} — keep this to catch up incrementally "
+                    f"next time WITHOUT acking. Pass it as --cursor. ACK is a "
+                    f"different act: it moves a checkpoint shared across sessions."
+                )
+            else:
+                print(
+                    "  no resume_after on the final page — incremental catch-up "
+                    "from here is NOT available; the next run must walk again."
+                )
         print("  Reading does not mark anything read; this never acks.")
         return 0
 
