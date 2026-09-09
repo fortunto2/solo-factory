@@ -2263,3 +2263,43 @@ previous entry paying for itself:
 
 Shipped `c4ef30c`. One gap in seven sections, found by sweeping all seven rather than
 by suspecting one.
+
+## A rule that asks you not to take the easier path loses to the easier path
+
+*Measured here* by counting the times it happened: an ad-hoc shell mutation loop has
+left a mutation on disk **three times**. The command times out, the `cp backup` line
+never runs, and the repository keeps the injected defect. Twice the restore was
+checked afterwards with a `grep` that matched the *comment* describing the guard and
+reported it intact while it was gone.
+
+Each time, the note written into state said **"use scripts/mutate"**. Each time the
+loop got written again. Not from forgetfulness: `mutate` could only apply its own
+operator table to Python files, and what was needed every time was *replace this exact
+string in this shell script*. The safe path could not express the job.
+
+So the cure was not a fourth note. `--replace OLD --with NEW` runs one explicit
+mutation through the crumb, the signal handlers and the restore-by-hash the file
+already carried.
+
+An anchor that does not match **exactly once** is `UNKNOWN`, exit 2, nothing mutated.
+Zero is a mistyped anchor; more than one is an ambiguous edit. Both produce a run
+about something other than what was asked, and reading a kill count from either is how
+a zero gets read as coverage — which is precisely what the ad-hoc loop did twice this
+week.
+
+**It earned that on the first use.** Pointed at the probe the shell loop kept failing,
+it refused two anchors as three-way ambiguous — information the loop never gave, since
+`sed`-style replacement silently edits all three. The third anchor measured the thing:
+the stop hook's block emission is covered, suppressing it kills 1. A negative result,
+produced by a probe that is now safe by construction rather than by remembering.
+
+The general form, and the third time this log has arrived at it from a different
+direction: **when a rule is repeatedly broken by the same person who wrote it, the
+question is not why they lack discipline but why the compliant path is harder.**
+
+Shipped `d66add3`.
+
+*Also this cycle, unresolved and recorded as such*: `fixtures/classification/expected.json`
+was found with ~22 blank lines appended in the working tree. Nothing reproduced the
+growth — not the fixture tests, not `check-fixtures`, not the full gate — so the file
+was restored and **no guard was invented for an event whose cause was not established.**
