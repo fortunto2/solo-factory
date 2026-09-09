@@ -364,9 +364,13 @@ def discrimination_width(
         note += f"; {skipped} not isolable (share a line)"
 
     if parent_rev:
-        note += "; " + _compare_to_parent(
+        state, text = _compare_to_parent(
             root, test, name, run_one, original, parent_rev, sufficient, usable
         )
+        # The state travels as a value. The verdict used to be decided by searching
+        # this sentence for the word NARROWED — a gate keyed on a substring of prose
+        # written for humans, one rewording away from silently never firing.
+        note = f"[{state}] {note}; {text}"
     return note, None
 
 
@@ -379,26 +383,41 @@ def _compare_to_parent(
     parent_rev: str,
     now: int,
     now_of: int,
-) -> str:
-    """Did the width FALL across this change? A narrowing is about the change."""
+) -> tuple[str, str]:
+    """Did the width FALL across this change? A narrowing is about the change.
+
+    Returns (state, text). Five states, not two: `narrowed`, `not-narrowed`,
+    `unchanged`, `no-parent`, `could-not-measure`. Collapsing the last three into
+    "no narrowing found" is silence-as-clean, and @agent-kek (#26545) asked for the
+    unmeasurable one to stay hard and separate rather than dissolve into a false
+    "did not narrow".
+    """
     was = parent_of(root, test, parent_rev)
     if was is None:
-        return f"no {parent_rev} revision of {test}, so no comparison — a new test file has nothing to narrow from"
+        return "no-parent", (
+            f"no {parent_rev} revision of {test}, so no comparison — a new test file "
+            f"has nothing to narrow from"
+        )
     if was == original:
-        return "the witness file is unchanged in this revision, so there is nothing to compare"
+        return "unchanged", (
+            "the witness file is unchanged in this revision, so there is nothing to "
+            "compare"
+        )
     before, before_of, _, _, why = _measure_width(
         root, test, name, run_one, was, original
     )
     if why:
         # An unmeasurable BEFORE is not an unchanged one. Saying nothing here would
         # let a narrowing pass as "no narrowing found".
-        return f"the {parent_rev} width could NOT be measured ({why}), so no comparison"
+        return "could-not-measure", (
+            f"the {parent_rev} width could NOT be measured ({why}), so no comparison"
+        )
     if before > now:
-        return (
+        return "narrowed", (
             f"NARROWED: {before} of {before_of} at {parent_rev}, {now} of {now_of} now "
             f"— fewer assertions carry the discrimination than before this change"
         )
-    return f"not narrowed ({before} of {before_of} at {parent_rev})"
+    return "not-narrowed", f"not narrowed ({before} of {before_of} at {parent_rev})"
 
 
 def main(argv: list[str]) -> int:
@@ -566,12 +585,21 @@ def main(argv: list[str]) -> int:
             missing.append(f"absence-only check unchecked ({absence_why})")
         if args.width and width_why:
             missing.append(f"discrimination width unchecked ({width_why})")
-        if width_note and "NARROWED" in width_note:
+        if width_note and width_note.startswith("[narrowed]"):
             # A narrowing is the retreat this whole tool exists to name. Unlike an
             # absolute width, it is a fact about the CHANGE, so it can carry a
             # verdict without firing on honest single-assertion witnesses.
             missing.append(
                 "the witness narrowed across this change, which is a retreat"
+            )
+        if width_note and width_note.startswith("[could-not-measure]"):
+            # A check that can demote and did not run must not leave a full green.
+            # Measured on @agent-kek's point (#26545): this printed REPAIR while the
+            # narrowing comparison had not run — the absent-tool-turns-red-into-green
+            # rule, inside the tool that publishes it.
+            missing.append(
+                "the parent width could not be measured, so the narrowing comparison "
+                "did not run"
             )
         if absence:
             # Not "missing": it RAN and found weakening. That is a retreat finding,
@@ -593,11 +621,28 @@ def main(argv: list[str]) -> int:
         checks = ["assertion delta", "absence-only"]
         if width_note:
             checks.append("discrimination width")
+        # Three cases, not two. "Unchanged" and "could not compare" both mean no
+        # comparison happened, and they are not the same claim: an unchanged witness
+        # CANNOT have narrowed in this change, while an uncompared one might have.
+        compared = bool(width_note) and width_note.startswith(
+            ("[narrowed]", "[not-narrowed]")
+        )
+        unchanged = bool(width_note) and width_note.startswith(
+            ("[unchanged]", "[no-parent]")
+        )
         residual = (
-            "Width measured, so an assertion count that grew while the "
-            "discrimination narrowed is visible here. Still unmeasured: strength "
-            "in general, and any weakening that keeps every assertion individually "
-            "sufficient."
+            "Width measured AND compared against the parent revision, so a count "
+            "that grew while the discrimination narrowed is visible here. Still "
+            "unmeasured: strength in general, and any weakening that keeps every "
+            "assertion individually sufficient."
+            if compared
+            else "Width measured; the witness file did not change in this revision, "
+            "so there is no narrowing for a comparison to find. Still unmeasured: "
+            "strength in general."
+            if unchanged
+            else "Width measured, but NOT compared against the parent revision, so a "
+            "narrowing across this change would not be visible here. Still "
+            "unmeasured: strength in general."
             if width_note
             else "None of these weighs strength: two strong assertions replaced by "
             "three weak POSITIVE ones passes all of them. --width measures the part "

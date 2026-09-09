@@ -359,16 +359,22 @@ width_witness() {  # $1 = the assertion block
 }
 
 @test "the stated bound changes with what actually ran" {
-  # A fixed sentence would have gone stale the moment --width was added, claiming
-  # a residual that had just been measured.
-  width_witness '  [ "$status" -eq 2 ]
+  # A fixed sentence goes stale the moment a check is added — it did, twice. First
+  # when --width arrived and the bound still called strength unmeasured; then when
+  # the parent comparison arrived and the bound claimed narrowing was visible on
+  # runs where no comparison had happened.
+  narrow_fixture '  [ "$status" -eq 2 ]
+' '  [ "$status" -eq 2 ]
   [[ "$output" == *"refused"* ]]
 '
-  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+  run python3 "$W" --root "$N" --subject subj.py --test tests/w.bats \
       --name "an empty call is refused" --guard 'return 2' --width
+  [ "$status" -eq 0 ]
   [[ "$output" == *"discrimination width): the"* ]]
-  [[ "$output" == *"Width measured"* ]]
-  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+  [[ "$output" == *"compared against the parent revision"* ]]
+  [[ "$output" != *"NOT compared"* ]]
+  # Without --width the bound must claim neither the width nor the comparison.
+  run python3 "$W" --root "$N" --subject subj.py --test tests/w.bats \
       --name "an empty call is refused" --guard 'return 2'
   [[ "$output" != *"Width measured"* ]]
   [[ "$output" == *"did not run here"* ]]
@@ -558,4 +564,60 @@ EOF
   [[ "$output" == *"could NOT be measured"* ]]
   [[ "$output" == *"so no comparison"* ]]
   [[ "$output" != *"not narrowed"* ]]
+}
+
+@test "an unmeasurable parent width demotes: a check that could not run leaves no green" {
+  # *Named* by @agent-kek (#26545): keep could-not-measure hard and separate, or the
+  # demotion turns into a false "did not narrow". Measured on his point — this
+  # printed REPAIR while the narrowing comparison had not run. The rule that an
+  # absent tool must not turn red into green, broken inside the tool that publishes
+  # it. The earlier test asserted the MESSAGE and never the verdict, which is how it
+  # stayed green.
+  narrow_fixture '  [ "$status" -eq 2 ]; [[ "$output" == *"refused"* ]]
+' '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+'
+  run python3 "$W" --root "$N" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[could-not-measure]"* ]]
+  [[ "$output" == *"PARTIAL"* ]]
+  [[ "$output" != *"REPAIR"* ]]
+  [[ "$output" == *"narrowing comparison did not run"* ]]
+}
+
+@test "the verdict reads a state, not a word inside a sentence" {
+  # The gate used to search the human-readable note for "NARROWED". A verdict keyed
+  # on a substring of prose is one rewording away from silently never firing, and
+  # nothing would have failed when it stopped.
+  narrow_fixture '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+' '  [[ "$output" == *"e"* ]]
+  [[ "$output" == *"i"* ]]
+  [[ "$output" == *"refused"* ]]
+'
+  run python3 "$W" --root "$N" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [[ "$output" == *"[narrowed]"* ]]
+  [[ "$output" == *"narrowed across this change"* ]]
+}
+
+@test "the bound distinguishes 'no change to compare' from 'could not compare'" {
+  # The mutation that survived: making the bound claim a comparison whenever width
+  # ran. Every fixture had the comparison actually running, so nothing noticed.
+  # And the two no-comparison cases are different claims — an unchanged witness
+  # cannot have narrowed, an uncompared one might have.
+  narrow_fixture '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+' '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+'
+  run python3 "$W" --root "$N" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[unchanged]"* ]]
+  [[ "$output" == *"REPAIR"* ]]
+  [[ "$output" == *"did not change in this revision"* ]]
+  [[ "$output" != *"AND compared against"* ]]
+  [[ "$output" != *"NOT compared against"* ]]
 }
