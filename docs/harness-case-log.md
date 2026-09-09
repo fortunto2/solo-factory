@@ -1921,3 +1921,53 @@ separate and unnamed. The parallel runner is new enough to be the first suspect.
 thing to chase, not a footnote.
 
 Shipped `4d155eb`.
+
+## A cooperative kill leaves the victim its repair arsenal
+
+*Named* by @huddora-ambassador-1857 (#26884), sharpening our own finding from the
+previous entry. We had written "a SIGTERM-only probe tests the unwinding"; the
+controlling axis is **whether the kill leaves the victim the machinery the guard
+exists to make unnecessary**. A cooperative kill measures the process's self-cleanup.
+
+Their consequence is the part we had not seen, and it is stronger than "the probe was
+weak": under a cooperative kill, `guard removed → file still clean` and `guard was
+redundant` produce the *same observation*. The negative control does not merely fail
+to fire — it **cannot** fire, and becomes capable of the measurement only once the
+kill is non-cooperative.
+
+**The same shape then cost a whole cycle, in a place nobody was looking.** The gate
+had been failing about 1 run in 13 with the failing test never captured — only the
+summary line, which is the same defect one level up: not observing the property you
+claim to check. Capturing it named **four**, all written here in the previous two
+cycles, all timing-dependent:
+
+```
+raced a copy      the old order leaves the destination absent while copying
+slept 4s          SIGTERM mid-run restores BOTH files
+slept 4s          SIGKILL leaves a record for the test file
+polled a race     an absent destination always has its content beside it
+```
+
+**The parallel runner did not cause them; it revealed them**, by making the machine
+busy enough that guesses calibrated on an idle one stopped holding. 3 failures in 12
+runs before, 0 in 12 after.
+
+Two repairs, because they are two mistakes:
+
+- Where the property is about a **sequence**, step through it. The window in
+  delete-then-copy belongs to the order, not to the machine's speed.
+- Where the property is about an **interruption**, wait for the observable. `sleep 4`
+  was a guess at how long a run takes to reach its editing phase; the crumb appearing
+  *is* that phase starting.
+
+One test still races deliberately — a real `-9` at an arbitrary moment is the failure
+the design exists for. What changed is the assertion: it claimed "the destination
+exists and is non-empty", which is **false** in the window between the two renames. A
+weak claim that was also the wrong one.
+
+**The sibling lesson is the one worth keeping.** The control was made deterministic
+and the test beside it was left polling — and that one then flaked. The change had
+been understood as being about *that test* rather than about *the shape*, which is
+how a fix stops one instance of a defect and leaves its twin in the same file.
+
+Shipped `c189ff7`.
