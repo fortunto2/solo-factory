@@ -1595,3 +1595,70 @@ big_with() {  # $1 = first line, $2 = filename
   [[ "$output" == *"EXEMPT"* ]]
   [[ "$output" != *"REJECTED"* ]]
 }
+
+# ── the guard against silent sensors was itself unguarded ────────────────────
+#
+# Measured 2026-09-09 with the action-vs-decision probe: suppressing the HARNESS GAP
+# section of the receipt killed 0 tests, and removing its effect on the verdict
+# (`elif harness_gaps(...)` -> `elif False`) killed 0 tests. Both halves of the
+# mechanism could be deleted in silence.
+#
+# Its published promise: "a promised sensor that says nothing is a harness defect. If
+# a file type is in scope and its sensor appears in neither ran nor skipped, the
+# receipt prints HARNESS GAP and the verdict becomes UNKNOWN, never PASS." It caught a
+# real hole once — an Xcode project with no Package.swift, where swiftlint vanished
+# from a receipt on a tree that was half Swift.
+#
+# It cannot be reached through the CLI, because reaching it REQUIRES a harness defect.
+# So the defect is injected at the level the mechanism lives on: a receipt built from
+# a scope containing a .swift file and results in which swiftlint never appears.
+
+sv_receipt() {  # $1 = python expression building `results`
+  python3 -c "
+import sys, importlib.util, importlib.machinery, pathlib
+l = importlib.machinery.SourceFileLoader('sv', '$BATS_TEST_DIRNAME/../scripts/solo-verify')
+sp = importlib.util.spec_from_loader('sv', l)
+m = importlib.util.module_from_spec(sp); sys.modules['sv'] = m; l.exec_module(m)
+root = pathlib.Path('/tmp')
+files = [root / 'a.swift']
+results = $1
+rec = m.build_receipt(root, files, {'swift': 'x'}, results, False, 0.1)
+print(m.render(rec))
+print('VERDICT=' + rec['verdict'])
+"
+}
+
+@test "a promised sensor that says nothing produces HARNESS GAP" {
+  # swiftlint is the expected sensor for .swift and it is absent from the results.
+  run sv_receipt "[m.Result('limits', 'pass', covered=['a.swift'])]"
+  [ "$status" -eq 0 ]
+  # The probe must have reached the mechanism: a rendered receipt, not a traceback.
+  [[ "$output" == *"VERIFY"* ]]
+  [[ "$output" == *"HARNESS GAP"* ]]
+  [[ "$output" == *"swiftlint"* ]]
+  [[ "$output" == *"said nothing"* ]]
+  [[ "$output" == *"harness defect, not a clean result"* ]]
+}
+
+@test "a harness gap makes the verdict UNKNOWN, never PASS" {
+  # The other half. The section can be printed while the verdict stays green, and
+  # removing `elif harness_gaps(...)` killed 0 tests before this one existed.
+  run sv_receipt "[m.Result('limits', 'pass', covered=['a.swift'])]"
+  [[ "$output" == *"VERDICT=UNKNOWN"* ]]
+  [[ "$output" != *"VERDICT=PASS"* ]]
+}
+
+@test "a sensor that skipped counts as having spoken" {
+  # The control. Without it, "HARNESS GAP appears" could be satisfied by a receipt
+  # that prints the section unconditionally, which would fire on every clean run.
+  run sv_receipt "[m.Result('limits', 'pass', covered=['a.swift']), m.Result('swiftlint', 'skip', 'no swift toolchain here', skip_kind='unavailable')]"
+  [ "$status" -eq 0 ]
+  # Positive first: the receipt rendered and named the skip. Without this the two
+  # absences below are satisfied by empty output — flagged by our own
+  # check-vacuous-tests the moment this test was added, which is the rule working
+  # on the person who wrote it.
+  [[ "$output" == *"skipped:"* ]]
+  [[ "$output" == *"swiftlint"* ]]
+  [[ "$output" != *"HARNESS GAP"* ]]
+  [[ "$output" != *"VERDICT=UNKNOWN"* ]]
+}
