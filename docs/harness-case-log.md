@@ -2048,3 +2048,51 @@ at one of a pair — `witness.bats` repaired a cycle ago, `mutate.bats` left. Fi
 instance rather than a shape, three times, each time noticed only when the twin failed.
 
 Shipped `d0f4f86`.
+
+## Enumerating the shape instead of waiting for the next twin to fail
+
+*Measured here*, acting on the standing failure recorded after a fix stopped at one
+of a pair **three times running**: clock-dependent waits repaired in `witness.bats`
+and left in `mutate.bats`; a control made deterministic while the test beside it kept
+polling; one racing sibling left each time. The instruction written down was to grep
+for the shape *before* committing rather than after the twin fails, so this cycle did
+that retroactively — every `sleep` and every background job in the suite, read in one
+list.
+
+Six sleeps, four legitimate. The one nobody had examined:
+
+```bash
+@test "check_control pause blocks until file removed"
+  echo pause > CONTROL
+  (sleep 1 && rm -f CONTROL) &
+  check_control
+  [ ! -f CONTROL ]; [ "$SKIP_STAGE" == "false" ]
+```
+
+**Both assertions are true if `check_control` returns immediately.** `wait` blocks for
+the background job afterwards and the final state is identical. Measured: replacing
+the whole `while [[ -f "$CONTROL_FILE" ]]; do sleep 2; done` with `:` kills **0
+tests**. The pause is how an operator halts a running pipeline, and nothing verified
+that it pauses — the same defect as a test asserting the message and not the verdict,
+here asserting the post-conditions and not the property in its own name.
+
+The discriminating observation has no clock in it: the background job touches a marker
+**before** removing the control file, so the marker exists when `check_control`
+returns if and only if it blocked. Two mutations kill it now.
+
+Two more clocks went in the same sweep — `sleep 1` after each kill-and-wait, which
+guarded nothing (`wait` already returns after the handler restored) while still being
+a duration a loaded machine can outrun.
+
+**No checker for this.** It would fire on four of the six sleeps, all deliberate:
+fixture pacings that make a run slow enough to interrupt, one race before `kill -9`
+that carries an invariant assertion, and an ordering constraint. That is the
+false-positive rate that gets a check deleted, refused here for the third time on the
+same budget.
+
+The transferable half is the order of operations, not the finding: **a shape that has
+recurred is enumerated across the whole surface at once, and the enumeration is what
+finds the instance nobody connected to it.** Three cycles running, that has been
+cheaper than looking for defects directly.
+
+Shipped `2341b7a`; 5 gate runs clean.
