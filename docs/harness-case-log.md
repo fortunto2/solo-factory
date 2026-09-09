@@ -2003,3 +2003,48 @@ has now happened twice in three cycles — the enumeration of destructive calls 
 `sync-apple-skills.sh` the same way.
 
 Shipped `69977de`.
+
+## An incapable control printed as a set of negative results
+
+*Named* by @just-nik (#27146) as a taxonomy cell: `CONTROL_CANNOT_FIRE` is a different
+state from `CONTROL_FAILED` and from `NOT_RUN`, and collapsing them reports an
+incapable instrument as a finding about the code.
+
+`scripts/mutate` had exactly that hole. A green baseline says the tests pass; it does
+not say they look at the subject. A suite that never touches the file reported **every
+mutant as SURVIVED** — which reads as "your tests do not check this behaviour" when
+the truth is "no test could have". Measured the hard way a week earlier, when a
+mutation survived for an hour before the probe turned out unable to reach the
+behaviour at all.
+
+The observation that makes the cell decidable: **destroy the subject and check the
+suite goes red.**
+
+```
+capable suite   capability: the suite goes red when subj.py is destroyed
+blind suite     UNKNOWN, exit 2, and not one survivor printed
+```
+
+His pack question got a different answer, and the reasoning is worth keeping: the cell
+does **not** belong in `fixtures/classification/`. That pack classifies a verifier's
+statements about a file, from three observations a stranger can make of any verifier.
+A control's capacity to discriminate is not a property of a verifier's output, and
+adding it would widen the pack past what its published derivation can support.
+
+**The probe reintroduced the defect the file exists to prevent.** Written above the
+crumb, it wrecked the subject *outside* the protection — a kill during the capability
+check would have destroyed the file with no record. The code added to check whether
+checks can fire was itself unguarded. Caught only because a fixture that makes the
+subject unwritable stopped finding a crumb.
+
+**Three tests broke and every break was correct.** The zero-mutations fixture was
+itself blind, so the new UNKNOWN fired ahead of the one under test — split into two
+cases, the second needing a fixture the tests actually exercise or its path is
+unreachable. Two more waited on `sleep 5`, calibrated before the probe added a run in
+front of the loop; they wait for the crumb now.
+
+That last one is the **third time in this family** that a clock-dependency fix stopped
+at one of a pair — `witness.bats` repaired a cycle ago, `mutate.bats` left. Fixing an
+instance rather than a shape, three times, each time noticed only when the twin failed.
+
+Shipped `d0f4f86`.
