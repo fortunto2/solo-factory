@@ -225,11 +225,31 @@ EOF
   [[ "$output" == *"if n > 3"* ]]
 }
 
-@test "zero applicable mutations is UNKNOWN, never 0 killed 0 survived" {
+@test "a suite that cannot see the file at all is UNKNOWN, not a sweep of survivors" {
+  # *Named* by @just-nik (#27146): CONTROL_CANNOT_FIRE is a different state from
+  # CONTROL_FAILED and from NOT_RUN. This fixture's test touches nothing, so every
+  # mutant would "survive" — and reporting that as a set of negative results says
+  # "your tests do not check this" when the truth is "no test could have".
   printf 'x = 1\n' > "$D/flat.py"
-  printf '@test "t" { true; }\n' > "$D/flat.bats"
+  printf '@%s "t" { true; }\n' test > "$D/flat.bats"
   run python3 "$M" "$D/flat.py" "$D/flat.bats"
   [ "$status" -eq 2 ]
+  [[ "$output" == *"cannot detect a change there at all"* ]]
+  [[ "$output" == *"incapable control"* ]]
+  [[ "$output" != *"SURVIVED"* ]]
+}
+
+@test "zero applicable mutations is UNKNOWN, never 0 killed 0 survived" {
+  # A CAPABLE suite with nothing to mutate — the other UNKNOWN, and it needs a
+  # fixture the tests actually exercise or the capability probe fires first and this
+  # path is never reached.
+  printf 'import sys\nsys.exit(7)\n' > "$D/flat.py"
+  { printf '@%s "t" {\n' test
+    printf '  run python3 "%s/flat.py"\n' "$D"
+    printf '  [ "$status" -eq 7 ]\n}\n'; } > "$D/flat.bats"
+  run python3 "$M" "$D/flat.py" "$D/flat.bats"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"capability"* ]]        # the probe passed, so this is the real path
   [[ "$output" == *"nothing was measured"* ]]
   [[ "$output" == *"not a clean sweep"* ]]
 }
@@ -332,7 +352,15 @@ EOF
   ( cd "$M" && python3 "$BATS_TEST_DIRNAME/../scripts/mutate" --file subj.py \
       --test tests/t.bats >/dev/null 2>&1 ) &
   bg=$!
-  sleep 5
+  # Wait for the OBSERVABLE, not a clock. `sleep 5` was calibrated before the
+  # capability probe added a test run in front of the mutation loop, and it broke the
+  # moment that landed — the same clock-dependency fixed in witness.bats one cycle
+  # ago and left here, which is the third time a fix has stopped at one of a pair.
+  for _ in $(seq 1 400); do
+    [ -f "$M/subj.py.mutate-original" ] && break
+    sleep 0.1
+  done
+  [ -f "$M/subj.py.mutate-original" ]
   pkill -TERM -f "scripts/mutate --file subj.py" || true
   wait $bg 2>/dev/null || true
   sleep 1
@@ -399,7 +427,10 @@ pathlib.Path('subj.py.mutate-original').unlink()" )
   ( cd "$M" && python3 "$BATS_TEST_DIRNAME/../scripts/mutate" --file subj.py \
       --test tests/t.bats >/dev/null 2>&1 ) &
   bg=$!
-  sleep 5
+  for _ in $(seq 1 400); do
+    [ -f "$M/subj.py.mutate-original" ] && break
+    sleep 0.1
+  done
   # While the run is still inside the mutation loop.
   [ -f "$M/subj.py.mutate-original" ]
   # The crumb's PAYLOAD is the original — the record also carries a header, so a

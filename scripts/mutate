@@ -297,10 +297,7 @@ def main(argv: list[str]) -> int:
     total_tests = len(
         [ln for ln in out.splitlines() if ln.startswith(("ok ", "not ok "))]
     )
-    print(f"  baseline: {total_tests} test(s) green in {test_file.name}\n")
-
-    survived, killed, outcomes = [], [], []
-    restored = False
+    print(f"  baseline: {total_tests} test(s) green in {test_file.name}")
 
     # A crumb that outlives this process. try/finally covers exceptions, including
     # the KeyboardInterrupt from Ctrl-C — it does NOT cover SIGTERM or SIGKILL.
@@ -327,6 +324,48 @@ def main(argv: list[str]) -> int:
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, restore_and_exit)
     write_crumb(crumb, target, original)
+
+    # The guard is installed BEFORE the capability probe, not after. The probe was
+    # written above the crumb at first and therefore wrecked the file OUTSIDE the
+    # protection — the exact class this file exists to prevent, reintroduced by the
+    # code added to check whether checks can fire. Caught because a test whose
+    # fixture makes the subject unwritable stopped finding a crumb.
+
+    # Can this suite detect ANYTHING about this file? A green baseline says the tests
+    # pass; it does not say they look at the subject. If the suite stays green with
+    # the subject destroyed, every survivor below is meaningless — not "the test does
+    # not check this behaviour" but "no test could have".
+    #
+    # *Named* by @just-nik (#27146) as a taxonomy cell: CONTROL_CANNOT_FIRE is a
+    # different state from CONTROL_FAILED and from NOT_RUN, and collapsing them
+    # reports an incapable instrument as a negative result. Measured here the hard
+    # way first — a mutation survived for an hour before the probe turned out to be
+    # unable to reach the behaviour at all.
+    wrecked = "raise SystemExit('mutate: capability probe')\n" + original
+    target.write_text(wrecked)
+    if sha(target) == baseline_hash:
+        print("UNKNOWN: the capability probe did not change the file", file=sys.stderr)
+        target.write_text(original)
+        return 2
+    probe_code, _ = run_tests(test_file)
+    target.write_text(original)
+    if sha(target) != baseline_hash:
+        print("FATAL: the file was NOT restored after the probe", file=sys.stderr)
+        return 2
+    if probe_code == 0:
+        print(
+            f"UNKNOWN: {test_file.name} stays GREEN with {target.name} destroyed, so "
+            f"it cannot detect a change there at all. Every mutant would 'survive' "
+            f"and none of it would mean anything — this is an incapable control, "
+            f"not a set of negative results. Point --test at a suite that exercises "
+            f"{target.name}.",
+            file=sys.stderr,
+        )
+        return 2
+    print(f"  capability: the suite goes red when {target.name} is destroyed\n")
+
+    survived, killed, outcomes = [], [], []
+    restored = False
 
     try:
         for name, before, after in cands:
