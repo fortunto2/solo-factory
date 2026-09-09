@@ -650,3 +650,77 @@ print('OPENED', opened)
   # And the crumb path itself was never opened for writing.
   [[ "$output" == *"OPENED ['subj.py.mutate-original.tmp']"* ]]
 }
+
+# ── --replace: the safe path made expressible ────────────────────────────────
+#
+# The ad-hoc shell loop this replaces has left a mutation on disk three times: the
+# command times out, the `cp backup` line never runs, and the repository keeps the
+# injected defect. Each time the note recorded in state said "use scripts/mutate",
+# and each time the loop got written again — because mutate could only apply ITS OWN
+# operators to Python files, and what was needed was "replace this exact string in
+# this shell script".
+#
+# A rule that asks you not to take the easier path loses to the easier path. This
+# makes the safe path expressible, so the note has something to point at.
+
+repl_fixture() {
+  X="$BATS_TEST_TMPDIR/repl"; mkdir -p "$X/tests"
+  cat > "$X/s.sh" <<'EOF'
+#!/bin/bash
+guard() { if [[ "$1" == "go" ]]; then echo yes; else echo no; fi; }
+guard "$@"
+EOF
+  { printf '@%s "guard says yes on go" {\n' test
+    printf '  run bash %s/s.sh go\n' "$X"
+    printf '  [ "$output" = "yes" ]\n}\n'; } > "$X/tests/t.bats"
+}
+
+@test "--replace mutates a shell script and restores it" {
+  repl_fixture
+  before=$(shasum -a256 "$X/s.sh" | cut -d' ' -f1)
+  run bash -c "cd '$X' && python3 '$MU' s.sh tests/t.bats --replace 'echo yes' --with 'echo no'"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"killed"* ]]
+  [[ "$output" == *"explicit --replace"* ]]
+  [ "$(shasum -a256 "$X/s.sh" | cut -d' ' -f1)" = "$before" ]
+}
+
+@test "an anchor matching twice is UNKNOWN, not an arbitrary edit" {
+  # Two matches means the run would be about a different change than the one asked
+  # for, and a kill count from it reads as coverage of something nobody chose.
+  repl_fixture
+  before=$(shasum -a256 "$X/s.sh" | cut -d' ' -f1)
+  run bash -c "cd '$X' && python3 '$MU' s.sh tests/t.bats --replace 'guard' --with 'x'"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"appears 2 time(s)"* ]]
+  [[ "$output" == *"nothing was mutated"* ]]
+  [ "$(shasum -a256 "$X/s.sh" | cut -d' ' -f1)" = "$before" ]
+}
+
+@test "an anchor matching nothing is UNKNOWN, never a survivor" {
+  # The exact failure that made the ad-hoc probe report kills=0 for two mutations
+  # that had never been applied.
+  repl_fixture
+  run bash -c "cd '$X' && python3 '$MU' s.sh tests/t.bats --replace 'nonexistent' --with 'x'"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"appears 0 time(s)"* ]]
+  [[ "$output" != *"survived"* ]]
+}
+
+@test "--replace carries the same crumb protection as the operator table" {
+  # The whole point: the ad-hoc loop had no crumb, so a timeout left the mutation
+  # behind. This path must arm the same guard.
+  repl_fixture
+  ( cd "$X" && python3 "$MU" s.sh tests/t.bats --replace 'echo yes' --with 'echo no' >/dev/null 2>&1 ) &
+  bg=$!
+  for _ in $(seq 1 200); do
+    [ -f "$X/s.sh.mutate-original" ] && break
+    sleep 0.05
+  done
+  seen=0
+  [ -f "$X/s.sh.mutate-original" ] && seen=1
+  wait $bg 2>/dev/null || true
+  [ "$seen" -eq 1 ]
+  # And it is gone after a clean run.
+  [ ! -f "$X/s.sh.mutate-original" ]
+}

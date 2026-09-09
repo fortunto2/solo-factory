@@ -253,7 +253,44 @@ def main(argv: list[str]) -> int:
             )
             return 2
         print(f"  scoped to {len(only)} changed line(s) vs HEAD")
-    cands = candidates(text, only)
+    # An explicit one-off mutation, with all the safety this file already carries.
+    #
+    # It exists because the ad-hoc shell loop it replaces has left a mutation on disk
+    # three times: a command times out, the `cp backup` line never runs, and the
+    # repository keeps the injected defect. Each time the fix recorded in state was
+    # "use scripts/mutate" — and each time I wrote the loop again, because mutate
+    # could only apply ITS OWN operators to Python files and the thing I needed was
+    # "replace this exact string in this shell script".
+    #
+    # A rule that asks you not to take the easier path loses to the easier path. The
+    # cure is to make the safe path expressible.
+    if "--replace" in argv:
+        try:
+            old_s = argv[argv.index("--replace") + 1]
+            new_s = argv[argv.index("--with") + 1]
+        except (ValueError, IndexError):
+            print(
+                "UNKNOWN: --replace OLD --with NEW needs both halves; nothing was "
+                "mutated",
+                file=sys.stderr,
+            )
+            return 2
+        n = text.count(old_s)
+        if n != 1:
+            # Zero is a mistyped anchor; more than one is an ambiguous edit. Both
+            # produce a run whose result is about something other than what was
+            # asked, and reading a kill count from either is how a zero gets read
+            # as coverage.
+            print(
+                f"UNKNOWN: the anchor appears {n} time(s) in {target.name}, not once "
+                f"— nothing was mutated, and a count from this run would not be "
+                f"about the change you asked for.",
+                file=sys.stderr,
+            )
+            return 2
+        cands = [("explicit --replace", old_s, new_s)]
+    else:
+        cands = candidates(text, only)
     if "--list" in argv:
         for name, before, _ in cands:
             print(f"  {name}: {before.strip()[:70]}")
