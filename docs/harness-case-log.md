@@ -1833,3 +1833,41 @@ during the temp write and the mutant looked survivable. *A survivor is a questio
 about the mutation at least as often as about the test* — the rule was already in
 this repo for `scripts/mutate`, and it took an hour to apply it to a mutation written
 by hand rather than by that tool.
+
+## SIGTERM unwinds and SIGKILL does not, which is why one probe missed the defect
+
+*Measured here* on `scripts/witness`, the same class fixed in `scripts/mutate` two
+cycles earlier and deferred twice before being run. SIGTERM during `--width` left the
+subject holding the parent implementation **and** the test file holding a
+single-assertion variant.
+
+The second is the worse of the two, and the asymmetry is the point: a mutated subject
+is obviously broken, while **a witness cut down to one assertion looks like a
+plausible test**. It survives a glance and gets committed. The tool built to tell a
+repair from a retreat was manufacturing retreats whenever it was interrupted.
+
+**The mutation "protect only the subject" survived a SIGTERM probe**, and the reason
+generalises past this repo: the signal handler raises `SystemExit`, the stack unwinds,
+and every `finally` on the way out runs — so the second file is restored anyway.
+**SIGKILL does not unwind.** A probe built only on SIGTERM cannot distinguish "this
+file is protected" from "this file happens to be restored by an unrelated `finally`",
+and it will report a guard as covered when nothing covers it. The discriminating test
+sends `-9` and asserts a valid record exists for *both* files.
+
+One implementation, not two. `scripts/_safe_edit.py` holds the crumb format and its
+three-outcome recovery; both tools import it, and a test asserts the format is defined
+in exactly one file. A second copy would drift silently, because each tool's tests
+would keep passing against its own copy — the failure mode is not that a copy is
+wrong on the day it is made.
+
+Moving it was its own regression check: mutate's 33 tests had to stay green through
+the extraction, and they did.
+
+**And the first library module under `scripts/` was rejected by two enumerating tests
+within a minute** — they demanded a degenerate probe and a make target for it. Neither
+exists for a file with no command line. The rule is stated once and applied in both
+places rather than special-casing a filename: *no `__main__` guard, not a command.*
+That is the third time an enumerating test has caught a new file the moment it
+appeared, and it is worth more than the rule it enforces.
+
+Shipped `3422f15`.
