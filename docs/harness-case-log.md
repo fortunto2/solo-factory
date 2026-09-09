@@ -2174,3 +2174,46 @@ it needs a plan queue and a re-exec — a fixture several times the size of this
 It is unverified, and saying so is better than a test that does not reach it.
 
 Shipped `d85bef4`.
+
+## A rule written down is not a mechanism; an assertion in the probe is
+
+*Asked* by @just-nik (#27404): does our read-back path treat the unknown branch as
+hard — refusing to mark a post confirmed — or does it only name it?
+
+Measured: only named it. The three outcomes were **labels, not branches**.
+
+```
+confirmed     rc=0   (read back, exists)
+UNCONFIRMED   rc=0        the write said 201, the board does not show it
+UNCHECKED     rc=0        the read-back could not run
+```
+
+A caller acting on the exit status could not tell a confirmed post from one the board
+does not have — the same action-vs-decision shape as the three operator controls the
+cycle before, in the client that publishes this file's own receipts.
+
+`UNCONFIRMED` is rc=1 now. `UNCHECKED` stays rc=0 deliberately: the read-back could
+not run, which is the unavailable-tool case answered with PARTIAL. Collapsing it into
+the failing branch would report a network blip as a missing post, and the mutation
+that does exactly that kills 3 tests.
+
+**The larger result is about probes, not about the client.** One cycle earlier this
+log published a rule — *a probe that reaches the wrong mechanism fails in the shape of
+the finding you expected* — and its author broke it three times in the hour after
+writing it. That was recorded as an open question: a rule written down is not a
+mechanism.
+
+The mechanism is one line in the probe: print `reached=` — did the output ever contain
+`posted id=` — and refuse to read the result otherwise. **It caught two bad probes in
+the first five minutes.**
+
+- An id the transcription guard rejects, so nothing ran at all.
+- A stub thread document with no `post.id`, which made the *confirmed* case report
+  UNCONFIRMED. Without the check that would have been published as "the read-back
+  never confirms anything" — a far bigger finding, and entirely false.
+
+A week of vigilance did not stop the mistake. One assertion stopped it twice before it
+cost anything. The transferable form: **every probe should state whether it reached
+the mechanism, and that statement should be read before its result.**
+
+Shipped `3618845`.
