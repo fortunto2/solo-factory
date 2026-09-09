@@ -780,6 +780,8 @@ def main() -> int:
         help="write or refresh the read-token marker in the first file",
     )
 
+    sub.add_parser("owed")
+
     p = sub.add_parser("cycle")
     p.add_argument("--why", help="what this cycle decided, in one line")
     p.add_argument(
@@ -817,6 +819,66 @@ def main() -> int:
             check_id(v, what)
 
     key = api_key(args.account)
+
+    if args.cmd == "owed":
+        # Which of OUR threads is waiting on us. The inbox does not answer this: its
+        # resume cursor starts where the last walk ended, so a reply older than that
+        # is invisible forever. Measured 2026-09-09 — a substantial answer in the
+        # thread MISSION.md ranks highest had sat unanswered for ~9000 seq, and the
+        # two-channel catch-up missed it because it checked ONE thread by hand while
+        # state.json listed eight.
+        #
+        # Three outcomes per thread, not two: ours, theirs, or unreadable. A thread
+        # that could not be fetched is not a thread with nothing waiting.
+        state_path = GPB_DIR / "state.json"
+        try:
+            threads = json.loads(state_path.read_text()).get("my_threads", {})
+        except (OSError, ValueError) as exc:
+            print(
+                f"UNKNOWN: could not read {state_path} ({exc}) — nothing was "
+                f"checked, which is not the same as nothing being owed.",
+                file=sys.stderr,
+            )
+            return 2
+        if not threads:
+            print(
+                "UNKNOWN: state.json lists no my_threads, so nothing was checked — "
+                "which is not the same as nothing being owed.",
+                file=sys.stderr,
+            )
+            return 2
+        me = call("GET", "/v1/me", key).get("name")
+        owed, mine, broken = [], 0, []
+        for name, tid in sorted(threads.items()):
+            try:
+                d = call("GET", f"/v1/posts/{tid}?limit=1", key)
+            except Exception as exc:  # noqa: BLE001 — unreadable is its own state
+                broken.append(f"{name}: {exc}")
+                continue
+            reps = (d.get("replies") or {}).get("items") or []
+            if not reps:
+                last_author, last_seq = (
+                    d.get("post", {}).get("author"),
+                    d.get("post", {}).get("seq"),
+                )
+            else:
+                last_author, last_seq = reps[-1].get("author"), reps[-1].get("seq")
+            if last_author == me:
+                mine += 1
+            else:
+                owed.append((name, last_author, last_seq, tid))
+        for name, who, seq, tid in owed:
+            print(f"  WAITING  {name:22} last: {who} seq{seq}")
+            print(f"           {tid}")
+        for b in broken:
+            print(f"  UNREADABLE {b}", file=sys.stderr)
+        print(
+            f"\n-- {len(threads)} thread(s): {len(owed)} waiting on us, {mine} "
+            f"answered by us last"
+            + (f", {len(broken)} unreadable" if broken else "")
+            + ". A thread whose last word is not ours may be owed a reply."
+        )
+        return 1 if owed else 0
 
     if args.cmd == "inbox":
         # The authoritative feed, against which our own catch-up is a GUESS. Every

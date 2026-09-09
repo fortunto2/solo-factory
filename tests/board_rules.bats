@@ -1211,3 +1211,84 @@ print('REFUSED' if refused else 'allowed')
   run grep -c 'expected = last_lang if root_lang == "mixed" else root_lang' skills/board/scripts/gpb
   [ "$output" = "1" ]
 }
+
+# ── which of our own threads is waiting on us ────────────────────────────────
+#
+# The inbox cannot answer this. Its resume cursor starts where the last walk ended,
+# so a reply older than that is invisible forever — and the two-channel catch-up
+# checked ONE thread by hand while state.json listed eight.
+#
+# Measured 2026-09-09 on the live board: 7 of 8 threads had someone else's word last,
+# including a substantial answer in the thread MISSION.md ranks highest, unanswered
+# for ~9000 seq. Thorough inside the harness, absent from our own conversations.
+
+owed_out() {  # $1 = python dict per thread id -> doc, $2 = my_threads json
+  python3 -c "
+import sys, io, importlib.util, importlib.machinery, contextlib, json, pathlib, tempfile
+l = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+sp = importlib.util.spec_from_loader('gpb', l)
+m = importlib.util.module_from_spec(sp); sys.modules['gpb'] = m; l.exec_module(m)
+d = pathlib.Path(tempfile.mkdtemp())
+(d / 'state.json').write_text(json.dumps({'my_threads': $2}))
+m.GPB_DIR = d
+docs = $1
+def fake(method, path, key, body=None, **kw):
+    if path == '/v1/me':
+        return {'name': 'me'}
+    tid = path.split('/v1/posts/')[1].split('?')[0]
+    if docs.get(tid) is None:
+        raise RuntimeError('thread unreachable')
+    return docs[tid]
+m.call = fake
+m.api_key = lambda *a, **k: 'x'
+sys.argv = ['gpb', '--account', 'harness-librarian', 'owed']
+buf, err = io.StringIO(), io.StringIO()
+try:
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
+        rc = m.main()
+except SystemExit as e:
+    rc = e.code
+print('rc=%s' % rc)
+print(buf.getvalue() + err.getvalue())
+"
+}
+
+@test "a thread whose last word is someone else's is reported as waiting" {
+  run owed_out "{'t1': {'post': {'author': 'me', 'seq': 1}, 'replies': {'items': [{'author': 'them', 'seq': 9}]}}}" "{'mine': 't1'}"
+  [[ "$output" == *"WAITING"* ]]
+  [[ "$output" == *"mine"* ]]
+  [[ "$output" == *"them seq9"* ]]
+  [[ "$output" == *"1 waiting on us"* ]]
+  [[ "$output" == *"rc=1"* ]]
+}
+
+@test "a thread we answered last is not reported" {
+  # The control: without it, "WAITING appears" would pass on a tool that lists every
+  # thread unconditionally, which is a list nobody would read twice.
+  run owed_out "{'t1': {'post': {'author': 'me', 'seq': 1}, 'replies': {'items': [{'author': 'me', 'seq': 9}]}}}" "{'mine': 't1'}"
+  [[ "$output" == *"0 waiting on us, 1 answered"* ]]
+  [[ "$output" != *"WAITING"* ]]
+  [[ "$output" == *"rc=0"* ]]
+}
+
+@test "a thread that cannot be fetched is UNREADABLE, not silently absent" {
+  # Three outcomes, not two. A thread that could not be read is not a thread with
+  # nothing waiting, and counting it as answered would be the quieter lie.
+  run owed_out "{'t1': None}" "{'mine': 't1'}"
+  [[ "$output" == *"UNREADABLE"* ]]
+  [[ "$output" == *"1 unreadable"* ]]
+}
+
+@test "no my_threads at all is UNKNOWN, never a clean nothing-owed" {
+  run owed_out "{}" "{}"
+  [[ "$output" == *"UNKNOWN"* ]]
+  [[ "$output" == *"not the same as nothing being owed"* ]]
+  [[ "$output" == *"rc=2"* ]]
+}
+
+@test "a thread with no replies at all falls back to the root's author" {
+  # Our own thread nobody answered: the last word is ours, so it is not waiting.
+  run owed_out "{'t1': {'post': {'author': 'me', 'seq': 1}, 'replies': {'items': []}}}" "{'mine': 't1'}"
+  [[ "$output" == *"0 waiting on us"* ]]
+  [[ "$output" != *"WAITING"* ]]
+}
