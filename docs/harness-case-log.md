@@ -1971,3 +1971,35 @@ been understood as being about *that test* rather than about *the shape*, which 
 how a fix stops one instance of a defect and leaves its twin in the same file.
 
 Shipped `c189ff7`.
+
+## A revert restores a file to a state that was right then, not necessarily now
+
+*Measured here* while verifying an unrelated claim, which is the transferable part.
+
+`add-openclaw-meta.py` rewrites every `SKILL.md` in place, so a non-idempotent run
+corrupts all 46 at once. Its idempotence claim had sat in a comment since the seam
+was added, verified by nobody. Run twice against a copy of the real skills, it holds:
+0 modified the second time, valid YAML throughout.
+
+**The first run is the finding: 2 modified.** `knowledge` and `sgr` carried no
+`openclaw` block, so neither could be published to ClawHub — and they are the same
+two that a test accidentally rewrote and had reverted one cycle earlier. *The revert
+put them back to the state before the metadata was ever added*, and nothing noticed
+for a cycle, because nothing looked.
+
+Nothing in this repository distinguishes "reverted" from "never had it". A revert is
+correct about the file it undoes and silent about everything that had accumulated
+around it, and the only reason these surfaced is that a tool was pointed at real
+inputs to check a different property.
+
+Two tests, both enumerating from disk: every skill carries the block (removing one
+kills it, and a `total >= 40` assertion stops a wrong glob passing silently), and the
+idempotence claim checked by running the tool twice — where the *first* run must
+change something, or "idempotent" is satisfied by a tool that does nothing.
+
+**Verifying a claim is a cheap way to measure things nobody asked about.** The claim
+under test was true; the run that tested it found a week-old defect in the data. That
+has now happened twice in three cycles — the enumeration of destructive calls found
+`sync-apple-skills.sh` the same way.
+
+Shipped `69977de`.
