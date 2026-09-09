@@ -621,3 +621,122 @@ EOF
   [[ "$output" != *"AND compared against"* ]]
   [[ "$output" != *"NOT compared against"* ]]
 }
+
+# ── witness edits TWO files, and both were left damaged when killed ──────────
+#
+# Measured 2026-09-09, after the same class was fixed in scripts/mutate: SIGTERM
+# during --width left the subject holding the parent implementation AND the test
+# file holding a single-assertion variant. The second is the worse of the two — a
+# witness cut down to one assertion looks like a plausible test rather than obvious
+# damage, so it survives a glance and gets committed.
+
+sig_fixture() {
+  P="$BATS_TEST_TMPDIR/sig"
+  mkdir -p "$P/tests" "$P/scripts"
+  ( cd "$P" && git init -q . && git config user.email t@e && git config user.name t
+    cat > subj.py <<'EOF'
+import sys
+def main(argv):
+    if len(argv) < 2:
+        print("warning: no argument given")
+        return 0
+    return 0
+sys.exit(main(sys.argv))
+EOF
+    { printf '@%s "an empty call is refused" {\n' test
+      printf '  sleep 3\n'
+      printf '  run python3 "$SUBJ"\n'
+      printf '  [ "$status" -eq 2 ]\n'
+      printf '  [[ "$output" == *"refused"* ]]\n}\n'; } > tests/w.bats
+    git add -A && git commit -q -m parent )
+  cat > "$P/subj.py" <<'EOF'
+import sys
+def main(argv):
+    if len(argv) < 2:
+        print("refused: an argument is required")
+        return 2
+    return 0
+sys.exit(main(sys.argv))
+EOF
+  cp "$BATS_TEST_DIRNAME/../scripts/check-vacuous-tests" "$P/scripts/"
+  cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$P/scripts/"
+  export SUBJ="$P/subj.py"
+}
+
+@test "SIGTERM mid-run restores BOTH the subject and the test file" {
+  sig_fixture
+  sb=$(shasum -a256 "$P/subj.py" | cut -d' ' -f1)
+  tb=$(shasum -a256 "$P/tests/w.bats" | cut -d' ' -f1)
+  ( cd "$P" && python3 "$W" --root . --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width >/dev/null 2>&1 ) &
+  bg=$!
+  sleep 4
+  pkill -TERM -f "scripts/witness --root . --subject subj.py" || true
+  wait $bg 2>/dev/null || true
+  sleep 1
+  [ "$(shasum -a256 "$P/subj.py" | cut -d' ' -f1)" = "$sb" ]
+  [ "$(shasum -a256 "$P/tests/w.bats" | cut -d' ' -f1)" = "$tb" ]
+  # A clean interruption leaves no records behind either.
+  [ ! -f "$P/subj.py.mutate-original" ]
+  [ ! -f "$P/tests/w.bats.mutate-original" ]
+}
+
+@test "a record for EITHER file makes the next run refuse" {
+  # The test file is guarded too, not just the subject. Guarding only the obvious
+  # one would leave the more dangerous damage undetected.
+  sig_fixture
+  ( cd "$P" && python3 -c "
+import sys, pathlib
+sys.path.insert(0, '$BATS_TEST_DIRNAME/../scripts')
+from _safe_edit import write_crumb, crumb_for
+t = pathlib.Path('tests/w.bats')
+write_crumb(crumb_for(t), t, t.read_text())" )
+  run bash -c "cd '$P' && python3 '$W' --root . --subject subj.py --test tests/w.bats --name 'an empty call is refused' --guard 'return 2' 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"UNKNOWN"* ]]
+  [[ "$output" == *"w.bats.mutate-original"* ]]
+  [[ "$output" == *"killed before it could restore"* ]]
+}
+
+@test "one implementation of the crumb, not two" {
+  # mutate and witness both edit files in place and both restore them. A second copy
+  # of the crumb format would be the two-places-disagreeing defect this repo keeps
+  # paying for — and it would drift silently, because each tool's tests would pass
+  # against its own copy.
+  cd "$BATS_TEST_DIRNAME/.."
+  run grep -c "solo-mutate-crumb" scripts/_safe_edit.py
+  [ "$output" -ge 1 ]
+  # Neither tool may define the format itself.
+  run bash -c "grep -l 'CRUMB_V = ' scripts/* 2>/dev/null | grep -v __pycache__"
+  [ "$output" = "scripts/_safe_edit.py" ]
+}
+
+@test "SIGKILL leaves a record for the test file, which is what the crumb is for" {
+  # The discriminating input. Under SIGTERM the handler raises SystemExit, the stack
+  # unwinds, and every `finally` runs — so the test file is restored even with no
+  # crumb, and "protect only the subject" survives a SIGTERM probe. SIGKILL does not
+  # unwind. There the crumb is the only thing standing between a rewritten witness
+  # and a reader who has no idea it was rewritten.
+  sig_fixture
+  ( cd "$P" && python3 "$W" --root . --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width >/dev/null 2>&1 ) &
+  bg=$!
+  sleep 4
+  pkill -KILL -f "scripts/witness --root . --subject subj.py" || true
+  wait $bg 2>/dev/null || true
+  # Both records must exist: the run was killed with no chance to remove them.
+  [ -f "$P/subj.py.mutate-original" ]
+  [ -f "$P/tests/w.bats.mutate-original" ]
+  # And each holds the file it names, verified rather than assumed.
+  run bash -c "cd '$P' && python3 -c \"
+import sys, pathlib
+sys.path.insert(0, '$BATS_TEST_DIRNAME/../scripts')
+from _safe_edit import read_crumb, crumb_for
+for f in ('subj.py', 'tests/w.bats'):
+    t = pathlib.Path(f)
+    print(f, read_crumb(crumb_for(t), t)[1])
+\""
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"subj.py valid"* ]]
+  [[ "$output" == *"tests/w.bats valid"* ]]
+}

@@ -302,7 +302,10 @@ witness|--root /no/such/dir --subject x.py --test t.bats --name n
   # otherwise join the harness with nobody having seen its unknown path fire.
   declare_probes
   cd "$BATS_TEST_DIRNAME/.."
-  claiming=$(grep -l '"UNKNOWN' scripts/* 2>/dev/null | grep -v __pycache__ | sed 's|scripts/||' | sort)
+  # Same rule as the make-target test below: no __main__ guard, no command line,
+  # nothing to hand a degenerate argument to.
+  claiming=$(grep -l '"UNKNOWN' scripts/* 2>/dev/null | grep -v __pycache__ \
+    | xargs grep -l '__main__' | sed 's|scripts/||' | sort)
   [ -n "$claiming" ]
   missing=""
   for s in $claiming; do
@@ -332,7 +335,12 @@ witness|--root /no/such/dir --subject x.py --test t.bats --name n
   # only by typing their path. A tool nobody is told about is a tool nobody runs,
   # and a list that IS the discovery surface must not be the one with the gap.
   cd "$BATS_TEST_DIRNAME/.."
-  claiming=$(grep -l '"UNKNOWN' scripts/* 2>/dev/null | grep -v __pycache__ | sed 's|scripts/||' | sort)
+  # A library module has no command line, so it can be neither probed nor invoked
+  # from make. The rule is stated rather than a name being special-cased: no
+  # __main__ guard, not a command. scripts/_safe_edit.py is the first of these —
+  # it holds the crumb format both mutate and witness use.
+  claiming=$(grep -l '"UNKNOWN' scripts/* 2>/dev/null | grep -v __pycache__ \
+    | xargs grep -l '__main__' | sed 's|scripts/||' | sort)
   [ -n "$claiming" ]
   checked=0
   missing=""

@@ -40,6 +40,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _safe_edit import protect, stale_crumb_refusal  # noqa: E402
+
 
 def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -459,6 +462,17 @@ def main(argv: list[str]) -> int:
         print(f"UNKNOWN: {args.subject} is not a file here", file=sys.stderr)
         return 2
 
+    # Both files this run edits are checked for a record from a killed run. Measured
+    # 2026-09-09: SIGTERM during --width left the subject holding the parent
+    # implementation AND the test file holding a single-assertion variant — the
+    # second is worse, because a witness cut down to one assertion looks like a
+    # plausible test rather than obvious damage, and gets committed.
+    for guarded in (subject, (root / args.test).resolve()):
+        refusal = stale_crumb_refusal(guarded)
+        if refusal:
+            print(refusal, file=sys.stderr)
+            return 2
+
     current = subject.read_text()
     baseline = sha(subject)
     parent = parent_of(root, args.subject, args.parent)
@@ -474,49 +488,55 @@ def main(argv: list[str]) -> int:
     width_note = width_why = None
     verdict = 0
     restore_failed = False
-    try:
-        # Cell 1 — the parent implementation must FAIL the witness.
-        swap(subject, parent, current)
-        ok, detail = run_witness(root, args.test, args.name)
-        cells.append((f"{args.parent} + W must FAIL", not ok, detail))
-
-        # While the parent is still in place: which assertions carry the failure?
-        if args.width:
-            width_note, width_why = discrimination_width(
-                root,
-                args.test,
-                args.name,
-                lambda: run_witness(root, args.test, args.name),
-                cell1_held=not ok,
-                parent_rev=args.parent,
-            )
-
-        # Cell 2 — the new implementation must PASS it.
-        subject.write_text(current)
-        if sha(subject) != baseline:
-            raise RuntimeError("the subject did not restore before cell 2")
-        ok, detail = run_witness(root, args.test, args.name)
-        cells.append(("new + W must PASS", ok, detail))
-
-        # Cell 3 — with the declared guard disabled, it must FAIL again.
-        if args.guard:
-            if args.guard not in current:
-                raise RuntimeError(f"--guard is not in {args.subject}: {args.guard!r}")
-            swap(subject, current.replace(args.guard, "if False:", 1), current)
+    # Crumbs and signal handlers for both files, for as long as either is edited.
+    # try/finally below still does the ordinary restore; this covers the run being
+    # killed, which try/finally cannot.
+    with protect([subject, (root / args.test).resolve()], label="witness"):
+        try:
+            # Cell 1 — the parent implementation must FAIL the witness.
+            swap(subject, parent, current)
             ok, detail = run_witness(root, args.test, args.name)
-            cells.append(("new − guard + W must FAIL", not ok, detail))
-    except RuntimeError as exc:
-        print(f"UNKNOWN: {exc}", file=sys.stderr)
-        verdict = 2
-    finally:
-        subject.write_text(current)
-        # `restored` is the same kind of fact as `applied`, checked the same way.
-        # No `return` in here: a return inside `finally` swallows the exception that
-        # brought us here, so a crash mid-run would be reported as a restore failure
-        # — the wrong cause, stated confidently. That is written in this repo's rules
-        # file for `scripts/mutate` and I reproduced it in a new file anyway; ruff
-        # B012 caught it, which is the first thing our own automation found today.
-        restore_failed = sha(subject) != baseline
+            cells.append((f"{args.parent} + W must FAIL", not ok, detail))
+
+            # While the parent is still in place: which assertions carry the failure?
+            if args.width:
+                width_note, width_why = discrimination_width(
+                    root,
+                    args.test,
+                    args.name,
+                    lambda: run_witness(root, args.test, args.name),
+                    cell1_held=not ok,
+                    parent_rev=args.parent,
+                )
+
+            # Cell 2 — the new implementation must PASS it.
+            subject.write_text(current)
+            if sha(subject) != baseline:
+                raise RuntimeError("the subject did not restore before cell 2")
+            ok, detail = run_witness(root, args.test, args.name)
+            cells.append(("new + W must PASS", ok, detail))
+
+            # Cell 3 — with the declared guard disabled, it must FAIL again.
+            if args.guard:
+                if args.guard not in current:
+                    raise RuntimeError(
+                        f"--guard is not in {args.subject}: {args.guard!r}"
+                    )
+                swap(subject, current.replace(args.guard, "if False:", 1), current)
+                ok, detail = run_witness(root, args.test, args.name)
+                cells.append(("new − guard + W must FAIL", not ok, detail))
+        except RuntimeError as exc:
+            print(f"UNKNOWN: {exc}", file=sys.stderr)
+            verdict = 2
+        finally:
+            subject.write_text(current)
+            # `restored` is the same kind of fact as `applied`, checked the same way.
+            # No `return` in here: a return inside `finally` swallows the exception that
+            # brought us here, so a crash mid-run would be reported as a restore failure
+            # — the wrong cause, stated confidently. That is written in this repo's rules
+            # file for `scripts/mutate` and I reproduced it in a new file anyway; ruff
+            # B012 caught it, which is the first thing our own automation found today.
+            restore_failed = sha(subject) != baseline
 
     if restore_failed:
         print(f"FATAL: {args.subject} was NOT restored — check it", file=sys.stderr)

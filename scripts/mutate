@@ -215,78 +215,13 @@ def one_sided(outcomes: list[tuple[int, str, bool, str]]) -> list[str]:
     return out
 
 
-CRUMB_V = "solo-mutate-crumb v1"
-
-
-def write_crumb(crumb: Path, target: Path, original: str) -> None:
-    """Write the crumb atomically: temp, fsync, rename. Never truncate in place.
-
-    *Named* by @kolpaq (#26742): the crumb protects the subject, and nothing was
-    protecting the crumb. A SIGKILL landing mid-write leaves a file that EXISTS and
-    is short, and the recovery instruction this tool prints — `mv crumb target` —
-    would then install a truncated original over a working file. The fix is the
-    protection applied one level down: write elsewhere, and let rename be the only
-    step that commits.
-
-    The header carries what @nadir-codex (#26761) specified: a version, the target
-    it belongs to, the payload length and its digest. Recovery that cannot check
-    those has no way to tell a complete record from half of one.
-    """
-    payload = original.encode("utf-8")
-    header = (
-        f"{CRUMB_V} {target.name} {hashlib.sha256(payload).hexdigest()} "
-        f"{len(payload)}\n"
-    ).encode("utf-8")
-    tmp = crumb.with_suffix(crumb.suffix + ".tmp")
-    with open(tmp, "wb") as fh:
-        fh.write(header + payload)
-        fh.flush()
-        os.fsync(fh.fileno())
-    os.replace(tmp, crumb)
-    # SURVIVING MUTANT, named rather than hidden: removing the fsync above kills no
-    # test. It guards a power loss — bytes acknowledged by the OS but not on the
-    # platter — and that is not observable from userspace without pulling the plug.
-    # The kill-a-process probes cannot see it, and no test here claims to.
-    #
-    # The rename is durable only once the DIRECTORY entry is. Skipped where the
-    # platform will not let us open a directory, which is stated rather than assumed.
-    try:
-        dfd = os.open(crumb.parent, os.O_RDONLY)
-        try:
-            os.fsync(dfd)
-        finally:
-            os.close(dfd)
-    except OSError:
-        pass
-
-
-def read_crumb(crumb: Path, target: Path) -> tuple[str | None, str]:
-    """(original, state). state is `absent`, `valid`, or a reason it is CORRUPT.
-
-    Three outcomes, never two. *Named* by @nadir-codex (#26761): a partial record
-    treated as "no crumb" turns a crash into a silent skip of recovery, at exactly
-    the moment recovery is the only thing left.
-    """
-    if not crumb.is_file():
-        return None, "absent"
-    raw = crumb.read_bytes()
-    head, sep, payload = raw.partition(b"\n")
-    if not sep:
-        return None, "the record has no header line — it was cut before the newline"
-    parts = head.decode("utf-8", "replace").split()
-    if len(parts) != 5 or " ".join(parts[:2]) != CRUMB_V:
-        return None, f"unrecognised header {head[:60]!r}"
-    _, _, name, digest, length = parts
-    if name != target.name:
-        return None, f"the record belongs to {name}, not {target.name}"
-    if not length.isdigit() or int(length) != len(payload):
-        return None, (
-            f"the record claims {length} payload bytes and holds {len(payload)} — "
-            f"it was cut mid-write"
-        )
-    if hashlib.sha256(payload).hexdigest() != digest:
-        return None, "the payload does not match its digest"
-    return payload.decode("utf-8"), "valid"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _safe_edit import (  # noqa: E402  (path set above; these are scripts, not a package)
+    crumb_for,
+    read_crumb,  # noqa: F401  — re-exported: tests exercise the production reader
+    stale_crumb_refusal,
+    write_crumb,
+)
 
 
 def main(argv: list[str]) -> int:
@@ -343,30 +278,12 @@ def main(argv: list[str]) -> int:
     # only honest move: the file on disk is a mutant, so a baseline measured on it
     # would be a baseline of somebody else's injected defect, and every verdict after
     # that is about the wrong program.
-    stale = target.with_suffix(target.suffix + ".mutate-original")
-    saved, state = read_crumb(stale, target)
-    if state == "valid":
-        print(
-            f"UNKNOWN: {stale.name} holds a complete record, so a previous run was "
-            f"killed before it could restore {target.name}. The file on disk may "
-            f"still hold a mutant. The record is intact and verified against its "
-            f"digest, so `mv {stale.name} {target.name}` restores the original "
-            f"exactly; delete {stale.name} instead if the current content is what "
-            f"you want. Nothing was measured.",
-            file=sys.stderr,
-        )
-        return 2
-    if state != "absent":
-        # A truncated record is NOT an absent one, and it is not a usable one
-        # either. Telling anyone to `mv` this over their file would install half an
-        # original — the recovery path doing the damage it exists to prevent.
-        print(
-            f"CORRUPT: {stale.name} is a partial record — {state}. Do NOT move it "
-            f"over {target.name}: it would install a truncated original. Recover "
-            f"{target.name} from version control, then delete {stale.name}. Nothing "
-            f"was measured.",
-            file=sys.stderr,
-        )
+    # A record from a previous run means that run never restored the file. Three
+    # outcomes, and the message differs for each — a corrupt record must never be
+    # offered as an undo, or the recovery installs a truncated original.
+    refusal = stale_crumb_refusal(target)
+    if refusal:
+        print(refusal, file=sys.stderr)
         return 2
 
     code, out = run_tests(test_file)
@@ -395,7 +312,7 @@ def main(argv: list[str]) -> int:
     # removed after a verified restore. SIGTERM and SIGINT restore and re-raise;
     # SIGKILL cannot be caught, and for that the crumb is the whole defence — the
     # next run refuses to start and says exactly how to undo it.
-    crumb = target.with_suffix(target.suffix + ".mutate-original")
+    crumb = crumb_for(target)
 
     def restore_and_exit(signum, _frame):
         target.write_text(original)
