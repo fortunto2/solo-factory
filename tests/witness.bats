@@ -59,7 +59,7 @@ EOF
   # possible weakening.
   [[ "$output" == *"bounded"* ]]
   [[ "$output" == *"3 cells"* ]]
-  [[ "$output" == *"Neither weighs strength"* ]]
+  [[ "$output" == *"weighs strength"* ]]
 }
 
 @test "no --guard is PARTIAL, never REPAIR — no guard was named" {
@@ -282,8 +282,8 @@ EOF
       --name "an empty call is refused" --guard 'return 2'
   [ "$status" -eq 0 ]
   [[ "$output" == *"REPAIR"* ]]
-  [[ "$output" == *"Neither weighs strength"* ]]
-  [[ "$output" == *"not decidable"* ]]
+  [[ "$output" == *"weighs strength"* ]]
+  [[ "$output" == *"did not run here"* ]]   # --width was not passed here
 }
 
 @test "an unreachable check-vacuous-tests is UNCHECKED, never 'no weakening'" {
@@ -295,4 +295,94 @@ EOF
   [[ "$output" == *"absence-only check UNCHECKED"* ]]
   [[ "$output" == *"PARTIAL"* ]]
   [[ "$output" != *"REPAIR"* ]]
+}
+
+# ── discrimination width ─────────────────────────────────────────────────────
+#
+# *Proposed* by @agent-kek (#26431) after this repo said assertion strength was
+# undecidable: fix a minimal mutation set per fixture rather than decide strength
+# in general. Measured before building, on two witnesses over one parent:
+#   2 strong assertions   width 2 of 2
+#   3 weak positive ones  width 1 of 3
+# Both discriminate as a whole, both keep every cell green, and the count went UP.
+
+width_witness() {  # $1 = the assertion block
+  mkdir -p "$R/scripts"
+  cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$R/scripts/"
+  cp "$BATS_TEST_DIRNAME/../scripts/check-vacuous-tests" "$R/scripts/"
+  { printf '@%s "an empty call is refused" {\n' test
+    printf '  run python3 "$SUBJ"\n'
+    printf '%s' "$1"
+    printf '}\n'; } > "$R/tests/w.bats"
+}
+
+@test "width counts assertions that individually fail the parent" {
+  width_witness '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+'
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"discrimination width 2 of 2"* ]]
+}
+
+@test "a witness that grew while narrowing shows a lower width" {
+  # The case the count cannot see: three statements where one carries the whole
+  # discrimination. assertions_removed reports an ADDITION here.
+  width_witness '  [[ -n "$output" ]]
+  [[ "$output" == *"e"* ]]
+  [[ "$output" == *"refused"* ]]
+'
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"discrimination width 1 of"* ]]
+  # And it says what it could not classify, rather than shrinking the denominator
+  # in silence: an unrecognised statement is present in every variant, not absent.
+  [[ "$output" == *"classifier does not recognise"* ]]
+}
+
+@test "width is UNCHECKED when something else fails the parent" {
+  # The control. Unclassified statements sit in EVERY variant, so one of them
+  # failing the parent makes every variant fail and returns a full mark for a
+  # witness whose assertions do nothing.
+  # Neither table matches this: NEGATIVE needs `[[`, POSITIVE needs -eq/-ne or a
+  # ==/toBe form. It is a real check that fails the parent and is invisible here.
+  width_witness '  [ "${output#*refused}" != "$output" ]
+  [[ "$output" == *"refused"* ]]
+'
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [[ "$output" == *"discrimination width UNCHECKED"* ]]
+  [[ "$output" == *"something else in the test body"* ]]
+  [[ "$output" != *"discrimination width 2"* ]]
+}
+
+@test "the stated bound changes with what actually ran" {
+  # A fixed sentence would have gone stale the moment --width was added, claiming
+  # a residual that had just been measured.
+  width_witness '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+'
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [[ "$output" == *"discrimination width): the"* ]]
+  [[ "$output" == *"Width measured"* ]]
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2'
+  [[ "$output" != *"Width measured"* ]]
+  [[ "$output" == *"did not run here"* ]]
+}
+
+@test "the witness file is restored after a width run" {
+  # It rewrites the test file once per assertion. `restored` is a fact about the
+  # bytes, checked the same way `applied` is.
+  width_witness '  [ "$status" -eq 2 ]
+  [[ "$output" == *"refused"* ]]
+'
+  before=$(shasum -a256 "$R/tests/w.bats" | cut -d" " -f1)
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  after=$(shasum -a256 "$R/tests/w.bats" | cut -d" " -f1)
+  [ "$before" = "$after" ]
 }

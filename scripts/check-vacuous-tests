@@ -154,7 +154,64 @@ def own_test_files() -> list[Path]:
     return sorted({Path(f) for f in names if TEST_FILE.search(f)})
 
 
+def assertions_in(path: Path, test_name: str) -> list[tuple[int, str]]:
+    """(line number, statement) for every assertion inside ONE named test.
+
+    A second query over the parser already here, rather than a second parser. The
+    dialect rules, the per-statement split and the positive/negative tables are the
+    ones `scan` uses — a copy of them in another file is the two-places-disagreeing
+    defect this repository has spent a week on.
+
+    Exposed for `witness --width`, which asks: of the assertions in this witness,
+    how many INDIVIDUALLY fail against the parent implementation? Proposed by
+    @agent-kek (#26431) as a minimal mutation set per fixture, after this repo said
+    assertion strength was undecidable. It is — in general. This is not a strength
+    measurement; it is a count of which assertions carry the discrimination, and
+    that is measurable.
+    """
+    starts = starts_for(path)
+    out: list[tuple[int, str]] = []
+    inside = False
+    for i, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
+        start = next((m for p in starts if (m := p.match(line))), None)
+        if start:
+            inside = start.group("name") == test_name
+            line = line[start.end() :]
+            if not line.strip():
+                continue
+        if not inside:
+            continue
+        for stmt in line.split(";"):
+            if not stmt.strip():
+                continue
+            if any(p.search(stmt) for p in NEGATIVE) or any(
+                p.search(stmt) for p in POSITIVE
+            ):
+                out.append((i, stmt.strip()))
+    return out
+
+
 def main(argv: list[str]) -> int:
+    if len(argv) > 3 and argv[1] == "--assertions":
+        # file, test name. One assertion per line as "lineno<TAB>statement".
+        f = Path(argv[2])
+        if not f.is_file():
+            print(f"UNKNOWN: {f} is not a file here", file=sys.stderr)
+            return 2
+        found = assertions_in(f, argv[3])
+        if not found:
+            # No assertions and a wrong test name are the same empty list, and a
+            # caller counting them would read the second as the first.
+            print(
+                f"UNKNOWN: no assertions found in {f} for test {argv[3]!r} — an "
+                f"assertion-free test and a name that matches nothing look alike here.",
+                file=sys.stderr,
+            )
+            return 2
+        for line, stmt in found:
+            print(f"{line}\t{stmt}")
+        return 0
+
     paths = [Path(a) for a in argv[1:]] or own_test_files()
     examined = [p for p in paths if TEST_FILE.search(str(p)) and p.is_file()]
     if not examined:

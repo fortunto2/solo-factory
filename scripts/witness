@@ -160,6 +160,134 @@ def absence_only(root: Path, test: str) -> tuple[str | None, str | None]:
     return ("; ".join(hits) if hits else None), None
 
 
+def lines_with_content(lines: list[str], numbers: list[int]) -> list[str]:
+    """Body statements that are not classified assertions and not structure.
+
+    Named so the width note can say what shared every variant. A statement the
+    classifier does not recognise is not absent from the run — it is present and
+    unmeasured, which is the difference between a denominator and a claim.
+    """
+    out = []
+    for i, ln in enumerate(lines, 1):
+        t = ln.strip()
+        if i in numbers or not t or t.startswith("#"):
+            continue
+        if t.startswith(("@test", "}", "run ", "load ", "setup", "teardown")):
+            continue
+        out.append(t)
+    return out
+
+
+def assertion_lines(
+    root: Path, test: str, name: str
+) -> tuple[list[tuple[int, str]], str | None]:
+    """Ask check-vacuous-tests for this witness's assertions. One parser, not two."""
+    cv = root / "scripts" / "check-vacuous-tests"
+    if not cv.is_file():
+        return [], "scripts/check-vacuous-tests is not here"
+    code, out = run([sys.executable, str(cv), "--assertions", test, name], root, 60)
+    if code != 0:
+        return [], f"could not list assertions (exit {code}): {out.strip()[:120]}"
+    found = []
+    for line in out.splitlines():
+        n, _, stmt = line.partition("\t")
+        if n.strip().isdigit():
+            found.append((int(n), stmt))
+    return found, None
+
+
+def discrimination_width(
+    root: Path, test: str, name: str, run_one
+) -> tuple[str | None, str | None]:
+    """How many of the witness's assertions INDIVIDUALLY fail the parent?
+
+    *Proposed* by @agent-kek (#26431) after this repo said assertion strength was
+    undecidable: fix a minimal mutation set per fixture instead of deciding strength
+    in general. He is right that the count is the wrong measure, and this is the
+    measurable form of his point.
+
+    Measured before building it, on two witnesses over the same parent:
+
+        2 strong assertions   width 2 of 2, whole witness fails the parent
+        3 weak positive ones  width 1 of 3, whole witness fails the parent
+
+    The count went UP, `assertions_removed` saw an addition, every cell held, and
+    the old verdict was REPAIR. The discrimination width is what moved.
+
+    Returns (report, reason-it-could-not-be-answered); exactly one is set.
+    """
+    path = root / test
+    found, why = assertion_lines(root, test, name)
+    if why:
+        return None, why
+    src = path.read_text()
+    lines = src.splitlines(keepends=True)
+    numbers = [n for n, _ in found]
+    # Only whole-line assertions can be removed by dropping the line. A line holding
+    # an assertion plus something else is skipped and SAID, rather than mangled.
+    usable, skipped = [], 0
+    for n, stmt in found:
+        if lines[n - 1].strip() == stmt:
+            usable.append(n)
+        else:
+            skipped += 1
+    if not usable:
+        return None, "no assertion sits alone on its line, so none can be isolated"
+
+    sufficient = 0
+    control_failed = False
+    restore_ok = False
+    try:
+        # Control first. Statements the classifier does not recognise stay in EVERY
+        # variant, so if one of them already fails the parent, each variant fails and
+        # the width comes back n of n — a full mark for a witness whose assertions do
+        # nothing. Measured while building this: `[[ -n "$output" ]]` matches neither
+        # table, so it is invisible to the parser and present in every run.
+        path.write_text(
+            "".join(ln for i, ln in enumerate(lines, 1) if i not in numbers)
+        )
+        passed, _ = run_one()
+        control_failed = not passed
+        if not control_failed:
+            for keep in usable:
+                variant = "".join(
+                    ln for i, ln in enumerate(lines, 1) if i == keep or i not in numbers
+                )
+                path.write_text(variant)
+                passed, _ = run_one()
+                if not passed:
+                    sufficient += 1
+    finally:
+        # No `return` in here. A return inside `finally` swallows the exception that
+        # brought us here, so a crash mid-run would surface as a restore failure —
+        # the wrong cause, stated confidently. The same rule is written six lines up
+        # in this file for the cells, and reproduced here anyway; ruff B012 caught
+        # it both times, which is the argument for the linter over the comment.
+        path.write_text(src)
+        restore_ok = path.read_text() == src
+
+    if not restore_ok:
+        return None, "the witness file did not restore — no conclusion"
+
+    if control_failed:
+        return None, (
+            "with every classified assertion removed the witness STILL fails the "
+            "parent, so something else in the test body is doing the discriminating "
+            "and a width would be measuring that"
+        )
+
+    note = f"discrimination width {sufficient} of {len(usable)} classified assertion(s)"
+    unclassified = len(lines_with_content(lines, numbers))
+    if unclassified:
+        note += (
+            f"; {unclassified} statement(s) the classifier does not recognise were "
+            f"present in every variant"
+        )
+    if skipped:
+        note += f"; {skipped} not isolable (share a line)"
+    return note, None
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--subject", required=True, help="the implementation file")
@@ -175,6 +303,12 @@ def main(argv: list[str]) -> int:
         "Measured the first time this ran: use <the rule's commit>^ afterwards.",
     )
     ap.add_argument("--root", default=".")
+    ap.add_argument(
+        "--width",
+        action="store_true",
+        help="count how many of the witness's assertions individually fail the "
+        "parent. Opt-in: it costs one bats run per assertion.",
+    )
     args = ap.parse_args(argv[1:])
 
     root = Path(args.root).resolve()
@@ -205,6 +339,7 @@ def main(argv: list[str]) -> int:
         return 2
 
     cells: list[tuple[str, bool, str]] = []
+    width_note = width_why = None
     verdict = 0
     restore_failed = False
     try:
@@ -212,6 +347,15 @@ def main(argv: list[str]) -> int:
         swap(subject, parent, current)
         ok, detail = run_witness(root, args.test, args.name)
         cells.append((f"{args.parent} + W must FAIL", not ok, detail))
+
+        # While the parent is still in place: which assertions carry the failure?
+        if args.width:
+            width_note, width_why = discrimination_width(
+                root,
+                args.test,
+                args.name,
+                lambda: run_witness(root, args.test, args.name),
+            )
 
         # Cell 2 — the new implementation must PASS it.
         subject.write_text(current)
@@ -252,6 +396,12 @@ def main(argv: list[str]) -> int:
     # being a retreat on the second — measured: two assertions dropped from a
     # witness left it still discriminating, so all three cells held. The two facts
     # have to arrive together or a green REPAIR reads as a clearance for both.
+    if args.width:
+        if width_note:
+            print(f"  ALSO: {width_note}")
+        elif width_why:
+            print(f"  ALSO: discrimination width UNCHECKED — {width_why}")
+
     shrink, why_not = assertion_delta(root, args.test)
     absence, absence_why = absence_only(root, args.test)
     if absence:
@@ -299,6 +449,8 @@ def main(argv: list[str]) -> int:
             missing.append(f"assertion delta unchecked ({why_not})")
         if absence_why:
             missing.append(f"absence-only check unchecked ({absence_why})")
+        if args.width and width_why:
+            missing.append(f"discrimination width unchecked ({width_why})")
         if absence:
             # Not "missing": it RAN and found weakening. That is a retreat finding,
             # and a verdict of REPAIR beside it would be the contradiction this
@@ -313,12 +465,25 @@ def main(argv: list[str]) -> int:
                 f"is all this run establishes — " + "; ".join(missing) + "."
             )
             return 0
+        # The bound is stated, and it CHANGES with what actually ran. A fixed
+        # sentence would have gone stale the moment --width was added, claiming a
+        # residual that had just been measured.
+        checks = ["assertion delta", "absence-only"]
+        if width_note:
+            checks.append("discrimination width")
+        residual = (
+            "Width measured, so an assertion count that grew while the "
+            "discrimination narrowed is visible here. Still unmeasured: strength "
+            "in general, and any weakening that keeps every assertion individually "
+            "sufficient."
+            if width_note
+            else "None of these weighs strength: two strong assertions replaced by "
+            "three weak POSITIVE ones passes all of them. --width measures the part "
+            "of that which is measurable and did not run here."
+        )
         print(
-            f"REPAIR (bounded, {len(cells)} cells + assertion delta): the witness "
-            f"discriminates and the named guard is what does it. Bound: the delta "
-            f"counts assertions and the absence check catches absence-only ones. "
-            f"Neither weighs strength — two strong assertions replaced by three "
-            f"weak POSITIVE ones passes both, measured, and is not decidable."
+            f"REPAIR (bounded, {len(cells)} cells + {', '.join(checks)}): the "
+            f"witness discriminates and the named guard is what does it. {residual}"
         )
         return 0
     print(
