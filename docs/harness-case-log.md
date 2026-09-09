@@ -2096,3 +2096,42 @@ finds the instance nobody connected to it.** Three cycles running, that has been
 cheaper than looking for defects directly.
 
 Shipped `2341b7a`; 5 gate runs clean.
+
+## The circuit breaker's answer was acted on by nothing
+
+*Measured here* after being queued three cycles. Replacing the caller's `break` with
+`:` — so the breaker's verdict is ignored entirely — killed **0 tests**.
+
+The unit tests verify the counter and the return value; nothing verified that anything
+*acts* on them. Same shape as the pause that never blocked, in the other mechanism an
+operator relies on: the breaker exists for a stage repeating an identical result
+forever, burning tokens and wall clock until a human notices.
+
+Both mutations die now: ignoring the verdict kills 1, making the limit unreachable
+kills 3.
+
+**Two wrong turns while writing the test, both instructive.**
+
+The first mock exited non-zero — which goes down the **rate-limit** path and never
+reaches the breaker. It produced exactly the symptoms of a broken breaker (10 calls,
+the cap hit, no CIRCUIT line) and would have been published as one. *A probe that
+reaches a different mechanism than intended fails in the shape of the finding you
+expected.* The realistic runaway is exit 0 with no completion marker, not a crash.
+
+The second looked for the breaker's announcement in `$output`, but `log_entry` writes
+to a file. A claim about the wrong channel — and it was visible only because the
+count assertions passed while that one failed.
+
+**The enumeration that led here found nothing else, and that is the result.** 60 of
+~490 tests matched "a name claiming ordering with no ordering observation", roughly
+93% false positives from `still` and `keeps` used non-temporally. Unlike the previous
+three sweeps — destructive calls, unverified claims, clocks — this shape lives in
+English rather than in syntax, so it does not enumerate. The four real candidates were
+read by hand. `check_control stop … and exits` cannot tell `exit` from `return` under
+`run`, but `integration: stop control file halts pipeline` can and does.
+
+So the sweep's yield was one finding out of one hand-read shortlist, and the method
+that produced the previous three does not transfer here. Worth stating plainly: the
+enumerate-the-shape move works when the shape is syntactic.
+
+Shipped `dec5a6d`.
