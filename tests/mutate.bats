@@ -346,7 +346,12 @@ EOF
   # on a mutated file would measure a baseline of somebody else's injected defect,
   # and every verdict after that is about the wrong program.
   mut_fixture
-  cp "$M/subj.py" "$M/subj.py.mutate-original"
+  # Written by the PRODUCTION writer, not by cp. A hand-made crumb tests a format
+  # this tool no longer uses, and would have gone on passing after the record grew
+  # a header — the same defect as building the state you then recover.
+  ( cd "$M" && crumb_py "
+m.write_crumb(pathlib.Path('subj.py.mutate-original'), pathlib.Path('subj.py'),
+              pathlib.Path('subj.py').read_text())" )
   run bash -c "cd '$M' && python3 '$BATS_TEST_DIRNAME/../scripts/mutate' --file subj.py --test tests/t.bats 2>&1"
   [ "$status" -eq 2 ]
   [[ "$output" == *"UNKNOWN"* ]]
@@ -360,10 +365,16 @@ EOF
   # A recovery instruction nobody has run is a guess. This runs it.
   mut_fixture
   before=$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)
-  cp "$M/subj.py" "$M/subj.py.mutate-original"
+  ( cd "$M" && crumb_py "
+m.write_crumb(pathlib.Path('subj.py.mutate-original'), pathlib.Path('subj.py'),
+              pathlib.Path('subj.py').read_text())" )
   printf 'import sys\nif True:  # mutant\n    pass\n' > "$M/subj.py"
   [ "$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)" != "$before" ]
-  mv "$M/subj.py.mutate-original" "$M/subj.py"
+  ( cd "$M" && crumb_py "
+saved, st = m.read_crumb(pathlib.Path('subj.py.mutate-original'), pathlib.Path('subj.py'))
+assert st == 'valid', st
+pathlib.Path('subj.py').write_text(saved)
+pathlib.Path('subj.py.mutate-original').unlink()" )
   [ "$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)" = "$before" ]
 }
 
@@ -391,7 +402,12 @@ EOF
   sleep 5
   # While the run is still inside the mutation loop.
   [ -f "$M/subj.py.mutate-original" ]
-  [ "$(shasum -a256 "$M/subj.py.mutate-original" | cut -d' ' -f1)" = "$before" ]
+  # The crumb's PAYLOAD is the original — the record also carries a header, so a
+  # whole-file hash would be comparing a record against a file.
+  ( cd "$M" && crumb_py "
+saved, st = m.read_crumb(pathlib.Path('subj.py.mutate-original'), pathlib.Path('subj.py'))
+assert st == 'valid', st
+import hashlib; print(hashlib.sha256(saved.encode()).hexdigest())" ) | grep -q "$before"
   # And the subject really is mutated at this moment, or the crumb is guarding
   # nothing and this test would pass on a tool that never mutates at all.
   [ "$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)" != "$before" ]
@@ -418,7 +434,182 @@ EOF
     printf '  [ 1 -eq 1 ]\n}\n'; } > "$M/tests/t.bats"
   run bash -c "cd '$M' && python3 '$BATS_TEST_DIRNAME/../scripts/mutate' --file subj.py --test tests/t.bats 2>&1"
   chmod 644 "$M/subj.py" 2>/dev/null || true
-  # Whatever the verdict, the original must still be recoverable.
+  # Whatever the verdict, the original must still be recoverable — and recoverable
+  # means the record verifies, not merely that a file is present.
   [ -f "$M/subj.py.mutate-original" ]
-  [ "$(shasum -a256 "$M/subj.py.mutate-original" | cut -d' ' -f1)" = "$before" ]
+  ( cd "$M" && crumb_py "
+saved, st = m.read_crumb(pathlib.Path('subj.py.mutate-original'), pathlib.Path('subj.py'))
+assert st == 'valid', st
+import hashlib; print(hashlib.sha256(saved.encode()).hexdigest())" ) | grep -q "$before"
+}
+
+# ── the crumb protects the subject; what protects the crumb ──────────────────
+#
+# *Named* by @kolpaq (#26742): the crumb-before-mutation shape is atomic-write, and
+# nothing was applying that shape to the crumb itself. A SIGKILL mid-write leaves a
+# file that EXISTS and is short — and the recovery this tool prints, `mv crumb
+# target`, would then install a truncated original over a working file. The recovery
+# path doing the damage it exists to prevent.
+#
+# Spec from @nadir-codex (#26761): temp + fsync + atomic rename; a record carrying a
+# version, the target, the payload length and its digest; and three outcomes at
+# recovery — absent, valid, corrupt — because a partial record read as "absent"
+# turns a crash into a silent skip of recovery.
+
+MU="${BATS_TEST_DIRNAME}/../scripts/mutate"
+
+crumb_py() {  # run python with mutate importable as `m`
+  python3 -c "
+import sys, importlib.util, importlib.machinery, pathlib, os, time, subprocess
+l = importlib.machinery.SourceFileLoader('mu', '$MU')
+sp = importlib.util.spec_from_loader('mu', l)
+m = importlib.util.module_from_spec(sp); sys.modules['mu'] = m; l.exec_module(m)
+$1"
+}
+
+@test "a killed crumb write is never CORRUPT, only absent or valid" {
+  # The falsifiable test @nadir-codex asked for, with the control that makes it able
+  # to fail: the naive writer this replaces is corrupt at most kill points.
+  #
+  # The writers are FILES, not strings nested three quoting levels deep. The first
+  # version embedded them in a python -c inside a bats string, a backslash-n became
+  # a real newline, both writers died on a SyntaxError, no crumb was ever written —
+  # and "the atomic writer never corrupts" passed on a probe that measured nothing.
+  # The control is what caught it.
+  cd "$BATS_TEST_TMPDIR"
+  printf 'x = 1\n' > subj.py
+  cat > w_atomic.py <<PYEOF
+import sys, importlib.util, importlib.machinery, pathlib
+l = importlib.machinery.SourceFileLoader("mu", "$MU")
+sp = importlib.util.spec_from_loader("mu", l)
+m = importlib.util.module_from_spec(sp); sys.modules["mu"] = m; l.exec_module(m)
+m.write_crumb(pathlib.Path("subj.py.mutate-original"), pathlib.Path("subj.py"),
+              "x = 1\n" * 40000)
+PYEOF
+  cat > w_naive.py <<'PYEOF'
+import time
+d = ("x = 1" + chr(10)) * 40000
+with open("subj.py.mutate-original", "w") as fh:
+    for i in range(0, len(d), 4096):
+        fh.write(d[i:i + 4096]); fh.flush(); time.sleep(0.002)
+PYEOF
+  # Both writers must actually run, or every outcome is `absent` and the property
+  # under test is never exercised. Checked before the kill loop, not after.
+  run python3 w_atomic.py
+  [ "$status" -eq 0 ]
+  run python3 w_naive.py
+  [ "$status" -eq 0 ]
+  rm -f subj.py.mutate-original
+
+  run crumb_py "
+t = pathlib.Path('subj.py'); c = pathlib.Path('subj.py.mutate-original')
+def kill_during(script, delays):
+    out = []
+    for d in delays:
+        c.unlink(missing_ok=True)
+        for j in pathlib.Path('.').glob('*.tmp'): j.unlink()
+        p = subprocess.Popen([sys.executable, script]); time.sleep(d)
+        p.kill(); p.wait()
+        st = m.read_crumb(c, t)[1]
+        out.append(st if st in ('absent', 'valid') else 'CORRUPT')
+    return out
+ds = [0.02, 0.04, 0.06, 0.08, 0.10]
+print('ATOMIC', kill_during('w_atomic.py', ds))
+print('NAIVE', kill_during('w_naive.py', ds))
+"
+  [ "$status" -eq 0 ]
+  atomic_line=$(printf '%s\n' "$output" | grep "^ATOMIC")
+  naive_line=$(printf '%s\n' "$output" | grep "^NAIVE")
+  [ -n "$atomic_line" ]
+  [ -n "$naive_line" ]
+  # What this shows, stated narrowly: at these kill points the writer never leaves a
+  # corrupt record. It does NOT prove atomicity — measured, the whole write of a 12MB
+  # payload takes 73ms on this machine and the import before it dominates, so no
+  # sleep reliably lands inside the write. The control corrupts because it is PACED,
+  # not because the probe can find the window. Atomicity is pinned by the mechanism
+  # test below instead.
+  [[ "$atomic_line" != *"CORRUPT"* ]]
+  # The control: the writer this replaces DOES corrupt, so the line above is not
+  # passing because the probe cannot see corruption.
+  [[ "$naive_line" == *"CORRUPT"* ]]
+  # And the atomic writer reached `valid` at least once, or "never corrupt" is being
+  # satisfied by never writing anything.
+  [[ "$atomic_line" == *"valid"* ]]
+}
+
+
+@test "recovery has three outcomes, and names the cause of the third" {
+  cd "$BATS_TEST_TMPDIR"
+  printf 'x = 1\ny = 2\n' > subj.py
+  run crumb_py "
+t = pathlib.Path('subj.py'); c = pathlib.Path('subj.py.mutate-original')
+m.write_crumb(c, t, t.read_text())
+raw = c.read_bytes(); nl = raw.index(b'\n')
+print('COMPLETE', m.read_crumb(c, t)[1])
+c.write_bytes(raw[:nl + 5]); print('SHORTPAY', m.read_crumb(c, t)[1])
+c.write_bytes(raw[:nl - 3]); print('SHORTHDR', m.read_crumb(c, t)[1])
+c.write_bytes(raw[:nl + 1] + b'x' * (len(raw) - nl - 1)); print('BADDIGEST', m.read_crumb(c, t)[1])
+c.unlink(); print('GONE', m.read_crumb(c, t)[1])
+"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"COMPLETE valid"* ]]
+  [[ "$output" == *"GONE absent"* ]]
+  # Each corrupt shape names its own cause rather than collapsing to one word.
+  [[ "$output" == *"SHORTPAY the record claims"* ]]
+  [[ "$output" == *"SHORTHDR the record has no header line"* ]]
+  [[ "$output" == *"BADDIGEST the payload does not match its digest"* ]]
+}
+
+@test "a corrupt crumb is quarantined, never offered as an undo" {
+  # The damage path this closes: telling somebody to `mv` a truncated record over a
+  # working file. A valid record gets the mv; a partial one must not.
+  mut_fixture
+  before=$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)
+  printf 'solo-mutate-crumb v1 subj.py deadbeef 999\nhalf' > "$M/subj.py.mutate-original"
+  run bash -c "cd '$M' && python3 '$MU' --file subj.py --test tests/t.bats 2>&1"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"CORRUPT"* ]]
+  [[ "$output" == *"Do NOT move it"* ]]
+  [[ "$output" == *"truncated original"* ]]
+  [[ "$output" != *"mv subj.py.mutate-original subj.py"* ]]
+  # And it left the subject alone.
+  [ "$(shasum -a256 "$M/subj.py" | cut -d' ' -f1)" = "$before" ]
+}
+
+@test "the crumb appears only by rename, never by writing the crumb path" {
+  # Deterministic where the timing test cannot be. `os.replace` is intercepted in a
+  # child, so the mechanism is observed rather than inferred from when a kill landed.
+  #
+  # This is what actually kills the mutation "write straight to the crumb": that
+  # mutant survived a kill-timing probe on this machine, because the write window is
+  # narrower than the import that precedes it.
+  cd "$BATS_TEST_TMPDIR"
+  printf 'x = 1\n' > subj.py
+  run crumb_py "
+import os
+calls = []
+real = os.replace
+def spy(a, b, *r, **k):
+    calls.append((str(a), str(b)))
+    return real(a, b, *r, **k)
+os.replace = spy
+opened = []
+real_open = open
+import builtins
+def spy_open(f, mode='r', *r, **k):
+    if 'w' in str(mode) or 'a' in str(mode):
+        opened.append(str(f))
+    return real_open(f, mode, *r, **k)
+builtins.open = spy_open
+m.write_crumb(pathlib.Path('subj.py.mutate-original'), pathlib.Path('subj.py'), 'x = 1')
+builtins.open = real_open
+os.replace = real
+print('RENAMED', calls)
+print('OPENED', opened)
+"
+  [ "$status" -eq 0 ]
+  # Exactly one rename, from a temp path onto the crumb.
+  [[ "$output" == *"RENAMED [('subj.py.mutate-original.tmp', 'subj.py.mutate-original')]"* ]]
+  # And the crumb path itself was never opened for writing.
+  [[ "$output" == *"OPENED ['subj.py.mutate-original.tmp']"* ]]
 }
