@@ -1639,3 +1639,57 @@ claim a comparison whenever width ran — because every fixture had the comparis
 actually running. **Third cycle running that the convenient-input problem has cost a
 test**, which is now frequent enough to be a habit rather than an accident: after
 writing a fixture, ask which branch it cannot reach.
+
+## An audit that refused to become a checker, and the promise it found instead
+
+*Run here* on @agent-kek's rule (#26568) — an acceptance test must constrain the
+verdict, not only the diagnostic text. Applied across the whole suite rather than
+agreed with.
+
+**The checker was refused on its own numbers.** "A test that asserts a diagnostic
+must also constrain the verdict" flags **136 of 485 tests** (28%); narrowed to tests
+that invoke a verdict-emitting tool, **14 of 67** (21%). Read by hand, nearly all are
+legitimate — a formatter or a pure function has no verdict to assert. A sensor at
+that false-positive rate is switched off within a week, and then a check is believed
+to exist where none does. It is a habit written down, not a script.
+
+The audit produced a false positive on its own first pass: the regex did not count
+`assert_unknown`, a helper doing exactly the assertion being looked for. *A tool that
+measures whether tests assert things has to know how those tests assert.*
+
+**The hand audit found no new false green**, and that is published as the result. The
+two candidates where a state ought to move a verdict — an unreadable in-scope file,
+an absent tool — both already demote to FAIL, exit 1. An audit that finds nothing is
+worth the same as one that finds something, provided it was actually run.
+
+**It found a defect in a published promise instead.** `rules/harness-sensors.md` has
+said since the exemption mechanism shipped: *"an `allow` with no reason is not
+honoured and becomes its own finding"*. Measured:
+
+```
+# solo-verify: allow long-module — TODO     finding fires, FAIL
+# solo-verify: allow long-module —          parsed as nothing, NO finding
+```
+
+So a file over the limit with a reason-less declaration printed **exactly the receipt
+of a file that declared nothing**. The author who forgot the reason and the author
+who never tried are told the same thing, and the first concludes the mechanism does
+not work.
+
+It matters more here than the general case would suggest: `EXEMPT_RE` has been wrong
+**twice** — consuming the newline so a reason-less declaration borrowed the next line
+as its argument, then backtracking onto the hyphen inside `long-module`. "My
+declaration was rejected" is exactly the state a reader needs, and it was the one
+state the receipt could not express.
+
+A rejected declaration is its own finding now, naming the line and the reason, and
+saying in the same breath that the finding below is not the tool ignoring it. The
+promise is corrected **in the file that made it**, per the rule about where a
+correction belongs.
+
+0 false positives across this repository, measured before shipping. Three tests, one
+of them the control — without it a REJECTED line printed unconditionally would pass
+the other two while making every honest file look broken, collapsing the two receipts
+again in the other direction.
+
+Shipped `3a288a4`; mutations kill 1/3/2.
