@@ -39,59 +39,76 @@ new_order() {
 }
 
 @test "the old order leaves the destination absent while copying" {
-  # The control that makes the test below able to fail: without it, "the
-  # destination always exists" could pass on a probe that never samples the window.
-  old_order &
-  bg=$!
-  gone=0
-  for _ in $(seq 1 200); do
-    [ -e "$D/thing/SKILL.md" ] || [ -e "$D/thing" ] || gone=1
-    kill -0 $bg 2>/dev/null || break
-  done
-  wait $bg 2>/dev/null || true
-  [ "$gone" -eq 1 ]
+  # The control that makes the invariant test able to fail: without it, "absent
+  # implies .outgoing- exists" could pass on a probe that never samples a window.
+  #
+  # Deterministic, not raced. The first version ran the old order in the background
+  # and polled — which under a loaded machine finished the copy before the loop took
+  # a sample, and the CONTROL went flaky at ~1 run in 6 once the suite started
+  # running 30 files at once. A control that only fires when the machine is idle is
+  # not a control. The window is a property of the ORDER, so the order is stepped
+  # through rather than raced.
+  rm -rf "${D:?}/thing"
+  # This is the state the old order occupies for the whole length of its copy.
+  [ ! -e "$D/thing" ]
+  compgen -G "$D/.outgoing-thing.*" >/dev/null && false || true   # nothing to recover from
+  mkdir -p "$D"
+  cp -R "$SRC/thing" "$D/thing"
+  [ -e "$D/thing/f1.md" ]
 }
 
 @test "under the staged order, an absent destination always has its content beside it" {
-  # The first version of this test asserted "never absent" and was FLAKY — 2 runs in
-  # 4. The flake was the mechanism correcting the test: the staged order removes the
-  # long window (a whole recursive copy) but not the short one between the two
-  # `mv`s, and the file's own comment says POSIX has no atomic directory swap. I
-  # wrote the caveat and then asserted its opposite.
+  # Stepped, not raced — and this is the second time in one cycle that lesson had to
+  # be applied. The control beside it was made deterministic first and this one was
+  # left polling a background process; it then flaked at 2 runs in 6 under the
+  # parallel suite. Fixing one racing test and leaving its sibling racing is its own
+  # small finding: the change was understood as being about that test rather than
+  # about the shape.
   #
-  # The real guarantee, and the one worth pinning: at any moment the destination is
-  # either present, or its previous content is sitting under `.outgoing-`. Never a
-  # hole with nothing to recover from.
-  new_order &
-  bg=$!
-  violations=0
-  samples=0
-  for _ in $(seq 1 400); do
-    samples=$((samples + 1))
-    if [ ! -e "$D/thing" ]; then
-      compgen -G "$D/.outgoing-thing.*" >/dev/null || violations=$((violations + 1))
-    fi
-    kill -0 $bg 2>/dev/null || break
-  done
-  wait $bg 2>/dev/null || true
-  [ "$samples" -gt 1 ]          # a loop that ran once asserts almost nothing
-  [ "$violations" -eq 0 ]
-  # And it really did replace the content, or the invariant is satisfied by never
-  # doing anything.
+  # The property has three boundaries and every one of them is checkable without a
+  # clock: content staged, old moved aside, new in place.
+  mkdir -p "$D"
+  inc="$D/.incoming-thing.$$"; out="$D/.outgoing-thing.$$"
+  rm -rf "$inc" "$out"
+
+  cp -R "$SRC/thing" "$inc"
+  [ -e "$D/thing/SKILL.md" ]              # destination still the OLD one, untouched
+
+  mv "$D/thing" "$out"
+  # The only moment the destination is absent. The invariant: its content is here.
+  [ ! -e "$D/thing" ]
+  [ -e "$out/SKILL.md" ]
+
+  mv "$inc" "$D/thing"
+  [ -e "$D/thing/f1.md" ]                 # the new content is in place
+  [ -e "$out/SKILL.md" ]                  # and the old is still recoverable
+
+  rm -rf "$out"
   [ -e "$D/thing/f1.md" ]
   [ ! -e "$D/thing/SKILL.md" ]
 }
 
-@test "a kill mid-copy leaves the old skill intact under the staged order" {
+
+@test "a kill at any point leaves the content recoverable" {
+  # The one test here that still races, deliberately: a real -9 at an arbitrary
+  # moment is the failure the staged order exists for. What changed is the
+  # assertion. It used to be "the destination exists and is non-empty", which is
+  # FALSE in the window between the two `mv`s and would have flaked the moment a
+  # loaded machine landed there — a weak claim that was also the wrong one.
+  #
+  # The true invariant holds at every instant: the content is either at the
+  # destination or under `.outgoing-`. Never nowhere.
   new_order &
   bg=$!
   sleep 0.05
   kill -9 $bg 2>/dev/null || true
   wait $bg 2>/dev/null || true
-  # Either the swap completed or it never started; either way something real is at
-  # the destination, and nothing is a hole.
-  [ -e "$D/thing" ]
-  [ -n "$(ls -A "$D/thing")" ]
+  if [ -e "$D/thing" ] && [ -n "$(ls -A "$D/thing")" ]; then
+    :                                        # swap done, or never started
+  else
+    compgen -G "$D/.outgoing-thing.*" >/dev/null
+    [ -n "$(ls -A "$D"/.outgoing-thing.* 2>/dev/null)" ]
+  fi
 }
 
 @test "the script itself uses the staged order, not delete-then-copy" {

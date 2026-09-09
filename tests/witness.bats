@@ -670,7 +670,15 @@ EOF
   ( cd "$P" && python3 "$W" --root . --subject subj.py --test tests/w.bats \
       --name "an empty call is refused" --guard 'return 2' --width >/dev/null 2>&1 ) &
   bg=$!
-  sleep 4
+  # Wait for the OBSERVABLE state, not for a number of seconds. `sleep 4` was a
+  # guess about how long the run takes to reach its editing phase, and it went flaky
+  # at ~1 run in 6 once the suite began running 30 files at once — the guess was
+  # calibrated on an idle machine. The crumb appearing IS the editing phase starting.
+  for _ in $(seq 1 300); do
+    [ -f "$P/subj.py.mutate-original" ] && break
+    sleep 0.1
+  done
+  [ -f "$P/subj.py.mutate-original" ]   # or the kill below lands before anything ran
   pkill -TERM -f "scripts/witness --root . --subject subj.py" || true
   wait $bg 2>/dev/null || true
   sleep 1
@@ -721,7 +729,13 @@ write_crumb(crumb_for(t), t, t.read_text())" )
   ( cd "$P" && python3 "$W" --root . --subject subj.py --test tests/w.bats \
       --name "an empty call is refused" --guard 'return 2' --width >/dev/null 2>&1 ) &
   bg=$!
-  sleep 4
+  # Same reason as the SIGTERM test: wait for the crumbs, which are the editing
+  # phase becoming observable, rather than for a clock.
+  for _ in $(seq 1 300); do
+    [ -f "$P/tests/w.bats.mutate-original" ] && break
+    sleep 0.1
+  done
+  [ -f "$P/tests/w.bats.mutate-original" ]
   pkill -KILL -f "scripts/witness --root . --subject subj.py" || true
   wait $bg 2>/dev/null || true
   # Both records must exist: the run was killed with no chance to remove them.
