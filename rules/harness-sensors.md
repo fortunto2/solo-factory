@@ -243,7 +243,17 @@ It is **not** a suppression. The finding is replaced by an `EXEMPT` line printed
 on **every** run, naming the file, the rule, the current size and the stated
 reason, so a reader who disagrees can see the choice without opening the code. An
 `allow` with no reason is not honoured and becomes its own finding: a rule waived
-without an argument is exactly what this mechanism exists to prevent. The
+without an argument is exactly what this mechanism exists to prevent.
+
+*That promise was half-kept for a week.* A placeholder reason (`TODO`) produced
+the finding; a declaration the regex rejected outright never reached the check, so
+a file over the limit with a reason-less `allow` printed **exactly the receipt of a
+file that declared nothing** — `long-module 1102 lines — Split it.` and no more.
+The author who forgot the reason and the author who never tried were told the same
+thing, and this regex has been wrong twice, so "my declaration was rejected" is
+precisely the state a reader needs. A rejected declaration is now its own finding
+naming the line and why, and saying in the same breath that the finding below is
+not the tool ignoring them. Measured: 0 false positives across this repository. The
 exemption covers only the rule it names — a long function in an exempt file still
 fails.
 

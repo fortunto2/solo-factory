@@ -1549,3 +1549,49 @@ print('OK')
   [[ "$output" != *"the module reason. solo-verify"* ]]
   [[ "$output" != *"the module reason solo-verify"* ]]
 }
+
+# ── a rejected declaration must not look like no declaration ─────────────────
+#
+# Measured 2026-09-09 while auditing tests that assert a message and never the
+# verdict. A file over the limit whose declaration carries no reason produced the
+# receipt of a file with no declaration at all. The author who forgot the reason and
+# the author who never tried were told the same thing — and this regex has been
+# wrong twice, so "my declaration was rejected" is exactly the state a reader needs.
+
+big_with() {  # $1 = first line, $2 = filename
+  D="$BATS_TEST_TMPDIR/rej"; mkdir -p "$D"
+  { printf '%s\n' "$1"
+    for i in $(seq 1 1100); do printf 'x%d = %d\n' "$i" "$i"; done; } > "$D/$2"
+}
+
+@test "a declaration with no reason is REJECTED out loud, not silently ignored" {
+  big_with '# solo-verify: allow long-module —' noreason.py
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" --files "$D/noreason.py"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"declared and REJECTED"* ]]
+  [[ "$output" == *"noreason.py:1"* ]]
+  # And the rule it named still applies, said in the same breath so the reader is
+  # not left deciding whether the tool ignored them.
+  [[ "$output" == *"long-module 1102 lines"* ]]
+  [[ "$output" == *"NOT the tool ignoring your declaration"* ]]
+  [[ "$output" != *"EXEMPT"* ]]
+}
+
+@test "a file with no declaration says nothing about rejection" {
+  # The control. Without it, a REJECTED line printed unconditionally would pass the
+  # test above while making every honest file look like a broken declaration — and
+  # the two receipts would be identical again, in the other direction.
+  big_with '# nothing declared here at all' none.py
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" --files "$D/none.py"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"long-module 1102 lines"* ]]
+  [[ "$output" != *"REJECTED"* ]]
+}
+
+@test "an accepted declaration is not reported as rejected" {
+  big_with '# solo-verify: allow long-module — a stated reason' good.py
+  run python3 "$BATS_TEST_DIRNAME/../scripts/solo-verify" --root "$D" --files "$D/good.py"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"EXEMPT"* ]]
+  [[ "$output" != *"REJECTED"* ]]
+}

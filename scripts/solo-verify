@@ -48,6 +48,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -681,6 +682,51 @@ EXEMPT_RE = re.compile(
 )
 
 
+# The SHAPE of a declaration, with nothing required after the rule name. Anything
+# matching this and not EXEMPT_RE is a declaration somebody wrote and this tool
+# refused — and a refusal nobody is told about is the same as no refusal.
+EXEMPT_SHAPE = re.compile(r"^#[^\S\n]*solo-verify:[^\S\n]*allow\b(?P<rest>.*)$")
+
+
+def rejected_exemptions(text: str) -> list[tuple[int, str]]:
+    """Lines that tried to declare an exemption and were not accepted.
+
+    Measured 2026-09-09: a file over the limit whose declaration carries no reason
+    produced exactly the receipt of a file with no declaration at all — `long-module
+    1102 lines — Split it.` and nothing else. The author who forgot the reason and
+    the author who never tried are told the same thing, and the first will conclude
+    the mechanism does not work.
+
+    That matters here more than elsewhere because this regex has been wrong twice:
+    once consuming the newline so a declaration with no reason borrowed the next
+    line, once backtracking onto the hyphen inside `long-module`. A rejection that
+    says nothing is indistinguishable from a rule that does not apply.
+
+    `rules/harness-sensors.md` already promised this — "an `allow` with no reason is
+    not honoured and becomes its own finding". Half of that was true: not honoured,
+    yes; its own finding, only when the reason parsed and was a placeholder like
+    TODO. A declaration the regex rejects outright never reached the check.
+    """
+    out = []
+    for i, line in enumerate(text.splitlines(), 1):
+        body = line.strip()
+        shape = EXEMPT_SHAPE.match(body)
+        if not shape or EXEMPT_RE.match(body):
+            continue
+        rest = shape.group("rest").strip()
+        if not rest:
+            why = "no rule named after `allow`"
+        elif not any(d in rest for d in ("—", "-")):
+            why = "no dash separating the rule from its reason"
+        else:
+            why = (
+                "no reason after the dash, or the dash is not surrounded by spaces "
+                "(the rule name may contain a hyphen, so the separator needs them)"
+            )
+        out.append((i, why))
+    return out
+
+
 def declared_exemptions(text: str, python: bool = False) -> dict[str, str]:
     """Rules this file declares it will not obey, and the reason for each.
 
@@ -770,6 +816,13 @@ def check_limits(root: Path, files: list[Path]) -> Result:
             continue
         covered.append(rel(root, f))
         allowed = declared_exemptions(text, python=is_python(f))
+        for line_no, why in rejected_exemptions(text):
+            findings.append(
+                f"{rel(root, f)}:{line_no} an exemption was declared and REJECTED — "
+                f"{why}. The rule it names still applies, so any finding below is "
+                f"NOT the tool ignoring your declaration; it is the declaration not "
+                f"being accepted."
+            )
         for rule, why in allowed.items():
             if not why or why.lower() in ("todo", "tbd", "later"):
                 findings.append(
@@ -1239,6 +1292,117 @@ def check_go(root: Path, files: list[Path], full: bool, timeout: int) -> list[Re
                 )
             )
     return results
+
+
+# The command a repository names as its own verification, and the file it names it in.
+# One line of plain text rather than a config format, because every dependency this script
+# takes is a dependency a hook takes.
+DECLARED_FILE = ".solo-verify"
+
+
+def declared_check(root: Path, files: list[Path], timeout: int) -> Result:
+    """Run the check the repository declares for itself, if it declares one.
+
+    The gap this closes, measured 2026-09-09: a change to seven Markdown files in a
+    repository whose own `make check` validates them in half a second reported
+    "scope: 7 changed, 0 covered" and a verdict of UNKNOWN, seven times in a row. Every
+    sensor here is language-shaped - ruff, eslint, cargo, gofmt - so a repository whose
+    verification is neither a linter nor a test suite has nothing that can speak for it,
+    and the receipt says "unverified" when it means "I have no sensor for this".
+
+    Why a declaration and not a Makefile target found by name. `make check` means half a
+    second of schema validation in one repository and a build plus a service-backed test
+    suite in the next; a Stop hook that silently runs the second is a hook that gets
+    switched off. And this repository's own `make verify` runs THIS script, so a sensor
+    that guessed at target names would recurse into itself - hence the guard below, which
+    is not hypothetical.
+
+    The command is printed in the receipt verbatim. That is the whole defence against the
+    false green this file exists to prevent: a repository can declare `true` and buy a
+    PASS, and the receipt will say `declared=pass` next to the word `true`, where a reader
+    can see it. Coverage here is a claim by the repository rather than an observation by a
+    sensor, so it is only ever attributed to a command a reader can read.
+    """
+    decl = root / DECLARED_FILE
+    if not decl.is_file():
+        return Result(
+            "declared",
+            "skip",
+            reason=f"no {DECLARED_FILE} in {root.name}, so the repo declares no check of its own",
+            skip_kind=NOT_APPLICABLE,
+        )
+
+    try:
+        lines = [
+            ln.strip()
+            for ln in decl.read_text(encoding="utf-8", errors="replace").splitlines()
+        ]
+    except OSError as e:
+        return Result(
+            "declared",
+            "skip",
+            reason=f"{DECLARED_FILE} unreadable: {e}",
+            skip_kind=UNAVAILABLE,
+        )
+
+    command = next((ln for ln in lines if ln and not ln.startswith("#")), "")
+    if not command:
+        return Result(
+            "declared",
+            "skip",
+            reason=f"{DECLARED_FILE} names no command",
+            skip_kind=UNAVAILABLE,
+        )
+
+    # This repository's own `make verify` calls this script. A declaration that reaches it
+    # would fork until something dies, and the receipt would never print.
+    if "solo-verify" in command:
+        return Result(
+            "declared",
+            "skip",
+            reason=f"{DECLARED_FILE} names solo-verify itself, which would recurse",
+            skip_kind=UNAVAILABLE,
+        )
+
+    try:
+        argv = shlex.split(command)
+    except ValueError as e:
+        return Result(
+            "declared",
+            "skip",
+            reason=f"{DECLARED_FILE} is not a parseable command ({e})",
+            skip_kind=UNAVAILABLE,
+        )
+
+    if not argv or not shutil.which(argv[0]):
+        return Result(
+            "declared",
+            "skip",
+            reason=missing(argv[0] if argv else "?"),
+            skip_kind=UNAVAILABLE,
+        )
+
+    t = time.time()
+    code, out = run(argv, root, timeout)
+    findings = [ln for ln in out.splitlines() if ln.strip()][-15:] if code else []
+
+    return Result(
+        "declared",
+        status_for(code),
+        reason=incomplete_reason(code),
+        skip_kind=UNAVAILABLE if incomplete_reason(code) else "",
+        promise=f"the repo's own check, verbatim: {command}",
+        findings=findings,
+        covered=[rel(root, f) for f in files],
+        # The command goes in the counters because those are what render() prints. The
+        # promise field is carried in the JSON receipt and NOT in the compact line, so a
+        # defence that lived only there would have been a claim I could not see - measured
+        # by reading the first receipt this sensor produced, which said `declared=pass` and
+        # never said what had passed. A repo can still declare `true` and buy a PASS; it
+        # cannot do it invisibly.
+        counters={"exit": code, "cmd": command},
+        seconds=time.time() - t,
+    )
 
 
 def check_shellcheck(root: Path, files: list[Path], timeout: int) -> Result:
@@ -2017,6 +2181,9 @@ def main() -> int:
 
     stacks = detect_stacks(root, files)
     results: list[Result] = [check_syntax(root, files), check_limits(root, files)]
+    # Before the language sensors, because a repository that speaks for itself is the
+    # only thing that can cover a scope none of them recognise.
+    results.append(declared_check(root, files, timeout))
 
     if "python" in stacks:
         results.append(check_ruff(root, files, timeout))
