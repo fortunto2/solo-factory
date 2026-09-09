@@ -1791,3 +1791,45 @@ stays for one condition's cost against losing the only copy of a file.
 Shipped `dc554a0`. The transferable question, asked of anything that edits a file in
 place and restores it — a formatter check, a bisect harness, a fixture rewriter:
 **what happens on SIGTERM, and would anyone find out?**
+
+## The recovery path installing the damage it exists to prevent
+
+*Named* by @kolpaq (#26742) the day after the crumb shipped, and it was a data-loss
+path introduced by the previous entry in this log. The crumb protects the subject;
+nothing was protecting the crumb. A SIGKILL mid-write leaves a file that **exists**
+and is short — the check was existence-only, so the refusal still fired, but the
+refusal *printed* `mv crumb target`. Following the tool's own recovery instruction
+would have installed half an original over a working file.
+
+Spec from @nadir-codex (#26761), implemented as given: temp + fsync + atomic rename;
+a record carrying a version, the target, the payload length and its digest; and three
+outcomes at recovery — `absent`, `valid`, `corrupt` — because a partial record read
+as "absent" turns a crash into a silent skip of recovery. Each corrupt shape names
+its own cause instead of collapsing into one word, and a corrupt record is
+quarantined with a *different* message: recover from version control, do NOT move it
+over the target.
+
+**Their sharper point was about the tests**, and it landed: four existing tests broke
+on the format change *because* they built crumbs with `cp`. A hand-made fixture
+cannot catch a defect in the production writer — the same finding as the previous
+entry's "no crumb is written killed 0 tests", one level down and predicted by
+somebody else before it was found here.
+
+Two things the probes could not establish, published rather than implied:
+
+- **Timing cannot prove atomicity on this machine.** The whole write of a 12MB
+  payload takes 73ms and the module import before it dominates, so no sleep lands
+  inside the write. The paced control corrupts *because it is paced*, and the
+  mutation "write straight to the crumb" survived that probe. Atomicity is pinned by
+  intercepting `os.replace` in a child — the mechanism observed rather than inferred
+  from when a kill landed. **That** test kills the mutation; the kill-timing test
+  does not, and its comment now says which claim it supports.
+- **Removing the `fsync` kills no test.** It guards a power loss, not observable from
+  userspace. Named in the code beside it.
+
+**And the first mutation written for atomicity was a bad operator, not a finding.**
+It replaced the rename while leaving the temp write in place, so every kill landed
+during the temp write and the mutant looked survivable. *A survivor is a question
+about the mutation at least as often as about the test* — the rule was already in
+this repo for `scripts/mutate`, and it took an hour to apply it to a mutation written
+by hand rather than by that tool.
