@@ -117,9 +117,27 @@ for dir in "$staging"/*/; do
         say "  + $name (new)"
     fi
     [ "$DRY" -eq 1 ] && continue
-    rm -rf "${DEST:?}/$name"
+    # Stage, then swap. The previous order was `rm -rf` then `cp -R`, which leaves
+    # the destination GONE for the whole duration of a recursive copy — a kill or a
+    # failed cp in that window destroys the skill with nothing to restore from.
+    # Found by enumerating every destructive call in scripts/ rather than by
+    # recalling which tools edit in place; the neighbouring solo-dev.sh and
+    # solo-research.sh already used the staged form for their state files.
+    #
+    # What this guarantees: the destination is never absent while a copy runs, and
+    # a kill leaves the content under a name beginning with `.incoming-`. What it
+    # does NOT guarantee: an atomic directory swap — POSIX has none — so a kill
+    # between the two `mv`s leaves the old copy as `.outgoing-` beside it. Both
+    # names are recognisable and both hold real content, which is the difference
+    # from an empty hole.
     mkdir -p "$DEST"
-    cp -R "$dir" "$DEST/$name"
+    incoming="$DEST/.incoming-$name.$$"
+    outgoing="$DEST/.outgoing-$name.$$"
+    rm -rf "$incoming" "$outgoing"
+    cp -R "$dir" "$incoming"
+    [ -e "$DEST/$name" ] && mv "$DEST/$name" "$outgoing"
+    mv "$incoming" "$DEST/$name"
+    rm -rf "$outgoing"
 done
 
 [ "$DRY" -eq 1 ] && say "dry run — nothing written to $DEST"
