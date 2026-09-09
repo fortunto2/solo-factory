@@ -2135,3 +2135,42 @@ that produced the previous three does not transfer here. Worth stating plainly: 
 enumerate-the-shape move works when the shape is syntactic.
 
 Shipped `dec5a6d`.
+
+## The decision is tested, the action is not — three of four operator controls
+
+*Measured here* by enumerating the four ways an operator steers a running pipeline and
+mutating each one's **action** rather than its decision:
+
+| control | probe result |
+|---|---|
+| `stop` | covered — the integration test catches `exit` becoming `return` |
+| `pause` | killed 0 before this week; the loop could be deleted entirely |
+| circuit breaker | killed 0 before this week; the caller's `break` could be deleted |
+| `skip` | **killed 0** — `SKIP_STAGE` is set by a tested function and read by nothing any test observes |
+| global timeout | loop check covered (kills 1); the **re-exec** check kills 0 |
+
+Three of four shared one shape: *the decision is tested, the action is not.* A unit
+test verifies `check_control` sets the flag; nothing verifies the pipeline reads it.
+
+**Skip's mechanism was fine — this is coverage, not a repair.** Worth being exact,
+because the two earlier probes in this family did find broken mechanisms and the
+pattern invites assuming the next one is broken too.
+
+**Three probe-construction errors while writing one test, each wearing the symptoms of
+the finding it was written to test.** That is the same rule recorded last cycle, biting
+three times in one hour:
+
+- The first assertion checked the state marker exists at the end. It does not — the
+  run cleans markers on the way out — and the pipeline had skipped correctly.
+  *Asserting a post-condition instead of the event, inside the test written to find
+  exactly that mistake.*
+- A quoted heredoc deferred `$PROJECT_ROOT` to the mock's own shell, where it is
+  unset, so the mock wrote the control file nowhere. No CTRL line, `build` repeating
+  until the breaker: indistinguishable from a pipeline ignoring skip.
+- `MOCK_CALLS` was exported after the heredoc that referenced it.
+
+**Named rather than half-tested**: the re-exec timeout at `solo-dev.sh:983`. Reaching
+it needs a plan queue and a re-exec — a fixture several times the size of this test.
+It is unverified, and saying so is better than a test that does not reach it.
+
+Shipped `d85bef4`.
