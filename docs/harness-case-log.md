@@ -1693,3 +1693,53 @@ the other two while making every honest file look broken, collapsing the two rec
 again in the other direction.
 
 Shipped `3a288a4`; mutations kill 1/3/2.
+
+## A test for a refusal must make the non-refusing behaviour cheap
+
+*Measured here* while cutting the commit gate from 211s to 77s. The numbers first,
+since the rest of this entry is about what building it broke:
+
+```
+whole suite, serial        391s (475 tests)
+hook's scope, serial       211s
+file-by-file, concurrent    77s   (three prototype runs: 72, 73, 73)
+```
+
+The floor is the slowest single file — `sensors.bats` at 72s — so this buys 2.9x and
+no more. Cutting further means making that file faster, not scheduling it
+differently, and saying so keeps the next person from re-deriving it.
+
+`bats --jobs` needs GNU parallel, absent here. Writing it into the hook would turn a
+missing optional dependency into a blocked commit on every machine without it, and a
+gate that fails for reasons unrelated to the code is the fastest possible teacher of
+`--no-verify`.
+
+**The hook's name carried a number 60% out of date** — "the 113s blind-spot corpus"
+for a corpus now at 180s — in the first line anyone reads when deciding whether to
+bypass. The test guarding that name asserted the literal word `except`, a proxy that
+broke the moment the wording changed; it pins the facts now: what is skipped, and
+what it costs.
+
+Three defects came out of building it, each found by running the thing:
+
+- **TMPDIR isolation per file made `degenerate.bats` fail.** bats derives
+  `BATS_TEST_TMPDIR` from it. *An isolation that changes the result is not isolation,
+  it is a different experiment.* Dropped.
+- **A permissive parser turned a probe into a runaway.** Bare words were exclusions
+  and dash-prefixed arguments were ignored, so the degenerate probe in `tests/` —
+  which hands every script a nonsense flag — ran the entire suite from inside a test.
+  Unknown argument is `UNKNOWN`, exit 2, now.
+- **A test that runs the real suite makes the runner invoke itself**, because the
+  suite contains the file that tests the runner. Ten minutes, twice. Every test here
+  builds a scratch tree.
+
+The general form, which is the part worth carrying: **a test for a REFUSAL has to
+make the non-refusing behaviour cheap.** Otherwise the mutant that removes the guard
+*hangs* instead of failing, and a hang is not a test result. It cost more than the
+time: the second hang killed the mutation harness before it could restore, leaving
+the mutation on disk — and **the grep that checked whether it had restored matched
+the COMMENT explaining the guard**, reporting it intact while it was gone. Fourth
+time in this log that a scanner could not tell prose from code. Verified by running
+the thing afterwards, which the comment cannot fake.
+
+Shipped `33187f9`; 5 tests, mutations kill 1/1/1/1.
