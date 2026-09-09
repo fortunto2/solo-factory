@@ -43,6 +43,8 @@ EMOJIS = {
     "index-youtube": "🎞️",
     "you2idea-extract": "💡",
     "factory": "🏭",
+    "knowledge": "📚",
+    "sgr": "🧠",
 }
 
 

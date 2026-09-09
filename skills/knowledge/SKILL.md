@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: fortunto2
   version: "1.0.0"
+  openclaw:
+    emoji: "📚"
 allowed-tools: Read, WebFetch, Grep, Glob
 argument-hint: "<question or topic>"
 ---

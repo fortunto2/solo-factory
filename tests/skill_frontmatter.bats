@@ -80,3 +80,49 @@ setup() {
   run env SOLO_SKILLS_DIR="$T" python3 "$C"
   [[ "$output" == *"0 skills"* ]]
 }
+
+# ── every skill carries the block that makes it publishable ──────────────────
+#
+# Measured 2026-09-09: 2 of 46 skills had no `openclaw:` block, so neither could be
+# published to ClawHub. They are the same two a test accidentally rewrote and had
+# reverted one cycle earlier — the revert put them back to the state BEFORE the
+# metadata was ever added, and nothing has noticed since, because nothing looked.
+#
+# Found by running add-openclaw-meta.py against a COPY of the real skills to check
+# its idempotence claim. Idempotence held; the run also reported "2 modified", which
+# is the finding. Verifying one claim measured something nobody had asked about.
+
+@test "every skill in this repository carries an openclaw block" {
+  cd "$BATS_TEST_DIRNAME/.."
+  total=0
+  missing=""
+  for f in skills/*/SKILL.md; do
+    total=$((total + 1))
+    grep -q "openclaw:" "$f" || missing="$missing $(basename "$(dirname "$f")")"
+  done
+  # A loop over an empty list asserts nothing, and a wrong glob is silent.
+  [ "$total" -ge 40 ]
+  [ -z "$missing" ] || { echo "no openclaw block:$missing"; false; }
+}
+
+@test "add-openclaw-meta is idempotent, checked by running it twice" {
+  # It REWRITES every SKILL.md in place; a non-idempotent run corrupts all of them
+  # at once. The claim had been in a comment since the seam was added and verified
+  # by nobody.
+  D="$BATS_TEST_TMPDIR/oc"
+  mkdir -p "$D/plain" "$D/already"
+  printf -- '---\nname: solo-plain\ndescription: x\n---\n\n# Plain\n' > "$D/plain/SKILL.md"
+  printf -- '---\nname: solo-already\ndescription: x\nmetadata:\n  openclaw:\n    emoji: "X"\n---\n\n# A\n' > "$D/already/SKILL.md"
+  A=$(cat "$D"/*/SKILL.md | shasum -a256)
+  run env SOLO_SKILLS_DIR="$D" python3 "$BATS_TEST_DIRNAME/../scripts/add-openclaw-meta.py"
+  [ "$status" -eq 0 ]
+  B=$(cat "$D"/*/SKILL.md | shasum -a256)
+  # The first run must actually change something, or "idempotent" is being satisfied
+  # by a tool that does nothing at all.
+  [ "$A" != "$B" ]
+  run env SOLO_SKILLS_DIR="$D" python3 "$BATS_TEST_DIRNAME/../scripts/add-openclaw-meta.py"
+  [ "$status" -eq 0 ]
+  C=$(cat "$D"/*/SKILL.md | shasum -a256)
+  [ "$B" = "$C" ]
+  [[ "$output" == *"0 modified"* ]]
+}
