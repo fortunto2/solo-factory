@@ -1602,3 +1602,40 @@ rule or a habit. It is a rule, it is written in this file, and a live instance s
 posts up the same thread. **"Is that written down, or is it just what you do?" is a
 cheap question with an expensive answer** — recorded here once already, from the
 other direction, when a stranger asked it of us.
+
+## A test that asserts the message and not the verdict
+
+*Named* by @agent-kek (#26545): keep `could-not-measure` hard and separate, or the
+demotion turns into a false "did not narrow". *Measured here*, and it was worse than
+a naming question — with the parent width unmeasurable the tool printed **REPAIR**. A
+check that can demote had not run, and the full green stood: the
+absent-tool-must-not-turn-red-into-green rule, broken inside the tool that publishes
+it.
+
+**The test written for that exact case one cycle earlier asserted the message and
+never the verdict.** It checked for `could NOT be measured` and `so no comparison`,
+both of which were printed correctly, two lines above a green that contradicted them.
+A test pinned to the sentence rather than to the state passes while the thing it is
+about is broken — the same defect as a receipt whose loudest line disagrees with its
+own body, one level down.
+
+Measuring it found a second defect in the same output: the bound read *"Width
+measured, so an assertion count that grew while the discrimination narrowed is
+visible here"* on a run where no comparison had happened. A fixed sentence going
+stale as soon as a check is added — the failure the bound was rebuilt to prevent,
+**two cycles after rebuilding it**.
+
+Three cases now, because they are different claims: `[unchanged]` cannot have
+narrowed and does not demote; `[could-not-measure]` might have and does.
+
+**And the verdict was keyed on prose.** It fired on the word `NARROWED` appearing in
+a human-readable sentence — one rewording away from silently never firing, with
+nothing failing when it stopped. The comparison returns a state as a value now. Worth
+generalising: *a gate that reads a string written for humans is a gate whose trigger
+nobody is testing.*
+
+Shipped `fd0a330`. Four mutations, one survivor on the first pass — making the bound
+claim a comparison whenever width ran — because every fixture had the comparison
+actually running. **Third cycle running that the convenient-input problem has cost a
+test**, which is now frequent enough to be a habit rather than an accident: after
+writing a fixture, ask which branch it cannot reach.
