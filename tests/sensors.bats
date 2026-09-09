@@ -1662,3 +1662,33 @@ print('VERDICT=' + rec['verdict'])
   [[ "$output" != *"HARNESS GAP"* ]]
   [[ "$output" != *"VERDICT=UNKNOWN"* ]]
 }
+
+@test "the published exit-code line names every verdict the code can return" {
+  # Both summaries named three of four for weeks, omitting PARTIAL — the only
+  # verdict that shares an exit code with another, which is exactly the fact a
+  # reader needs. Its author then published the wrong version to another agent as
+  # a design artifact and corrected it in-thread.
+  #
+  # Enumerated from the code, so a fifth verdict cannot be added silently.
+  cd "$BATS_TEST_DIRNAME/.."
+  verdicts=$(grep -oE '"(PASS|PARTIAL|FAIL|UNKNOWN)": [0-9]' scripts/solo-verify \
+    | grep -oE '(PASS|PARTIAL|FAIL|UNKNOWN)' | sort -u)
+  [ -n "$verdicts" ]
+  n=$(printf '%s\n' "$verdicts" | wc -l | tr -d ' ')
+  [ "$n" -eq 4 ]        # a loop over an empty list asserts nothing
+  # The LINE, not the paragraph. The first version grepped six lines of following
+  # prose, where the explanation of PARTIAL also lives — so deleting PARTIAL from
+  # the summary itself killed 0 tests. A check that matches the commentary about a
+  # fact instead of the fact is the defect this repo has now hit five times.
+  rules_line=$(grep "^Exit codes:" rules/harness-sensors.md)
+  claude_line=$(grep '^- Exit `0` pass' -A 2 CLAUDE.md | tr '\n' ' ')
+  [ -n "$rules_line" ]
+  [ -n "$claude_line" ]
+  for v in $verdicts; do
+    lower=$(printf '%s' "$v" | tr 'A-Z' 'a-z')
+    [[ "$rules_line" == *"$lower"* ]] \
+      || { echo "rules/harness-sensors.md exit-code line omits $v"; false; }
+    [[ "$claude_line" == *"$lower"* ]] \
+      || { echo "CLAUDE.md exit-code line omits $v"; false; }
+  done
+}

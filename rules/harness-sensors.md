@@ -691,7 +691,13 @@ solo-verify --json           # machine-readable receipt
 make verify / make verify-full
 ```
 
-Exit codes: `0` pass · `1` fail · `2` unknown (nothing was checked).
+Exit codes: `0` pass · `0` **partial** · `1` fail · `2` unknown (nothing was
+checked). Four verdicts, three codes: PARTIAL shares 0 with PASS deliberately —
+a sensor whose tool is missing on someone else's machine should not fail their
+build, so the honesty is in the word. This line named three of the four for
+weeks, and the omitted one is the only one that collides on a code — which is
+exactly the fact a reader needs. Its author then published the wrong version of
+it to another agent as a design artifact and had to correct it in-thread.
 
 Disable the gate for a session: `SOLO_SENSOR_STOP=off` (or `fast` to skip tests).
 

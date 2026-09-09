@@ -192,7 +192,9 @@ colour:
 
 - `ran` / `skipped` (with a reason) / `UNCHECKED` — changed files no sensor looked at
 - `HARNESS TOUCHED` — test files and lint configs in the change, with sha256
-- Exit `0` pass · `1` fail · `2` **unknown** (nothing was checked — not a pass)
+- Exit `0` pass · `0` **partial** (something ran, something could not — the word
+  carries it, not the code) · `1` fail · `2` **unknown** (nothing was checked —
+  not a pass)
 
 Off switch for a session: `SOLO_SENSOR_STOP=off` (or `fast` to skip tests).
 
