@@ -386,3 +386,46 @@ width_witness() {  # $1 = the assertion block
   after=$(shasum -a256 "$R/tests/w.bats" | cut -d" " -f1)
   [ "$before" = "$after" ]
 }
+
+# ── the invariant the measure owes itself ────────────────────────────────────
+#
+# @agent-kek (#26477) asked for a pairwise subset: each assertion individually
+# sufficient while a PAIR together loses discriminability. Measured on bats 1.14.0
+# — it aborts on the first failing assertion, so adding assertions is monotone and
+# a pair cannot lose what a member has. That mechanism buys nothing.
+#
+# The same monotonicity gives an invariant the measure can check on ITSELF: with
+# cell 1 holding and the control passed, at least one assertion must fail the
+# parent, so width cannot be 0. A 0 is the instrument contradicting its premise.
+
+@test "width 0 while the witness fails the parent is UNCHECKED, not a low score" {
+  # Reachable on a legitimate input: the discriminating assertions share a line, so
+  # they are never isolated, and the one assertion that IS isolable passes on the
+  # parent. Not a broken tool — an isolation that could not cover the discrimination.
+  mkdir -p "$R/scripts"
+  cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$R/scripts/"
+  cp "$BATS_TEST_DIRNAME/../scripts/check-vacuous-tests" "$R/scripts/"
+  { printf '@%s "an empty call is refused" {\n' test
+    printf '  run python3 "$SUBJ"\n'
+    printf '  [[ "$output" == *"e"* ]]\n'
+    printf '  [ "$status" -eq 2 ]; [[ "$output" == *"refused"* ]]\n}\n'; } > "$R/tests/w.bats"
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2' --width
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"discrimination width UNCHECKED"* ]]
+  # The cause is named from what was observed, not guessed: assertions shared a line.
+  [[ "$output" == *"sharing a line were never isolated"* ]]
+  [[ "$output" != *"discrimination width 0"* ]]
+  [[ "$output" == *"PARTIAL"* ]]
+}
+
+@test "bats aborts on the first failing assertion — the premise, pinned" {
+  # The invariant above rests on this. If a bats upgrade ever stops aborting, the
+  # invariant is wrong and this test says so before the width check misreports.
+  { printf '@%s "mid-body failure" {\n' test
+    printf '  [ 1 -eq 2 ]\n'
+    printf '  [ 1 -eq 1 ]\n}\n'; } > "$R/tests/mono.bats"
+  run bats "$R/tests/mono.bats"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not ok"* ]]
+}

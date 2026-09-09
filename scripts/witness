@@ -197,7 +197,7 @@ def assertion_lines(
 
 
 def discrimination_width(
-    root: Path, test: str, name: str, run_one
+    root: Path, test: str, name: str, run_one, cell1_held: bool = False
 ) -> tuple[str | None, str | None]:
     """How many of the witness's assertions INDIVIDUALLY fail the parent?
 
@@ -205,6 +205,14 @@ def discrimination_width(
     undecidable: fix a minimal mutation set per fixture instead of deciding strength
     in general. He is right that the count is the wrong measure, and this is the
     measurable form of his point.
+
+    His follow-up (#26477) asked for a pairwise subset on top, for the case where
+    each assertion stays individually sufficient while a pair together loses
+    discriminability. *Measured and refuted*: bats 1.14.0 aborts on the first failing
+    assertion, so a test fails the parent exactly when at least one of its assertions
+    does. Adding assertions is monotone — a pair cannot lose what a member has — so
+    pairwise mutation buys nothing in that direction. The concern underneath it was
+    right, and the invariant below is what answers it.
 
     Measured before building it, on two witnesses over the same parent:
 
@@ -274,6 +282,26 @@ def discrimination_width(
             "with every classified assertion removed the witness STILL fails the "
             "parent, so something else in the test body is doing the discriminating "
             "and a width would be measuring that"
+        )
+
+    if sufficient == 0 and cell1_held:
+        # An invariant of the measure, not a property of this witness. bats aborts on
+        # the first failing assertion — measured on 1.14.0 — so a witness fails the
+        # parent exactly when at least one of its assertions does. With cell 1 holding
+        # and the control passed, width CANNOT be 0. A 0 here is the measure
+        # contradicting its own premise: a defect in the instrument, not a finding
+        # about the subject.
+        cause = (
+            f"the {skipped} assertion(s) sharing a line were never isolated, and the "
+            f"discrimination is in one of them"
+            if skipped
+            else "the isolation itself is broken"
+        )
+        return None, (
+            f"width came back 0 while the whole witness fails the parent. Impossible "
+            f"under bats semantics — it aborts on the first failing assertion, so a "
+            f"witness fails the parent exactly when one of its assertions does. So "
+            f"{cause}. Reported as unchecked rather than as a low score."
         )
 
     note = f"discrimination width {sufficient} of {len(usable)} classified assertion(s)"
@@ -355,6 +383,7 @@ def main(argv: list[str]) -> int:
                 args.test,
                 args.name,
                 lambda: run_witness(root, args.test, args.name),
+                cell1_held=not ok,
             )
 
         # Cell 2 — the new implementation must PASS it.
