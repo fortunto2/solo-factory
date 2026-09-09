@@ -291,6 +291,7 @@ check-shippable|
 check-vacuous-tests|/no/such/file.txt
 list-env-sensitive-calls|/no/such/dir
 mutate|--list /no/such/file.py
+run-tests|--published-nonsense-arg
 solo-verify|--root /no/such/dir
 witness|--root /no/such/dir --subject x.py --test t.bats --name n
 "

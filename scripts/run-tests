@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""Run the bats suite file-by-file, concurrently, and say what ran.
+
+The gate was 211 seconds and climbing — 391 with the blind-spot corpus. This
+repository's own case log says a pre-commit gate that costs four minutes gets
+bypassed with `--no-verify`, and a bypassed gate is worse than no gate because you
+still believe it ran. So the cost was measured rather than tolerated:
+
+    serial, hook's scope     211s
+    parallel by file          72s   (three runs: 72, 73, 73 — all 464 ok)
+
+The floor is the slowest single file (sensors.bats, 72s), so this buys 2.9x and no
+more; cutting further means making that file faster, not running it differently.
+
+`bats --jobs` needs GNU parallel, which is not installed here. Writing it into the
+hook anyway would turn a missing optional dependency into a blocked commit on every
+machine without it — a gate that fails for a reason unrelated to the code is the
+fastest possible teacher of `--no-verify`. Plain background jobs need nothing.
+
+Three rules this obeys, from the receipt contract next door:
+
+- A failure NAMES the file, and prints that file's output. A count of failures with
+  no file is a finding nobody can act on.
+- Zero files in scope is UNKNOWN and exit 2, never a pass. An empty glob and a green
+  run are otherwise the same silence.
+- Zero tests COLLECTED is a failure. bats exits 0 on a file with no tests, which
+  reads exactly like a file whose tests all passed.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+
+def run_one(path: Path) -> tuple[Path, int, str, int, int]:
+    """(file, returncode, output, ok, not_ok).
+
+    No TMPDIR isolation. The first version gave each file its own TMPDIR to keep
+    them apart, and `degenerate.bats` then failed — bats derives BATS_TEST_TMPDIR
+    from it, and two tests there depend on paths the harness already arranges. An
+    isolation that changes the result is not isolation; it is a different
+    experiment. bats already gives every test its own directory.
+    """
+    p = subprocess.run(
+        ["bats", str(path)], capture_output=True, text=True, stdin=subprocess.DEVNULL
+    )
+    out = p.stdout + p.stderr
+    ok = sum(1 for ln in out.splitlines() if ln.startswith("ok "))
+    bad = sum(1 for ln in out.splitlines() if ln.startswith("not ok "))
+    return path, p.returncode, out, ok, bad
+
+
+def main(argv: list[str]) -> int:
+    root = Path(__file__).resolve().parent.parent
+
+    # An unrecognised argument is a refusal, not a no-op. The first version treated
+    # bare words as exclusions and silently ignored anything starting with a dash —
+    # so the degenerate probe in tests/, which passes a nonsense flag to every
+    # script, ran THE ENTIRE SUITE from inside a test. Ten minutes, and the cause
+    # was this parser being permissive rather than anything about concurrency.
+    exclude: set[str] = set()
+    args = list(argv[1:])
+    while args:
+        a = args.pop(0)
+        if a == "--exclude" and args:
+            exclude.add(args.pop(0))
+        else:
+            print(
+                f"UNKNOWN: unrecognised argument {a!r}. Usage: run-tests "
+                f"[--exclude NAME]... — nothing ran, which is not a pass.",
+                file=sys.stderr,
+            )
+            return 2
+
+    files = sorted(f for f in (root / "tests").glob("*.bats") if f.stem not in exclude)
+    if not files:
+        print(
+            f"UNKNOWN: no .bats files under {root / 'tests'} after excluding "
+            f"{sorted(exclude) or 'nothing'} — nothing ran, which is not a pass.",
+            file=sys.stderr,
+        )
+        return 2
+
+    # Bounded so a smaller machine does not thrash. Measured here at 28 concurrent
+    # with no change in results across three runs; the cap costs nothing when the
+    # file count is below it.
+    workers = min(len(files), max(4, (os.cpu_count() or 4)))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = list(pool.map(run_one, files))
+
+    ok = sum(r[3] for r in results)
+    bad = sum(r[4] for r in results)
+    empty = [r[0].name for r in results if r[3] + r[4] == 0]
+    failed = [r for r in results if r[1] != 0 or r[4]]
+
+    for path, _, out, _, _ in failed:
+        print(f"\n=== {path.name} ===")
+        print("\n".join(ln for ln in out.splitlines() if not ln.startswith("ok ")))
+
+    if empty:
+        # A file bats found no tests in exits 0 and prints nothing, which is the
+        # same output as a file whose tests all passed.
+        print(
+            f"FAIL: {', '.join(empty)} collected NO tests. bats exits 0 on such a "
+            f"file, so this would otherwise read as a clean run.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(
+        f"  {ok} passed, {bad} failed across {len(files)} file(s)"
+        + (f"; excluded: {', '.join(sorted(exclude))}" if exclude else "")
+    )
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -5,7 +5,7 @@ plugin-link: ## Link solo-factory as live plugin (dev mode — edit files, insta
 
 plugin-publish: ## Push + reinstall Claude Code plugin globally
 	@git push
-	@cd ~/.claude/plugins/marketplaces/solo && git fetch origin && git reset --hard origin/main
+	@cd "${CLAUDE_CONFIG_DIR:-$$HOME/.claude}/plugins/marketplaces/solo" && git fetch origin && git reset --hard origin/main
 	@CLAUDECODE= claude plugin install solo@solo --scope user
 	@echo "Done. Restart Claude Code session."
 
@@ -107,6 +107,9 @@ test-vacuous:  ## Find tests that assert only absence
 
 test-bats: ## Run BATS tests only
 	@bats tests/
+
+test-fast: ## Run BATS tests file-by-file, concurrently (76s vs 211s serial)
+	@python3 scripts/run-tests --exclude blind_spots
 
 test-verbose: ## Run BATS tests with verbose output
 	@bats --verbose-run tests/

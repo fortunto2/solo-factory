@@ -76,11 +76,21 @@ print(hook == s, hook, s, sep='\n')
 # defect fixed one cycle earlier: a check that stops being run by anything.
 
 @test "the commit gate excludes the blind-spot corpus and says so in its name" {
+  # The name has to carry two facts: WHAT is skipped and WHAT IT COSTS. It carried
+  # a stale one — "the 113s blind-spot corpus" while that corpus had grown to 180s,
+  # a published number 60% out of date in the first line anyone reads when deciding
+  # whether to bypass the gate.
+  #
+  # The assertion used to be the literal word "except", which is a proxy for "the
+  # name admits it" and broke the moment the name said "excluded" instead. Pinning
+  # the fact, not the wording.
   C="$BATS_TEST_DIRNAME/../.pre-commit-config.yaml"
   run grep -A3 "id: bats-tests" "$C"
   [ "$status" -eq 0 ]
   [[ "$output" == *"blind_spots"* ]]        # the exclusion is there
-  [[ "$output" == *"except"* ]]             # and the NAME admits it
+  name=$(printf '%s\n' "$output" | grep "name:")
+  [[ "$name" == *"blind-spot"* ]]           # and the NAME admits what it skips
+  [[ "$name" =~ [0-9]+s ]]                  # with what that costs, in seconds
 }
 
 @test "make test still runs the corpus the gate skips" {

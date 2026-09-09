@@ -49,8 +49,8 @@ repos:
       # runs in `make test` and in CI, not here. Named in the hook title so nobody
       # reads this gate as "all tests passed".
       - id: bats-tests
-        name: BATS tests (all except the 113s blind-spot corpus)
-        entry: bash -c 'bats $(ls tests/*.bats | grep -v blind_spots)'
+        name: BATS tests, concurrently (76s; the 180s blind-spot corpus excluded)
+        entry: python3 scripts/run-tests --exclude blind_spots
         language: system
         pass_filenames: false
         always_run: true
