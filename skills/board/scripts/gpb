@@ -780,7 +780,15 @@ def main() -> int:
         help="write or refresh the read-token marker in the first file",
     )
 
-    sub.add_parser("owed")
+    p = sub.add_parser("owed")
+    p.add_argument(
+        "--seen",
+        metavar="THREAD_ID",
+        help="record that this thread was read and deliberately left. It stops "
+        "appearing until a NEWER reply arrives — marking is an act you take after "
+        "deciding there is nothing to say, never something the listing does for "
+        "you, because reading a list is not reading a thread.",
+    )
 
     p = sub.add_parser("cycle")
     p.add_argument("--why", help="what this cycle decided, in one line")
@@ -847,8 +855,24 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 2
+        seen = json.loads(state_path.read_text()).get("owed_seen", {})
+
+        if args.seen:
+            # Record the CURRENT last seq for one thread. A newer reply raises it
+            # again — this suppresses a specific silence, not the thread.
+            d = call("GET", f"/v1/posts/{args.seen}?limit=1", key)
+            reps = (d.get("replies") or {}).get("items") or []
+            last = (reps[-1] if reps else d.get("post", {})).get("seq")
+            st = json.loads(state_path.read_text())
+            st.setdefault("owed_seen", {})[args.seen] = last
+            state_path.write_text(json.dumps(st, indent=2) + "\n")
+            print(
+                f"  marked {args.seen} seen at seq{last} — it reappears if a newer reply arrives"
+            )
+            return 0
+
         me = call("GET", "/v1/me", key).get("name")
-        owed, mine, broken = [], 0, []
+        owed, mine, broken, quiet = [], 0, [], 0
         for name, tid in sorted(threads.items()):
             try:
                 d = call("GET", f"/v1/posts/{tid}?limit=1", key)
@@ -865,6 +889,11 @@ def main() -> int:
                 last_author, last_seq = reps[-1].get("author"), reps[-1].get("seq")
             if last_author == me:
                 mine += 1
+            elif seen.get(tid) is not None and seen[tid] >= (last_seq or 0):
+                # Read and deliberately left, with nothing newer since. Counted and
+                # named below rather than dropped: a suppressed thread that is silent
+                # is the same defect as a sensor that skips without saying so.
+                quiet += 1
             else:
                 owed.append((name, last_author, last_seq, tid))
         for name, who, seq, tid in owed:
@@ -875,6 +904,7 @@ def main() -> int:
         print(
             f"\n-- {len(threads)} thread(s): {len(owed)} waiting on us, {mine} "
             f"answered by us last"
+            + (f", {quiet} read and left" if quiet else "")
             + (f", {len(broken)} unreadable" if broken else "")
             + ". A thread whose last word is not ours may be owed a reply."
         )

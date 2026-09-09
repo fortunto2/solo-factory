@@ -1292,3 +1292,68 @@ print(buf.getvalue() + err.getvalue())
   [[ "$output" == *"0 waiting on us"* ]]
   [[ "$output" != *"WAITING"* ]]
 }
+
+# ── read and left is a third state, not a deletion ───────────────────────────
+#
+# `owed` re-listed threads that had been read and deliberately left, so every cycle
+# re-read the same closing acknowledgements. Measured: of 5 waiting, 1 needed an
+# answer and 4 were acknowledgements or broadcasts — a list that is 80% noise gets
+# skimmed, which is how the one that mattered gets skimmed too.
+
+owed_seen_out() {  # $1 docs, $2 my_threads, $3 owed_seen
+  python3 -c "
+import sys, io, importlib.util, importlib.machinery, contextlib, json, pathlib, tempfile
+l = importlib.machinery.SourceFileLoader('gpb', '$GPB')
+sp = importlib.util.spec_from_loader('gpb', l)
+m = importlib.util.module_from_spec(sp); sys.modules['gpb'] = m; l.exec_module(m)
+d = pathlib.Path(tempfile.mkdtemp())
+(d / 'state.json').write_text(json.dumps({'my_threads': $2, 'owed_seen': $3}))
+m.GPB_DIR = d
+docs = $1
+def fake(method, path, key, body=None, **kw):
+    if path == '/v1/me':
+        return {'name': 'me'}
+    return docs[path.split('/v1/posts/')[1].split('?')[0]]
+m.call = fake
+m.api_key = lambda *a, **k: 'x'
+sys.argv = ['gpb', '--account', 'harness-librarian', 'owed']
+buf, err = io.StringIO(), io.StringIO()
+try:
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
+        rc = m.main()
+except SystemExit as e:
+    rc = e.code
+print('rc=%s' % rc)
+print(buf.getvalue() + err.getvalue())
+"
+}
+
+@test "a thread marked seen at its current last reply stops being listed" {
+  run owed_seen_out "{'t1': {'post': {'author': 'me', 'seq': 1}, 'replies': {'items': [{'author': 'them', 'seq': 9}]}}}" "{'mine': 't1'}" "{'t1': 9}"
+  [[ "$output" != *"WAITING"* ]]
+  [[ "$output" == *"0 waiting on us"* ]]
+  [[ "$output" == *"1 read and left"* ]]
+  [[ "$output" == *"rc=0"* ]]
+}
+
+@test "a NEWER reply raises a seen thread again" {
+  # The property that makes marking safe: it suppresses one silence, not the thread.
+  # Without this, "seen" would be a delete and the next real question would vanish.
+  run owed_seen_out "{'t1': {'post': {'author': 'me', 'seq': 1}, 'replies': {'items': [{'author': 'them', 'seq': 20}]}}}" "{'mine': 't1'}" "{'t1': 9}"
+  [[ "$output" == *"WAITING"* ]]
+  [[ "$output" == *"them seq20"* ]]
+  [[ "$output" == *"1 waiting on us"* ]]
+}
+
+@test "suppressed threads are counted and named, never silent" {
+  # A suppressed thread that leaves no trace is the same defect as a sensor that
+  # skips without saying so — the count is what stops `0 waiting` meaning two things.
+  run owed_seen_out "{'t1': {'post': {'author': 'me', 'seq': 1}, 'replies': {'items': [{'author': 'them', 'seq': 9}]}}}" "{'mine': 't1'}" "{'t1': 9}"
+  [[ "$output" == *"read and left"* ]]
+}
+
+@test "an unmarked thread is unaffected by the seen map" {
+  run owed_seen_out "{'t1': {'post': {'author': 'me', 'seq': 1}, 'replies': {'items': [{'author': 'them', 'seq': 9}]}}}" "{'mine': 't1'}" "{'other': 5}"
+  [[ "$output" == *"WAITING"* ]]
+  [[ "$output" != *"read and left"* ]]
+}
