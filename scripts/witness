@@ -127,6 +127,39 @@ def assertion_delta(root: Path, test: str) -> tuple[str | None, str | None]:
     return ("; ".join(hits) if hits else None), None
 
 
+def absence_only(root: Path, test: str) -> tuple[str | None, str | None]:
+    """Did the witness become absence-only? Asked of check-vacuous-tests, not rebuilt.
+
+    `assertions_removed` counts assertions; it cannot weigh them. Measured 2026-09-09
+    on three shapes of the same weakening:
+
+      2 strong -> 3 negative        delta silent, THIS catches it
+      2 strong -> 3 weak positive   both silent — nothing catches it, see below
+      count goes down               delta catches it
+
+    Only the middle one is a real hole, and it is not decidable: `[[ $out == *e* ]]`
+    is a positive assertion by any syntactic rule, and no checker can know that `e`
+    is a weaker requirement than `a.py` without knowing what the test is for.
+
+    That distinction was published the wrong way round on the board before it was
+    measured — the first shape was named as the open hole while a checker in this
+    same repo already caught it. Hence this function: the tool that makes a claim
+    about weakening should run the check that exists rather than leave it to a hook
+    a stranger running `witness` standalone would never trigger.
+    """
+    cv = root / "scripts" / "check-vacuous-tests"
+    if not cv.is_file():
+        return None, "scripts/check-vacuous-tests is not here"
+    code, out = run([sys.executable, str(cv), test], root, 60)
+    if code in (124, 126, 127):
+        return None, f"check-vacuous-tests could not run (exit {code})"
+    if code == 2:
+        # Its own UNKNOWN: it examined nothing, which is not a clean result.
+        return None, f"check-vacuous-tests returned UNKNOWN: {out.strip()[:120]}"
+    hits = [ln.strip() for ln in out.splitlines() if "asserts only absence" in ln]
+    return ("; ".join(hits) if hits else None), None
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--subject", required=True, help="the implementation file")
@@ -220,6 +253,16 @@ def main(argv: list[str]) -> int:
     # witness left it still discriminating, so all three cells held. The two facts
     # have to arrive together or a green REPAIR reads as a clearance for both.
     shrink, why_not = assertion_delta(root, args.test)
+    absence, absence_why = absence_only(root, args.test)
+    if absence:
+        print(f"  ALSO: {absence}")
+        print(
+            "    The rule binds AND the witness now passes on empty output. A count "
+            "that grew hides this: three absence checks replace two real ones and "
+            "the delta reads as an addition."
+        )
+    elif absence_why:
+        print(f"  ALSO: absence-only check UNCHECKED — {absence_why}")
     if shrink:
         print(f"  ALSO: {shrink}")
         print(
@@ -254,6 +297,13 @@ def main(argv: list[str]) -> int:
             missing.append("no --guard, so nothing shows WHICH change makes it")
         if why_not:
             missing.append(f"assertion delta unchecked ({why_not})")
+        if absence_why:
+            missing.append(f"absence-only check unchecked ({absence_why})")
+        if absence:
+            # Not "missing": it RAN and found weakening. That is a retreat finding,
+            # and a verdict of REPAIR beside it would be the contradiction this
+            # tool was just fixed for.
+            missing.append("the witness is absence-only, which is a retreat")
         if missing:
             # PARTIAL exits 0 for the same reason it does in solo-verify: an
             # unavailable check should not fail a pipeline. The honesty is in the
@@ -265,8 +315,10 @@ def main(argv: list[str]) -> int:
             return 0
         print(
             f"REPAIR (bounded, {len(cells)} cells + assertion delta): the witness "
-            f"discriminates and the named guard is what does it. Not a claim about "
-            f"weakenings outside that set."
+            f"discriminates and the named guard is what does it. Bound: the delta "
+            f"counts assertions and the absence check catches absence-only ones. "
+            f"Neither weighs strength — two strong assertions replaced by three "
+            f"weak POSITIVE ones passes both, measured, and is not decidable."
         )
         return 0
     print(

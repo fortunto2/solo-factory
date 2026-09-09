@@ -48,6 +48,7 @@ EOF
   # REPAIR needs all three cells AND an answered assertion delta, so this test has
   # to supply solo-verify. It did not, and read REPAIR anyway until 2026-09-09.
   mkdir -p "$R/scripts" && cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$R/scripts/"
+  cp "$BATS_TEST_DIRNAME/../scripts/check-vacuous-tests" "$R/scripts/"
   run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
       --name "an empty call is refused" --guard 'return 2'
   [ "$status" -eq 0 ]
@@ -58,7 +59,7 @@ EOF
   # possible weakening.
   [[ "$output" == *"bounded"* ]]
   [[ "$output" == *"3 cells"* ]]
-  [[ "$output" == *"outside that set"* ]]
+  [[ "$output" == *"Neither weighs strength"* ]]
 }
 
 @test "no --guard is PARTIAL, never REPAIR — no guard was named" {
@@ -158,7 +159,10 @@ EOF
 @test "a partial retreat is REPAIR on the cells and reported by the delta" {
   # The delta is computed by solo-verify, so it has to be present in the tree the
   # witness is pointed at — the same tool, not a second copy of the counting rule.
+  # check-vacuous-tests likewise: absent, it is UNCHECKED and the verdict is
+  # PARTIAL for that reason rather than for the one under test here.
   mkdir -p "$R/scripts" && cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$R/scripts/"
+  cp "$BATS_TEST_DIRNAME/../scripts/check-vacuous-tests" "$R/scripts/"
   # Drop one of the two assertions: the remaining one still discriminates, so the
   # cells cannot see this. That is the case I published as the scheme's limit.
   cat > "$R/tests/w.bats" <<'EOF'
@@ -179,6 +183,7 @@ EOF
   # Positive control: an ALSO printed unconditionally passes the test above while
   # marking every honest repair as a retreat.
   mkdir -p "$R/scripts" && cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$R/scripts/"
+  cp "$BATS_TEST_DIRNAME/../scripts/check-vacuous-tests" "$R/scripts/"
   run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
       --name "an empty call is refused" --guard 'return 2'
   [ "$status" -eq 0 ]
@@ -194,4 +199,100 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"UNCHECKED"* ]]
   [[ "$output" == *"solo-verify is not here"* ]]
+}
+
+# ── the delta counts assertions; it cannot weigh them ────────────────────────
+#
+# Measured 2026-09-09 on three shapes of one weakening:
+#   2 strong -> 3 negative       delta silent, check-vacuous-tests catches it
+#   2 strong -> 3 weak positive  both silent — not decidable, and stated as such
+#   count goes down              delta catches it
+# The first was published on the board as the open hole while a checker in this
+# repo already caught it. So witness now RUNS that checker instead of leaving it
+# to a hook a stranger running witness standalone would never trigger.
+
+absence_fixture() {  # cells all hold AND the witness is absence-only
+  A="$BATS_TEST_TMPDIR/abs"
+  mkdir -p "$A/tests" "$A/scripts"
+  ( cd "$A" && git init -q . && git config user.email t@e && git config user.name t
+    cat > subj.py <<'EOF'
+import sys
+def main(argv):
+    if len(argv) < 2:
+        print("warning: no argument given")
+        return 0
+    return 0
+sys.exit(main(sys.argv))
+EOF
+    # The token is assembled at runtime: bats rewrites a literal @test inside a
+    # heredoc into bats_test_function, which still RUNS but is invisible to any
+    # checker that parses for @test. Cells passed and the absence check went blind
+    # — the trap this repo recorded once already, walked into again here.
+    { printf '@%s "no warning is printed" {\n' test
+      printf '  run python3 "$SUBJ"\n'
+      printf '  [[ "$output" != *"warning"* ]]\n}\n'; } > tests/w.bats
+    git add -A && git commit -q -m parent )
+  # The guard, when disabled, falls back to the parent's message — so cell 3 holds
+  # and every cell is green while the witness passes on empty output.
+  cat > "$A/subj.py" <<'EOF'
+import sys
+def main(argv):
+    if len(argv) < 2:
+        if True:
+            print("refused: an argument is required")
+            return 2
+        print("warning: no argument given")
+        return 0
+    return 0
+sys.exit(main(sys.argv))
+EOF
+  cp "$BATS_TEST_DIRNAME/../scripts/check-vacuous-tests" "$A/scripts/"
+  cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$A/scripts/"
+  export SUBJ="$A/subj.py"
+}
+
+@test "an absence-only witness is PARTIAL even when every cell holds" {
+  # Known-answer: with this branch disabled the same input prints REPAIR — a full
+  # green for a witness that passes on empty output.
+  absence_fixture
+  run python3 "$W" --root "$A" --subject subj.py --test tests/w.bats \
+      --name "no warning is printed" --guard 'if True:'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ok   new − guard + W must FAIL"* ]]
+  [[ "$output" == *"PARTIAL (3 cells)"* ]]
+  [[ "$output" == *"absence-only, which is a retreat"* ]]
+  [[ "$output" != *"REPAIR"* ]]
+}
+
+@test "an absence-only witness is named, with what hides it" {
+  absence_fixture
+  run python3 "$W" --root "$A" --subject subj.py --test tests/w.bats \
+      --name "no warning is printed" --guard 'if True:'
+  [[ "$output" == *"asserts only absence"* ]]
+  [[ "$output" == *"the delta reads as an addition"* ]]
+}
+
+@test "the REPAIR bound says what neither check weighs" {
+  # "bounded" without stating the bound is the same defect one level up. The
+  # residual is named because it is not decidable, not because nobody tried.
+  mkdir -p "$R/scripts"
+  cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$R/scripts/"
+  cp "$BATS_TEST_DIRNAME/../scripts/check-vacuous-tests" "$R/scripts/"
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"REPAIR"* ]]
+  [[ "$output" == *"Neither weighs strength"* ]]
+  [[ "$output" == *"not decidable"* ]]
+}
+
+@test "an unreachable check-vacuous-tests is UNCHECKED, never 'no weakening'" {
+  # Same rule as the delta beside it: an absent tool must not turn red into green.
+  mkdir -p "$R/scripts" && cp "$BATS_TEST_DIRNAME/../scripts/solo-verify" "$R/scripts/"
+  run python3 "$W" --root "$R" --subject subj.py --test tests/w.bats \
+      --name "an empty call is refused" --guard 'return 2'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"absence-only check UNCHECKED"* ]]
+  [[ "$output" == *"PARTIAL"* ]]
+  [[ "$output" != *"REPAIR"* ]]
 }
