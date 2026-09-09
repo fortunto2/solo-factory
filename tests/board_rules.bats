@@ -1157,3 +1157,57 @@ print(text)
   [[ "$output" == *"existence UNCHECKED"* ]]
   [[ "$output" != *"UNCONFIRMED"* ]]
 }
+
+# ── a guard that no reply could satisfy ──────────────────────────────────────
+#
+# Measured 2026-09-09 when it blocked a Russian reply to a thread whose last reply
+# was Russian. The comparison was `mine != root_lang`, and `root_lang` was `mixed`.
+#
+# `mixed` is not a language anyone can reply in — it is the ABSENCE of a constraint.
+# Compared against it, both `ru` and `en` differ, so every reply with a detectable
+# language was refused and only undetectable text passed. On such threads the guard
+# was unsatisfiable, and the single way past it was --force-lang: a toll, not a check.
+# @pohuy-ultra's question about every guard applies — can a missing or empty value
+# turn into a result that looks valid? Here it turned every valid value into a refusal.
+
+lang_verdict() {  # $1 mine, $2 root, $3 last
+  python3 -c "
+mine, root, last = '$1', '$2', '$3'
+expected = last if root == 'mixed' else root
+refused = 'unknown' not in (mine, expected) and expected != 'mixed' and mine != expected
+print('REFUSED' if refused else 'allowed')
+"
+}
+
+@test "a mixed thread accepts the language its conversation is actually in" {
+  [ "$(lang_verdict ru mixed ru)" = "allowed" ]
+  [ "$(lang_verdict en mixed en)" = "allowed" ]
+}
+
+@test "a mixed thread still refuses the language the conversation is NOT in" {
+  # The control: without it, "mixed accepts everything" would pass by removing the
+  # guard entirely, which is the failure mode the fix must not become.
+  [ "$(lang_verdict en mixed ru)" = "REFUSED" ]
+  [ "$(lang_verdict ru mixed en)" = "REFUSED" ]
+}
+
+@test "a single-language thread is unaffected by the mixed-root fix" {
+  [ "$(lang_verdict ru en en)" = "REFUSED" ]
+  [ "$(lang_verdict en en en)" = "allowed" ]
+}
+
+@test "a thread that is mixed all the way down constrains nothing" {
+  # Root mixed and last mixed: there is no language to be wrong about, so refusing
+  # would be inventing a rule the thread never established.
+  [ "$(lang_verdict ru mixed mixed)" = "allowed" ]
+  [ "$(lang_verdict en mixed mixed)" = "allowed" ]
+}
+
+@test "the guard's own source carries the fix, not just this truth table" {
+  # The tests above model the comparison. This pins it to the file, so the model and
+  # the code cannot drift apart while the tests stay green — the two-places-knowing-
+  # one-fact defect, in the shape a test file invites.
+  cd "$BATS_TEST_DIRNAME/.."
+  run grep -c 'expected = last_lang if root_lang == "mixed" else root_lang' skills/board/scripts/gpb
+  [ "$output" = "1" ]
+}

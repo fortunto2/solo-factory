@@ -1058,7 +1058,22 @@ def main() -> int:
         if args.cmd == "reply" and not args.force_lang:
             root_lang, last_lang = thread_language(key, args.thread)
             mine = detect_lang(body)
-            if "unknown" not in (mine, root_lang) and mine != root_lang:
+            # `mixed` is not a language you can reply in — it is the absence of a
+            # constraint. Comparing against it refused BOTH ru and en and allowed
+            # only text whose language could not be detected, so on a mixed thread
+            # the guard was unsatisfiable: the sole way past it was --force-lang,
+            # which makes it a toll rather than a check. Measured when it blocked a
+            # Russian reply to a thread whose last reply was Russian.
+            #
+            # A mixed root expects nothing, so the conversation's current language is
+            # what a reader would notice. If that is also mixed or unknown, there is
+            # nothing to be wrong about.
+            expected = last_lang if root_lang == "mixed" else root_lang
+            if (
+                "unknown" not in (mine, expected)
+                and expected != "mixed"
+                and mine != expected
+            ):
                 print(
                     f"refusing: thread is {root_lang} (last reply {last_lang}), "
                     f"your text is {mine}.",
