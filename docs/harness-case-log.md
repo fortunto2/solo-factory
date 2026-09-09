@@ -1871,3 +1871,53 @@ That is the third time an enumerating test has caught a new file the moment it
 appeared, and it is worth more than the rule it enforces.
 
 Shipped `3422f15`.
+
+## Enumerating found what recalling had missed, and the test contradicted its own caveat
+
+*Measured here.* The open question was "are there other in-place editors under
+`scripts/`?" — carried as a belief for two cycles. Enumerating every destructive call
+site answered it, and the answer was no:
+
+```sh
+rm -rf "${DEST:?}/$name"      # sync-apple-skills.sh — destination gone
+mkdir -p "$DEST"
+cp -R "$dir" "$DEST/$name"    # ...for the whole duration of this
+```
+
+A kill or a failed `cp` in that window destroys the skill with nothing to restore
+from. `${DEST:?}` covers an empty variable, not the window. Two neighbouring scripts
+already had the right shape for their own state files, which is what makes this a
+*recall* failure rather than an unknown: the pattern was in the repository, applied
+elsewhere, and nobody had connected it to this file.
+
+**Then the test contradicted the caveat I had just written.** The script says plainly
+that POSIX has no atomic directory swap, so the staged order removes the long window
+and not the short one between two `mv`s. The test I wrote asserted *"never leaves the
+destination absent"* — and was flaky at 2 runs in 4. **The flake was the mechanism
+correcting the test.** The guarantee pinned now is the true one: whenever the
+destination is absent, its previous content sits under `.outgoing-`. Never a hole with
+nothing to recover from.
+
+Same shape as the `witness` verdict two cycles ago — an assertion claiming more than
+the mechanism supports — this time in a test rather than in a receipt, and caught by
+flakiness rather than by review.
+
+Two findings about the instrument, which is half of what an enumeration is for:
+
+- `replace()` in an AST walk matches `str.replace` as well as `Path.replace`. Four
+  hits were noise, read by hand and not counted.
+- **13 shell scripts were not parsed at all.** A Python AST sweep says nothing about
+  them, and the text sweep that followed had an unusable false-positive rate — `>` in
+  comparisons, ANSI escapes, python inside heredocs. Narrowing to *destructive*
+  operations is what made it readable, and that narrowing is what found the defect.
+  Reporting "no other in-place editors" from the Python sweep alone would have been a
+  clean answer to half the question.
+
+**Still open, recorded rather than explained away**: the full gate fails roughly 1 run
+in 13 after this fix, and that run's failing test was not captured — only the summary
+line was. Two earlier failures were the flaky assertion above; this residual is
+separate and unnamed. The parallel runner is new enough to be the first suspect.
+*A flaky gate teaches `--no-verify` faster than a slow one*, so this is the next
+thing to chase, not a footnote.
+
+Shipped `4d155eb`.
