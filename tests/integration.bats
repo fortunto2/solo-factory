@@ -296,3 +296,42 @@ MOCKEOF
   run bash -c "grep -rl CIRCUIT '$PROJECT_ROOT/.solo' 2>/dev/null | head -1"
   [ -n "$output" ]
 }
+
+@test "integration: a skip control file advances past the stuck stage" {
+  # Measured 2026-09-09: making the pipeline ignore SKIP_STAGE entirely — `if false`
+  # at the point that acts on it — killed 0 tests. control.bats verifies that
+  # check_control SETS the flag; nothing verified that the pipeline reads it.
+  #
+  # Third operator-facing control in a row with the same shape: the decision is
+  # tested, the action is not. Skip is the escape hatch for a stage that will never
+  # produce its marker, so a dead skip leaves an operator with only stop.
+  #
+  # The first version of this test asserted the state MARKER exists at the end. It
+  # does not — the run cleans markers on the way out — and the pipeline had in fact
+  # skipped correctly. Asserting a post-condition instead of the event is the same
+  # mistake this sweep exists to find, made while writing the test for it.
+  # Unquoted heredoc on purpose: $PROJECT_ROOT is expanded HERE, into a literal path
+  # inside the mock. Quoting it defers the expansion to the mock's own shell, where
+  # the variable is unset — the mock then writes the control file nowhere, no CTRL
+  # line appears, and the run looks exactly like a pipeline ignoring skip. Third
+  # probe-construction error this cycle to wear the symptoms of the finding it was
+  # written to test.
+  cat > "$MOCK_BIN/claude" << MOCKEOF
+#!/bin/bash
+if [ ! -f "$PROJECT_ROOT/.solo/pipelines/skipped-once" ]; then
+  touch "$PROJECT_ROOT/.solo/pipelines/skipped-once"
+  echo "skip" > "$PROJECT_ROOT/.solo/pipelines/control"
+fi
+echo "still working, no marker"
+MOCKEOF
+  chmod +x "$MOCK_BIN/claude"
+
+  run_pipeline
+
+  LOG="$PROJECT_ROOT/.solo/pipelines/pipeline.log"
+  # The event: the pipeline acted on the flag.
+  grep -q "Skipping stage: build" "$LOG"
+  # And its consequence: it moved off a stage that never produced a marker. Without
+  # the skip it would repeat `build` until the circuit breaker or the cap.
+  grep -q "stage 2/3: deploy" "$LOG"
+}
