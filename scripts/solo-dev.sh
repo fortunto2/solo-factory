@@ -978,10 +978,20 @@ Read $(basename "$LATEST_RETRO") for retro recommendations."
         fi
       fi
       if [[ -n "$NEW_PLAN" ]]; then
-        # Check global timeout before re-exec
-        ELAPSED=$(( $(date +%s) - STARTED_EPOCH ))
-        if [[ $ELAPSED -ge $MAX_SECONDS ]]; then
-          ELAPSED_H=$(( ELAPSED / 3600 ))
+        # Ask the tested function rather than recomputing its condition. The two
+        # were byte-identical arithmetic in two places — `elapsed >= MAX_SECONDS` —
+        # and only the one in solo-lib.sh had a test: killing its comparison kills a
+        # test, killing this copy killed none. Two places knowing one fact, with one
+        # of them unwatched, is the defect this repository has spent a week on.
+        #
+        # This branch itself remains unreached by any test: getting here needs the
+        # threshold to be crossed DURING the last iteration, after the loop's own
+        # check at the top of it. That is a race with the clock, and the tests here
+        # have been losing those. What the change buys is that the condition is no
+        # longer duplicated — the untested surface shrinks to the log line and the
+        # marker cleanup below.
+        if check_timeout; then
+          ELAPSED_H=$(( ( $(date +%s) - STARTED_EPOCH ) / 3600 ))
           log_entry "TIMEOUT" "Global timeout (${ELAPSED_H}h/${MAX_HOURS}h) — skipping re-exec"
           # Clean state markers so next run picks up the new plan (not stale previous cycle)
           rm -f "$STATES_DIR/build" "$STATES_DIR/deploy" "$STATES_DIR/review"
