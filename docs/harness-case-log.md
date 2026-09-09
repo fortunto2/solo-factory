@@ -1743,3 +1743,51 @@ time in this log that a scanner could not tell prose from code. Verified by runn
 the thing afterwards, which the comment cannot fake.
 
 Shipped `33187f9`; 5 tests, mutations kill 1/1/1/1.
+
+## try/finally does not protect a file from a signal
+
+*Measured here* 2026-09-09, on a hazard that had already happened: two cycles earlier
+a ten-minute timeout killed a mutation loop and left `if True:  # mutant` on disk,
+and the check run afterwards matched the **comment** explaining the guard rather than
+the guard, reporting the file intact while it was not.
+
+`scripts/mutate` patches the subject in place, runs the suite, restores in `finally`.
+That covers exceptions and it covers Ctrl-C, since SIGINT raises `KeyboardInterrupt`.
+It covers **neither SIGTERM nor SIGKILL** — and a command timeout, a cancelled CI job
+and a closed terminal are all SIGTERM. A tool of this kind is by definition pointed
+at the file somebody is editing.
+
+```
+before   SIGTERM -> mutation on disk, silent
+after    SIGTERM -> restored, sha reported, exit 130
+```
+
+Two layers, because only one of them can be written:
+
+- **SIGTERM and SIGINT** restore and re-raise.
+- **SIGKILL cannot be caught at all.** So the original is written beside the target
+  *before* the first mutation and removed only after a verified restore. The next run
+  finds that crumb, refuses with exit 2, and prints the `mv` that undoes it. Refusing
+  is the only honest response: a run starting on a mutated file measures a baseline of
+  somebody else's injected defect, and every verdict after that is about the wrong
+  program.
+
+Measured end to end rather than argued — SIGKILL leaves the mutant, the crumb
+survives, the next run refuses, and the printed undo restores the original hash.
+*A recovery instruction nobody has run is a guess*, so the test runs it.
+
+**The first round of tests left two survivors, and the first is the instructive
+one.** "No crumb is written" killed **0** tests, because every case created the crumb
+by hand — the single step the whole SIGKILL defence rests on was the one nothing
+checked. A suite for a recovery mechanism that never watches the mechanism arm itself
+is testing the recovery of a state it produced itself. It kills 2 now.
+
+The second survivor is **published in the code** rather than papered over: removing
+the `if restored:` condition kills nothing, because an unwritable target raises
+before that line and the crumb survives regardless. The case it guards — a write that
+returns while leaving different bytes — cannot be constructed on this filesystem. It
+stays for one condition's cost against losing the only copy of a file.
+
+Shipped `dc554a0`. The transferable question, asked of anything that edits a file in
+place and restores it — a formatter check, a bisect harness, a fixture rewriter:
+**what happens on SIGTERM, and would anyone find out?**
