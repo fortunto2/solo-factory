@@ -28,19 +28,19 @@ reads as a diff against a stated promise** instead of an invisible edit. Change
 a promise deliberately and say so; the harness will not stop you, but it will
 never let it happen quietly.
 
-| Sensor | Promise | Mechanics |
-|---|---|---|
-| `syntax` | Every changed `.py`/`.js`/`.swift` file parses — syntax only, never types | `ast.parse` / `node --check` / `swiftc -parse`, per file (~0.15s for Swift) |
-| `limits` | No function >150 lines, no module >1000 lines, **unless the file declares an exemption with a reason**. About THIS change: a file already over the limit is inherited debt — reported, never failed | AST walk; thresholds from CLAUDE.md |
-| `ruff` | The repo's configured ruff rule set | `ruff check --output-format=concise` on changed files |
-| `ty` | No type errors in changed Python | `uvx ty check` (full mode) |
-| `pytest` | The suite runs **and collects >0 tests** | `uvx pytest -q`, counters parsed |
-| `eslint` / `tsc` | Repo's eslint config; project typechecks. **Absent toolchain ⇒ PARTIAL**, never PASS | `node_modules/.bin/*` only, never global |
-| `cargo-fmt` | Changed `.rs` files are rustfmt-clean | `rustfmt --check` on the changed files only |
-| `clippy` / `cargo-test` | clippy with `-D warnings`; tests pass — **whole workspace, not scoped** | cargo (full mode) |
-| `swiftlint` / `ktlint` | Configured rule set, **with a violation count and the tool's exit code honoured** | Per changed file |
-| `shellcheck` | Clean at severity **>= warning**, and the receipt says the threshold is ours | Info level is excluded on purpose — see noise, below |
-
+| Sensor | Promise | Mechanics | Pinned by |
+|---|---|---|---|
+| `syntax` | Every changed `.py`/`.js`/`.swift` file parses — syntax only, never types | `ast.parse` / `node --check` / `swiftc -parse`, per file (~0.15s for Swift) | broken syntax fails |
+| `limits` | No function >150 lines, no module >1000 lines, **unless the file declares an exemption with a reason**. About THIS change: a file already over the limit is inherited debt — reported, never failed | AST walk; thresholds from CLAUDE.md | an over-long function trips the 150-line threshold |
+| `ruff` | The repo's configured ruff rule set | `ruff check --output-format=concise` on changed files | a repo with no ruff config is labelled ruff-defaults, and says so |
+| `ty` | No type errors in changed Python | `uvx ty check` (full mode) | none — nothing exercises this sensor. Found by writing check-promises: `ty` matched 29 test names as a substring of "safety" and "empty", and zero as a subject |
+| `pytest` | The suite runs **and collects >0 tests** | `uvx pytest -q`, counters parsed | pytest keeps its own words when it collects nothing |
+| `eslint` / `tsc` | Repo's eslint config; project typechecks. **Absent toolchain ⇒ PARTIAL**, never PASS | `node_modules/.bin/*` only, never global | eslint absent makes the verdict PARTIAL, not PASS |
+| `cargo-fmt` | Changed `.rs` files are rustfmt-clean | `rustfmt --check` on the changed files only | cargo-fmt respects scope: a clean changed file passes in a dirty repo |
+| `clippy` / `cargo-test` | clippy with `-D warnings`; tests pass — **whole workspace, not scoped** | cargo (full mode) | rust pair: a crate that does not compile is reported, not shrugged at |
+| `swiftlint` / `ktlint` | Configured rule set, **with a violation count and the tool's exit code honoured** | Per changed file | swiftlint honours its exit code, so an incomplete run is not a pass |
+| `shellcheck` | Clean at severity **>= warning**, and the receipt says the threshold is ours | Info level is excluded on purpose — see noise, below | the shellcheck promise states whose threshold it is |
+---|
 Tooling never crosses languages: Python sensors never touch a `.ts` file.
 
 ## Four rules the receipt obeys

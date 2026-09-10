@@ -524,11 +524,13 @@ m.write_crumb(pathlib.Path("subj.py.mutate-original"), pathlib.Path("subj.py"),
               "x = 1\n" * 40000)
 PYEOF
   cat > w_naive.py <<'PYEOF'
-import time
+import pathlib, time
 d = ("x = 1" + chr(10)) * 40000
 with open("subj.py.mutate-original", "w") as fh:
     for i in range(0, len(d), 4096):
-        fh.write(d[i:i + 4096]); fh.flush(); time.sleep(0.002)
+        fh.write(d[i:i + 4096]); fh.flush()
+        pathlib.Path("writing.marker").touch()
+        time.sleep(0.002)
 PYEOF
   # Both writers must actually run, or every outcome is `absent` and the property
   # under test is never exercised. Checked before the kill loop, not after.
@@ -541,11 +543,22 @@ PYEOF
   run crumb_py "
 t = pathlib.Path('subj.py'); c = pathlib.Path('subj.py.mutate-original')
 def kill_during(script, delays):
+    # Wait for the writer to be OBSERVABLY writing, then kill. The delays used to be
+    # the whole mechanism, and under a loaded machine the child had not started at
+    # 0.02s — so every outcome was `absent`, the paced control never corrupted, and
+    # the test failed for having measured nothing. Third time in this family that a
+    # clock-dependency fix stopped at two of three places.
     out = []
     for d in delays:
         c.unlink(missing_ok=True)
+        pathlib.Path('writing.marker').unlink(missing_ok=True)
         for j in pathlib.Path('.').glob('*.tmp'): j.unlink()
-        p = subprocess.Popen([sys.executable, script]); time.sleep(d)
+        p = subprocess.Popen([sys.executable, script])
+        for _ in range(400):
+            if pathlib.Path('writing.marker').exists() or list(pathlib.Path('.').glob('*.tmp')):
+                break
+            time.sleep(0.01)
+        time.sleep(d)
         p.kill(); p.wait()
         st = m.read_crumb(c, t)[1]
         out.append(st if st in ('absent', 'valid') else 'CORRUPT')

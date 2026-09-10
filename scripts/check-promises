@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""Every published promise names the test that pins it, or says why none does.
+
+`rules/harness-sensors.md` states what each sensor guarantees. Twenty-three promises
+in tables, six checker scripts, and until now **nothing verified that a promise had a
+test at all**. Prose is not executable, and this week measured what that costs:
+
+    the pipeline pause never blocked      deleting the whole loop killed 0 tests
+    the circuit breaker's verdict         ignoring it killed 0 tests
+    HARNESS GAP, both halves              suppressing either killed 0 tests
+    the exit-code summary                 named three verdicts of four
+
+Each was a promise written down and pinned by nothing. The repair is not another
+promise about being careful: the promise and the check live in one artifact, and the
+artifact is the table itself.
+
+DECLARED, NOT INFERRED. Matching a promise to a test by keyword was measured and
+refused: `ty` alone matched 29 test names as a substring of "safety" and "empty".
+Guessing that link produces confident nonsense, so the table names the test and this
+reads what it names — the same reasoning as `?probe=1` replacing a guess at
+authorship, and as the exemption mechanism naming its own reason.
+
+WHAT THIS DOES NOT CHECK, stated because a checker that implies more than it verifies
+is the defect it exists to catch: it confirms a test with that name EXISTS. It does
+not confirm that test would fail if the promise broke. That question belongs to
+`scripts/mutate`, which answers it one promise at a time and costs a suite run each.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import sys
+from pathlib import Path
+
+
+def _root(argv: list[str]) -> Path:
+    """The tree to check: argv[1], else the env seam, else this script's repository.
+
+    An explicit argument exists so the degenerate probe in tests/ has something to
+    hand a nonsense path to — every checker here owes one, and the enumerating test
+    that demands it caught this file within a minute of its existing.
+    """
+    if len(argv) > 1:
+        return Path(argv[1])
+    return Path(
+        os.environ.get("SOLO_FACTORY_ROOT", Path(__file__).resolve().parent.parent)
+    )
+
+
+# A promises row: sensor | promise | mechanics | pinned by
+ROW = re.compile(
+    r"^\|\s*(?P<sensor>`[^|]+?)\s*\|(?P<promise>[^|]*)\|(?P<mech>[^|]*)\|(?P<pin>[^|]*)\|\s*$"
+)
+# The header we anchor on, so other tables in the file are not read as promises.
+HEADER = "| Sensor | Promise | Mechanics | Pinned by |"
+TEST_NAME = re.compile(r'^\s*@test\s+"(?P<name>.*)"\s*\{')
+
+
+def declared_tests(tests: Path) -> set[str]:
+    """Every test name on disk. Enumerated, never recalled."""
+    names: set[str] = set()
+    for f in sorted(tests.glob("*.bats")):
+        for line in f.read_text(errors="replace").splitlines():
+            m = TEST_NAME.match(line)
+            if m:
+                names.add(m.group("name"))
+    return names
+
+
+def rows(text: str) -> list[tuple[str, str]]:
+    """(sensor, pin) for each row of the promises table."""
+    out, inside = [], False
+    for line in text.splitlines():
+        if line.strip() == HEADER:
+            inside = True
+            continue
+        if inside:
+            if not line.startswith("|"):
+                break
+            if set(line.replace("|", "").strip()) <= {"-", " "}:
+                continue
+            m = ROW.match(line)
+            if m:
+                out.append((m.group("sensor").strip(), m.group("pin").strip()))
+    return out
+
+
+def main(argv: list[str]) -> int:
+    root = _root(argv)
+    RULES = root / "rules" / "harness-sensors.md"
+    TESTS = root / "tests"
+    if not RULES.is_file():
+        print(f"UNKNOWN: {RULES} is not here — nothing was checked.", file=sys.stderr)
+        return 2
+    if not TESTS.is_dir():
+        print(f"UNKNOWN: {TESTS} is not here — nothing was checked.", file=sys.stderr)
+        return 2
+
+    promises = rows(RULES.read_text(errors="replace"))
+    if not promises:
+        # An absent table and a renamed header are the same silence otherwise, and
+        # zero promises checked would read as zero promises unpinned.
+        print(
+            f"UNKNOWN: no promises table found under the header {HEADER!r} in "
+            f"{RULES.name}. Zero rows is not zero unpinned promises.",
+            file=sys.stderr,
+        )
+        return 2
+
+    names = declared_tests(TESTS)
+    if not names:
+        print(
+            f"UNKNOWN: no @test names found under {TESTS} — every promise would look "
+            f"unpinned for a reason that has nothing to do with the promises.",
+            file=sys.stderr,
+        )
+        return 2
+
+    findings, waived, pinned = [], [], 0
+    for sensor, pin in promises:
+        if not pin:
+            findings.append(
+                f"{sensor} promises something and names no test. Add the test's name "
+                f"to the `Pinned by` column, or `none — <why>` if none can exist."
+            )
+        elif pin.lower().startswith("none"):
+            reason = pin.split("—", 1)[1].strip() if "—" in pin else ""
+            if not reason:
+                findings.append(
+                    f"{sensor} declares no pin and gives no reason. A promise left "
+                    f"unverified without an argument is what this file objects to "
+                    f"everywhere else."
+                )
+            else:
+                waived.append(f"{sensor} — no test pins this: {reason}")
+        else:
+            want = pin.strip("`")
+            if want in names:
+                pinned += 1
+            else:
+                findings.append(
+                    f"{sensor} names the test {want!r}, and no @test by that name "
+                    f"exists under {TESTS.name}/. A pin that points at nothing reads "
+                    f"exactly like a pin."
+                )
+
+    for w in waived:
+        print(f"  UNPINNED, DECLARED — {w}")
+    for f in findings:
+        print(f"FAIL  {f}")
+
+    print(
+        f"\n  {len(promises)} promise(s): {pinned} pinned by a named test, "
+        f"{len(waived)} declared unpinnable with a reason, {len(findings)} unpinned.",
+        file=sys.stderr,
+    )
+    print(
+        "  Bound: this checks the named test EXISTS. Whether it would FAIL if the "
+        "promise broke is `scripts/mutate`'s question, one promise at a time.",
+        file=sys.stderr,
+    )
+    return 1 if findings else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

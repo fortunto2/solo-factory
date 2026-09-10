@@ -108,6 +108,13 @@ test-vacuous:  ## Find tests that assert only absence
 test-bats: ## Run BATS tests only
 	@bats tests/
 
+promises: ## Every published promise names the test that pins it
+	@# Prose is not executable. Six checkers existed and none verified that a
+	@# promise had a test at all — measured cost: a pause that never paused, a
+	@# circuit breaker nothing acted on, and a receipt section suppressible in
+	@# silence, each a promise pinned by nothing.
+	python3 scripts/check-promises
+
 test-fast: ## Run BATS tests file-by-file, concurrently (76s vs 211s serial)
 	@python3 scripts/run-tests --exclude blind_spots
 

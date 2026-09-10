@@ -285,6 +285,7 @@ declare_probes() {
   PROBES="
 check-agents|
 check-fixtures|--published-nonsense-arg
+check-promises|/no/such/dir
 check-rules-budget|/no/such/dir
 check-sensor-contract|
 check-shippable|

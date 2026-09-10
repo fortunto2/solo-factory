@@ -48,6 +48,14 @@ repos:
       # and measures the verifier's coverage rather than guarding this commit, so it
       # runs in `make test` and in CI, not here. Named in the hook title so nobody
       # reads this gate as "all tests passed".
+      - id: check-promises
+        name: Every published promise names the test that pins it
+        entry: python3 scripts/check-promises
+        language: system
+        pass_filenames: false
+        files: '(rules/harness-sensors\.md|tests/.*\.bats|scripts/check-promises)$'
+        stages: [pre-commit]
+
       - id: bats-tests
         name: BATS tests, concurrently (76s; the 180s blind-spot corpus excluded)
         entry: python3 scripts/run-tests --exclude blind_spots
