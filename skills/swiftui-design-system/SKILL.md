@@ -150,6 +150,50 @@ Three layers, cheapest first:
 3. **snapshot sheets in the repo** — a reviewer sees the scale change as an
    image diff.
 
+## Which spring, and why
+
+`Motion.swift` holds six curves. Consolidating 21 springs into 6 is a consistency win and says
+nothing about whether the six are *right*. These are the numbers Apple ships, and the rule for
+picking between them.
+
+*Reported*, not measured here — from the `apple-design` skill
+(`~/.agents/src/emilkowalski-skills`, MIT), distilled from WWDC *Designing Fluid Interfaces*.
+The parameter model transfers exactly: Apple's designer-facing pair is damping ratio + response,
+which is SwiftUI's `.spring(response:dampingFraction:)`.
+
+| Interaction | response | dampingFraction | why |
+|---|---|---|---|
+| Move / reposition | `0.4` | `1.0` | critically damped: arrives, does not wobble |
+| Drawer, sheet | `0.3` | `0.8` | slight overshoot reads as physical |
+| Rotation | `0.4` | `0.8` | |
+| Everything else | — | `1.0` | **bounce is not a default** |
+
+**Bounce only where momentum is real** — a flick or a throw the finger actually gave. A bounce on
+a tap is decoration, and the same `0.8` that feels alive on a dragged sheet feels cheap on a
+button.
+
+**Frequency decides whether to animate at all.** This is the rule most motion work skips:
+
+- a keyboard shortcut or anything done 100+ times a day: **no animation**;
+- tens of times a day: shorter and smaller than you want;
+- occasional: the standard curve;
+- rare and significant: delight is allowed.
+
+**Asymmetric timing.** A deliberate action animates slower than the system's answer to it.
+Symmetric press/release is a finding, not a style choice — `Motion.press` and `Motion.release`
+in the catalogue already exist for this and should differ.
+
+**Interruptibility.** A gesture-driven view must animate from its *current presentation value*,
+not from the logical target, or a second gesture snaps. In SwiftUI that means springs and
+`.animation(_:value:)`, not a keyframe timeline, for anything a finger can grab mid-flight.
+
+**Reduced motion is a cross-fade, not a removal.** `@Environment(\.accessibilityReduceMotion)`
+swaps the slide for an opacity change; it does not delete the transition and leave a jump.
+
+Depth, including the momentum-projection formula, velocity handoff from a gesture into a spring,
+and the rubber-band constant: the `apple-design` skill. Its snippets are CSS/JS; the physics and
+the numbers are platform-independent.
+
 ## Gotchas
 
 - **`containerRelativeFrame` measures the container, not its content.** Apply

@@ -40,6 +40,59 @@ Match these so generated code fits the codebase (from `ios-swift.yaml` patterns,
 - **Dir layout:** `App/` `Models/` `Views/` `ViewModels/` `Services/` `Services/Protocols/` `Extensions/` `Resources/`. MVVM.
 - i18n: **String Catalog** (`.xcstrings`, Xcode 16). Lint: **SwiftLint** + **swift-format**; hooks via **lefthook**. Tests: **Swift Testing** (`@Test`) new, XCTest legacy. IAP: **StoreKit 2**. Analytics: **PostHog** (EU).
 
+## Where an `async` function actually runs (Swift 6.2)
+
+*Reported*, not measured here — from the `write-swift` skill
+(`~/.agents/src/emilkowalski-skills`, MIT). Verify against the compiler before relying on it
+in a shipped change; it is the section that skill calls "the one agents get wrong most often",
+and our own conventions above are silent on it.
+
+The conventions say "`actor` for heavy services" and "async/await everywhere". Neither tells you
+*where the work lands*, and the default is not the one most people assume:
+
+- **`async` alone does NOT mean off-main.** An `async` function runs on the **caller's** actor.
+  Called from an `@Observable @MainActor final class` view model, it runs on the main actor, and
+  the `await` only yields — it does not move the work. This is the trap our own house style walks
+  into: every view model here is `@MainActor`.
+- **`@concurrent` is what moves it** to the background pool. Write it on the function that does
+  the heavy part, not on the caller.
+- **`nonisolated` runs wherever it is called** — the right default for a service type that should
+  not inherit anybody's isolation.
+- **Profile before you offload.** Hopping actors costs; a fast function on main is better than a
+  slow hop for a job that takes microseconds.
+- **Actors are not FIFO.** They run the highest-priority waiter first, so "I awaited first" says
+  nothing about ordering.
+- **`await` breaks atomicity.** State can change across a suspension, so re-read it after. For a
+  transactional change, mutate actor state in a **synchronous** method, which cannot be
+  interleaved.
+
+```swift
+nonisolated struct PhotoProcessor {   // inherits nobody's isolation
+  @concurrent                          // and this part is genuinely off-main
+  func process(_ data: Data) async -> ProcessedPhoto { … }
+}
+```
+
+Depth: the `write-swift` skill — Sendable, task groups, `async let` vs `withTaskGroup`,
+cancellation, the global-variable ladder (`let` → `@MainActor` → `Mutex` → `nonisolated(unsafe)`).
+
+## Swift Testing, concretely
+
+Our convention line says "Swift Testing (`@Test`) new, XCTest legacy". What that buys, beyond
+the attribute:
+
+- **`#expect(a == b)` captures the subexpressions**, so a failure prints both sides without an
+  assertion message.
+- **`try #require(x)` unwraps and stops the test** — the replacement for `XCTUnwrap` plus a guard.
+- **`@Test(arguments: […])`** runs each case as its own test, in parallel, and names the failing
+  argument. Not a loop inside one test.
+- **A test is a struct, fresh per test**, and tests run in parallel by default. Shared mutable
+  fixtures break here in a way they did not under XCTest.
+- **Traits carry the reason**: `.disabled("why")`, `.bug(url)`, `.timeLimit(…)`, `.tags(…)`, and
+  `withKnownIssue { }` for a failure you have already diagnosed and do not own.
+
+Keep XCTest for UI automation, performance metrics, and Objective-C interop.
+
 ## Claude Code ↔ Xcode workflow
 
 - **Xcode MCP bridge** (Xcode 26.3+, `xcrun mcpbridge`; enable in Xcode → Settings → Intelligence → MCP Server):
