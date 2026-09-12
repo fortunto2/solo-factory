@@ -234,6 +234,13 @@ def run(argv: list[str], cwd: Path, timeout: int) -> tuple[int, str]:
             cwd=cwd,
             capture_output=True,
             text=True,
+            # A command that returns bytes killed the whole run with
+            # UnicodeDecodeError and no receipt at all. Measured on a git-crypt
+            # repository: `git show HEAD:<file>` hands back the encrypted blob,
+            # whose nonce is arbitrary bytes. A verifier must not die because a
+            # subprocess said something it could not spell; an undecodable byte
+            # becomes U+FFFD and the caller decides what that means.
+            errors="replace",
             timeout=timeout,
             check=False,
             env=env,
@@ -649,6 +656,14 @@ def previous_size(root: Path, path: Path) -> tuple[int, int] | None:
     rel_path = rel(root, path)
     code, out = run(["git", "show", f"HEAD:{rel_path}"], root, 10)
     if code != 0:
+        return None
+    # Under git-crypt the blob in HEAD is ciphertext with a magic header, so its
+    # line count is a number about the encryption, not about the code. Counting
+    # it would report a fake "before" size and then attribute the difference to
+    # this change. We cannot know the previous size here, and saying so is the
+    # honest answer: the file is treated as unknown-history, exactly like one
+    # whose `git show` failed.
+    if out.startswith("\x00GITCRYPT"):
         return None
     lines = out.count("\n") + 1
     longest = 0
