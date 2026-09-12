@@ -1,7 +1,7 @@
 {
   "name": "solo",
-  "description": "Your own path. Multiple stacks. Ship everything. 46 skills, 3 agents, code intelligence MCP \u2014 from shower thought to deployed product.",
-  "version": "1.76.0",
+  "description": "Your own path. Multiple stacks. Ship everything. 46 skills, 3 agents, code intelligence MCP — from shower thought to deployed product.",
+  "version": "1.77.0",
   "author": {
     "name": "Rustam Salavatov",
     "url": "https://github.com/fortunto2"

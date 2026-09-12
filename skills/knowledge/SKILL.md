@@ -4,7 +4,7 @@ description: Use when needing methodology reference, asking about principles, ha
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.0.1"
   openclaw:
     emoji: "📚"
 allowed-tools: Read, WebFetch, Grep, Glob

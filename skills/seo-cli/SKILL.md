@@ -4,7 +4,7 @@ description: Manage SEO and agent-readiness for all sites via the `seo` CLI — 
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.4.0"
+  version: "1.4.1"
   openclaw:
     emoji: "🔍"
 allowed-tools: Read, Grep, Bash, Glob, Edit, Write, WebFetch

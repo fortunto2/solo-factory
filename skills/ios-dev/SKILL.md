@@ -4,7 +4,7 @@ description: Build iPhone/iOS apps — native SwiftUI or Kotlin-Multiplatform hy
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.0.0"
+  version: "2.0.1"
   openclaw:
     emoji: "📱"
 ---
