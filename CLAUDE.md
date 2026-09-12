@@ -7,7 +7,7 @@ Claude Code plugin for solopreneurs. Single source of truth for all skills, agen
 ```
 .claude-plugin/plugin.json  # Manifest (name, version)
 commands/                    # Orchestrator commands (Command → Agent → Skill pattern)
-skills/                     # 39 skills (SKILL.md + references/)
+skills/                     # 46 skills (SKILL.md + references/)
 agents/                     # 3 agents (researcher, code-analyst, idea-validator)
 hooks/                      # SessionStart (info + drift) · PostToolUse (syntax sensor) · Stop (verify gate + pipeline)
 rules/                      # User-level rules (symlinked to ~/.claude/rules/ via make plugin-link)
@@ -124,15 +124,23 @@ description: What it does, in one line. Use when user says "phrase they'd actual
   type", "another phrase". Do NOT use for the neighbouring skill's job (use /that-skill).
 ```
 
-**The quotes and the literal words `Use when user says` are load-bearing.**
-`scripts/validate_triggers.py` reads that one form and nothing else, so a description
-written any other way yields **no positive test cases at all** — the skill still
-appears green, having asserted only that it does not trigger on a phrase the tool
-invented.
+**The quoted phrases are load-bearing**, not the wording around them.
+`scripts/validate_triggers.py` accepts `Use when user says "…"` and `Use when "…"`;
+a description with no quoted phrase after `Use when` yields **no positive test cases
+at all** — the skill still appears green, having asserted only that it does not
+trigger on a phrase the tool invented.
 
-Measured 2026-09-08: 3 of 46 skills use the form; 30 assert nothing positive and 13
-contribute no case at all. `make new-skill` emits the form, so this matters only when
-a skill is hand-created — which is exactly when nobody reads the generator.
+**Corrected 2026-09-12.** The reading published here on 2026-09-08 — *3 of 46 skills
+use the form, 30 assert nothing positive, 13 contribute no case* — was a fact about
+the extractor's regex, not about the skills. It required the literal words
+`user says`, which almost nothing in this repo writes, so it reported the repository's
+own convention as an absence. With both spellings accepted the same corpus yields
+**279 cases over 46 skills, all 46 asserting something positive**. The three that
+genuinely carried no quoted phrase (`ios-dev`, `knowledge`, `seo-cli`) were fixed.
+
+Same shape as the duplicate-skill guard found the same day: a check that recognises
+one spelling is silently absent for every other one, and its green is then a claim
+about itself. `make new-skill` emits the documented form.
 
 `Do NOT use for …` is what produces the negative cases, and `(use /other-skill)`
 splits them.

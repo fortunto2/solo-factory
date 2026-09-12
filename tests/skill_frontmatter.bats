@@ -126,3 +126,19 @@ setup() {
   [ "$B" = "$C" ]
   [[ "$output" == *"0 modified"* ]]
 }
+
+@test "the doc-count check runs on this repo and stays out of a scratch one" {
+  # It compares prose in THIS repository against the skills on disk. Pointed at a
+  # fixture it would report our own README as missing — which is exactly how it
+  # broke four tests the day it was written, having been exercised only through
+  # `make doctor`.
+  run python3 "$C"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"counts in docs agree"* ]]
+
+  good_skill "$T" scratch
+  run env SOLO_SKILLS_DIR="$T" python3 "$C"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"frontmatter valid"* ]]
+  [[ "$output" != *"counts in docs"* ]]
+}

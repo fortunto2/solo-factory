@@ -1,6 +1,6 @@
 ---
 name: solo-ios-dev
-description: Build iPhone/iOS apps — native SwiftUI or Kotlin-Multiplatform hybrid. Use when scaffolding an iOS app, writing SwiftUI/ARKit/MapLibre features, wiring the Claude Code ↔ Xcode workflow, building or installing on a physical device, or setting up a project so it survives its first App Store upload (product name, orientations, encryption, dSYM, xcodeproj tracking). For TestFlight, submission, screenshots and store metadata use solo-ios-release instead.
+description: Build iPhone/iOS apps — native SwiftUI or Kotlin-Multiplatform hybrid. Use when user says "build an iOS app", "add a SwiftUI screen", "run it on my iPhone", "set up the Xcode project", or when scaffolding an iOS app, writing SwiftUI/ARKit/MapLibre features, wiring the Claude Code ↔ Xcode workflow, building or installing on a physical device, or setting up a project so it survives its first App Store upload (product name, orientations, encryption, dSYM, xcodeproj tracking). For TestFlight, submission, screenshots and store metadata use solo-ios-release instead.
 license: MIT
 metadata:
   author: fortunto2

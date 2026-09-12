@@ -1,6 +1,6 @@
 ---
 name: solo-knowledge
-description: Use when needing methodology reference, asking about principles, harness engineering, SGR, launch playbook, agent memory, decision frameworks, or any topic covered in the solopreneur knowledge base. Also use when the user asks "what do we know about X" or "how does our methodology handle X".
+description: Use when needing methodology reference, asking about principles, harness engineering, SGR, launch playbook, agent memory, decision frameworks, or any topic covered in the solopreneur knowledge base. Use when user says "what do we know about X", "how does our methodology handle X", "what does the playbook say", "remind me of the principle".
 license: MIT
 metadata:
   author: fortunto2

@@ -79,7 +79,14 @@ def installed_versions(name: str) -> tuple[list[str], str | None]:
     repository's to change, and a check that fails on it would fail for every
     contributor who never installed the plugin at all.
     """
-    base = Path.home() / ".claude" / "plugins" / "cache"
+    # The profile Claude Code is actually configured with. Hardcoding ~/.claude here made
+    # this footer report a different profile from the checks above it: 1.23.0 printed
+    # directly under "installed_plugins.json version 1.71.0", both true, of two profiles.
+    base = (
+        Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+        / "plugins"
+        / "cache"
+    )
     if not base.is_dir():
         return [], "no plugin cache on this machine"
     hits = [d for d in base.glob(f"*/{name}/*") if d.is_dir()]

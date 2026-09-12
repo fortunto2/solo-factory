@@ -16,13 +16,22 @@ set -euo pipefail
 
 PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGIN_JSON="$PLUGIN_DIR/.claude-plugin/plugin.json"
-INSTALLED_JSON="$HOME/.claude/plugins/installed_plugins.json"
-CACHE_BASE="$HOME/.claude/plugins/cache/solo/solo"
+# Which profile to link into. Claude Code reads CLAUDE_CONFIG_DIR when it is set, so a
+# second profile (a work checkout with its own direnv, say) has its own plugin cache and its
+# own installed_plugins.json. Both paths here used to be hardcoded to ~/.claude, so this
+# script and `make doctor` could only ever see the default profile: a second profile's plugin
+# stayed on whatever version first installed it, no target in this repository could update it,
+# and the hooks it ran were silently months behind the source. Printed below rather than
+# assumed, because acting on the wrong profile is the failure being fixed.
+CLAUDE_HOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+INSTALLED_JSON="$CLAUDE_HOME/plugins/installed_plugins.json"
+CACHE_BASE="$CLAUDE_HOME/plugins/cache/solo/solo"
 
 # Read version from plugin.json
 VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_JSON'))['version'])")
 CACHE_DIR="$CACHE_BASE/$VERSION"
 
+echo "profile:      $CLAUDE_HOME${CLAUDE_CONFIG_DIR:+  (from CLAUDE_CONFIG_DIR)}"
 echo "solo-factory: $PLUGIN_DIR"
 echo "version:      $VERSION"
 echo "cache target: $CACHE_DIR"
@@ -81,9 +90,15 @@ fi
 
 # 6. Link user-level rules (solo-factory/rules/ → ~/.claude/rules/)
 RULES_SRC="$PLUGIN_DIR/rules"
-RULES_DST="$HOME/.claude/rules"
-if [[ -d "$RULES_SRC" ]]; then
-  mkdir -p "$RULES_DST"
+RULES_DST="$CLAUDE_HOME/rules"
+# Only into a profile that already keeps rules. These load on every single session, so a
+# profile that has never had them should not acquire five of them as a side effect of linking
+# a plugin - a work profile in particular, where the author's personal rules do not belong.
+# `make rules-budget` exists because this context is not free.
+if [[ -d "$RULES_SRC" ]] && [[ ! -d "$RULES_DST" ]]; then
+  echo "Skipped rules: $RULES_DST does not exist, so this profile keeps none."
+  echo "               mkdir it first if you want solo's rules loaded in every session here."
+elif [[ -d "$RULES_SRC" ]]; then
   for rule in "$RULES_SRC"/*.md; do
     [[ -f "$rule" ]] || continue
     name="$(basename "$rule")"

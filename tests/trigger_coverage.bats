@@ -42,7 +42,11 @@ no_triggers() {  # $1 = name
   run env SOLO_SKILLS_DIR="$T" python3 "$V"
   [[ "$output" == *"NO TEST CASE AT ALL"* ]]
   [[ "$output" == *"quiet"* ]]
-  [[ "$output" == *"Use when user says"* ]]   # the one form the extractor reads
+  # The message must say what is missing, and the extractor reads two spellings
+  # now (`Use when user says "…"` and `Use when "…"`), so pinning the sentence to
+  # one of them is how this test went red when the second was accepted.
+  [[ "$output" == *"quoted phrase after"* ]]
+  [[ "$output" == *"Use when"* ]]
 }
 
 @test "a repository where every skill is silent still says so loudly" {

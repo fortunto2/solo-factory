@@ -35,6 +35,13 @@ SKILLS_DIR = Path(
     os.environ.get("SOLO_SKILLS_DIR", Path(__file__).resolve().parent.parent / "skills")
 )
 MIN_DESCRIPTION_LEN = 40
+# True only when reading this repository's own skills/. The count check compares prose
+# in THIS repo against what is on disk; pointed at a scratch directory it would report
+# the absence of our README as a defect in someone's fixture. Found the hard way: the
+# check was written and exercised only through `make doctor`, the convenient call, and
+# went red in four tests that pass SOLO_SKILLS_DIR — the guard-reach mistake this repo
+# has a rule about.
+OWN_SKILLS = SKILLS_DIR == Path(__file__).resolve().parent.parent / "skills"
 
 
 def frontmatter(skill_md: Path) -> dict | None:
@@ -87,6 +94,47 @@ def check(skill_dir: Path) -> list[str]:
     return problems
 
 
+def check_counts(n: int) -> list[str]:
+    """Every prose claim about how many skills there are must match the disk.
+
+    Measured 2026-09-12: four files claimed 39, 44, 46 and 46 at once, and
+    README's own section totals summed to 45 with `board` in none of them. A
+    number in a document is read by the next agent as a fact, and none of the
+    four could be told from the truth by reading it. Scoped to files this repo
+    owns; a claim it cannot see is not one it can promise about.
+    """
+    root = SKILLS_DIR.parent
+    problems: list[str] = []
+    checked = 0
+    for rel, pattern in (
+        (".claude-plugin/plugin.json", r"(\d+) skills"),
+        ("CLAUDE.md", r"# (\d+) skills"),
+        ("README.md", r"^### .*?\((\d+) skills?\)"),
+    ):
+        path = root / rel
+        if not path.is_file():
+            problems.append(
+                f"{rel} is missing — the skill count cannot be checked against it"
+            )
+            continue
+        text = path.read_text(encoding="utf-8")
+        found = re.findall(pattern, text, re.M)
+        if not found:
+            problems.append(
+                f"{rel} states no skill count — this check has nothing to compare"
+            )
+            continue
+        checked += 1
+        claimed = sum(int(x) for x in found) if rel == "README.md" else int(found[0])
+        if claimed != n:
+            where = "section totals sum to" if rel == "README.md" else "says"
+            problems.append(f"{rel} {where} {claimed} skills, {n} are on disk")
+    # Zero scope is never a pass: three files were named, three must be read.
+    if checked == 0:
+        problems.append("no file carried a skill count — nothing was compared")
+    return problems
+
+
 def main() -> int:
     wanted = sys.argv[1:]
     dirs = sorted(d for d in SKILLS_DIR.iterdir() if d.is_dir())
@@ -107,7 +155,21 @@ def main() -> int:
         print(f"\n{len(problems)} problem(s) in {len(dirs)} skill(s).")
         return 1
 
-    print(f"OK    {len(dirs)} skills — frontmatter valid")
+    # Only meaningful over the whole set, and only for this repo's own skills —
+    # a filtered run knows nothing about the total, and a scratch directory has no
+    # documents of ours to disagree with.
+    if not wanted and OWN_SKILLS:
+        drift = check_counts(len(dirs))
+        for problem in drift:
+            print(f"FAIL  {problem}")
+        if drift:
+            print(f"\n{len(drift)} skill-count claim(s) disagree with the disk.")
+            return 1
+
+    counts = (
+        "frontmatter valid, counts in docs agree" if OWN_SKILLS else "frontmatter valid"
+    )
+    print(f"OK    {len(dirs)} skills — {counts}")
     return 0
 
 

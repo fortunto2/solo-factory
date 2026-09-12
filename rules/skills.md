@@ -16,7 +16,8 @@ readlink ~/.claude/plugins/cache/solo/solo/*   # → the repo skills are served 
 |------|-------|---------|
 | Startup/dev skills (`solo:*`) | `<solo-factory>/skills/<name>/SKILL.md` | yes — solo-factory |
 | Personal skills (music, home, one-offs) | `~/.claude/skills/<name>/SKILL.md` | no, unless you version it yourself |
-| Third-party skills | `~/.claude/plugins/cache/<marketplace>/…`, `~/.agents/skills/` | not yours — don't edit |
+| Third-party skills | `~/.claude/plugins/cache/<marketplace>/…`, `~/.agents/skills/<theirs>` | not yours — don't edit |
+| **`solo-*` in `~/.agents/skills/`** | the shared store codex/cursor/opencode read — must be a **symlink** to `<solo-factory>/skills/<name>` | the repo, via the link |
 | **Apple's, bundled in Xcode 27+** | `/Applications/Xcode*.app/Contents/PlugIns/IDEIntelligenceChat.framework/…/Resources/*.idechatprompttemplate` (+ `IDEXCStringsSupport…/Skills` for localization) | not yours — read only |
 | User rules | `<solo-factory>/rules/*.md` → symlinked into `~/.claude/rules/` | yes — solo-factory |
 | User `CLAUDE.md` | keep it in a repo **you own** and symlink to `~/.claude/CLAUDE.md` | your call |
@@ -38,6 +39,11 @@ for whoever installs them, so keep examples generic (`com.example.app`, `user@ex
 
 ## Rules
 
+- **A solo skill must be reachable by exactly one route.** The plugin serves all of them as
+  `solo:<name>`; a second entry under `~/.claude/skills/` is a duplicate even when it is a symlink,
+  because the session then loads two descriptions of one skill. `npx skills add fortunto2/solo-factory`
+  installs a *snapshot* into `~/.agents/skills/solo-<name>` — fine for other agents, wrong for this
+  one. Point those at the repo and delete the `~/.claude/skills/` entries.
 - **Never copy a `SKILL.md` between locations.** A copy silently forks: the runtime one gets the edits,
   the git one rots, and the next agent finds two different truths. Symlink or git — nothing else.
 - **Before creating or editing a skill, find its source**: `ls <solo-factory>/skills/`. If the name is
@@ -49,6 +55,15 @@ for whoever installs them, so keep examples generic (`com.example.app`, `user@ex
   It checks the plugin symlink, duplicate skills, and linked rules.
 
 ## Why this bit us
+
+**Twice, the same shape.** The second time, measured 2026-09-12: 28 solo skills were reachable
+both as `solo:<name>` (plugin → repo, live) and as `solo-<name>` (`~/.claude/skills` → `~/.agents/skills`,
+a `npx skills add` snapshot from 22 March). All 28 files had drifted; `humanize` was 205 lines in the
+repo against 160 in the snapshot. Transcripts show sessions took the stale route 7 times. `make doctor`
+printed `OK no duplicate skills` throughout: it compared the repo's directory name (`plan`) against
+`~/.claude/skills/plan`, while the duplicate is spelled `solo-plan` and lived in a store the check never
+opened. A guard that inspects one spelling in one location is not a guard against a defect that has two
+of each. Both are checked now, with `tests/skill_stores.bats` pinning them.
 
 The `solo` plugin was installed as a *copy* of solo-factory, so new skills didn't reach sessions and got
 copied into `~/.claude/skills/` as a workaround. Two copies then drifted, and an agent updated the runtime

@@ -50,10 +50,18 @@ def load_skill_description(skill_dir: Path) -> str | None:
         return None
 
 
+# `Use when user says "…"` is the documented form; `Use when "…"` is the one the
+# repository actually uses. This extractor read only the first, so on 2026-09-12 it
+# reported 43 of 46 skills as asserting nothing positive — a statement about its own
+# regex, not about the skills. Same defect the doctor had the same day: a guard that
+# recognises one spelling is absent for every other. Both are accepted now; measure
+# before concluding a skill is silent.
+TRIGGER_OPENER = re.compile(r'Use when (?:the )?user says\s+"|Use when\s+"')
+
+
 def extract_trigger_phrases(description: str) -> list[str]:
-    """Extract 'Use when user says ...' phrases from description."""
-    # Match: Use when user says "X", "Y", "Z"
-    match = re.search(r'Use when user says\s+"([^"]+)"', description)
+    """Extract the quoted trigger phrases from a description's `Use when …` clause."""
+    match = TRIGGER_OPENER.search(description)
     if not match:
         return []
 
@@ -215,8 +223,8 @@ def run_tests(
         print(
             f"  {len(no_cases)} skill(s) contributed NO TEST CASE AT ALL and are "
             f"absent from the list above — nothing was asserted about them in either "
-            f'direction. Their descriptions carry no `Use when user says "…"` '
-            f"phrases, which is the only form this extractor reads:"
+            f"direction. Their descriptions carry no quoted phrase after `Use when` "
+            f"or `Use when user says`, which are the two forms this extractor reads:"
         )
         print("    " + ", ".join(sorted(no_cases)))
     if no_positive:
