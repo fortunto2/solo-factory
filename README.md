@@ -9,7 +9,7 @@
 
 **Your own path. Multiple stacks. Ship everything.**
 
-> From shower thought to deployed product — 46 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
+> From shower thought to deployed product — 47 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
@@ -167,7 +167,7 @@ What is in the set, and the rules that most often hit real code:
 → Privacy policy (GDPR-ready), Terms of Service, App Store privacy labels
 ```
 
-### Utility (15 skills)
+### Utility (16 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -178,6 +178,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:factory` | Install the full Solo Factory toolkit in one command |
 | `/solo:retro` | Post-pipeline retrospective — score process, find waste, suggest fixes |
 | `/solo:audit` | KB health check — broken links, frontmatter, tag inconsistencies |
+| `/solo:pdf-print` | HTML → printable A4 PDF: page breaks, page numbers, Cyrillic, verify by eye |
 | `/solo:memory-audit` | Claude Code memory hierarchy — loaded files, char counts, optimization hints |
 | `/solo:humanize` | Strip AI writing patterns — em dashes, stock phrases, performed authenticity |
 | `/solo:index-youtube` | Index YouTube channel transcripts for semantic search |
@@ -355,7 +356,7 @@ solo-factory/
 ├── .claude-plugin/
 │   ├── plugin.json          # Plugin manifest
 │   └── marketplace.json     # Marketplace manifest
-├── skills/                  # 46 skills
+├── skills/                  # 47 skills
 │   ├── research/            # Scout the market
 │   ├── validate/            # Score → PRD
 │   ├── scaffold/            # PRD → project
