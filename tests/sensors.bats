@@ -867,6 +867,45 @@ print(m.unparsed_guard(127, 'command not found', [], {'v': 0}, 'v')[1]['v'])
   [[ "$output" != *"PARTIAL"* ]]
 }
 
+# --- a tool that cannot see the project's imports is not a failing test ------
+# Measured 2026-09-13 on a real repo: `uvx pytest` runs the tool in its OWN
+# environment and installs nothing of the project, so a suite whose tests
+# `import yaml` reported ModuleNotFoundError — red on every run, saying nothing
+# about the code. The same call shape made ty print `unresolved-import` for
+# every declared dependency. When the project declares what it needs, the tool
+# has to run inside that environment.
+
+@test "pytest runs inside the project environment when pyproject declares deps" {
+  command -v uv >/dev/null || skip "uv not installed"
+  cat > "$REPO/pyproject.toml" <<'EOF'
+[project]
+name = "probe"
+version = "0"
+requires-python = ">=3.11"
+dependencies = ["pyyaml"]
+[tool.uv]
+package = false
+EOF
+  mkdir -p "$REPO/tests"
+  printf 'import yaml\ndef test_dep(): assert yaml.safe_load("a: 1") == {"a": 1}\n' \
+    > "$REPO/tests/test_dep.py"
+  printf 'x = 1\n' > "$REPO/a.py"
+  run "$VERIFY" --root "$REPO" --full --files a.py
+  [[ "$output" != *"ModuleNotFoundError"* ]]
+  [[ "$output" == *"pytest"* ]]
+}
+
+@test "with no pyproject the tool still runs, through uvx as before" {
+  # The fix must not require every project to declare dependencies: a plain
+  # script repo has nothing to install and uvx remains correct for it.
+  mkdir -p "$REPO/tests"
+  printf 'def test_plain(): assert True\n' > "$REPO/tests/test_plain.py"
+  printf 'x = 1\n' > "$REPO/a.py"
+  run "$VERIFY" --root "$REPO" --full --files a.py
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"pytest=fail"* ]]
+}
+
 # --- swiftlint had three defects of classes already fixed elsewhere ---------
 # Found by extending the blind-spot corpus to Swift. Each is a contract this
 # repo already enforces somewhere else, and swiftlint was the one call site it

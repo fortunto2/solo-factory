@@ -33,8 +33,8 @@ never let it happen quietly.
 | `syntax` | Every changed `.py`/`.js`/`.swift` file parses — syntax only, never types | `ast.parse` / `node --check` / `swiftc -parse`, per file (~0.15s for Swift) | broken syntax fails |
 | `limits` | No function >150 lines, no module >1000 lines, **unless the file declares an exemption with a reason**. About THIS change: a file already over the limit is inherited debt — reported, never failed | AST walk; thresholds from CLAUDE.md | an over-long function trips the 150-line threshold |
 | `ruff` | The repo's configured ruff rule set | `ruff check --output-format=concise` on changed files | a repo with no ruff config is labelled ruff-defaults, and says so |
-| `ty` | No type errors in changed Python | `uvx ty check` (full mode) | none — nothing exercises this sensor. Found by writing check-promises: `ty` matched 29 test names as a substring of "safety" and "empty", and zero as a subject |
-| `pytest` | The suite runs **and collects >0 tests** | `uvx pytest -q`, counters parsed | pytest keeps its own words when it collects nothing |
+| `ty` | No type errors in changed Python | `uv run --with ty` where the project declares dependencies, `uvx ty check` otherwise (full mode) | none — nothing exercises this sensor. Found by writing check-promises: `ty` matched 29 test names as a substring of "safety" and "empty", and zero as a subject |
+| `pytest` | The suite runs **and collects >0 tests** | `uv run --with pytest` where the project declares dependencies, `uvx pytest -q` otherwise; counters parsed | pytest keeps its own words when it collects nothing |
 | `eslint` / `tsc` | Repo's eslint config; project typechecks. **Absent toolchain ⇒ PARTIAL**, never PASS | `node_modules/.bin/*` only, never global | eslint absent makes the verdict PARTIAL, not PASS |
 | `cargo-fmt` | Changed `.rs` files are rustfmt-clean | `rustfmt --check` on the changed files only | cargo-fmt respects scope: a clean changed file passes in a dirty repo |
 | `clippy` / `cargo-test` | clippy with `-D warnings`; tests pass — **whole workspace, not scoped** | cargo (full mode) | rust pair: a crate that does not compile is reported, not shrugged at |
@@ -128,6 +128,32 @@ never that the change is correct.**
 The cases behind this number — why a marker may not name the file it looks in, why
 a corpus needs a control that can fail, what `S105/S106/S107` actually match — are
 in `docs/harness-case-log.md`.
+
+## A tool that cannot see the project's imports is not a failing test
+
+**Measured here, 2026-09-13.** `uvx` runs a tool in its own environment and
+installs nothing of the project under test. On a repo whose tests `import yaml`,
+`uvx pytest` therefore reported `ModuleNotFoundError` and `uvx ty` printed
+`unresolved-import` for every declared dependency — red on every run, in a repo
+where the suite is green (38 passed) the moment the tool can see the imports.
+
+That is rule 2b read from the other side. An absent tool must not turn red into
+green; an absent *dependency* must not turn green into red, because the finding
+then describes the harness rather than the code. Three sessions in a row spent a
+turn explaining the same two false findings, which is the tell: a checker whose
+output has to be argued with every run is one people stop reading.
+
+So the sensors now run inside the project's environment **when the project
+declares one** — `uv run --with <tool>` if `pyproject.toml` parses and names
+dependencies, `uvx` otherwise, because a plain script repo has nothing to install
+and `uvx` stays correct for it.
+
+The condition is "declares dependencies", not "has a pyproject.toml", and the
+difference was found by the existing tests rather than by reasoning: this repo's
+own fixtures write a one-line `pyproject.toml` purely as a stack marker, `uv run`
+fails to parse it, and keying on the file's presence turned three green tests red.
+A malformed or fragmentary file now falls back to `uvx` instead of being reported
+as a broken suite.
 
 ## The same rule one level up: a loop's own ledger
 

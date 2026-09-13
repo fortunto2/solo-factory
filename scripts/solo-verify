@@ -1084,16 +1084,59 @@ def check_ruff(root: Path, files: list[Path], timeout: int) -> Result:
     )
 
 
+# `uvx` runs a tool in its OWN isolated environment: it never installs the
+# checked project's dependencies. On a project whose code imports pyyaml,
+# requests or weasyprint, that turns every run red — `ModuleNotFoundError` from
+# pytest, `unresolved-import` from ty — and neither says anything about the code.
+# Measured 2026-09-13: a two-file project declaring pyyaml in pyproject.toml
+# fails under `uvx pytest` and passes under `uv run --with pytest pytest`.
+# So when the project declares its dependencies, run the tool INSIDE that
+# environment. With no pyproject.toml there is nothing to install and `uvx` is
+# still the right call.
+def declares_deps(root: Path) -> bool:
+    """Does this project actually declare Python dependencies?
+
+    Presence of pyproject.toml is not the question: a file that is a stack
+    marker, a fragment, or malformed makes `uv run` fail on parse, and that
+    failure would be reported as a broken test suite. Only a file that parses
+    AND names dependencies buys anything here.
+    """
+    f = root / "pyproject.toml"
+    if not f.exists():
+        return False
+    try:
+        import tomllib
+
+        data = tomllib.loads(f.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    if data.get("project", {}).get("dependencies"):
+        return True
+    return bool(data.get("dependency-groups")) or bool(
+        data.get("tool", {}).get("uv", {}).get("dev-dependencies")
+    )
+
+
+def tool_cmd(root: Path, tool: str, args: list[str]) -> list[str] | None:
+    """The command that runs `tool` where it can see the project's imports."""
+    if declares_deps(root) and shutil.which("uv"):
+        return ["uv", "run", "--quiet", "--with", tool, tool, *args]
+    if shutil.which("uvx"):
+        return ["uvx", tool, *args]
+    return None
+
+
 def check_types(root: Path, files: list[Path], timeout: int) -> Result:
     py = [f for f in files if is_python(f)]
     if not py:
         return Result(
             "ty", "skip", reason="no Python files in scope", skip_kind=NOT_APPLICABLE
         )
-    if not shutil.which("uvx"):
+    cmd = tool_cmd(root, "ty", ["check", *[str(f) for f in py]])
+    if cmd is None:
         return Result("ty", "skip", reason=missing("uvx"), skip_kind=UNAVAILABLE)
     t = time.time()
-    code, out = run(["uvx", "ty", "check", *[str(f) for f in py]], root, timeout)
+    code, out = run(cmd, root, timeout)
     findings = [ln.strip() for ln in out.splitlines() if "error" in ln.lower()][:15]
     if findings:
         findings.append(FIX_HINTS["types"])
@@ -1122,10 +1165,11 @@ def check_pytest(root: Path, timeout: int) -> Result:
             reason="no tests/ directory and no test_*.py at root",
             skip_kind=NOT_APPLICABLE,
         )
-    if not shutil.which("uvx"):
+    cmd = tool_cmd(root, "pytest", ["-q", "--no-header"])
+    if cmd is None:
         return Result("pytest", "skip", reason=missing("uvx"), skip_kind=UNAVAILABLE)
     t = time.time()
-    code, out = run(["uvx", "pytest", "-q", "--no-header"], root, timeout)
+    code, out = run(cmd, root, timeout)
     # Order matters: a timed-out or never-started run parses as "0 collected",
     # and reporting that as "no tests found" states the wrong cause. Check
     # completion before interpreting the output at all.
