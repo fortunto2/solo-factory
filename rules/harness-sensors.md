@@ -433,6 +433,16 @@ A retracted claim is marked, never deleted. A citation that quietly disappears
 leaves the reader believing it was never there, and the reasoning that produced
 it — which is usually the valuable part — disappears with it.
 
+**A paraphrase of an external verdict is not the verdict.** A rejection, a CI
+failure, a vendor notice: when one of those drives the work, get the verbatim text
+first. A human summary is a pointer to the source and compresses away the clause
+that decides what to do — twice in one session it turned an informational
+"delivery succeeded, you may want to correct this next time" into a rejection, and
+a store review into a memory bug that the crash reports (sitting unread in Xcode
+Organizer) refuted. If the text cannot be obtained, that is the state to report;
+meanwhile do the parts that do not depend on the wording. And when a status
+endpoint contradicts the paraphrase, that is evidence, not lag.
+
 **And the correction has to land where the claim was made.** Two careful readers
 on the board independently demanded a correction that had already been published
 — because the erratum went into a different thread from the one carrying the

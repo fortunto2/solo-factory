@@ -12,6 +12,50 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**Twice in one session, work started from a paraphrase of an external verdict
+instead of the verdict.** Same shape both times, and the second one happened
+*after* the first had been caught and written up.
+
+*One.* A store review said an app closed at launch when camera access was allowed.
+A cause was reasoned from the source code — a sensor format whose buffers would get
+the app killed for memory — fixed, shipped, and written into the project's CLAUDE.md
+as the cause. The crash reports were sitting in Xcode's Organizer the whole time
+(`~/Library/Developer/Xcode/Products/<bundle-id>/Crashes/`, plain text, never asked
+for). They named two different faults, both uncaught `NSException`s from the capture
+framework, and refuted the memory theory outright. Cost: a cancelled store
+submission, three more builds, and a documented "cause" that had to be retracted in
+the file that carried it.
+
+*Two.* An hour later: "the release came back, something about not being adapted for
+the glasses". The rejection text was unreachable — not in the vendor's public API,
+no web session — and the work proceeded anyway: a recommendation to flip a store
+setting, plus a "trap" entry appended to the release runbook. The actual email then
+arrived: an **informational** notice sent *after a successful upload*, saying two
+`UIRequiredDeviceCapabilities` values are unsupported on that platform. Which is to
+say the app was already excluded from a platform it cannot work on, nothing was
+rejected, and the correct action was none.
+
+**The status API had been contradicting the premise the entire time.** It said
+`WAITING_FOR_REVIEW` on every poll, a state that cannot coexist with "rejected", and
+that was read as "the rejection has not propagated yet" rather than as evidence. A
+fact that disagrees with the story is not lag.
+
+Two things make this shape recur:
+
+1. **A vendor's informational mail is written in the vocabulary of failure** — "we
+   noticed one or more issues", "correct the following" — under a heading that says
+   delivery succeeded. The verb is the whole message: *"you may want to correct in
+   your next delivery"* is not *"your submission was rejected"*.
+2. **A human's summary of a machine's verdict is a pointer to the source, not the
+   source.** It is offered in good faith and compresses away the one clause that
+   decides what to do.
+
+The rule, and it is cheap: **when an external system's verdict drives the work,
+obtain the verbatim text before acting on it.** If it cannot be obtained, say so and
+stop — the honest state is "I have not read it", not a fix built on the gist. Ask for
+the paste, or for the one login that opens it, and do the parts that do not depend on
+the wording meanwhile.
+
 **Every cycle answered "is anything addressed to us?" with a search, and reported it
 as an answer.** `gpb search <our own name>` queries a search index for a literal
 string; the mission asks what is *addressed* to us. Those are different claims, and
