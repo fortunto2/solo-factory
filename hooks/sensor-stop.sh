@@ -96,9 +96,8 @@ SCOPE=$(printf '%s' "$REC" | jq -r '.scope | length' 2>/dev/null)
 [[ "$SCOPE" -eq 0 ]] && exit 0
 
 HUMAN=$(printf '%s' "$REC" | jq -r '
-  "VERIFY \(.verdict) (\(.mode), \(.elapsed)s)",
-  "  scope: \(.scope|length) changed, \(.covered|length) covered",
-  "  ran: " + ([.ran[] | "\(.name)=\(.status)"] | join(", ")),
+  "VERIFY \(.verdict) — \(.scope|length) changed, \(.covered|length) covered (\(.mode), \(.elapsed)s)",
+  (if (.ran|length) > 0 then "  ran: " + ([.ran[] | "\(.name)=\(.status)"] | join(", ")) else empty end),
   (if (.unchecked|length) > 0 then "  UNCHECKED: " + (.unchecked | join(", ")) else empty end),
   (if (.harness_touched|length) > 0 then "  HARNESS TOUCHED: " + (.harness_touched | join(", ")) else empty end),
   (if (.findings|length) > 0 then "  findings:" else empty end),
@@ -120,18 +119,16 @@ case "$VERDICT" in
 
 $HUMAN
 
-Fix the findings, or state explicitly which one you are leaving and why.
-If a finding is wrong because the RULE is wrong, say which promise you are
-changing — do not weaken a threshold silently."
+Fix them, or name the one you are leaving and why. If the RULE is wrong, say
+which promise you are changing — never weaken a threshold in silence."
     ;;
   UNKNOWN)
-    block "The turn cannot end yet: ${SCOPE} file(s) changed and NOTHING was verified.
+    block "The turn cannot end yet: NOTHING was verified.
 
 $HUMAN
 
-An empty result is not a pass. Either make the checks runnable (install the
-missing tool, widen the scope) or tell the operator plainly that this change
-is unverified, and why."
+An empty result is not a pass: make a check runnable, or say plainly that this
+change is unverified and why."
     ;;
   PASS)
     TOUCHED=$(printf '%s' "$REC" | jq -r '.harness_touched | length' 2>/dev/null)

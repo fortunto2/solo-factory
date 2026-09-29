@@ -173,6 +173,12 @@ A clean `asc validate` is not a clean review. These pass validation and get the 
 - **ARKit / camera features (2.1)** — reviewers ask what the feature is, where to find it, and
   whether AR markers are needed. Answer all three in Review Notes *before* submitting, with the
   exact tap path, and say plainly if the feature needs to be physically near something to show data.
+- **Face data (2.1 Information Needed)** — any Vision face landmarks, ARKit face tracking or
+  TrueDepth use, or even the word "face" in a permission string or a screenshot showing a face
+  mesh, triggers a six-question request: what face data, use/sharing/retention/deletion/storage,
+  third parties, how long, WHERE in the privacy policy, and a VERBATIM quote of that text. The
+  policy needs its own anchored "Face data" section written against the code before submitting;
+  a one-line "tracked on-device" mention fails. Reply field limit is 4000 characters.
 - **Support and privacy URLs actually resolving** — validate only checks that a URL is present.
   A 404 is a rejection. Verify every URL before writing it:
   `curl -s -o /dev/null -L -w '%{http_code}\n' "$URL"`
