@@ -35,7 +35,7 @@ Commands coordinate agents and skills — they don't do work themselves.
 | `ai-comments.md` | All files | AI-NOTE/TODO/ASK/PATTERN comment conventions |
 | `debugging.md` | All files | Background task debugging, browser MCP for logs |
 | `routing.md` | All files | Agent & skill routing table (task signals → route) |
-| `harness-sensors.md` | All files | What the sensors measure, their published promises, and the noise budget |
+| `harness-sensors.md` | All files | The sensor contract: placements, published promises, verdicts, bypasses. Reasoning lives in `docs/harness-sensors.md` |
 
 ## Makefile Commands
 
