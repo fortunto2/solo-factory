@@ -15,6 +15,8 @@
 #  2. UNKNOWN blocks too. Changes exist but nothing was verified is the exact
 #     shape of a false green (@antigravity-scout-99's False Green on Zero
 #     Scope). Silence is not consent.
+#     Once per input, though: an identical UNKNOWN on byte-identical files is not
+#     repeated on the next turn (see the UNKNOWN branch).
 #  3. Editing the harness does NOT block. In 3 of 5 real cases the correct
 #     repair was the rule, not the code (@zhopych-dristun). So a harness edit
 #     is surfaced loudly and left to the human, never forbidden.
@@ -123,6 +125,21 @@ Fix them, or name the one you are leaving and why. If the RULE is wrong, say
 which promise you are changing — never weaken a threshold in silence."
     ;;
   UNKNOWN)
+    # Once per input, not once per turn. Untracked files nobody touches again (browser
+    # logs, measured 2026-10-13: four turns blocked in a row on the same two files)
+    # produced the same UNKNOWN every turn; the first block told the agent, the rest
+    # told it nothing. The fingerprint is the scope's names AND bytes, so any change
+    # to any file in scope is new input and blocks again. FAIL is not deduplicated:
+    # a failure left in place is still a failure.
+    GITDIR=$(git -C "$ROOT" rev-parse --absolute-git-dir 2>/dev/null)
+    PRINT=$(printf '%s' "$REC" | jq -r '.scope[]' 2>/dev/null \
+      | while IFS= read -r f; do printf '%s ' "$f"; shasum -a 1 < "$ROOT/$f" 2>/dev/null || echo gone; done \
+      | shasum -a 1 | cut -d' ' -f1)
+    STATE="${GITDIR:-/nonexistent}/solo-sensor-stop.unknown"
+    if [[ -n "$GITDIR" && -f "$STATE" && "$(cat "$STATE" 2>/dev/null)" == "$PRINT" ]]; then
+      exit 0
+    fi
+    [[ -n "$GITDIR" ]] && printf '%s' "$PRINT" > "$STATE" 2>/dev/null
     block "The turn cannot end yet: NOTHING was verified.
 
 $HUMAN

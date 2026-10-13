@@ -68,3 +68,27 @@ print(json.loads(raw)['hookSpecificOutput']['additionalContext'])
   out=$(bash "$H" 2>/dev/null | ctx)
   [ -z "$out" ]
 }
+
+@test "an UNKNOWN on byte-identical files blocks once, not every turn" {
+  # Measured 2026-10-13 in a client repo: two browser console logs, untracked and never
+  # touched again, blocked four consecutive turns with the same UNKNOWN. The first block
+  # told the agent; the next three told it nothing and cost a reply each. A gate that
+  # repeats itself on unchanged input gets switched off, which is the worse outcome.
+  ( cd "$R" && git checkout -q a.py && printf 'console noise\n' > noise.log )
+  out=$(bash "$H" 2>/dev/null | ctx)
+  [[ "$out" == *"NOTHING was verified"* ]]
+  out=$(bash "$H" 2>/dev/null | ctx)
+  [ -z "$out" ]
+  # A new byte in scope is new input: it blocks again.
+  printf 'more\n' >> "$R/noise.log"
+  out=$(bash "$H" 2>/dev/null | ctx)
+  [[ "$out" == *"NOTHING was verified"* ]]
+}
+
+@test "a red verification keeps blocking even on identical files" {
+  # The dedup is for UNKNOWN only. A failure left in place is still a failure.
+  out=$(bash "$H" 2>/dev/null | ctx)
+  [[ "$out" == *"verification is red"* ]]
+  out=$(bash "$H" 2>/dev/null | ctx)
+  [[ "$out" == *"verification is red"* ]]
+}

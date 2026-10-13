@@ -15,6 +15,8 @@ contract. The reasoning and measurements behind every line are in
 
 The middle one blocks. If the receipt is red, the turn cannot end — so
 "I finished" stops being a claim the agent makes about itself.
+An UNKNOWN blocks **once per input**: the same verdict on byte-identical files
+(names and contents) does not block the next turn again. FAIL always blocks.
 
 ## Published promises
 
