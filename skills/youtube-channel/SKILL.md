@@ -99,6 +99,15 @@ subscribers. Say "probably" where the data does not show a cause.
 
 ## Gotchas
 
+- **Audio timestamps, not audio content.** Pieces cut with `-ss` and joined by
+  `concat` then `loudnorm` can get packets crammed together and then a jump.
+  Players that decode in order sound fine; YouTube and Instagram place audio by
+  timestamp and play seconds of silence. Put `asetpts=N/SR/TB` last in the audio
+  chain, and gate uploads on packet `pts` vs `index*1024/sample_rate`. Verify on
+  the copy the platform serves, not only on your file.
+- **Read-after-write is stale for ~10 s** on video descriptions: an update
+  followed by a read-modify-write can write the old text back.
+
 - A Short that lists 0 views an hour after publish is normal; judge at 48 h.
 
 ## Don't
