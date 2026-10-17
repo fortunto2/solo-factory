@@ -9,7 +9,7 @@
 
 **Your own path. Multiple stacks. Ship everything.**
 
-> From shower thought to deployed product — 47 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
+> From shower thought to deployed product — 48 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
@@ -138,7 +138,7 @@ make apple-skills          # export
 What is in the set, and the rules that most often hit real code:
 [`skills/swiftui-design-system/references/apple-xcode-skills.md`](skills/swiftui-design-system/references/apple-xcode-skills.md).
 
-### Promotion (12 skills)
+### Promotion (13 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -149,6 +149,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:content-gen` | Social media pack — LinkedIn post, Reddit draft, Twitter/X thread + release notes |
 | `/solo:community-outreach` | Find Reddit/HN/PH threads, draft value-first responses + launch checklist |
 | `/solo:video-promo` | Promo video plan — 30-45s script, storyboard, Remotion config |
+| `/solo:youtube-channel` | Publish and measure a YouTube channel from the CLI — upload, captions, Shorts↔long links, Analytics API |
 | `/solo:metrics-track` | PostHog event funnel, KPI benchmarks, A/B test template, kill/iterate/scale |
 | `/solo:legal` | Privacy policy + terms of service — privacy-first, manifest-aligned |
 | `/solo:seo-cli` | Run the `seo` CLI — SEO+GEO score, agent-audit (can an AI agent read the site?), reindex |
@@ -356,7 +357,7 @@ solo-factory/
 ├── .claude-plugin/
 │   ├── plugin.json          # Plugin manifest
 │   └── marketplace.json     # Marketplace manifest
-├── skills/                  # 47 skills
+├── skills/                  # 48 skills
 │   ├── research/            # Scout the market
 │   ├── validate/            # Score → PRD
 │   ├── scaffold/            # PRD → project
@@ -374,6 +375,7 @@ solo-factory/
 │   ├── community-outreach/  # Reddit/HN/PH outreach
 │   ├── customer-finder/     # First-customer prospecting
 │   ├── video-promo/         # Promo video plan
+│   ├── youtube-channel/     # YouTube publish + analytics
 │   ├── metrics-track/       # PostHog metrics
 │   ├── humanize/            # Strip AI patterns
 │   ├── audit/               # KB health check
