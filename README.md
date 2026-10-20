@@ -138,7 +138,7 @@ make apple-skills          # export
 What is in the set, and the rules that most often hit real code:
 [`skills/swiftui-design-system/references/apple-xcode-skills.md`](skills/swiftui-design-system/references/apple-xcode-skills.md).
 
-### Promotion (13 skills)
+### Promotion (14 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -149,6 +149,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:content-gen` | Social media pack — LinkedIn post, Reddit draft, Twitter/X thread + release notes |
 | `/solo:community-outreach` | Find Reddit/HN/PH threads, draft value-first responses + launch checklist |
 | `/solo:video-promo` | Promo video plan — 30-45s script, storyboard, Remotion config |
+| `/solo:creator-growth` | Short vertical video for a consumer app — founder-led first, paid UGC creators after a measured signal |
 | `/solo:youtube-channel` | Publish and measure a YouTube channel from the CLI — upload, captions, Shorts↔long links, Analytics API |
 | `/solo:metrics-track` | PostHog event funnel, KPI benchmarks, A/B test template, kill/iterate/scale |
 | `/solo:legal` | Privacy policy + terms of service — privacy-first, manifest-aligned |
@@ -376,6 +377,7 @@ solo-factory/
 │   ├── content-gen/         # Social media pack
 │   ├── community-outreach/  # Reddit/HN/PH outreach
 │   ├── customer-finder/     # First-customer prospecting
+│   ├── creator-growth/      # Short-form / UGC growth for apps
 │   ├── video-promo/         # Promo video plan
 │   ├── youtube-channel/     # YouTube publish + analytics
 │   ├── metrics-track/       # PostHog metrics
