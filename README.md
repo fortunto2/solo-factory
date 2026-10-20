@@ -168,7 +168,7 @@ What is in the set, and the rules that most often hit real code:
 → Privacy policy (GDPR-ready), Terms of Service, App Store privacy labels
 ```
 
-### Utility (17 skills)
+### Utility (18 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -182,6 +182,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:pdf-print` | HTML → printable A4 PDF: page breaks, page numbers, Cyrillic, verify by eye |
 | `/solo:memory-audit` | Claude Code memory hierarchy — loaded files, char counts, optimization hints |
 | `/solo:open-dataset` | Publish data with a DOI: a repo per dataset, CITATION.cff, CC BY 4.0, Zenodo per release, media on Hugging Face |
+| `/solo:paper` | Research result → arXiv preprint or conference paper in any field: venue choice, LaTeX + tectonic, references from databases, adversarial review, endorsement |
 | `/solo:humanize` | Strip AI writing patterns — em dashes, stock phrases, performed authenticity |
 | `/solo:index-youtube` | Index YouTube channel transcripts for semantic search |
 | `/solo:you2idea-extract` | Extract startup ideas from YouTube video transcripts |
