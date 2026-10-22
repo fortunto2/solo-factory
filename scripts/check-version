@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+"""One version number, or a loud failure.
+
+The plugin is distributed by version string, and on 2026-10-22 the repo carried four:
+plugin.json 1.77.0, marketplace.json 1.25.0, the SessionStart echo in hooks.json
+1.20.0, pyproject.toml 1.22.0. Each was bumped by whoever remembered that file. This
+check makes `.claude-plugin/plugin.json` the only source and refuses the others drifting.
+
+  scripts/check-version          # exit 1 and name the file when any disagree
+  scripts/check-version --fix    # rewrite the followers to plugin.json's version
+"""
+
+import json
+import re
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+PLUGIN = REPO / ".claude-plugin" / "plugin.json"
+MARKET = REPO / ".claude-plugin" / "marketplace.json"
+PYPROJECT = REPO / "pyproject.toml"
+HOOKS = REPO / "hooks" / "hooks.json"
+CHANGELOG = REPO / "CHANGELOG.md"
+
+
+def main() -> int:
+    fix = "--fix" in sys.argv
+    truth = json.loads(PLUGIN.read_text())["version"]
+    problems: list[str] = []
+
+    m = json.loads(MARKET.read_text())
+    got = m["plugins"][0].get("version")
+    if got != truth:
+        if fix:
+            m["plugins"][0]["version"] = truth
+            MARKET.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
+        else:
+            problems.append(f"marketplace.json says {got}")
+
+    text = PYPROJECT.read_text()
+    pm = re.search(r'^version = "([^"]+)"', text, re.M)
+    if not pm or pm.group(1) != truth:
+        if fix and pm:
+            PYPROJECT.write_text(text[: pm.start(1)] + truth + text[pm.end(1) :])
+        else:
+            problems.append(f"pyproject.toml says {pm.group(1) if pm else '?'}")
+
+    if '"version"' in HOOKS.read_text():
+        problems.append(
+            "hooks.json carries a version string; the SessionStart echo must not"
+        )
+
+    if CHANGELOG.exists() and f"## {truth}" not in CHANGELOG.read_text():
+        problems.append(f"CHANGELOG.md has no `## {truth}` entry")
+
+    if problems:
+        print(f"version drift from plugin.json {truth}:")
+        for p in problems:
+            print(f"  - {p}")
+        print(
+            "  scripts/check-version --fix rewrites the followers; the CHANGELOG line is yours"
+        )
+        return 1
+    print(
+        f"OK version {truth} everywhere (plugin.json, marketplace.json, pyproject.toml, CHANGELOG)"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

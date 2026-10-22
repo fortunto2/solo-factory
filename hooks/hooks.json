@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"solo-factory\": \"loaded\", \"version\": \"1.20.0\", \"skills\": [\"research\", \"validate\", \"scaffold\", \"setup\", \"plan\", \"build\", \"swarm\", \"stream\", \"audit\", \"pipeline\"], \"agents\": [\"researcher\", \"code-analyst\", \"idea-validator\"], \"mcp\": \"codegraph\"}'"
+            "command": "echo '{\"solo-factory\": \"loaded\", \"skills\": \"/solo:<name>\", \"agents\": [\"researcher\", \"code-analyst\", \"idea-validator\"], \"mcp\": \"codegraph\"}'"
           },
           {
             "type": "command",

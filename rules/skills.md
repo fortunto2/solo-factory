@@ -54,18 +54,8 @@ for whoever installs them, so keep examples generic (`com.example.app`, `user@ex
 - **After changing skill layout** (new skill, moved skill, fresh machine) → `make doctor` in solo-factory.
   It checks the plugin symlink, duplicate skills, and linked rules.
 
-## Why this bit us
+## History
 
-**Twice, the same shape.** The second time, measured 2026-09-12: 28 solo skills were reachable
-both as `solo:<name>` (plugin → repo, live) and as `solo-<name>` (`~/.claude/skills` → `~/.agents/skills`,
-a `npx skills add` snapshot from 22 March). All 28 files had drifted; `humanize` was 205 lines in the
-repo against 160 in the snapshot. Transcripts show sessions took the stale route 7 times. `make doctor`
-printed `OK no duplicate skills` throughout: it compared the repo's directory name (`plan`) against
-`~/.claude/skills/plan`, while the duplicate is spelled `solo-plan` and lived in a store the check never
-opened. A guard that inspects one spelling in one location is not a guard against a defect that has two
-of each. Both are checked now, with `tests/skill_stores.bats` pinning them.
-
-The `solo` plugin was installed as a *copy* of solo-factory, so new skills didn't reach sessions and got
-copied into `~/.claude/skills/` as a workaround. Two copies then drifted, and an agent updated the runtime
-copy while the git one stayed old. Fixed by symlinking the plugin cache to the repo — see
-[[harness-engineering]]: agent mistake → fix the harness, not the agent.
+Two incidents shaped these rules (a `npx skills add` snapshot that drifted on 28 skills,
+and a plugin installed as a copy). Both are in `docs/harness-case-log.md` under
+"Where skills live".

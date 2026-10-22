@@ -34,7 +34,7 @@ Commands coordinate agents and skills — they don't do work themselves.
 |------|-------|---------|
 | `ai-comments.md` | All files | AI-NOTE/TODO/ASK/PATTERN comment conventions |
 | `debugging.md` | All files | Background task debugging, browser MCP for logs |
-| `routing.md` | All files | Agent & skill routing table (task signals → route) |
+| `routing.md` | All files | Directory markers → next pipeline stage. Prompt-shape routing is the profile hook, not this file |
 | `harness-sensors.md` | All files | The sensor contract: placements, published promises, verdicts, bypasses. Reasoning lives in `docs/harness-sensors.md` |
 
 ## Makefile Commands
@@ -75,7 +75,8 @@ Skills are dual-compatible: Claude Code plugin + OpenClaw ClawHub. Each SKILL.md
 
 ```bash
 # 1. Edit skills
-# 2. Bump version in .claude-plugin/plugin.json AND skill's SKILL.md metadata.version
+# 2. Bump version in .claude-plugin/plugin.json AND skill's SKILL.md metadata.version,
+#    add a line at the top of CHANGELOG.md, then `scripts/check-version --fix`
 # 3. Commit and publish:
 git add -A && git commit -m "feat: description"
 
@@ -161,7 +162,7 @@ The pipeline (`solo-dev.sh`) calls skills as `/solo:{name}`. Claude Code resolve
 ## Key Rules
 
 - **Skill names:** always `solo-{skillname}` in SKILL.md `name:` field
-- **Version:** bump in `.claude-plugin/plugin.json` before every publish
+- **Version:** bump in `.claude-plugin/plugin.json` before every publish; `marketplace.json` and `pyproject.toml` follow via `scripts/check-version --fix`; `CHANGELOG.md` gets a line
 - **MCP conditional:** skills must work with AND without MCP tools (use "IF available" pattern)
 - **No hardcoded paths:** use `${CLAUDE_PLUGIN_ROOT}` or relative paths for references
 - **Submodule:** this repo is included as git submodule in `solopreneur`

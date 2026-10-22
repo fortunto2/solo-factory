@@ -198,6 +198,11 @@ rm -f /tmp/solo-doctor-skills.$$
 # a hook that fails every commit until you release teaches people to pass
 # --no-verify, and a habitually bypassed gate is worse than none.
 echo
+if ! python3 "$(dirname "$0")/check-version"; then
+  fails=$((fails + 1))
+fi
+
+echo
 if ! python3 "$(dirname "$0")/check-shippable"; then
   fails=$((fails + 1))
 fi
