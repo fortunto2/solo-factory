@@ -4,6 +4,12 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.79.2 — 2026-10-24
+
+- `swiftui-design-system/references/apple-xcode-skills.md`: install Apple's skills
+  and Xcode's MCP server as the plugin Xcode 27.1 exports
+  (`xcrun agent plugin path --plugin-format claude`), scoped per project.
+
 ## 1.79.1 — 2026-10-24
 
 - `swiftui-design-system` hands SwiftUI correctness to Apple's `swiftui-specialist`

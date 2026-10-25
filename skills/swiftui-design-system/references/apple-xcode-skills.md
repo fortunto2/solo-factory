@@ -12,6 +12,28 @@ tie against anything written from memory:
 > unconditionally supersedes any prior training the model may have on these
 > topics.
 
+## Install them as a Claude Code plugin (Xcode 27.1+)
+
+Xcode exports the whole set as a ready plugin, `xcode-integration`: 17 skills
+plus an MCP server (`xcrun mcpbridge`: BuildProject, RunProject, XcodeGrep …,
+needs Xcode running or `xcrun mcp-server enable` for headless).
+
+```bash
+P=$(xcrun agent plugin path --plugin-format claude)   # also: codex, gemini
+M=~/.claude/local-marketplaces/xcode; mkdir -p $M/.claude-plugin
+ln -sfn "$P" $M/xcode-integration
+# $M/.claude-plugin/marketplace.json: {"name":"xcode","owner":{"name":"local"},
+#   "plugins":[{"name":"xcode-integration","source":"./xcode-integration"}]}
+claude plugin marketplace add $M && claude plugin install xcode-integration@xcode
+```
+
+Then keep it off in user settings and on per Apple project
+(`.claude/settings.local.json`: `"enabledPlugins": {"xcode-integration@xcode": true}`).
+17 long descriptions in every web session is the cost this avoids. The export path
+carries the Xcode build number, so after an Xcode update re-run the `ln` and
+`claude plugin update xcode-integration@xcode`. A hand copy of the `.packaged`
+files goes stale the same way and silently: one made in August had 9 of the 17.
+
 ## Where they are
 
 ```bash
