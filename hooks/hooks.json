@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"solo-factory\": \"loaded\", \"skills\": \"/solo:<name>\", \"agents\": [\"researcher\", \"code-analyst\", \"idea-validator\"], \"mcp\": \"codegraph\"}'"
+            "command": "echo '{\"solo-factory\": \"loaded\", \"skills\": \"/solo:<name>\", \"agents\": [\"researcher\", \"code-analyst\"], \"mcp\": \"codegraph\"}'"
           },
           {
             "type": "command",

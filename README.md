@@ -208,7 +208,6 @@ What is in the set, and the rules that most often hit real code:
 |-------|-------|----------------|
 | `researcher` | Sonnet | Market research, competitors, pain points, web + KB search |
 | `code-analyst` | Haiku | Codebase exploration, dependency analysis, Cypher queries |
-| `idea-validator` | Sonnet | Idea validation, STREAM scoring, PRD generation |
 
 ## Workflows
 
@@ -410,8 +409,7 @@ solo-factory/
 │   └── skill-audit/         # Score a skill against the checklist
 ├── agents/
 │   ├── researcher.md        # Deep research (sonnet)
-│   ├── code-analyst.md      # Code intelligence (haiku)
-│   └── idea-validator.md    # Idea validation (sonnet)
+│   └── code-analyst.md      # Code intelligence (haiku)
 ├── commands/
 │   ├── dev.md               # End-to-end feature development
 │   └── investigate.md       # Bug investigation and fix

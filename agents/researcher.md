@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 model: sonnet
 memory: user
 skills:
-  - deep-research
+  - solo:solo-research
 ---
 
 You are a deep research specialist for startup idea validation.
