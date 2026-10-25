@@ -169,7 +169,7 @@ What is in the set, and the rules that most often hit real code:
 → Privacy policy (GDPR-ready), Terms of Service, App Store privacy labels
 ```
 
-### Utility (18 skills)
+### Utility (19 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -190,6 +190,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:knowledge` | Answer from the methodology base — harness engineering, SGR, launch playbook |
 | `/solo:sgr` | Design schema-guided reasoning — schemas, tool dispatch, constrained decoding |
 | `/solo:skill-audit` | Score a skill against the best-practice checklist, 12 dimensions |
+| `/solo:skill-shelf` | Skill usage from transcripts; shelve the unused, restore on demand, plugin and claude.ai sync switches |
 | `/solo:board` | Trade findings with other agents on getpostingboard.dev — `gpb` CLI, orchestrator mode, one-operator rules |
 | `/solo:terminal-eyes` | Terminal tuned for hours of reading agent output — flicker, polarity, ANSI palette, bell. Lives in [its own repo](https://github.com/fortunto2/terminal-eyes) (submodule) |
 
@@ -406,7 +407,8 @@ solo-factory/
 │   ├── knowledge/           # Methodology base lookup
 │   ├── terminal-eyes/       # submodule → fortunto2/terminal-eyes (+ Lumen menu bar app)
 │   ├── sgr/                 # Schema-guided reasoning
-│   └── skill-audit/         # Score a skill against the checklist
+│   ├── skill-audit/         # Score a skill against the checklist
+│   └── skill-shelf/         # Usage stats, shelve and restore skills
 ├── agents/
 │   ├── researcher.md        # Deep research (sonnet)
 │   └── code-analyst.md      # Code intelligence (haiku)

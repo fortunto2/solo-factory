@@ -4,6 +4,16 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.79.0 — 2026-10-24
+
+- New skill `skill-shelf`: usage per skill from session transcripts, shelve the
+  unused to `~/.claude/skills-archive/` with origin and reason, `list` and `restore`
+  on demand. Documents the switches for skills that are not files:
+  `enabledPlugins`, `syncClaudeAiPlugins`, `syncClaudeAiSkills`. Measured on one
+  machine: 198 visible skills → 92 after a pruning pass.
+- `make plugin-publish` works again: it expanded `${CLAUDE_CONFIG_DIR:-…}` in make
+  instead of the shell, and its `install` was a no-op on an installed plugin.
+
 ## 1.78.0 — 2026-10-24
 
 - `idea-validator` agent removed: it preloaded two skills that do not exist
