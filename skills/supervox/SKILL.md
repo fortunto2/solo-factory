@@ -45,8 +45,9 @@ its final report. Each batch of new lines:
    appended) · **Люди и названия** (one line each, `?` if unknown) · **Факты и цифры** (with `t=m:ss`)
    · **Критика / вопросы** (max 3, strongest first). Keep it under ~60 lines.
 2. Post the delta to the chat in 2–6 lines.
-3. No `transcript` line for 5 minutes, or a `stop` event, means the recording stopped: say so at once
-   and give the command to start again (`supervox live`). Silence is not "nothing happening".
+3. While recording, supervox writes `{"type":"heartbeat"}` every 30 s. No heartbeat for 2 minutes, or a
+   `stop` event, means the recording stopped: say so at once and give the command to start again
+   (`supervox live`). Heartbeats with no transcript mean a quiet room, not a dead stream.
 
 Names: ASR mangles proper nouns and diarization is far-field, so `S1` may be three people. Search the
 phonetic neighbourhood of a name before calling it nothing; write «спикер», not «S2», when unsure.
