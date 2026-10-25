@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.81.1 — 2026-10-25
+
+- `transcribe`: both scripts pin `av<19`. PyAV 19 removed `metadata_errors`, which faster-whisper 1.2.1 still passes, so a clean `uv run` failed on the first real file while `--help` worked. Checked from an empty uv cache on both paths.
+
 ## 1.81.0 — 2026-10-25
 
 - New `video-edit`: footage to a film with the agent as editor. Editorial rules (cutaways that match

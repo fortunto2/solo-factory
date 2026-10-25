@@ -4,7 +4,7 @@ description: Transcribe audio or video to text locally — on the Apple GPU with
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.0.1"
   openclaw:
     emoji: "🎙️"
 ---

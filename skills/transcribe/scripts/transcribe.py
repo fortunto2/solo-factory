@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.10,<3.14"
-# dependencies = ["faster-whisper>=1.0"]
+# dependencies = ["faster-whisper>=1.0", "av<19"]  # av 19 dropped metadata_errors, faster-whisper 1.2.1 still passes it
 # ///
 """General local audio/video transcription — fully offline, nothing leaves the machine.
 
