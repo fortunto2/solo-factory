@@ -1731,3 +1731,34 @@ print('VERDICT=' + rec['verdict'])
       || { echo "CLAUDE.md exit-code line omits $v"; false; }
   done
 }
+
+# --- a suite runs when the change is in its language -------------------------
+# Measured 2026-10-24 on life2film/video-analyzer: a change of 7 .jpg and 9 .yml
+# files ran `cargo test` (138s) and `pytest` (96s) on every turn against a 120s
+# gate. 490 turns in three weeks, 325 timeouts, about 15 hours of waiting, and
+# not one verdict. A whole-workspace suite says nothing about a .yml edit.
+
+@test "a change with no Rust or Python files does not run their suites" {
+  STUB="$BATS_TEST_TMPDIR/stub"; mkdir -p "$STUB"
+  for t in cargo uv uvx; do
+    printf '#!/bin/sh\necho "$0 $*" >> "%s/calls"\nexit 0\n' "$BATS_TEST_TMPDIR" > "$STUB/$t"
+    chmod +x "$STUB/$t"
+  done
+  printf '[package]\nname = "t"\nversion = "0.1.0"\n' > "$REPO/Cargo.toml"
+  mkdir -p "$REPO/tests"; printf 'def test_x(): assert True\n' > "$REPO/tests/test_x.py"
+  git -C "$REPO" add -A && git -C "$REPO" commit -q -m base
+  printf 'k: 1\n' > "$REPO/config.yml"
+  PATH="$STUB:$PATH" run "$VERIFY" --root "$REPO" --full
+  [ ! -f "$BATS_TEST_TMPDIR/calls" ] || ! grep -qE "cargo (test|clippy)|pytest" "$BATS_TEST_TMPDIR/calls"
+  [[ "$output" == *"no Rust files in this change"* ]]
+  [[ "$output" == *"no Python files in this change"* ]]
+}
+
+@test "a changed .py file still runs pytest" {
+  mkdir -p "$REPO/tests"; printf 'def test_x(): assert True\n' > "$REPO/tests/test_x.py"
+  git -C "$REPO" add -A && git -C "$REPO" commit -q -m base
+  printf 'x = 1\n' > "$REPO/a.py"
+  run "$VERIFY" --root "$REPO" --full --files a.py
+  [[ "$output" == *"pytest"* ]]
+  [[ "$output" != *"no Python files in this change"* ]]
+}

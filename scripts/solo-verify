@@ -1582,6 +1582,52 @@ def rust_edition(root: Path) -> str:
         return "2024"
 
 
+# A whole-suite sensor (pytest, cargo test, clippy, tsc) says nothing about a change
+# that has no file of its language. Measured 2026-10-24 on a repo with Cargo.toml and
+# pyproject.toml: a .jpg/.yml change ran cargo test (138s) and pytest (96s) every turn
+# against a 120s stop gate - 325 timeouts in three weeks and no verdict at all.
+SUITE_TRIGGERS = {
+    "python": (
+        {".py", ".pyi"},
+        {
+            "pyproject.toml",
+            "uv.lock",
+            "conftest.py",
+            "setup.py",
+            "setup.cfg",
+            "pytest.ini",
+            "tox.ini",
+            "requirements.txt",
+        },
+    ),
+    "rust": ({".rs"}, {"Cargo.toml", "Cargo.lock", "build.rs", "rust-toolchain.toml"}),
+    "node": (
+        {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts"},
+        {"package.json", "tsconfig.json", "pnpm-lock.yaml", "package-lock.json"},
+    ),
+}
+LANG_LABEL = {"python": "Python", "rust": "Rust", "node": "TypeScript/JavaScript"}
+
+
+def change_touches(lang: str, files: list[Path]) -> bool:
+    suffixes, names = SUITE_TRIGGERS[lang]
+    for f in files:
+        if f.suffix in suffixes or f.name in names:
+            return True
+        if lang == "python" and not f.suffix and is_python(f):
+            return True
+    return False
+
+
+def suite_not_applicable(name: str, lang: str) -> Result:
+    return Result(
+        name,
+        "skip",
+        reason=f"no {LANG_LABEL[lang]} files in this change; the suite runs when one is",
+        skip_kind=NOT_APPLICABLE,
+    )
+
+
 def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[Result]:
     if not shutil.which("cargo"):
         return [Result("cargo", "skip", reason=missing("cargo"), skip_kind=UNAVAILABLE)]
@@ -1643,7 +1689,12 @@ def check_rust(root: Path, files: list[Path], full: bool, timeout: int) -> list[
                 seconds=time.time() - t,
             )
         )
-    if full:
+    if full and not change_touches("rust", files):
+        out_results += [
+            suite_not_applicable("clippy", "rust"),
+            suite_not_applicable("cargo-test", "rust"),
+        ]
+    elif full:
         t = time.time()
         code, out = run(
             ["cargo", "clippy", "--all-targets", "--", "-D", "warnings"], root, timeout
@@ -2248,11 +2299,19 @@ def main() -> int:
         results.append(check_ruff(root, files, timeout))
         if args.full:
             results.append(check_types(root, files, timeout))
-            results.append(check_pytest(root, timeout))
+            results.append(
+                check_pytest(root, timeout)
+                if change_touches("python", files)
+                else suite_not_applicable("pytest", "python")
+            )
     if "node" in stacks:
         results.append(check_node_lint(root, files, timeout))
         if args.full:
-            results.append(check_tsc(root, timeout))
+            results.append(
+                check_tsc(root, timeout)
+                if change_touches("node", files)
+                else suite_not_applicable("tsc", "node")
+            )
     if "rust" in stacks:
         results += check_rust(root, files, args.full, timeout)
     if "swift" in stacks:

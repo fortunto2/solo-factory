@@ -4,6 +4,15 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.80.0 — 2026-10-24
+
+- Stop gate: whole-suite sensors (`pytest`, `cargo test`, `clippy`, `tsc`) run only
+  when the change has a file or manifest of their language; otherwise they are
+  not-applicable with that reason. Measured on a repo with Cargo.toml and
+  pyproject.toml: a `.jpg`/`.yml` change ran cargo test (138 s) and pytest (96 s)
+  every turn against the 120 s gate, 325 timeouts in three weeks, no verdict. Now
+  0.36 s. Published promises in `rules/harness-sensors.md` changed accordingly.
+
 ## 1.79.2 — 2026-10-24
 
 - `swiftui-design-system/references/apple-xcode-skills.md`: install Apple's skills
