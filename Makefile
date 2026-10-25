@@ -5,8 +5,9 @@ plugin-link: ## Link solo-factory as live plugin (dev mode — edit files, insta
 
 plugin-publish: ## Push + reinstall Claude Code plugin globally
 	@git push
-	@cd "${CLAUDE_CONFIG_DIR:-$$HOME/.claude}/plugins/marketplaces/solo" && git fetch origin && git reset --hard origin/main
-	@CLAUDECODE= claude plugin install solo@solo --scope user
+	@cd "$${CLAUDE_CONFIG_DIR:-$$HOME/.claude}/plugins/marketplaces/solo" && git fetch origin && git reset --hard origin/main
+	@CLAUDECODE= claude plugin install solo@solo --scope user 2>/dev/null; CLAUDECODE= claude plugin update solo@solo
+	@bash scripts/link-plugin.sh
 	@echo "Done. Restart Claude Code session."
 
 clawhub-publish: ## Publish one skill to ClawHub (S=skill-name, e.g. S=research)
