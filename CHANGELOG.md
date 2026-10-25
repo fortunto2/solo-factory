@@ -4,6 +4,11 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.79.1 — 2026-10-24
+
+- `swiftui-design-system` hands SwiftUI correctness to Apple's `swiftui-specialist`
+  (bundled with Xcode 27, supersedes training) instead of a third-party skill.
+
 ## 1.79.0 — 2026-10-24
 
 - New skill `skill-shelf`: usage per skill from session transcripts, shelve the

@@ -1,6 +1,6 @@
 ---
 name: solo-swiftui-design-system
-description: Build and hold a SwiftUI design system — a 12-column grid, spacing/type/radius/motion scales, surface levels, a component gallery, and the guards that stop it drifting back. Use when the user says "сделай по сетке", "дизайн-система", "разъезжается вёрстка", "магические числа в padding", "design tokens", "grid 12", "нужен storybook/каталог компонентов", or when a screen's spacing and fonts were each chosen once and never against each other. Do NOT use for SwiftUI correctness, state flow or Instruments profiling (that is the swiftui-expert skill), or for shipping to TestFlight (solo-ios-release).
+description: Build and hold a SwiftUI design system — a 12-column grid, spacing/type/radius/motion scales, surface levels, a component gallery, and the guards that stop it drifting back. Use when the user says "сделай по сетке", "дизайн-система", "разъезжается вёрстка", "магические числа в padding", "design tokens", "grid 12", "нужен storybook/каталог компонентов", or when a screen's spacing and fonts were each chosen once and never against each other. Do NOT use for SwiftUI correctness, state flow or Instruments profiling (that is Apple's swiftui-specialist skill, bundled with Xcode 27), or for shipping to TestFlight (solo-ios-release).
 license: MIT
 metadata:
   author: fortunto2
