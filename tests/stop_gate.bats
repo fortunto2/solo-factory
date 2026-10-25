@@ -92,3 +92,19 @@ print(json.loads(raw)['hookSpecificOutput']['additionalContext'])
   out=$(bash "$H" 2>/dev/null | ctx)
   [[ "$out" == *"verification is red"* ]]
 }
+
+@test "a session that changed nothing is not blocked on a tree that was already red" {
+  # Measured: read-only sessions were told to fix another session's half-done work.
+  in='{"session_id":"s-read","cwd":"'"$R"'"}'
+  printf '%s' "$in" | bash "${BATS_TEST_DIRNAME}/../hooks/sensor-baseline.sh"
+  out=$(printf '%s' "$in" | bash "$H" 2>/dev/null | ctx)
+  [ -z "$out" ]
+}
+
+@test "once the session writes, the whole dirty tree is judged again" {
+  in='{"session_id":"s-write","cwd":"'"$R"'"}'
+  printf '%s' "$in" | bash "${BATS_TEST_DIRNAME}/../hooks/sensor-baseline.sh"
+  sleep 1; printf 'y = 2\n' > "$R/b.py"
+  out=$(printf '%s' "$in" | bash "$H" 2>/dev/null | ctx)
+  [[ "$out" == *"verification is red"* ]]
+}

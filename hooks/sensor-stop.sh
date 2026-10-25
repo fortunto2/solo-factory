@@ -40,6 +40,16 @@ VERIFY="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/
 
 git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
+# The session changed nothing: the tree is exactly as sensor-baseline.sh found it at
+# SessionStart. Whatever is dirty or red in it is someone else's, and blocking a
+# read-only session on it asks it to fix what it never touched.
+SID=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+BASE="$(git -C "$ROOT" rev-parse --absolute-git-dir 2>/dev/null)/solo-sensor-baseline/${SID//[^A-Za-z0-9_-]/}"
+if [[ -n "$SID" && -f "$BASE" ]]; then
+  . "$(dirname "${BASH_SOURCE[0]}")/tree-print.sh"
+  [[ "$(tree_print "$ROOT")" == "$(cat "$BASE")" ]] && exit 0
+fi
+
 ARGS=(--root "$ROOT" --json)
 [[ "$MODE" == "full" ]] && ARGS+=(--full)
 

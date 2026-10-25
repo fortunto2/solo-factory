@@ -17,6 +17,9 @@ The middle one blocks. If the receipt is red, the turn cannot end — so
 "I finished" stops being a claim the agent makes about itself.
 An UNKNOWN blocks **once per input**: the same verdict on byte-identical files
 (names and contents) does not block the next turn again. FAIL always blocks.
+A session that changed nothing is never blocked: SessionStart records the dirty tree
+(`sensor-baseline.sh`), and while it is unchanged the gate stays silent, however red
+the inherited state is. The first write puts the whole dirty tree back in scope.
 
 ## Published promises
 
