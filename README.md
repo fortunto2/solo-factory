@@ -1,6 +1,6 @@
 [![GitHub stars](https://img.shields.io/github/stars/fortunto2/solo-factory?style=flat-square)](https://github.com/fortunto2/solo-factory/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Skills: 44](https://img.shields.io/badge/skills-44-blue?style=flat-square)](#skills)
+[![Skills: 56](https://img.shields.io/badge/skills-56-blue?style=flat-square)](#skills)
 [![Agents: 3](https://img.shields.io/badge/agents-3-green?style=flat-square)](#agents)
 [![MCP Tools: 11](https://img.shields.io/badge/MCP_tools-11-purple?style=flat-square)](#mcp-integration)
 [![Stacks: 9](https://img.shields.io/badge/stacks-9-orange?style=flat-square)](#available-stacks)
@@ -138,7 +138,7 @@ make apple-skills          # export
 What is in the set, and the rules that most often hit real code:
 [`skills/swiftui-design-system/references/apple-xcode-skills.md`](skills/swiftui-design-system/references/apple-xcode-skills.md).
 
-### Promotion (14 skills)
+### Promotion (15 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -149,6 +149,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:content-gen` | Social media pack — LinkedIn post, Reddit draft, Twitter/X thread + release notes |
 | `/solo:community-outreach` | Find Reddit/HN/PH threads, draft value-first responses + launch checklist |
 | `/solo:video-promo` | Promo video plan — 30-45s script, storyboard, Remotion config |
+| `/solo:video-edit` | Real footage to a film with the agent as editor — cut as a script, cutaways that match the words, hook by eye, radio cleanup, masters per platform |
 | `/solo:creator-growth` | Short vertical video for a consumer app — founder-led first, paid UGC creators after a measured signal |
 | `/solo:youtube-channel` | Publish and measure a YouTube channel from the CLI — upload, captions, Shorts↔long links, Analytics API |
 | `/solo:metrics-track` | PostHog event funnel, KPI benchmarks, A/B test template, kill/iterate/scale |
@@ -169,7 +170,7 @@ What is in the set, and the rules that most often hit real code:
 → Privacy policy (GDPR-ready), Terms of Service, App Store privacy labels
 ```
 
-### Utility (20 skills)
+### Utility (22 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -192,6 +193,8 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:skill-audit` | Score a skill against the best-practice checklist, 12 dimensions |
 | `/solo:skill-shelf` | Skill usage from transcripts; shelve the unused, restore on demand, plugin and claude.ai sync switches |
 | `/solo:supervox` | Listen to a room with local transcription: one live summary on the panel, pitch Q&A coaching, saved calls analysed by the agent |
+| `/solo:transcribe` | Audio/video to text locally — Apple GPU (mlx-whisper large-v3), language per chunk, .srt, word timings |
+| `/solo:stem-split` | Demucs stems (vocals, drums, bass, other) on the Apple GPU — for mashups, acapellas, and stripping music from footage |
 | `/solo:board` | Trade findings with other agents on getpostingboard.dev — `gpb` CLI, orchestrator mode, one-operator rules |
 | `/solo:terminal-eyes` | Terminal tuned for hours of reading agent output — flicker, polarity, ANSI palette, bell. Lives in [its own repo](https://github.com/fortunto2/terminal-eyes) (submodule) |
 
@@ -380,6 +383,9 @@ solo-factory/
 │   ├── customer-finder/     # First-customer prospecting
 │   ├── creator-growth/      # Short-form / UGC growth for apps
 │   ├── video-promo/         # Promo video plan
+│   ├── video-edit/          # Footage → film, ffmpeg recipes
+│   ├── transcribe/          # Local STT, GPU on Mac
+│   ├── stem-split/          # Demucs stems
 │   ├── youtube-channel/     # YouTube publish + analytics
 │   ├── metrics-track/       # PostHog metrics
 │   ├── humanize/            # Strip AI patterns

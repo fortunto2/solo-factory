@@ -4,6 +4,19 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.81.0 — 2026-10-25
+
+- New `video-edit`: footage to a film with the agent as editor. Editorial rules (cutaways that match
+  the words, never over moving lips, hand-picked hook, scenes not best phrases), an eyes-before-render
+  pass, and `references/sound.md` + `references/delivery.md` with ffmpeg recipes each re-run on a
+  test clip. Found while checking them: Homebrew's default `ffmpeg` has neither `ass` nor `drawtext`;
+  a concat-copy outro with a 48 vs 44.1 kHz card came out 8.71 s instead of 8.0 with no error.
+- New `transcribe` (was a personal skill): mlx-whisper large-v3 on the Apple GPU as the default on a
+  Mac (38-min talk in 8.7 min), language per silence-split chunk, `--words` writes word timings for
+  editing. PEP 723 headers, so `uv run` needs no venv; Python pinned `<3.14`.
+- New `stem-split` (was a personal skill): Demucs with `-d mps`. Measured 60 s of music in 8.3 s vs
+  15.7 s on CPU, stems equal to 0.1 dB. The old text said the Mac was CPU-only.
+
 ## 1.80.0 — 2026-10-24
 
 - Stop gate: whole-suite sensors (`pytest`, `cargo test`, `clippy`, `tsc`) run only
