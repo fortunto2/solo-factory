@@ -4,6 +4,14 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.78.0 — 2026-10-24
+
+- `idea-validator` agent removed: it preloaded two skills that do not exist
+  (`validate-idea`, `apply-stream`) and duplicated `/validate`. Use `/solo:validate`.
+- `researcher` agent now preloads `solo:solo-research` (was the missing
+  `deep-research`, so it started with no procedure at all).
+- Ships 1.77.0's changes, which were pushed without a version bump.
+
 ## 1.77.0 — 2026-10-22
 
 - One version number: `plugin.json` is the source, `marketplace.json` and

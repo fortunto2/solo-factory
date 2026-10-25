@@ -1,6 +1,6 @@
 {
   "name": "solo",
-  "description": "Your own path. Multiple stacks. Ship everything. 51 skills, 3 agents, code intelligence MCP — from shower thought to deployed product.",
+  "description": "Your own path. Multiple stacks. Ship everything. 51 skills, 2 agents, code intelligence MCP — from shower thought to deployed product.",
   "owner": {
     "name": "Rustam Salavatov",
     "url": "https://github.com/fortunto2"
@@ -9,8 +9,8 @@
     {
       "name": "solo",
       "source": "./",
-      "description": "51 skills, 3 agents for AI-driven startup creation",
-      "version": "1.77.0",
+      "description": "51 skills, 2 agents for AI-driven startup creation",
+      "version": "1.78.0",
       "author": {
         "name": "Rustam Salavatov",
         "url": "https://github.com/fortunto2"
