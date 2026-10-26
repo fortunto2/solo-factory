@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.84.0 — 2026-10-26
+
+- `landing-gen` 1.2.0: SKILL.md is now a router over five stage references. `intake.md` asks the gaps in one batch and picks a layout type (A-E, E = app page); `copy-sections.md` gives the section order, A/B headlines and a sample-vs-shipped rule (`[SAMPLE]` on invented content, never on a live page); `layout-type-spacing.md` holds one tokens block (Tailwind 4 `@theme`), five-step type scale, one spacing scale, nested radius, motion with a reveal that does not hide content when JS is off; `ship.md` covers JSON-LD with sourced Offers only, robots Content-Signals, llms.txt, a real 404, the cookieless superduper-analytics counter with CTA events, forms and legal; `anti-patterns.md` adds a grep gate checked on planted bad and clean fixtures. Structure and visual rules adapted from elayadesign/ai-design-skills `landing-page-design` (MIT, see THIRD-PARTY.md). New triggers: "сделай лендинг", "landing page design", "сверстай лендинг", "лендинг для приложения".
+
 ## 1.83.3 — 2026-10-26
 
 - `video-edit`: an outro on a camera's 10-bit HEVC film without re-encoding it: card in the film's bit depth, and a join through MPEG-TS (concat demuxer, `hev1`) when the mp4 seam fails. Measured on a 48-min DJI talk: clean seam, bit-identical film frames, where the old fallback re-encoded to 1.4 Mbit/s. Also: a seam check that parses PSNR under `-v error` can never pass.
