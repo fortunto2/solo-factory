@@ -4,6 +4,11 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.82.0 — 2026-10-25
+
+- `secret_guard` hook (new): credentials stay out of the conversation. PostToolUse on every tool masks keys in the output as `[REDACTED:<rule> len=N id=<sha8>]` before the model sees them (Read, Bash, Grep, MCP alike; the output keeps its structure). PreToolUse refuses a Write/Edit that would write a marker over the real secret. UserPromptSubmit blocks a prompt with a pasted key and moves the value to `~/.claude/secrets/<project>.env` (0600). `audit` lists secrets already in transcripts without values; `scrub` rewrites old transcripts, needed because Claude Code echoes a blocked prompt into the transcript as "Original prompt". Verified end to end with `claude -p`: the key was in neither the answer nor the transcript. 20 ms per tool call, 90 ms on 1 MB. Off: `SECRET_GUARD=off`.
+- Stop gate: a session that changed nothing is not blocked on a tree that was already dirty or red (`sensor-baseline.sh` at SessionStart).
+
 ## 1.81.1 — 2026-10-25
 
 - `transcribe`: both scripts pin `av<19`. PyAV 19 removed `metadata_errors`, which faster-whisper 1.2.1 still passes, so a clean `uv run` failed on the first real file while `--help` worked. Checked from an empty uv cache on both paths.
