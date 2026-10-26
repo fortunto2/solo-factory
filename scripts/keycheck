@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""keycheck — which of the secrets on this machine are still live, and whose they are.
+
+  scripts/keycheck [--ids ids.txt] [--skip-dir DIR ...] PATH ...
+
+Finds secrets with secret_guard's rules in .env files, JSON/YAML/TOML configs and JSONL
+transcripts under PATH, then asks each provider a read-only question with the key
+(list models, whoami, verify token). Prints id, rule, variable name, where it was found,
+LIVE/DEAD/UNTESTED and the account the provider names. Never prints a value.
+
+--ids limits the report to ids from `secret_guard.py audit` (first word of each line).
+--skip-dir marks secrets found only under DIR as not tested (a client's keys are theirs
+to test). No call costs money: paid endpoints (search, generation) are never used.
+"""
+
+from __future__ import annotations
+
+import base64
+import concurrent.futures as cf
+import hashlib
+import json
+import re
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
+import secret_guard as sg  # noqa: E402
+
+CONFIG = re.compile(r"(^\.env.*|.*\.(env|json|ya?ml|toml|ini|cfg|conf|jsonl)$|.*rc$)")
+SKIP_DIRS = {
+    "node_modules",
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "dist",
+    "build",
+    ".next",
+    "target",
+    "DerivedData",
+}
+
+
+def sid(v: str) -> str:
+    return hashlib.sha256(v.encode()).hexdigest()[:8]
+
+
+def walk(root: Path):
+    """Config-looking files under root, pruning dependency and build trees as it goes."""
+    import os
+
+    if root.is_file():
+        yield root
+        return
+    for d, dirs, files in os.walk(root):
+        dirs[:] = [x for x in dirs if x not in SKIP_DIRS and not x.endswith(".app")]
+        for name in files:
+            if CONFIG.match(name):
+                p = Path(d) / name
+                try:
+                    if p.stat().st_size < 50_000_000:
+                        yield p
+                except OSError:
+                    continue
+
+
+def http(
+    url: str, headers: dict | None = None, data: bytes | None = None
+) -> tuple[int, dict | str]:
+    req = urllib.request.Request(
+        url, data=data, headers={"User-Agent": "keycheck/1", **(headers or {})}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            body = r.read().decode("utf-8", "ignore")
+            code = r.status
+    except urllib.error.HTTPError as e:
+        body, code = e.read().decode("utf-8", "ignore"), e.code
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        return 0, str(e)
+    try:
+        return code, json.loads(body)
+    except ValueError:
+        return code, body[:200]
+
+
+def jwt_claims(v: str) -> dict:
+    try:
+        seg = v.split(".")[1]
+        return json.loads(base64.urlsafe_b64decode(seg + "=" * (-len(seg) % 4)))
+    except (IndexError, ValueError):
+        return {}
+
+
+def probe(rule: str, name: str | None, v: str, ctx: dict) -> tuple[str, str]:
+    """(LIVE|DEAD|UNTESTED|ERROR, account or reason)."""
+    n = (name or "").upper()
+    if rule == "jwt":
+        c = jwt_claims(v)
+        import time
+
+        exp = c.get("exp")
+        state = "DEAD" if exp and exp < time.time() else "UNTESTED"
+        who = " ".join(
+            f"{k}={c[k]}" for k in ("iss", "ref", "role", "email", "sub") if k in c
+        )[:120]
+        return state, (who or "no claims") + (
+            " (expired)" if state == "DEAD" else " (not expired or no exp)"
+        )
+    if rule == "anthropic-key":
+        code, _ = http(
+            "https://api.anthropic.com/v1/models",
+            {"x-api-key": v, "anthropic-version": "2023-06-01"},
+        )
+        return ("LIVE", "anthropic") if code == 200 else ("DEAD", f"http {code}")
+    if rule == "openai-key" or (n in {"OPENAI_API_KEY"} and v.startswith("sk-")):
+        code, _ = http(
+            "https://api.openai.com/v1/models", {"Authorization": f"Bearer {v}"}
+        )
+        return ("LIVE", "openai") if code == 200 else ("DEAD", f"http {code}")
+    if rule == "github-token" or n in {"GITHUB_TOKEN", "GH_TOKEN"}:
+        code, b = http("https://api.github.com/user", {"Authorization": f"Bearer {v}"})
+        return (
+            ("LIVE", f"github:{b.get('login')}")
+            if code == 200 and isinstance(b, dict)
+            else ("DEAD", f"http {code}")
+        )
+    if rule == "telegram-bot-token":
+        code, b = http(f"https://api.telegram.org/bot{v}/getMe")
+        ok = code == 200 and isinstance(b, dict) and b.get("ok")
+        return (
+            ("LIVE", f"bot @{b['result'].get('username')}")
+            if ok
+            else ("DEAD", f"http {code}")
+        )
+    if rule == "slack-token":
+        code, b = http(
+            "https://slack.com/api/auth.test", {"Authorization": f"Bearer {v}"}
+        )
+        ok = isinstance(b, dict) and b.get("ok")
+        return (
+            ("LIVE", f"slack:{b.get('team')}/{b.get('user')}")
+            if ok
+            else ("DEAD", str(b.get("error") if isinstance(b, dict) else code))
+        )
+    if rule == "huggingface-token" or n in {"HF_TOKEN", "HUGGINGFACE_TOKEN"}:
+        code, b = http(
+            "https://huggingface.co/api/whoami-v2", {"Authorization": f"Bearer {v}"}
+        )
+        return (
+            ("LIVE", f"hf:{b.get('name')}")
+            if code == 200 and isinstance(b, dict)
+            else ("DEAD", f"http {code}")
+        )
+    if rule == "google-api-key":
+        code, b = http(
+            f"https://generativelanguage.googleapis.com/v1beta/models?key={v}"
+        )
+        msg = json.dumps(b)[:400] if not isinstance(b, str) else b
+        if code == 200:
+            return "LIVE", "google (Gemini API enabled)"
+        if (
+            "API_KEY_INVALID" in msg
+            or "API key not valid" in msg
+            or "API key expired" in msg
+        ):
+            return "DEAD", "google: key not valid"
+        if code == 403:
+            return "LIVE", "google (key valid, Gemini API not enabled for it)"
+        return "ERROR", f"google http {code}"
+    if "ELEVENLABS" in n:
+        code, b = http("https://api.elevenlabs.io/v1/user", {"xi-api-key": v})
+        tier = b.get("subscription", {}).get("tier") if isinstance(b, dict) else None
+        return (
+            ("LIVE", f"elevenlabs tier={tier}")
+            if code == 200
+            else ("DEAD", f"http {code}")
+        )
+    if n.startswith("CF_") or "CLOUDFLARE" in n:
+        code, b = http(
+            "https://api.cloudflare.com/client/v4/user/tokens/verify",
+            {"Authorization": f"Bearer {v}"},
+        )
+        ok = isinstance(b, dict) and b.get("success")
+        return (
+            ("LIVE", f"cloudflare token {b['result'].get('status')}")
+            if ok
+            else ("DEAD", f"http {code}")
+        )
+    base = ctx.get("base_url")
+    if base and n.endswith(
+        ("API_KEY", "TOKEN")
+    ):  # OpenAI-compatible endpoint named next to the key
+        code, _ = http(base.rstrip("/") + "/models", {"Authorization": f"Bearer {v}"})
+        return (
+            ("LIVE", f"openai-compatible {base}")
+            if code == 200
+            else ("DEAD", f"{base} http {code}")
+        )
+    return "UNTESTED", "no free read-only check for this provider"
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    ids = set()
+    if "--ids" in args:
+        i = args.index("--ids")
+        with open(args[i + 1]) as fh:
+            ids = {line.split()[0].removeprefix("id=") for line in fh if line.strip()}
+        del args[i : i + 2]
+    skip = []
+    while "--skip-dir" in args:
+        i = args.index("--skip-dir")
+        skip.append(Path(args[i + 1]).expanduser().resolve())
+        del args[i : i + 2]
+    found: dict[str, dict] = {}
+    for root in map(Path, args):
+        for f in walk(root.expanduser()):
+            try:
+                text = f.read_text(errors="ignore")
+            except OSError:
+                continue
+            if f.suffix == ".jsonl":
+                text = text.replace("\\n", "\n")
+            base = re.search(
+                r"^[A-Z_]*BASE_URL\s*=\s*[\"']?(https?://[^\s\"']+)", text, re.M
+            )
+            for rule, v, name in sg.find(text):
+                k = sid(v)
+                if ids and k not in ids:
+                    continue
+                e = found.setdefault(
+                    k,
+                    {"rule": rule, "name": name, "value": v, "files": set(), "ctx": {}},
+                )
+                e["files"].add(f.resolve())
+                e["name"] = e["name"] or name
+                if base and "base_url" not in e["ctx"]:
+                    e["ctx"]["base_url"] = base.group(1)
+
+    def run(k: str) -> tuple[str, str, str]:
+        e = found[k]
+        if skip and all(any(f.is_relative_to(s) for s in skip) for f in e["files"]):
+            return k, "UNTESTED", "found only under a skipped (client) directory"
+        try:
+            return k, *probe(e["rule"], e["name"], e["value"], e["ctx"])
+        except Exception as ex:  # one provider failing must not hide the rest
+            return k, "ERROR", type(ex).__name__
+
+    with cf.ThreadPoolExecutor(6) as pool:
+        results = list(pool.map(run, sorted(found)))
+    home = str(Path.home())
+    order = {"LIVE": 0, "ERROR": 1, "UNTESTED": 2, "DEAD": 3}
+    print(
+        f"keycheck: {len(found)} distinct secrets"
+        + (f" (of {len(ids)} ids asked)" if ids else "")
+    )
+    for k, state, who in sorted(
+        results, key=lambda r: (order[r[1]], found[r[0]]["rule"])
+    ):
+        e = found[k]
+        where = sorted(str(f).replace(home, "~") for f in e["files"])
+        print(
+            f"{state:8} id={k} {e['rule']:18} {(e['name'] or ''):26} {who}\n         in {len(where)}: {', '.join(where[:3])}"
+        )
+    if ids:
+        missing = ids - set(found)
+        print(f"\nnot found on disk ({len(missing)}): {', '.join(sorted(missing))}")
+
+
+if __name__ == "__main__":
+    main()
