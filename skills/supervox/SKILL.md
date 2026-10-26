@@ -29,10 +29,14 @@ records and saves; the agent does every bit of analysis.
 |---|---|
 | `~/.supervox/live/current.jsonl` | the session being recorded |
 | `~/.supervox/live/summary.md` | the panel; replaced, not appended |
-| `~/.supervox/live/sessions/<ts>.jsonl` + `<ts>.summary.md` | every earlier session of the day; a new recording archives the old one, never deletes it |
+| `~/.supervox/live/sessions/<start>/` | one folder per earlier recording: `stream.jsonl`, `summary.md` (only if written during that recording), `summaries/<HHMMSS>.md` (every panel version), `recording.wav` (symlink into `calls/`). A stream with no speech lands in `<start>-empty/` |
+| `~/.supervox/live/summary-history/` | panel versions of the current recording; moved into its folder on the next start |
 | `~/.supervox/calls/<call_id>.json` (+ `.wav`, `.live.jsonl`, `.summary.md`) | the saved call, with its stream and the last panel |
 
-A day with several recordings is the union of `sessions/*.jsonl` and `current.jsonl`, in time order.
+A new recording archives the old one, never deletes it. If the agent has already made
+`sessions/<start>-<slug>/` for the current recording (camera frames, notes), the archive writes
+into that folder. Older versions of supervox left flat `sessions/<ts>.jsonl` + `<ts>.summary.md`;
+a day with several recordings is the union of those, the folders and `current.jsonl`, in time order.
 
 ## Live loop
 
