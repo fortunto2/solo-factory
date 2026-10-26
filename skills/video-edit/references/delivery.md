@@ -27,6 +27,13 @@ uploads more bytes: at 15 Mbit/s up, every extra 6 GB costs ~55 minutes, so on a
 
 Pipeline the steps: start uploading each file as soon as it is ready instead of after the whole batch.
 
+**Check the link before a long upload.** A phone's hotspot is metered mobile data: on macOS the
+default gateway `172.20.10.1` is always iOS Personal Hotspot (`route -n get default`), and
+`192.168.43.1` is Android's classic tether. Hold large uploads and cloud archiving there until the
+user explicitly allows them; make the upload script refuse rather than rely on remembering. Give the
+upload sockets a timeout too: a connection that died while the laptop slept raises nothing, so
+retry logic never fires and the upload sits at 0 B/s for hours.
+
 ## Recipes
 
 **Upload master, HEVC on the Mac's hardware encoder** (36 min: 1.6 GB vs 3.2 GB for x264 crf 18):

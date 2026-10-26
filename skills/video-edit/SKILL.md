@@ -4,7 +4,7 @@ description: Edit real footage into a film with the agent as the editor — read
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.3"
+  version: "1.0.4"
   openclaw:
     emoji: "🎬"
 ---
