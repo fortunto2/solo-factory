@@ -6,6 +6,27 @@
 - **Output files:** `docs/report.md` (draft), then the published page in the user's wiki or blog
   (read the user's CLAUDE.md for where and how), the hub page, a row in `$HACKATHONS_DIR/README.md`.
 
+## One home for the event: assemble first, then write
+
+Every event, built at, judged or watched, gets one post on the user's own site, and that post is
+the canonical record. Everything else points to it: social posts, the hub, a CV line, a follow-up
+email. So before writing, put every asset where the post can show it:
+
+| Asset | Where it goes | Check before it goes in |
+|---|---|---|
+| Photos (venue, stage, team, slides) | the post's own media folder, resized (~1600 px) | location metadata stripped; a front-camera selfie mirrored back so signs read; strangers' faces only as a crowd; the hero image at the top |
+| Demo or pitch video | uploaded to the user's video channel, embedded in the post | it is the video the judges saw, or it says what changed after |
+| Deck | a PDF in the site's files folder, linked | no private notes, keys or contact details on any slide |
+| Slide frames from the stage | the media folder, only where a slide makes the point | other teams' slides only small and credited |
+| Links | in the "ours" section, near the top | live demo, repo, Devpost or event page, store listing; a link that is not live yet says so, with a note to add it |
+
+Then write the post. Social posts (a channel, LinkedIn, X) are derived from the published post
+afterwards, in a separate step; they link back to it instead of carrying their own version of the
+story.
+
+If the site supports an event-date field next to the written date, set it to the event's first day,
+so a write-up done days later still sorts with the event.
+
 ## Post format
 
 Hook first, inventory second, method last. A reader who stops after the first screen should leave
