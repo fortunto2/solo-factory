@@ -27,20 +27,23 @@ records and saves; the agent does every bit of analysis.
 
 | Path | What |
 |---|---|
-| `~/.supervox/live/current.jsonl` | the session being recorded |
-| `~/.supervox/live/summary.md` | the panel; replaced, not appended |
-| `~/.supervox/live/sessions/<start>/` | one folder per earlier recording: `stream.jsonl`, `summary.md` (only if written during that recording), `summaries/<HHMMSS>.md` (every panel version), `recording.wav` (symlink into `calls/`). A stream with no speech lands in `<start>-empty/` |
-| `~/.supervox/live/summary-history/` | panel versions of the current recording; moved into its folder on the next start |
+| `~/.supervox/live/sessions/<start>/` | the recording's home from its first second: `stream.jsonl`, `summary.md`, `summaries/<HHMMSS>.md` (every panel version), `recording.wav` (symlink into `calls/`, after stop). Camera frames and notes go here too |
+| `~/.supervox/live/current.jsonl` | symlink → `sessions/<start>/stream.jsonl` of the recording in progress |
+| `~/.supervox/live/summary.md` | symlink → `sessions/<start>/summary.md`: the panel; replaced, not appended. Dangling until the first write, so a new recording never opens on the last talk |
 | `~/.supervox/calls/<call_id>.json` (+ `.wav`, `.live.jsonl`, `.summary.md`) | the saved call, with its stream and the last panel |
 
-A new recording archives the old one, never deletes it. If the agent has already made
-`sessions/<start>-<slug>/` for the current recording (camera frames, notes), the archive writes
-into that folder. Older versions of supervox left flat `sessions/<ts>.jsonl` + `<ts>.summary.md`;
-a day with several recordings is the union of those, the folders and `current.jsonl`, in time order.
+Write through the fixed names; `readlink ~/.supervox/live/current.jsonl` gives the folder. An
+editor that saves by rename turns `summary.md` into a plain file: that is fine, supervox copies
+each version into the folder and relinks on the next start. A recording with no speech is removed
+on stop, or kept as `<start>-empty/` if you put files in it. Older supervox versions left
+`sessions/<ts>.jsonl` + `<ts>.summary.md`, `<start>-<slug>/` folders and a regular `current.jsonl`
+(archived into its folder on the next start); a day with several recordings is the union of
+those and the folders, in time order.
 
 ## Live loop
 
-Run it in the **main session** with the Monitor tool on `tail -n +1 -f ~/.supervox/live/current.jsonl`,
+Run it in the **main session** with the Monitor tool on `tail -n +1 -F ~/.supervox/live/current.jsonl`
+(`-F` reopens the link when the next recording swaps it),
 not in a subagent: a subagent's mailbox lags minutes behind the room, runs out of budget, and repeats
 its final report. Each batch of new lines:
 
@@ -73,8 +76,9 @@ it goes into a contact list.
 
 ## After the recording
 
-`stop` → write the complete summary, copy it next to the call (supervox already copies
-`current.jsonl` and `summary.md` into `~/.supervox/calls/<call_id>.*`), and say where the files are.
+`stop` → write the complete summary to `summary.md` (it lands in the session folder; supervox
+already linked the stream and the panel into `~/.supervox/calls/<call_id>.*`), and say where the
+files are.
 Saved calls: `~/.supervox/calls/<id>.json` has `transcript` as one string; analyse it directly.
 
 ## Rules
