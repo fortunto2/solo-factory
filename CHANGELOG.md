@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.83.0 — 2026-10-26
+
+- New `hackathon`: one skill for working a hackathon and writing it up, research first. SKILL.md is a router; one reference per stage (01 event rules, judges and mentors with confirmed/probable/unconfirmed labels · 02 scout mode: winners of Devpost hackathons you did not attend, plus a cross-hackathon roll-up · 03 build · 04 live capture with supervox and a PTZ camera on the slides · 05 GitHub hunt by creation date and stack keywords · 06 gallery survey format · 07 pitch · 08 report, hub page, privacy pass). `scripts/devpost.py` walks a Devpost gallery through curl (WebFetch and urllib get 403): winners first, prizes verbatim, Built With, links, story; checked live on Cal Hacks 12.0 (102 winners) and on a gallery with no winners announced (0), plus 6 offline parser tests on copied markup. Rule throughout: no claim without an opened source, "not stated" otherwise.
+
 ## 1.82.1 — 2026-10-26
 
 - `video-edit`: "Copy first, encode only what changed" in `references/delivery.md`. A full recording, a trim, a muted line, loudness and an outro need no picture re-encode: copy the video stream, process only the audio, concat the outro. Measured on the same SD card: stream copy 4.4x realtime against 1.2x for an HEVC 1440p re-encode. Upload each file as soon as it is ready.

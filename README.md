@@ -69,7 +69,7 @@ claude plugin list            # Claude Code plugin
 
 ## Skills
 
-### Analysis (4 skills)
+### Analysis (5 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -77,6 +77,7 @@ claude plugin list            # Claude Code plugin
 | `/solo:swarm <idea>` | 3 parallel research agents (market + users + tech) for faster deep dive |
 | `/solo:validate <idea>` | S.E.E.D. niche check + STREAM scoring + Devil's Advocate → PRD |
 | `/solo:domain <name>` | Is the name actually free — RDAP/whois, App Store, Google Play, GitHub, trademarks |
+| `/solo:hackathon <event>` | Hackathon research-first: rules and judges with confidence labels, team repos on GitHub, Devpost gallery survey, live notes, the write-up; scout mode analyses winners of events you did not attend |
 
 **Examples:**
 ```
@@ -366,6 +367,7 @@ solo-factory/
 │   └── marketplace.json     # Marketplace manifest
 ├── skills/                  # 48 skills
 │   ├── research/            # Scout the market
+│   ├── hackathon/           # Hackathon research, gallery survey, scout mode
 │   ├── validate/            # Score → PRD
 │   ├── scaffold/            # PRD → project
 │   ├── setup/               # Wire dev workflow
