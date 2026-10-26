@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.82.1 — 2026-10-26
+
+- `video-edit`: "Copy first, encode only what changed" in `references/delivery.md`. A full recording, a trim, a muted line, loudness and an outro need no picture re-encode: copy the video stream, process only the audio, concat the outro. Measured on the same SD card: stream copy 4.4x realtime against 1.2x for an HEVC 1440p re-encode. Upload each file as soon as it is ready.
+
 ## 1.82.0 — 2026-10-25
 
 - `secret_guard` hook (new): credentials stay out of the conversation. PostToolUse on every tool masks keys in the output as `[REDACTED:<rule> len=N id=<sha8>]` before the model sees them (Read, Bash, Grep, MCP alike; the output keeps its structure). PreToolUse refuses a Write/Edit that would write a marker over the real secret. UserPromptSubmit blocks a prompt with a pasted key and moves the value to `~/.claude/secrets/<project>.env` (0600). `audit` lists secrets already in transcripts without values; `scrub` rewrites old transcripts, needed because Claude Code echoes a blocked prompt into the transcript as "Original prompt". Verified end to end with `claude -p`: the key was in neither the answer nor the transcript. 20 ms per tool call, 90 ms on 1 MB. Off: `SECRET_GUARD=off`.
