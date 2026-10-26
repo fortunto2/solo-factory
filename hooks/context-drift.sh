@@ -32,9 +32,12 @@ TOP=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 [[ -d "$TOP" ]] || exit 0
 
 AI_TODO_CAP=50
-AI_TODO_COUNT=$({ grep -rl "# AI-TODO:" "$TOP" \
-  --include="*.py" --include="*.ts" --include="*.tsx" \
-  --include="*.swift" --include="*.kt" --include="*.rs" \
+# git grep, not grep -r: grep walked node_modules, .venv and .build and took 27-49 s in
+# three of four repos measured (2026-10-26), past the 5 s hook timeout, so the hook
+# was killed and said nothing. git grep reads tracked files plus untracked ones that
+# .gitignore allows: 0.1-0.2 s on the same repos.
+AI_TODO_COUNT=$({ git -C "$TOP" grep -l --untracked "# AI-TODO:" \
+  -- '*.py' '*.ts' '*.tsx' '*.swift' '*.kt' '*.rs' \
   2>/dev/null || true; } | head -"$AI_TODO_CAP" | wc -l | tr -d ' ')
 
 # Build warnings
