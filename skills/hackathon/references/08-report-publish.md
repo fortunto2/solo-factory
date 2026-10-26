@@ -14,7 +14,7 @@ email. So before writing, put every asset where the post can show it:
 
 | Asset | Where it goes | Check before it goes in |
 |---|---|---|
-| Photos (venue, stage, team, slides) | the post's own media folder, resized (~1600 px) | location metadata stripped; a front-camera selfie mirrored back so signs read; strangers' faces only as a crowd; the hero image at the top |
+| Photos (venue, stage, team, slides) | the post's own media folder, resized (~1600 px) | EXIF orientation applied before the metadata is stripped (stripping it drops the rotation too, and a phone photo comes out upside down), then location metadata gone; a front-camera selfie mirrored back so signs read; open the final file and look at it; strangers' faces only as a crowd; the hero image at the top |
 | Demo or pitch video | uploaded to the user's video channel, embedded in the post | it is the video the judges saw, or it says what changed after |
 | Deck | a PDF in the site's files folder, linked | no private notes, keys or contact details on any slide |
 | Slide frames from the stage | the media folder, only where a slide makes the point | other teams' slides only small and credited |

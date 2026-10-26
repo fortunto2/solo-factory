@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.87.1 — 2026-10-26
+
+- `hackathon` 1.3.1: photos get their EXIF orientation applied before metadata is stripped. Saving without EXIF also drops the rotation tag, so an iPhone HEIC (orientation 4 on a front-camera selfie) went live upside down. Open the final file and look at it before publishing.
+
 ## 1.87.0 — 2026-10-26
 
 - `hackathon` 1.3.0: stage 08 starts with "one home for the event". Every event gets one post on the user's own site as the canonical record, and the photos (metadata stripped, selfies un-mirrored), the demo video (uploaded to the user's channel and embedded), the deck PDF, stage slide frames and the live/repo/Devpost/store links are put in place before writing. Social posts are derived from the published post later, as a separate step. Event-date field set to the event's first day where the site has one.

@@ -4,7 +4,7 @@ description: Work a hackathon research-first and write it up. Event rules and ju
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.0"
+  version: "1.3.1"
   openclaw:
     emoji: "🏁"
 argument-hint: "[event URL | Devpost URL | scout <theme or URL>]"
