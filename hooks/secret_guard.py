@@ -262,6 +262,22 @@ def audit(root: Path) -> None:
             )
 
 
+def _broken_lines(before: str, after: str) -> bool:
+    """True when a line that parsed as JSON before the rewrite no longer does."""
+    for a, b in zip(before.splitlines(), after.splitlines(), strict=False):
+        if a == b:
+            continue
+        try:
+            json.loads(a)
+        except ValueError:
+            continue
+        try:
+            json.loads(b)
+        except ValueError:
+            return True
+    return False
+
+
 def scrub(paths: list[Path], min_age_s: int = 600) -> None:
     import time
 
@@ -270,19 +286,37 @@ def scrub(paths: list[Path], min_age_s: int = 600) -> None:
         if time.time() - path.stat().st_mtime < min_age_s:
             skipped += 1
             continue
-        text = path.read_text(errors="ignore")
-        hits = find(text.replace("\\n", "\n"))
+        before = path.read_text(errors="ignore")
+        lines, hits = [], 0
+        for line in before.splitlines(keepends=True):
+            body = line.rstrip("\n")
+            try:
+                obj = json.loads(body)
+            except ValueError:
+                obj = None
+            if obj is None:  # not JSON: mask as plain text
+                new, found = mask_text(body)
+            else:  # JSON: mask the decoded strings, so escapes can never be cut in half
+                found = []
+                masked = mask_obj(obj, found)
+                new = (
+                    json.dumps(masked, ensure_ascii=False, separators=(",", ":"))
+                    if found
+                    else body
+                )
+            hits += len(found)
+            lines.append(new + line[len(body) :])
         if not hits:
             continue
-        for rule, v, _ in sorted(hits, key=lambda h: -len(h[1])):
-            # transcripts are JSON lines: replace the value as it appears there, escaped or not
-            for form in {v, json.dumps(v)[1:-1]}:
-                text = text.replace(form, marker(rule, v))
+        text = "".join(lines)
+        if _broken_lines(before, text):
+            print(f"skipped {path}: a replacement would break a JSON line")
+            continue
         tmp = path.with_suffix(".jsonl.scrub")
         tmp.write_text(text)
         tmp.replace(path)
         changed += 1
-        print(f"scrubbed {len(hits)} secret(s) in {path}")
+        print(f"scrubbed {hits} secret(s) in {path}")
     print(
         f"secret_guard scrub: {changed} file(s) rewritten, {skipped} skipped as live (< {min_age_s}s old)"
     )
