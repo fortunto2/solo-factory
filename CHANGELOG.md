@@ -4,7 +4,7 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
-## 1.82.2 — 2026-10-26
+## 1.83.2 — 2026-10-26
 
 - `video-edit`: the copy-first recipe ends its audio chain with `asetpts=N/SR/TB`; without it `loudnorm` left a 0.075 s timestamp drift that platforms play as silence.
 
