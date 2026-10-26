@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.86.0 — 2026-10-26
+
+- `hackathon` 1.2.0: the report format opens with a hook (lede with the sharpest finding, "The short version") and a per-project scorecard (strong / unproven), and moves the method note to the end. The old template put a paragraph on sources second, so every report opened with how it was recorded. Scorecard rules: critique the work, not people; cite something checkable; judges never publish scores or deliberation.
+
 ## 1.85.0 — 2026-10-26
 
 - Analytics default is now [superduper-analytics](https://github.com/fortunto2/superduper-analytics) (self-hosted, cookieless, on Cloudflare) instead of PostHog, in all 10 stack templates, `dev-principles.md` and the README. Stacks get a separate `errors:` field with what each platform really offers and no third-party SDK: App Store Connect crashes + MetricKit, Play Console Android vitals, Workers Logs / `wrangler tail`, Vercel/Supabase/Docker logs. iOS stacks name the SuperDuperAnalytics SPM package; Android, KMP and Python have no client, so they say "POST events to the ingest endpoint" instead of an invented SDK.

@@ -8,28 +8,41 @@
 
 ## Post format
 
-Insights first, inventory second. A reader who stops after the first screen should leave with the
-patterns, not with a list of team names.
+Hook first, inventory second, method last. A reader who stops after the first screen should leave
+with the sharpest findings and a verdict on the projects, not with a list of team names or a note
+on how you recorded the room. Nobody reads past an opening paragraph about cameras and
+transcription.
 
 ```markdown
 # <Claim-shaped title: what the room showed, not "My notes from X">
 
-<One paragraph: event, date, place, size, the brief, the judging criteria, your role
-(builder / observer / judge). Awards: announced or "not announced when this was written".>
+<Lede, 2-4 sentences: the single sharpest finding, with a number or a project as evidence. Then the
+event in one clause: name, date, place, size, your role (builder / observer / judge).>
 
-<One paragraph on sources: numbers from the stage are the teams' claims; where a public repo backs
-a detail it says so; nothing was re-measured unless stated.>
-
+## The short version               3-5 bullets, each an insight with a number or a named team
+## Scorecard                       one line per project: Strong (what to copy) · Unproven or Weak
+                                   (simulated data, nothing live, stage number > page number,
+                                   claim not visible in the code). Your own project gets the same
+                                   treatment, at least as harsh
 ## <Pattern 1 as a sentence>       cross-team patterns, each with 2-4 teams as evidence
-## <Pattern 2 as a sentence>
-## Small tricks worth copying      concrete, one line each, with the repo or page they came from
+## Small tricks worth copying      concrete: the threshold, the formula, the file path to read
 ## Hard numbers                    what fits, how fast, how much, each with its source
-## Which arguments held up         ranked: the strongest arguments for the brief's premise
 ## The teams                       compact table: team · what it does · stack · repo (confirmed only)
 ## Claims to read as claims        stage numbers, "as claimed", grouped
 ## What I'd steal                  3-5 lines, tied to your own work
-## How these notes were taken      tools and method in two sentences; links to sibling events
+## How this was put together       last: what was recorded and read, which numbers are the teams'
+                                   own, awards status; links to the hub and sibling events
 ```
+
+Rules for the scorecard:
+
+- Critique the work, never the people. "The 200 sites are synthetic" is a verdict; "they faked
+  it" is an accusation, and commit-timing forensics on named teams stay in private notes.
+- Every verdict cites something checkable: the project page, the README, a file, the stage.
+  Re-read the source before calling something weak; a finding in a team's favour misread as a
+  gap is the easy mistake.
+- A judge never publishes scores, pairwise votes or what was said in deliberation. "These are mine,
+  not the panel's scores" when you judged.
 
 ## Privacy and accuracy pass (before publishing)
 
