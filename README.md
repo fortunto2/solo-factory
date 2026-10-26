@@ -153,7 +153,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:video-edit` | Real footage to a film with the agent as editor — cut as a script, cutaways that match the words, hook by eye, radio cleanup, masters per platform |
 | `/solo:creator-growth` | Short vertical video for a consumer app — founder-led first, paid UGC creators after a measured signal |
 | `/solo:youtube-channel` | Publish and measure a YouTube channel from the CLI — upload, captions, Shorts↔long links, Analytics API |
-| `/solo:metrics-track` | PostHog event funnel, KPI benchmarks, A/B test template, kill/iterate/scale |
+| `/solo:metrics-track` | superduper-analytics event funnel, KPI benchmarks, A/B test template, kill/iterate/scale |
 | `/solo:legal` | Privacy policy + terms of service — privacy-first, manifest-aligned |
 | `/solo:seo-cli` | Run the `seo` CLI — SEO+GEO score, agent-audit (can an AI agent read the site?), reindex |
 | `/solo:reddit` | Write and post Reddit comments that carry value, build karma without burning the account |
@@ -389,7 +389,7 @@ solo-factory/
 │   ├── transcribe/          # Local STT, GPU on Mac
 │   ├── stem-split/          # Demucs stems
 │   ├── youtube-channel/     # YouTube publish + analytics
-│   ├── metrics-track/       # PostHog metrics
+│   ├── metrics-track/       # Event funnel + KPIs
 │   ├── humanize/            # Strip AI patterns
 │   ├── audit/               # KB health check
 │   ├── memory-audit/        # Memory hierarchy audit

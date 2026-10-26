@@ -24,12 +24,12 @@ key_packages:
 deploy: play_store
 infra: none (native store distribution)
 ci_cd: github_actions (gradle + self-hosted runner)
-monitoring: posthog (analytics + errors, posthog-android)
+monitoring: superduper-analytics (no Kotlin client yet; POST events with platform=android to its ingest endpoint, see https://github.com/fortunto2/superduper-analytics README)
+errors: Play Console → Android vitals → Crashes & ANRs; no third-party crash SDK
 logs:
   adb: "adb logcat -s {name} --format=time 2>&1 | tail -50"
   adb_crash: "adb logcat '*:E' --format=time 2>&1 | tail -30"
   play_console: "Google Play Console → Android vitals → Crashes & ANRs"
-  posthog: "PostHog dashboard → Error tracking"
   local_build: "./gradlew assembleDebug 2>&1 | tail -30"
 architecture: MVVM + clean_architecture
 visual_testing:

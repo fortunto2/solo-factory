@@ -88,12 +88,12 @@ deploy_cli:
   - "supabase (migrations, db reset, edge functions, secrets)"
 infra: sst (sst.config.ts) — Tier 1
 ci_cd: github_actions
-monitoring: posthog (analytics + errors, EU hosting)
+monitoring: superduper-analytics (cookieless sda.js via next/script in the root layout, https://github.com/fortunto2/superduper-analytics)
+errors: Vercel runtime logs + Supabase logs below; no third-party error SDK
 logs:
   vercel: "vercel logs --output=short 2>&1 | tail -50"
   vercel_functions: "vercel logs --output=short --scope=functions 2>&1 | tail -50"
   supabase: "supabase functions logs --scroll"
-  posthog: "PostHog dashboard → Error tracking"
   local_build: "pnpm build 2>&1 | tail -50"
 dev_server:
   command: "pnpm dev"

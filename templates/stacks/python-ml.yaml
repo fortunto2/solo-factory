@@ -27,11 +27,11 @@ key_packages:
 deploy: local | docker | hetzner
 infra: pulumi (Python) — Tier 2, or local-only
 ci_cd: github_actions
-monitoring: posthog (analytics + errors, EU hosting)
+monitoring: none for a CLI; superduper-analytics only if there is an API or UI layer (POST events to its ingest endpoint, see https://github.com/fortunto2/superduper-analytics README)
+errors: stdout logs; no third-party error SDK
 logs:
   local: "uv run {name} --help 2>&1"
   local_build: "uv build 2>&1"
-  posthog: "PostHog dashboard → Error tracking (if API layer)"
 architecture: cli_first + api
 notes: |
   - uv for all dependency management (not pip/poetry)

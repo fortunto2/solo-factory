@@ -4,6 +4,12 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.85.0 — 2026-10-26
+
+- Analytics default is now [superduper-analytics](https://github.com/fortunto2/superduper-analytics) (self-hosted, cookieless, on Cloudflare) instead of PostHog, in all 10 stack templates, `dev-principles.md` and the README. Stacks get a separate `errors:` field with what each platform really offers and no third-party SDK: App Store Connect crashes + MetricKit, Play Console Android vitals, Workers Logs / `wrangler tail`, Vercel/Supabase/Docker logs. iOS stacks name the SuperDuperAnalytics SPM package; Android, KMP and Python have no client, so they say "POST events to the ingest endpoint" instead of an invented SDK.
+- `metrics-track` 1.3.0: funnel and snippets rewritten for `sda.js`, the Swift package and the raw ingest POST; no `identify()` (the funnel is aggregate: counter for visits and store clicks, store campaign reports for installs and purchases); reading via `seo traffic`, `seo conversion`, `seo retention`; legacy Google Analytics only through `seo ga`.
+- `deploy` 1.2.2, `legal` 1.0.1, `launch` 1.0.1, `ios-dev` 2.0.3: the PostHog lines point at superduper-analytics (legal: cookieless counter on Cloudflare, App Privacy answers, no ATT).
+
 ## 1.84.1 — 2026-10-26
 
 - `video-edit`: check the link before a long upload. A phone hotspot (macOS gateway `172.20.10.1` for iOS, `192.168.43.1` for Android) is metered: hold large uploads and cloud archiving until the user allows them, and make the upload script refuse. Upload sockets need a timeout, or a connection that died during sleep hangs at 0 B/s with retries never firing.

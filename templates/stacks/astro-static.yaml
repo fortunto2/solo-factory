@@ -20,10 +20,10 @@ key_packages:
 deploy: cloudflare_pages
 infra: sst (sst.config.ts) — Tier 1
 ci_cd: github_actions
-monitoring: posthog (analytics + errors) + cloudflare_analytics
+monitoring: superduper-analytics (cookieless sda.js counter, one tag in <head>, https://github.com/fortunto2/superduper-analytics) + cloudflare_analytics
+errors: nothing collected in the browser by design, no third-party error SDK; build output + Pages logs below
 logs:
   cf_pages: "wrangler pages deployment tail --project-name={name}"
-  posthog: "PostHog dashboard → Error tracking"
   local_build: "pnpm build 2>&1 | tail -50"
 dev_server:
   command: "pnpm dev"

@@ -23,12 +23,12 @@ key_packages:
 deploy: cloudflare_workers
 infra: sst (sst.config.ts) — Tier 1, wrangler for dev
 ci_cd: github_actions
-monitoring: posthog (analytics + errors) + cloudflare_analytics
+monitoring: superduper-analytics (sda.js on pages; server events POSTed to its ingest endpoint, see https://github.com/fortunto2/superduper-analytics README) + cloudflare_analytics
+errors: Workers Logs (enable `observability` in the wrangler config) + `wrangler tail`; no third-party error SDK
 logs:
   wrangler_tail: "wrangler tail --format=pretty 2>&1 | head -100"
   wrangler_logs: "wrangler deployments list && wrangler deployments view"
   d1_logs: "wrangler d1 insights {db-name}"
-  posthog: "PostHog dashboard → Error tracking"
   local_build: "pnpm build 2>&1 | tail -50"
 dev_server:
   command: "pnpm dev"

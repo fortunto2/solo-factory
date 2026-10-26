@@ -1,10 +1,10 @@
 ---
 name: solo-metrics-track
-description: Use when "set up metrics", "track KPIs", "PostHog events", "funnel analysis", "when to kill or scale", "success metrics", or need analytics plan. Do NOT use for SEO metrics (/seo-audit).
+description: Use when "set up metrics", "track KPIs", "analytics events", "what to count", "funnel analysis", "when to kill or scale", "success metrics", or need analytics plan. Do NOT use for SEO metrics (/seo-audit).
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.2.0"
+  version: "1.3.0"
   openclaw:
     emoji: "📈"
 allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__kb_search
@@ -13,11 +13,11 @@ argument-hint: "<project-name>"
 
 # /metrics-track
 
-Set up a metrics tracking plan for a project. Defines PostHog event funnel, KPI benchmarks, and kill/iterate/scale decision thresholds based on lean startup principles.
+Set up a metrics tracking plan for a project. Defines the event funnel for [superduper-analytics](https://github.com/fortunto2/superduper-analytics) (a self-hosted, cookieless event counter on Cloudflare, one schema for web and apps), KPI benchmarks, and kill/iterate/scale decision thresholds based on lean startup principles.
 
 ## MCP Tools (use if available)
 
-- `kb_search(query)` — find PostHog methodology, analytics patterns
+- `kb_search(query)` — find analytics patterns, past funnels, measured benchmarks
 
 If MCP tools are not available, fall back to Grep + Read.
 
@@ -35,20 +35,21 @@ This skill implements metrics tracking based on lean startup principles:
    - If empty: ask via AskUserQuestion.
 
 2. **Detect platform:**
-   - iOS app → PostHog iOS SDK events
-   - Web app → PostHog JS SDK events
-   - Both → cross-platform identity (shared user ID across platforms)
+   - Web → the `sda.js` tag (one line in `<head>`) + `sda("event_name", props, metrics)` calls
+   - iOS / macOS → the [SuperDuperAnalytics](https://github.com/fortunto2/superduperai-analytics-swift) SPM package, `Analytics.track(...)`
+   - Android, KMP, Python, server → no client exists; POST events to the ingest endpoint (contract in the repo README and `src/schema.ts`), `platform` set to `android` / `server`
+   - Web + app → register ONE source id for both, so a landing visit and an app launch are compared without a join. There is no per-person link between them, by design (see Notes)
 
-3. **Load PostHog methodology:**
-   - If MCP available: `kb_search("PostHog analytics events funnel identity")`
-   - Otherwise: check project docs for existing analytics configuration
-   - Extract: event naming conventions, identity resolution, funnel pattern
+3. **Check what is already wired:**
+   - `seo products` lists every registered source and whether its counter reports. A product with no counter reads as zero traffic for reasons unrelated to how it is doing
+   - Grep the project for `sda.js`, `sda(`, `Analytics.track`, and for leftovers (`posthog`, `gtag(`, `googletagmanager`). Legacy sites may still have Google Analytics; `seo ga` reads it, but don't add it to new ones
+   - If MCP available: `kb_search("analytics events funnel")` for past funnels
 
 4. **Define event funnel** based on PRD features:
 
    Standard funnel: `Awareness → Acquisition → Activation → Revenue → Retention → Referral`
 
-   See `references/kpi-benchmarks.md` for the full event table, KPI thresholds, PostHog code snippets, and A/B test template. Adapt events to the specific product.
+   See `references/kpi-benchmarks.md` for the full event table, KPI thresholds, code snippets, and A/B test template. Adapt events to the specific product. Keep it to about ten event names per product: it is a counter, not session replay.
 
 5. **Forced reasoning — metrics selection:**
    Before defining KPIs, write out:
@@ -63,7 +64,7 @@ This skill implements metrics tracking based on lean startup principles:
 
 7. **Define decision rules** — use kill/iterate/scale framework from `references/kpi-benchmarks.md`. Adapt thresholds to project-specific values from step 6.
 
-8. **Generate PostHog implementation snippets** — use platform-specific examples from `references/kpi-benchmarks.md`. Adapt event names and properties to the funnel defined in step 4.
+8. **Generate implementation snippets** — use platform-specific examples from `references/kpi-benchmarks.md`. Adapt event names and properties to the funnel defined in step 4.
 
 9. **A/B Test Analysis Template** — copy template from `references/kpi-benchmarks.md` into the metrics plan. Include decision rules (SHIP / KEEP / EXTEND / INCONCLUSIVE).
 
@@ -94,10 +95,11 @@ This skill implements metrics tracking based on lean startup principles:
 
    ## Implementation
 
-   ### PostHog Setup
-   - Project: {project name} (EU region)
-   - SDK: {posthog-ios / posthog-js}
-   - Identity: {anonymous → identified on signup}
+   ### superduper-analytics setup
+   - Source id: {id} (one commit to `registry/sources.yaml`; unregistered ids are refused with 403)
+   - Client: {sda.js tag / SuperDuperAnalytics SPM / POST to the ingest endpoint}
+   - Identity: anonymous only (web: edge-derived, rotates daily; apps: install-scoped UUID)
+   - Store side: App Store `ct` campaign tokens / Play `referrer` UTM on every store link
 
    ### Code Snippets
    {snippets from step 8}
@@ -105,10 +107,11 @@ This skill implements metrics tracking based on lean startup principles:
    ## A/B Test Template
    {template from step 9}
 
-   ## Dashboard Template
-   - Funnel: {stage1} → {stage2} → ... → {stageN}
-   - Retention: D1 / D7 / D30 cohort chart
-   - Revenue: MRR trend + trial conversion
+   ## Reading it
+   - Traffic, people vs bots: `seo traffic --days 7`
+   - Which pages make people act: `seo conversion --days 28`
+   - Do app users come back: `seo retention --days 28` (apps only; the web id dies at midnight UTC by design)
+   - Installs, purchases, subscriptions per campaign: App Store Connect / Play Console, by `ct` / UTM
 
    ---
    *Generated by /metrics-track. Implement events, then review weekly.*
@@ -118,11 +121,12 @@ This skill implements metrics tracking based on lean startup principles:
 
 ## Notes
 
-- PostHog EU hosting for privacy compliance
-- Use `$set` for user properties, `capture` for events
-- Identity: start anonymous, `identify()` on signup with user ID
-- Cross-platform: same PostHog project, same user ID → unified journey
-- Review dashboard weekly, make kill/iterate/scale decision monthly
+- Event names: `object_verb`, past tense, snake_case (`page_viewed`, `photo_exported`). Props are strings, metrics are numbers
+- No cookie, no `localStorage`, nothing returned to the browser, so no consent banner. That stays true only while nothing else on the page sets one
+- No `identify()`. Linking one visitor to one install needs a cross-site identifier, which is exactly what this setup refuses. The funnel is aggregate: landing visits and store clicks from the counter, installs and purchases from the store's campaign report
+- Retention is an app metric here. Web returning visitors are invisible by design
+- Errors and crashes are not analytics: App Store Connect crashes + MetricKit, Play Console Android vitals, Workers Logs. No third-party telemetry SDK
+- Review weekly, make the kill/iterate/scale decision monthly
 
 ## Common Issues
 
@@ -134,6 +138,10 @@ This skill implements metrics tracking based on lean startup principles:
 **Cause:** Default thresholds are industry averages.
 **Fix:** Adjust thresholds in `docs/metrics-plan.md` based on your niche. B2B typically has lower volume but higher conversion.
 
-### PostHog SDK not in project
-**Cause:** Metrics plan generated but SDK not installed.
-**Fix:** This skill generates the PLAN only. Install PostHog SDK separately: `pnpm add posthog-js` (web) or add `posthog-ios` via SPM (iOS).
+### Counter not in project
+**Cause:** Metrics plan generated but nothing sends events.
+**Fix:** This skill generates the PLAN only. Web: add the `sda.js` tag (`docs/install.md` in https://github.com/fortunto2/superduper-analytics). iOS: add the SPM package https://github.com/fortunto2/superduperai-analytics-swift. Then register the source id and check `seo products`.
+
+### Events sent, nothing arrives
+**Cause:** The source id is not in `registry/sources.yaml` (403), or the request came from an origin the registry does not list (dev server, preview deploy: dropped silently, by design).
+**Fix:** Register the id, deploy, and test from the production host.

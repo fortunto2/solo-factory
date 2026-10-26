@@ -381,8 +381,10 @@ ingress:
 
 ### Monitoring
 
-- **PostHog** for analytics and errors (all projects, EU hosting)
-- Cloudflare Analytics for edge (in addition to PostHog)
+- **[superduper-analytics](https://github.com/fortunto2/superduper-analytics)** for usage, all projects: a self-hosted event counter on Cloudflare, one schema for web and apps. Web: one `sda.js` tag, no cookie, no banner. iOS/macOS: the [SuperDuperAnalytics](https://github.com/fortunto2/superduperai-analytics-swift) SPM package. Android, Python, servers: no client yet, POST events to its ingest endpoint (see its README). Read it with `seo traffic`, `seo retention`, `seo conversion` (`/solo:seo-cli`).
+- Cloudflare Analytics for edge traffic (it sees crawlers and agents the counter never does).
+- **Errors:** the platform's own reports, no third-party telemetry SDK. App Store Connect crashes + MetricKit (iOS), Play Console Android vitals (Android), Workers Logs / `wrangler tail` (Cloudflare), runtime logs on Vercel and in Docker.
+- Legacy sites may still have Google Analytics; `seo ga` reads it. Don't add it to new ones.
 
 ---
 
@@ -587,7 +589,7 @@ At system boundaries (UI, API) — show user-friendly messages. Inside — let i
 /solo:landing-gen <project>         # Landing page content + A/B headlines
 /solo:community-outreach <project>  # Reddit/HN/PH thread drafts
 /solo:video-promo <project>         # Video script + storyboard
-/solo:metrics-track <project>       # PostHog funnel + KPI thresholds
+/solo:metrics-track <project>       # Event funnel + KPI thresholds
 ```
 
 ### Plan → Build — File-Based Development Workflow

@@ -21,7 +21,7 @@ key_packages:
   - StoreKit 2 (IAP)
   - SharedAuth (shared auth)
   - SwiftLint (linter)
-  - PostHog (analytics, posthog-ios SPM)
+  - SuperDuperAnalytics (usage counter for superduper-analytics, SPM https://github.com/fortunto2/superduperai-analytics-swift)
 optional_packages:
   on_device_ai:
     - "FoundationModelsKit (community tools for Apple Foundation Models — iOS 26+, @Generable, WebTool, Calendar, token mgmt) github:rudrankriyam/FoundationModelsTools"
@@ -49,12 +49,12 @@ asc_cli:
   note: "If `asc` not installed, suggest: brew tap rudrankriyam/tap && brew install rudrankriyam/tap/asc"
 infra: none (native store distribution)
 ci_cd: github_actions (xcodebuild + fastlane)
-monitoring: posthog (analytics + errors, posthog-ios SPM)
+monitoring: superduper-analytics (SuperDuperAnalytics SPM, install-scoped UUID, no ATT; https://github.com/fortunto2/superduper-analytics)
+errors: App Store Connect crash reports (TestFlight → Crashes, Xcode Organizer, `asc crashes`) + MetricKit on device; no third-party crash SDK
 logs:
   xcode: "Xcode → Window → Devices and Simulators → View Device Logs"
   console: "log stream --predicate 'subsystem == \"com.{org}.{name}\"' --style compact"
   testflight: "App Store Connect → TestFlight → Crashes"
-  posthog: "PostHog dashboard → Error tracking"
   local_build: "xcodegen generate && xcodebuild -scheme {Name} -sdk iphonesimulator build 2>&1 | tail -30"
 architecture: MVVM
 
@@ -156,7 +156,7 @@ notes: |
   - English first, then localize
   - StoreKit 2 for in-app purchases and subscriptions
   - #if os(iOS) for AVAudioSession, UIApplication (macOS compat)
-  - PostHog for analytics (privacy-respecting, EU hosting)
+  - superduper-analytics for usage counts: `Analytics.configure(source:)` + `track("app_launched")` at start, `flush()` on background; App Privacy = Product Interaction + Device ID, Not Linked, not Tracking
   - App Store Connect CLI (asc) for TestFlight, submissions, crashes, analytics — install via brew if missing
   - VecturaKit + LumoKit for on-device RAG (privacy-first local search — add when project needs semantic search)
   - FoundationModelsKit for Apple Foundation Models (iOS 26+ — on-device AI with tools)

@@ -37,7 +37,7 @@ key_packages:
 deploy: local | docker | hetzner
 infra: docker-compose (for proxies, or local-only)
 ci_cd: github_actions
-monitoring: posthog (analytics, EU hosting) | none
+monitoring: none | superduper-analytics (POST run events with platform=server to its ingest endpoint, see https://github.com/fortunto2/superduper-analytics README)
 logs:
   docker: "docker logs {container} --tail=50"
   local: "uv run {name} --help 2>&1"

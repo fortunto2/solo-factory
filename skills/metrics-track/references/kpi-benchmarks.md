@@ -17,7 +17,7 @@ Adjust based on product type:
 - **Developer Tools**: activation is key metric (D7 retention > 20% = strong signal)
 - **Marketplace**: both sides need activation (supply AND demand retention)
 
-## PostHog Event Funnel Template
+## Event Funnel Template
 
 ```
 Awareness → Acquisition → Activation → Revenue → Retention → Referral
@@ -25,42 +25,57 @@ Awareness → Acquisition → Activation → Revenue → Retention → Referral
 
 | Stage | Event Name | Trigger | Properties |
 |-------|-----------|---------|------------|
-| Awareness | `page_viewed` | Landing page visit | `source`, `utm_*` |
-| Acquisition | `app_installed` or `signed_up` | First install/signup | `platform`, `source` |
-| Activation | `core_action_completed` | First key action | `feature`, `duration_ms` |
-| Revenue | `purchase_completed` | First payment | `plan`, `amount`, `currency` |
-| Retention | `session_started` | Return visit (D1/D7/D30) | `session_number`, `days_since_install` |
-| Referral | `invite_sent` | Shared or referred | `channel`, `referral_code` |
+| Awareness | `page_viewed` | Landing page visit (automatic) | utm source/medium/campaign (automatic) |
+| Acquisition | `app_store_opened` / `signed_up` | Store click (`data-sda-event`) / signup | `placement` |
+| Install | (store) | App Store `ct` token / Play `referrer` UTM | counted by the store, not by us |
+| Activation | `app_launched`, then `core_action_completed` | First launch, first key action | `feature`; metric `duration_ms` |
+| Revenue | `purchase_completed` | First payment | `plan`; metric `price_usd` |
+| Retention | `app_launched` on later days | Return (D1/D7/D30), from the install-scoped id | read with `seo retention` |
+| Referral | `invite_sent` | Shared or referred | `channel` |
 
-## PostHog Code Snippets
+Install and purchase attribution per campaign comes from App Store Connect (Acquisition → Campaigns) and Play Console. Nothing links one visitor to one install, and nothing should: that would take a cross-site identifier.
 
-### iOS (Swift)
-```swift
-PostHogSDK.shared.capture("core_action_completed", properties: [
-    "feature": "scan_receipt",
-    "duration_ms": elapsed
-])
+## Code Snippets (superduper-analytics)
 
-// Identity
-PostHogSDK.shared.identify(userId, userProperties: [
-    "plan": "free",
-    "signup_source": source
-])
+### Web
+```html
+<!-- in <head>; the host is your deployment of superduper-analytics -->
+<script defer src="https://analytics.example.com/sda.js" data-source="<registered-id>"></script>
+
+<!-- a click goal with no code -->
+<a href="https://apps.apple.com/app/id000000000?ct=site-hero&mt=8"
+   data-sda-event="app_store_opened" data-sda-placement="hero">Get the app</a>
 ```
-
-### Web (TypeScript)
 ```typescript
-posthog.capture('signed_up', {
-    source: searchParams.get('utm_source') ?? 'direct',
-    plan: 'free'
-})
-
-// Identity
-posthog.identify(userId, {
-    plan: 'free',
-    signup_source: source
-})
+// props are strings, metrics are numbers; batched and sent when the page is hidden
+sda('signed_up', { plan: 'free' })
 ```
+`page_viewed`, `page_engaged`, utm tags and `file_downloaded` arrive with no code.
+
+### iOS / macOS (Swift, SPM `github.com/fortunto2/superduperai-analytics-swift`)
+```swift
+import SuperDuperAnalytics
+
+// in App.init()
+Analytics.configure(source: "<registered-id>")
+Analytics.track("app_launched")
+
+// later
+Analytics.track("core_action_completed", props: ["feature": "scan_receipt"],
+                metrics: ["duration_ms": elapsed])
+
+// .onChange(of: scenePhase): the buffer dies with the process
+if phase == .background { Analytics.flush() }
+```
+App Privacy: Usage Data → Product Interaction and Identifiers → Device ID, both Not Linked, not Tracking. No ATT prompt.
+
+### Android, KMP, Python, server (no client)
+POST the batch to the ingest endpoint. The contract is in the repo README and `src/schema.ts`:
+```json
+{"events": [{"source": "<registered-id>", "platform": "android", "name": "app_launched",
+             "anon": "<install-scoped UUID>", "version": "1.2.0"}]}
+```
+Generate the UUID on first launch, keep it in app storage, let it die with the app. Not a device id, not an account id.
 
 ## A/B Test Analysis Template
 

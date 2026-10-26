@@ -29,11 +29,11 @@ key_packages:
 deploy: docker | cloudflare_workers | hetzner
 infra: pulumi (Python, infra/__main__.py) — Tier 2, or Cloudflare Workers for MVP (Tier 1)
 ci_cd: github_actions
-monitoring: posthog (analytics + errors, EU hosting)
+monitoring: superduper-analytics when usage matters (no Python client; POST events with platform=server to its ingest endpoint, see https://github.com/fortunto2/superduper-analytics README)
+errors: structured logs to stdout, read via docker logs / wrangler tail below; no third-party error SDK
 logs:
   wrangler: "wrangler tail --format=pretty 2>&1 | head -50"
   docker: "docker logs {container} --tail=50"
-  posthog: "PostHog dashboard → Error tracking"
   local_build: "uv run uvicorn src.{name}.main:app --port 8000 2>&1 | head -20"
 architecture: layered (routers → services → repositories → models)
 notes: |

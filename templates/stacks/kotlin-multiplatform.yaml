@@ -56,7 +56,8 @@ example_projects:
 deploy: app_store + play_store
 infra: none (native store distribution)
 ci_cd: github_actions (gradle + xcodebuild)
-monitoring: posthog (analytics, posthog-android + manual iOS)
+monitoring: superduper-analytics (no KMP client yet; one small client in commonMain POSTs to its ingest endpoint with an install-scoped UUID, see https://github.com/fortunto2/superduper-analytics README)
+errors: App Store Connect crash reports (iOS) + Play Console Android vitals (Android); no third-party crash SDK
 logs:
   android_adb: "adb logcat -s {name} --format=time 2>&1 | tail -50"
   android_crash: "adb logcat '*:E' --format=time 2>&1 | tail -30"

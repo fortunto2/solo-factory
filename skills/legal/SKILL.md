@@ -4,7 +4,7 @@ description: Use when "privacy policy", "terms of service", "legal pages", "GDPR
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.0.1"
   openclaw:
     emoji: "📜"
 allowed-tools: Read, Grep, Glob, Write, AskUserQuestion
@@ -32,7 +32,7 @@ Generate privacy policy and terms of service tailored to the project's stack, fe
    | Data Type | Collected? | Stored Where | Purpose |
    |-----------|-----------|-------------|---------|
    | Email/name | — | Local / Supabase | Account |
-   | Usage analytics | — | PostHog (EU) | Product improvement |
+   | Usage analytics | — | superduper-analytics (Cloudflare, cookieless, anonymous) | Product improvement |
    | Payment info | — | Stripe (not stored locally) | Billing |
    | User content | — | On-device / local DB | Core feature |
    | Location | — | — | — |
@@ -86,7 +86,7 @@ Generate privacy policy and terms of service tailored to the project's stack, fe
 
    ## Third-party services
 
-   {list each service: PostHog (EU), Stripe, Supabase — with links to their privacy policies}
+   {list each service: Cloudflare (hosts the superduper-analytics counter), Stripe, Supabase — with links to their privacy policies}
 
    ## Your rights
 
@@ -201,7 +201,7 @@ Generate privacy policy and terms of service tailored to the project's stack, fe
 - Documents are templates — always review before publishing
 - Offline-first apps need simpler policies (this is a feature, not a limitation)
 - Update legal docs when adding new data collection, third-party services, or features
-- For EU-based products using PostHog: confirm EU hosting (eu.posthog.com)
+- Analytics via superduper-analytics (https://github.com/fortunto2/superduper-analytics): no cookie, no `localStorage`, web id derived at the edge and rotated daily, so no consent banner. On iOS declare Usage Data → Product Interaction + Identifiers → Device ID, Not Linked, not Tracking, no ATT. Any other tracker on the page voids that claim
 - Stripe handles PCI compliance — never store card data yourself
 
 ## Common Issues

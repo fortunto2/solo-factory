@@ -4,7 +4,7 @@ description: Use when "launch plan", "go-to-market", "GTM strategy", "how to lau
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.0.1"
   openclaw:
     emoji: "🚀"
 allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, WebSearch, WebFetch, mcp__solograph__kb_search, mcp__searxng__web_search, mcp__solograph__project_info
@@ -80,7 +80,7 @@ If MCP tools are not available, fall back to Glob + Grep + WebSearch.
    Week 0 (pre-launch):
    - [ ] /landing-gen — landing page with email capture
    - [ ] /seo-audit — baseline SEO score
-   - [ ] /metrics-track — PostHog events wired
+   - [ ] /metrics-track — superduper-analytics events wired (`seo products` shows the counter reporting)
 
    Week 1 (soft launch):
    - [ ] /community-outreach — 3-5 value-first posts in target communities
