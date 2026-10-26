@@ -4,6 +4,14 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.82.2 — 2026-10-26
+
+- `video-edit`: the copy-first recipe ends its audio chain with `asetpts=N/SR/TB`; without it `loudnorm` left a 0.075 s timestamp drift that platforms play as silence.
+
+## 1.83.1 — 2026-10-26
+
+- `ios-dev`: XcodeBuildMCP as one local plugin enabled per project, replacing "keep one `.mcp.json`". Per-repo copies drifted (five without the `mcp` subcommand, exiting on start; three pending approval) and a user-scope entry put 44 iOS tools into every session.
+
 ## 1.83.0 — 2026-10-26
 
 - New `hackathon`: one skill for working a hackathon and writing it up, research first. SKILL.md is a router; one reference per stage (01 event rules, judges and mentors with confirmed/probable/unconfirmed labels · 02 scout mode: winners of Devpost hackathons you did not attend, plus a cross-hackathon roll-up · 03 build · 04 live capture with supervox and a PTZ camera on the slides · 05 GitHub hunt by creation date and stack keywords · 06 gallery survey format · 07 pitch · 08 report, hub page, privacy pass). `scripts/devpost.py` walks a Devpost gallery through curl (WebFetch and urllib get 403): winners first, prizes verbatim, Built With, links, story; checked live on Cal Hacks 12.0 (102 winners) and on a gallery with no winners announced (0), plus 6 offline parser tests on copied markup. Rule throughout: no claim without an opened source, "not stated" otherwise.

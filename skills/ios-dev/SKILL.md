@@ -4,7 +4,7 @@ description: Build iPhone/iOS apps — native SwiftUI or Kotlin-Multiplatform hy
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.0.1"
+  version: "2.0.2"
   openclaw:
     emoji: "📱"
 ---
@@ -169,11 +169,26 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol
   '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | xcrun mcpbridge
 ```
 
-**Keep one MCP config, not two.** A project `.mcp.json` and `~/.mcp.json` that
-both define XcodeBuildMCP start two servers, and the project copy usually
-lacks the workflow filter — so the session carries a second, differently
-configured set of the same tools. Pick one file, or keep them byte-identical
-and say so in a comment.
+**Keep one definition, enabled per project.** A copy per repo drifts: five
+repos measured here carried `.mcp.json` entries without the `mcp` subcommand,
+so the server exited on start (`CONNECTION_CLOSED`), and three more sat at
+"Pending approval" because project-scope servers need a one-time approval
+nobody gave. A user-scope entry is the opposite mistake: 44 iOS tools in every
+web and Python session. What works is a tiny local plugin that holds the server
+once, installed but disabled at user level and switched on where it belongs:
+
+```
+<marketplace>/xcodebuildmcp/.claude-plugin/plugin.json   # name, version
+<marketplace>/xcodebuildmcp/.mcp.json                    # the block above
+~/.claude/settings.json            "enabledPlugins": {"xcodebuildmcp@<marketplace>": false}
+<project>/.claude/settings.local.json   "enabledPlugins": {"xcodebuildmcp@<marketplace>": true}
+```
+
+The marketplace can be a local directory (`"source": "directory"`); Apple's
+exported Xcode plugin can live in the same one. `claude plugin install` turns
+the plugin on at user scope, so set it back to `false` afterwards. Check with
+`claude mcp list` from a Swift project (one `xcodebuild` line) and from a
+non-Swift one (none).
 
 **Apple RAG MCP** (official Swift docs and HIG over RAG) is a nice-to-have —
 context7 already answers most API questions, and HIG comes up once a day, not

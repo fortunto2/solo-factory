@@ -11,11 +11,13 @@ trim, a muted line, loudness, an outro, chapters), copy the video stream and tou
 
 ```bash
 ffmpeg -i rec.MP4 -t 2086 -map 0:v:0 -map 0:a:0 -c:v copy \
-  -af "volume=enable='between(t,1073.5,1077.6)':volume=0,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000" \
+  -af "volume=enable='between(t,1073.5,1077.6)':volume=0,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,asetpts=N/SR/TB" \
   -c:a aac -b:a 192k -movflags +faststart out.mp4
 ```
 
-Then add the outro with the concat demuxer (below), also without re-encoding. `-map 0:v:0 -map 0:a:0`
+`asetpts=N/SR/TB` goes last in the audio chain: without it `loudnorm` left the packet timestamps 0.075 s
+off the sample count on all three files of one batch, and platforms play that gap as silence. Then add
+the outro with the concat demuxer (below), also without re-encoding. `-map 0:v:0 -map 0:a:0`
 drops the camera's extra data and thumbnail streams. Measured on 1080p talks read from an SD card,
 both jobs running at once: the hardware HEVC re-encode with a 1440p upscale ran at 1.2x realtime (4x
 alone) for a file 2.4x smaller; the stream copy ran at 4.4x realtime, limited by the card, not the CPU.
