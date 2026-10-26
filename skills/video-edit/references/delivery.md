@@ -107,9 +107,28 @@ printf "file '%s'\nfile '%s'\n" "$PWD/film.mp4" "$PWD/card.mp4" > list.txt
 ffmpeg -f concat -safe 0 -i list.txt -c copy film.outro.mp4
 ```
 
-Then decode a few seconds across the seam (`-ss <join-2> -t 4 -f null -`); if it errors, fall back
-to the concat *filter* (a full re-encode) and say so. Better still: make the card the second input
-of the concat filter in the same pass that encodes the platform file, zero extra generations.
+Then decode a few seconds across the seam (`-ss <join-2> -t 4 -f null -`) **and compare a frame of
+the card in the joined file with the card itself** (PSNR). An mp4 track holds one set of codec
+parameters, so a card from another encoder can decode with zero errors and show green. A camera's
+10-bit HEVC (DJI: Main 10, `yuv420p10le`) is the usual case: encode the card in the same bit depth
+(`-profile:v main10 -pix_fmt p010le` on VideoToolbox), and if the mp4 seam still fails, join through
+MPEG-TS, where each part keeps its parameters in-band and the film is still copied:
+
+```bash
+for f in film card; do ffmpeg -i $f.mp4 -map 0:v:0 -map 0:a:0 -c copy -bsf:v hevc_mp4toannexb -f mpegts $f.ts; done
+printf "file '%s'\nfile '%s'\n" "$PWD/film.ts" "$PWD/card.ts" > list.txt
+ffmpeg -f concat -safe 0 -i list.txt -map 0 -c copy -tag:v hev1 -movflags +faststart film.outro.mp4
+```
+
+Use the concat *demuxer* here, not the `concat:` protocol: the protocol appends bytes, the card's
+timestamps restart at zero, and the decoder reports non-monotonic DTS at the seam. (`h264_mp4toannexb`
+and `avc3` for H.264.) Measured on a 48-minute DJI talk: 0 decode errors across the seam, film frames
+bit-identical (PSNR inf), 6.5 GB out. The full re-encode it replaced produced 512 MB at 1.4 Mbit/s.
+
+A full re-encode through the concat *filter* is the last resort; keep the film's bitrate and say so
+out loud. Check that your seam check can pass at all: a PSNR parsed from stderr under `-v error`
+never appears (ffmpeg prints it at info level), so the check failed every time and every film was
+re-encoded for three weeks without anyone noticing.
 
 ## Around the file
 
