@@ -18,40 +18,17 @@ make build                              [Astro SSG/SSR build]
 make deploy                             [Cloudflare Pages deploy]
 ```
 
-## FalkorDB Graph Schema (YouTube source)
+## Source store (YouTube)
 
-**Nodes:**
-- `Channel` — YouTube channel (handle, name, subscriber count)
-- `Video` — indexed video (title, videoId, created, duration, view_count)
-- `VideoChunk` — timestamped text segment (text, chapter, start_time, start_seconds, embedding)
-- `Tag` — auto-detected topic (name, confidence score)
+Since 26 Oct 2026 solograph keeps sources in SQLite, not FalkorDB: `~/.solo/sources/search.db`
+holds an FTS5 index of transcript chunks (documents keyed `youtube/<id>`), plus `videos`
+(id, title, channel, created, duration, chapters) and `video_tags` (video, tag, weight).
+Query it with the MCP tools — `source_search`, `source_tags`, `source_related`,
+`source_list` — or with `sqlite3` against those two tables.
 
-**Edges:**
-- `Channel → HAS_VIDEO → Video`
-- `Video → HAS_CHUNK → VideoChunk`
-- `Video → HAS_TAG → Tag` (weighted by confidence)
-
-## Useful Cypher Queries
-
-```cypher
--- Video count per channel
-MATCH (c:Channel)-[:HAS_VIDEO]->(v:Video)
-RETURN c.name, COUNT(v) ORDER BY COUNT(v) DESC
-
--- Recent videos (last 30 days)
-MATCH (v:Video) WHERE v.created > '2026-01-14'
-RETURN v.title, v.created ORDER BY v.created DESC LIMIT 20
-
--- Videos about specific topic
-MATCH (v:Video)-[:HAS_TAG]->(t:Tag)
-WHERE t.name CONTAINS 'startup'
-RETURN v.title, t.name, t.confidence ORDER BY t.confidence DESC
-
--- Chunk search by chapter name
-MATCH (v:Video)-[:HAS_CHUNK]->(c:VideoChunk)
-WHERE c.chapter CONTAINS 'idea'
-RETURN v.title, c.chapter, c.start_time, LEFT(c.text, 200)
-```
+**`export-data.py` and `export-vectors.py` in the you2idea repo read the old FalkorDB
+graph and have not been ported.** The graph and its embeddings are deleted; the export
+needs rewriting against `search.db` (and `vectors.bin` has no source any more).
 
 ## Export Output Files
 

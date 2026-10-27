@@ -7,7 +7,7 @@ metadata:
   version: "2.3.0"
   openclaw:
     emoji: "🔨"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__codegraph_query, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
 argument-hint: "[track-id] [--task X.Y] [--phase N]"
 ---
 
@@ -31,8 +31,8 @@ Pipeline: `/plan` → **`/build`** → `/deploy` → `/review`
 ## MCP Tools (use if available)
 
 - `session_search(query)` — find how similar problems were solved before
-- `codegraph_query("MATCH (s:Symbol) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.project, s.file, s.name LIMIT 20")` — find reusable code across projects (symbol names, every project; Grep inside one)
-- `codegraph_query(query)` — check file dependencies, imports, callers
+- `symbol_search("<words>")` — find reusable code across projects (symbol names, every project; Grep inside one)
+- Grep — file dependencies, imports, callers (a structural graph answered these no better: measured 27 Oct 2026)
 
 If MCP tools are not available, fall back to Glob + Grep + Read.
 
@@ -95,13 +95,8 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 ```
 codegraph_explain(project="{project name}")
 ```
-Returns: stack, languages, directory layers, key patterns, top dependencies, hub files.
+Returns: stack, languages, directory layers, key patterns, top dependencies, files with the most definitions.
 
-### Step 1.5 — Get RepoMap (if MCP available)
-```
-codegraph_repomap(project="{project name}")
-```
-Returns: a YAML map of the top files and their exported classes/functions. Use this to understand the global structure.
 
 ### Step 2 — Essential docs (parallel reads)
 1. `docs/plan/{trackId}/plan.md` — task list (REQUIRED). **Read the `## Context Handoff` section first** — it has a compact summary of intent, key files, decisions, and risks. This is your primary orientation.
@@ -156,9 +151,9 @@ Parse plan.md for first line matching `- [ ] Task X.Y:` (or `- [~] Task X.Y:` if
 **Do NOT grep the entire project or read all source files.** Load only what this specific task needs.
 
 **If MCP available (preferred):**
-1. Grep the project for the task keywords — exact names beat any index. If the name is uncertain: `codegraph_query("MATCH (s:Symbol {project: '{name}'}) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.file, s.name, s.line LIMIT 20")`. Read only the top 2-3 files.
+1. Grep the project for the task keywords — exact names beat any index. If the name is uncertain: `symbol_search("<words>", project="{name}")`. Read only the top 2-3 files.
 2. `session_search("{task keywords}")` — check if you solved this before.
-3. `codegraph_query("MATCH (f:File {project: '{name}'})-[:IMPORTS]->(dep) WHERE f.path CONTAINS '{module}' RETURN dep.path")` — check imports/dependencies of files you'll modify.
+3. Grep the imports of the files you'll modify, and Grep for their module name to find who depends on them.
 
 **If MCP unavailable (fallback):**
 1. Read ONLY the files explicitly mentioned in the task description (file paths).

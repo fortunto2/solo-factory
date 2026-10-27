@@ -7,7 +7,7 @@ metadata:
   version: "1.1.1"
   openclaw:
     emoji: "🎥"
-allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__codegraph_query, mcp__solograph__project_info, mcp__solograph__kb_search
+allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared, mcp__solograph__project_info, mcp__solograph__kb_search
 argument-hint: "<project-name>"
 ---
 
@@ -17,7 +17,7 @@ Generate a promo video plan from a project's PRD. Produces a 30-45 second video 
 
 ## MCP Tools (use if available)
 
-- `codegraph_query("MATCH (s:Symbol) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.project, s.file, s.name LIMIT 20")` — find UI components, screens, features to showcase (symbol names, every project; Grep inside one)
+- `symbol_search("<words>")` — find UI components, screens, features to showcase (symbol names, every project; Grep inside one)
 - `project_info(name)` — get project stack and details
 - `kb_search(query)` — find video production methodology
 
@@ -36,7 +36,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
    - If none found: output plain storyboard (no specific tooling config)
 
 3. **Extract key screens/features** to showcase:
-   - If MCP available: `codegraph_query("MATCH (s:Symbol {project: '<name>'}) WHERE s.name =~ '.*(Screen|View|Hero|Dashboard).*' RETURN s.file, s.name LIMIT 30")` — find showcase-worthy UI
+   - If MCP available: `symbol_search("screen view hero dashboard", project="<name>")` — find showcase-worthy UI
    - Otherwise: Glob for screenshots, mockups, or UI component files
    - Read PRD for top 3-5 features to demonstrate
 

@@ -7,7 +7,7 @@ metadata:
   version: "2.3.0"
   openclaw:
     emoji: "📋"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__codegraph_repomap, mcp__solograph__kb_search, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared, mcp__solograph__codegraph_explain, mcp__solograph__kb_search, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
 argument-hint: "<task description>"
 ---
 
@@ -24,9 +24,9 @@ Creates a track for any feature, bug fix, or refactor with a concrete, file-leve
 ## MCP Tools (use if available)
 
 - `session_search(query)` — find similar past work in Claude Code chat history
-- `codegraph_query("MATCH (s:Symbol) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.project, s.file, s.name LIMIT 20")` — find reusable code across projects (symbol names, every project; Grep inside one)
-- `codegraph_query(query)` — check dependencies of affected files
-- `codegraph_explain(project)` — architecture overview: stack, languages, directory layers, key patterns, top dependencies, hub files
+- `symbol_search("<words>")` — find reusable code across projects (symbol names, every project; Grep inside one)
+- Grep — imports and callers of the files you will change
+- `codegraph_explain(project)` — architecture overview: stack, languages, directory layers, key patterns, top dependencies, files with the most definitions
 - `kb_search(query)` — search knowledge base for relevant methodology
 
 If MCP tools are not available, fall back to Glob + Grep + Read.
@@ -68,13 +68,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
       ```
       codegraph_explain(project="{project name from CLAUDE.md or directory name}")
       ```
-      Gives you: stack, languages, directory layers, key patterns, top dependencies, hub files.
-
-   b. **Get RepoMap** (if MCP available):
-      ```
-      codegraph_repomap(project="{project name from CLAUDE.md or directory name}")
-      ```
-      Gives you a YAML map of the most important files and their exported symbols (classes/functions).
+      Gives you: stack, languages, directory layers, key patterns, top dependencies, files with the most definitions.
 
    c. **Find relevant files** — Glob + Grep for patterns related to the task:
       - Search for keywords from the task description
@@ -95,13 +89,11 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 
    e. **Search code across projects** (if MCP available):
       ```
-      codegraph_query("MATCH (s:Symbol) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.project, s.file, s.name LIMIT 20")
+      symbol_search("<words>")
       ```
 
-   f. **Check dependencies** of affected files (if MCP available):
-      ```
-      codegraph_query(query="MATCH (f:File {path: '{file}'})-[:IMPORTS]->(dep) RETURN dep.path")
-      ```
+   f. **Check dependencies** of affected files — Grep their imports, and Grep for the
+      module name to find who imports them.
 
    g. **Read existing tests** in the affected area — understand testing patterns used.
 

@@ -213,7 +213,7 @@ What is in the set, and the rules that most often hit real code:
 | Agent | Model | Specialization |
 |-------|-------|----------------|
 | `researcher` | Sonnet | Market research, competitors, pain points, web + KB search |
-| `code-analyst` | Haiku | Codebase exploration, dependency analysis, Cypher queries |
+| `code-analyst` | Haiku | Codebase exploration, dependency analysis, symbols across projects |
 
 ## Workflows
 
@@ -306,11 +306,10 @@ Skills auto-detect and use [solograph](https://github.com/fortunto2/solograph) t
 |------|-------------|
 | `kb_search` | Full-text search over the knowledge base (SQLite FTS5, BM25, RU+EN stemming) |
 | `session_search` | Every past Claude Code prompt and answer, including transcripts Claude Code has deleted ("how did I solve X?") |
-| `codegraph_query` | Cypher queries against code intelligence graph |
+| `symbol_search` | Where a function or class is defined, across every project ("montage profile" finds `MontageProfile`) |
 | `codegraph_stats` | Graph statistics (projects, files, symbols, packages) |
 | `codegraph_explain` | Architecture overview of any project |
 | `codegraph_shared` | Shared packages across projects |
-| `codegraph_repomap` | A project's most important files and symbols |
 | `source_search` | Indexed YouTube transcripts, ProductHunt, TrustMRR, Telegram |
 | `project_info` | Project registry (stacks, status, last commit) |
 | `web_fetch` | Fetch a URL with browser-like headers, tags stripped |

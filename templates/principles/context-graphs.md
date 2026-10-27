@@ -133,11 +133,11 @@ Context graphs don't require enterprise scale. Already working at small scale:
    - `session_search`: search past Claude Code sessions
    - Each session = decision trajectory
 
-2. **CodeGraph** (already implemented)
-   - `codegraph_query`: Cypher queries on code graph
+2. **Portfolio index** (already implemented)
+   - `symbol_search`: where something is defined, across every project
    - `codegraph_explain`: architectural overview
    - `codegraph_shared`: shared packages across projects
-   - Structural memory about code
+   - A structural graph (calls, imports) was tried and dropped: agents never queried it, and Grep answered the same questions
 
 3. **Knowledge Base** (already implemented)
    - `kb_search`: semantic search
