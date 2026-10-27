@@ -20,6 +20,19 @@ email. So before writing, put every asset where the post can show it:
 | Slide frames from the stage | the media folder, only where a slide makes the point | other teams' slides only small and credited |
 | Links | in the "ours" section, near the top | live demo, repo, Devpost or event page, store listing; a link that is not live yet says so, with a note to add it |
 
+**Link both ways, and where the reader looks first.** A post, its repo and its video each point at
+the other two, or a reader who lands on one never finds the rest:
+
+- **Post → repo, demo, video.** At the top, not only in a "Links:" line at the end. If the site
+  renders link fields from frontmatter (repo, demo, video, Devpost), set them; a repo link only when
+  the repo is public, since a private one is a 404 that also leaks its name.
+- **Repo → post, video.** One line under the README's tagline (`Write-up: <post> · Video: <url>`),
+  and the repo's homepage field set to the live demo, or to the post when there is no demo.
+- **Video → post.** A `Write-up: <post>` line right after the description's first paragraph, which
+  is the part shown before "more".
+- **Check each link answers** (HTTP 200) before it goes into a README or a description; those are
+  the copies nobody re-reads.
+
 Then write the post. Social posts (a channel, LinkedIn, X) are derived from the published post
 afterwards, in a separate step; they link back to it instead of carrying their own version of the
 story.

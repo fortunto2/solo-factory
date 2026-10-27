@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.87.2 — 2026-10-27
+
+- `hackathon` 1.3.2: post, repo and video link to each other. The post shows repo, demo and video at the top (a repo only when public); the README gets a `Write-up:` line under its tagline and the homepage field; the video description gets one after its first paragraph. Every link is checked for HTTP 200 before it goes into a copy nobody re-reads.
+
 ## 1.87.1 — 2026-10-26
 
 - `hackathon` 1.3.1: photos get their EXIF orientation applied before metadata is stripped. Saving without EXIF also drops the rotation tag, so an iPhone HEIC (orientation 4 on a front-camera selfie) went live upside down. Open the final file and look at it before publishing.
