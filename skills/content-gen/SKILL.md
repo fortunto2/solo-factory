@@ -1,10 +1,10 @@
 ---
 name: solo-content-gen
-description: Use when "create content", "write LinkedIn post", "social media pack", "marketing copy", "promotion content", or need social posts from PRD. Do NOT use for community thread responses (/community-outreach) or video scripts (/video-promo).
+description: Use when "create content", "write LinkedIn post", "social media pack", "marketing copy", "promotion content", "posts from this article", "repurpose this post", "посты из статьи", or need social posts from a PRD or from a published write-up. Do NOT use for community thread responses (/community-outreach) or video scripts (/video-promo).
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.2.0"
+  version: "1.3.0"
   openclaw:
     emoji: "📝"
 allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared
@@ -14,6 +14,30 @@ argument-hint: "<project-name or path>"
 # /content-gen
 
 Generate a promotion content pack from a project's PRD or README. Produces 3 ready-to-use content pieces: LinkedIn post, Reddit answer draft, and Twitter/X thread. For video scripts, use `/video-promo`.
+
+## Mode: posts from a published write-up
+
+When the input is a post that is already published (the canonical write-up on the user's own site),
+the job is distribution, not copywriting from scratch. Each channel gets its own rewrite, never a copy:
+
+- **One contract per channel**, kept as data the user can edit (voice, audience, language, length
+  limit, where the link goes, which media it needs, cadence, how it gets out: scheduled queue, a
+  draft the user posts, or an upload after an OK). Read it before writing; do not carry a voice in
+  your head from the last post.
+- **Write for that channel's audience.** A professional network wants the lesson and the number; a
+  build-in-public feed wants the story and the surprise; a channel of strangers wants the general
+  insight with the user's work as one example inside it, not a diary entry.
+- **Facts only from the write-up.** Every number in a draft appears in the source post. A claim the
+  post does not make does not appear in the derivative.
+- **One link, tagged.** The canonical post URL with `utm_source=<channel>&utm_medium=social&utm_campaign=<slug>`,
+  placed where the channel wants it (end of a Telegram post, LinkedIn's first comment rather than the
+  body, the last part of an X thread).
+- **If the project has a gated contract tool** (a `brief` that assembles the full context and a
+  `draft` that validates against the contract), use it and nothing else: brief, write, draft, fix
+  until every gate passes. A post that does not fit a channel is skipped with a written reason, never
+  left silently undone.
+- **Never post from the user's accounts** unless the contract says that channel's mechanics allow it;
+  drafts for the user are the default.
 
 ## MCP Tools (use if available)
 

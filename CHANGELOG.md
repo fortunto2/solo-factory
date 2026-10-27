@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.89.0 — 2026-10-27
+
+- `content-gen` 1.3.0: a mode for posts from a published write-up. Each channel is rewritten from its own contract (voice, audience, limits, link placement, mechanics), every number comes from the source post, one UTM-tagged link per channel, and a project's gated contract tool (brief → draft until the gates pass, skip only with a reason) is used when it exists. Triggers: "posts from this article", "repurpose this post", "посты из статьи".
+
 ## 1.88.0 — 2026-10-27
 
 - `hackathon` 1.4.0: talks, panels and festivals filmed around an event get a post too, with the recording as its spine: the full video near the top with chapter links, a timestamp on every point, public shorts next to the point they make, claims attributed and predictions marked, misheard names corrected only against a second source and fixed in the uploaded subtitles as well. Drafts written by parallel agents stay unpublished until reviewed, because a build that collects every published page ships a half-written one the moment anything else is published.
