@@ -304,14 +304,14 @@ Skills auto-detect and use [solograph](https://github.com/fortunto2/solograph) t
 
 | Tool | What it does |
 |------|-------------|
-| `kb_search` | Semantic search over knowledge base (FalkorDB vectors, RU+EN) |
-| `session_search` | Search past Claude Code sessions ("how did I solve X?") |
+| `kb_search` | Full-text search over the knowledge base (SQLite FTS5, BM25, RU+EN stemming) |
+| `session_search` | Every past Claude Code prompt and answer, including transcripts Claude Code has deleted ("how did I solve X?") |
 | `codegraph_query` | Cypher queries against code intelligence graph |
 | `codegraph_stats` | Graph statistics (projects, files, symbols, packages) |
 | `codegraph_explain` | Architecture overview of any project |
 | `codegraph_shared` | Shared packages across projects |
-| `project_code_search` | Semantic code search (auto-indexes on first call) |
-| `project_code_reindex` | Reindex project code after changes |
+| `codegraph_repomap` | A project's most important files and symbols |
+| `source_search` | Indexed YouTube transcripts, ProductHunt, TrustMRR, Telegram |
 | `project_info` | Project registry (stacks, status, last commit) |
 | `web_fetch` | Fetch a URL with browser-like headers, tags stripped |
 
