@@ -5,7 +5,7 @@ description: "Infrastructure layer that turns AI agent decision traces into comp
 created: 2026-02-07
 tags: [context-graphs, agents, methodology, memory, decision-traces]
 course_module: 5
-course_order: 8
+course_order: 3
 publish: true
 publish_as: post
 source_path: "1-methodology/context-graphs.md"
@@ -137,16 +137,16 @@ Context graphs don't require enterprise scale. Already working at small scale:
    - `symbol_search`: where something is defined, across every project
    - `codegraph_explain`: architectural overview
    - `codegraph_shared`: shared packages across projects
-   - A structural graph (calls, imports) was tried and dropped: agents never queried it, and Grep answered the same questions
+   - A structural graph (calls, imports) was tried and dropped in Oct 2026: agents asked it nothing structural in four months, and Grep answered the same questions
 
 3. **Knowledge Base** (already implemented)
-   - `kb_search`: semantic search
+   - `kb_search`: full-text search (SQLite FTS5, BM25)
    - Decisions, patterns, precedents
 
-4. **Source Graph** (already implemented)
-   - `source_search`: Telegram, YouTube
+4. **Sources** (already implemented)
+   - `source_search`: YouTube, ProductHunt, TrustMRR, Telegram
    - `source_related`: related videos by tags
-   - External knowledge sources in graph
+   - External knowledge in the same FTS5 store, no graph database
 
 ### What to Strengthen
 

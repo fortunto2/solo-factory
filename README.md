@@ -1,15 +1,15 @@
 [![GitHub stars](https://img.shields.io/github/stars/fortunto2/solo-factory?style=flat-square)](https://github.com/fortunto2/solo-factory/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Skills: 56](https://img.shields.io/badge/skills-56-blue?style=flat-square)](#skills)
-[![Agents: 3](https://img.shields.io/badge/agents-3-green?style=flat-square)](#agents)
+[![Skills: 57](https://img.shields.io/badge/skills-57-blue?style=flat-square)](#skills)
+[![Agents: 2](https://img.shields.io/badge/agents-2-green?style=flat-square)](#agents)
 [![MCP Tools: 11](https://img.shields.io/badge/MCP_tools-11-purple?style=flat-square)](#mcp-integration)
-[![Stacks: 9](https://img.shields.io/badge/stacks-9-orange?style=flat-square)](#available-stacks)
+[![Stacks: 12](https://img.shields.io/badge/stacks-12-orange?style=flat-square)](#available-stacks)
 
 # Solo Factory
 
 **Your own path. Multiple stacks. Ship everything.**
 
-> From shower thought to deployed product — 48 skills, 3 agents, and a code intelligence MCP server that knows every project you've ever built.
+> From shower thought to deployed product — 57 skills, 2 agents, and an MCP server that searches every project you've ever built.
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
@@ -23,7 +23,7 @@ Most AI coding tools help you write code. Solo Factory helps you **run a startup
 
 - **No context switching** — one pipeline handles research, coding, deployment, and marketing
 - **Stack-agnostic** — 9 templates from SwiftUI to Cloudflare Workers
-- **Code intelligence** — MCP server indexes all your projects, searches past sessions, and provides semantic code search
+- **Portfolio search** — MCP server indexes symbols and packages across all your projects and searches past sessions (SQLite FTS5, no embeddings)
 - **Works without MCP** — skills gracefully fall back to Glob, Grep, Read, WebSearch
 
 ## Install
@@ -307,15 +307,15 @@ Skills auto-detect and use [solograph](https://github.com/fortunto2/solograph) t
 | `kb_search` | Full-text search over the knowledge base (SQLite FTS5, BM25, RU+EN stemming) |
 | `session_search` | Every past Claude Code prompt and answer, including transcripts Claude Code has deleted ("how did I solve X?") |
 | `symbol_search` | Where a function or class is defined, across every project ("montage profile" finds `MontageProfile`) |
-| `codegraph_stats` | Graph statistics (projects, files, symbols, packages) |
+| `codegraph_stats` | Index statistics (projects, files, symbols, packages) |
 | `codegraph_explain` | Architecture overview of any project |
 | `codegraph_shared` | Shared packages across projects |
 | `source_search` | Indexed YouTube transcripts, ProductHunt, TrustMRR, Telegram |
 | `project_info` | Project registry (stacks, status, last commit) |
 | `web_fetch` | Fetch a URL with browser-like headers, tags stripped |
 
-Web search lives on its own MCP server, `searxng`, so it stays up when the graph does
-not and needs no FalkorDB:
+Web search lives on its own MCP server, `searxng`, so a broken import in one server
+cannot take the other's tools down:
 
 | Tool | Purpose |
 |------|---------|
@@ -443,7 +443,7 @@ solo-factory/
 
 ## Works well with
 
-- [solograph](https://github.com/fortunto2/solograph) — MCP server for code intelligence, KB, sessions, web search
+- [solograph](https://github.com/fortunto2/solograph) — MCP server for portfolio symbol search, KB and sessions
 - [Agent Teams](https://github.com/anthropics/agents) — parallel feature dev, code review, debugging
 - [Context7](https://github.com/upstash/context7) — latest library docs for scaffolding
 
