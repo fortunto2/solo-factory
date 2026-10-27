@@ -1,10 +1,10 @@
 ---
 name: solo-hackathon
-description: Work a hackathon research-first and write it up. Event rules and judging, who the judges and mentors are, what the other teams built and where their code is (GitHub, Devpost gallery), live notes from the stage, the report afterwards, and the follow-ups to the people you met (who to write, drafts, when); scout mode analyses the winners of hackathons you never attended. Use when user says "хакатон", "ресерч хакатона", "кто судьи на хакатоне", "найди репо команд", "разбери галерею devpost", "отчёт по хакатону", "разбери победителей хакатона", "кому написать после хакатона", "фоллоуап после хакатона", "analyze devpost winners", "what wins hackathons", "hackathon research". Do NOT use for market research on a product idea (use /research), listening to a room with no hackathon in it (use /supervox), or a social post about the event (use /content-gen).
+description: Work a hackathon research-first and write it up. Event rules and judging, who the judges and mentors are, what the other teams built and where their code is (GitHub, Devpost gallery), live notes from the stage, the report afterwards, and the follow-ups to the people you met (who to write, drafts, when); scout mode analyses the winners of hackathons you never attended. Use when user says "хакатон", "ресерч хакатона", "кто судьи на хакатоне", "найди репо команд", "разбери галерею devpost", "отчёт по хакатону", "разбери победителей хакатона", "кому написать после хакатона", "фоллоуап после хакатона", "analyze devpost winners", "what wins hackathons", "hackathon research", "пост по докладу с конференции", "write up the keynote". Do NOT use for market research on a product idea (use /research), listening to a room with no hackathon in it (use /supervox), or a social post about the event (use /content-gen).
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.2"
+  version: "1.4.0"
   openclaw:
     emoji: "🏁"
 argument-hint: "[event URL | Devpost URL | scout <theme or URL>]"
@@ -55,7 +55,7 @@ Load only the reference for the stage you are in. Each one opens with When / Inp
 | 05 | GitHub hunt | repos created since the day before, keyed on stack and domain words; confirm from the README | `references/05-github-hunt.md` |
 | 06 | Gallery survey | every project page read → all-projects table, copy-into, left-out, pattern counts | `references/06-gallery-survey.md` |
 | 07 | Pitch | deck, demo video, Q&A cheat sheet via `/supervox` pitch coach | `references/07-pitch.md` |
-| 08 | Report and publish | photos, video, deck and links in one post on the user's site; hook and scorecard first, team table, hub with backlinks, privacy pass | `references/08-report-publish.md` |
+| 08 | Report and publish | photos, video, deck and links in one post on the user's site, linked both ways with repo and video; hook and scorecard first, team table, talks and panels as their own posts, hub with backlinks, privacy pass | `references/08-report-publish.md` |
 | 09 | Network follow-up | people log the same evening; contacts graph → who else to write; drafts within 48 h; second touch a week later | `references/09-network-followup.md` |
 
 Research (01, 02, 05, 06) is where this skill does most of its work. Typical order on the day:

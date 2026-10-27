@@ -78,6 +78,33 @@ Rules for the scorecard:
 - A judge never publishes scores, pairwise votes or what was said in deliberation. "These are mine,
   not the panel's scores" when you judged.
 
+## Talks, panels and festivals around the event
+
+A keynote, an investor panel or a festival evening you filmed gets the same one-home treatment,
+with the recording as the spine instead of a gallery:
+
+- **Title** states the speaker's sharpest claim, attributed ("X: a chatbot saves 30% at best"),
+  not "Notes from X". The lede gives the claim with its number, then the event in one clause.
+- **The full recording embedded near the top**, then a "Jump to:" line of chapter links, and every
+  point in the body with a timestamp link into the video (`?t=SECONDS`). Times are times in the
+  published video, not in the raw clip.
+- **Shorts cut from it** as a row of vertical embeds next to the point each one makes. Embed only
+  the public ones; a short that was hidden for performing badly does not come back through the post.
+- **Claims stay claims.** Numbers as the speaker said them, with the speaker named; predictions
+  marked as predictions; slide numbers labelled as the speaker's, not checked. A detail from the
+  raw transcript that the cut left out says so ("in the full talk, not in the film").
+- **Speech recognition and names.** Correct a misheard product or person name only against a
+  second source (the description, the other-language subtitles, a slide), and fix the same error in
+  the uploaded subtitles. A name heard only through recognition, of someone not introduced on
+  stage, stays out.
+- **Your own take** is a separate section, labelled as yours ("my reading, not their advice"),
+  and the post ends with how it was recorded and transcribed.
+
+**Drafts written by parallel agents stay unpublished until reviewed.** If the site build collects
+every page marked for publishing, a page an agent is still writing ships half-done the moment
+anyone publishes something else. Have the agent write it with publishing off; turn it on after the
+review, then publish.
+
 ## Privacy and accuracy pass (before publishing)
 
 - Stage numbers say "as claimed" or sit in the claims section.

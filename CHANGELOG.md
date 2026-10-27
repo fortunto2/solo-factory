@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.88.0 — 2026-10-27
+
+- `hackathon` 1.4.0: talks, panels and festivals filmed around an event get a post too, with the recording as its spine: the full video near the top with chapter links, a timestamp on every point, public shorts next to the point they make, claims attributed and predictions marked, misheard names corrected only against a second source and fixed in the uploaded subtitles as well. Drafts written by parallel agents stay unpublished until reviewed, because a build that collects every published page ships a half-written one the moment anything else is published.
+
 ## 1.87.2 — 2026-10-27
 
 - `hackathon` 1.3.2: post, repo and video link to each other. The post shows repo, demo and video at the top (a repo only when public); the README gets a `Write-up:` line under its tagline and the homepage field; the video description gets one after its first paragraph. Every link is checked for HTTP 200 before it goes into a copy nobody re-reads.

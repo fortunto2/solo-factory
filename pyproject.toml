@@ -1,6 +1,6 @@
 [project]
 name = "solo-factory"
-version = "1.87.2"
+version = "1.88.0"
 requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0",
