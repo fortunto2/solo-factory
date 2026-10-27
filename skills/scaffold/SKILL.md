@@ -186,7 +186,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
 
 16. **Register project + add it to the code graph** (optional, if solograph is installed):
       ```
-      solograph-cli registry && solograph-cli scan --project <name> --deep
+      solograph registry && solograph scan -p <name>
       ```
     The nightly refresh keeps it current after that.
 

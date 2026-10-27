@@ -738,9 +738,11 @@ CRITICAL PIPELINE RULES:
     log_entry "PLAYWRIGHT" "Browser tools available via MCP for $STAGE_ID"
   fi
   # Auto-update code graph if Solograph is available and we are in a codebase
-  if [[ "$STAGE_ID" == "plan" || "$STAGE_ID" == "build" ]] && [[ -d "$HOME/startups/shared/solograph" ]]; then
-    log_entry "GRAPH" "Updating code graph for RepoMap..."
-    (cd "$HOME/startups/shared/solograph" && uv run solograph-cli scan "$PROJECT_NAME" >/dev/null 2>&1) || true
+  # (`scan NAME` without -p was rejected by the CLI and the error swallowed, so this
+  # never updated anything; the binary takes -p.)
+  if [[ "$STAGE_ID" == "plan" || "$STAGE_ID" == "build" ]] && [[ -x "$HOME/.solo/bin/solograph" ]]; then
+    log_entry "GRAPH" "Updating the portfolio index for $PROJECT_NAME..."
+    "$HOME/.solo/bin/solograph" scan -p "$PROJECT_NAME" >/dev/null 2>&1 || true
   fi
 
   log_entry "INVOKE" "$SKILL $ARGS"

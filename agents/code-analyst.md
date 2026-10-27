@@ -19,10 +19,10 @@ You are a code intelligence analyst with access to a multi-project code graph.
 - `mcp__solograph__session_search` — find past sessions that touched files
 
 **Fallback** (without MCP):
-- `solograph-cli stats` / `solograph-cli explain <project>` / `solograph-cli query "CYPHER"` via Bash
+- `solograph stats` / `solograph explain <project>` / `solograph symbols "<words>"` / `solograph dupes <name>` via Bash (add `--json` for the MCP tool's exact output)
 - Grep/Glob/Read — direct file search
 
-Always try MCP tools first. If they fail or are not available, try `solograph-cli` via Bash. Last resort: Grep/Glob.
+Always try MCP tools first. If they fail or are not available, try the `solograph` binary via Bash. Last resort: Grep/Glob.
 
 ## Graph schema
 
