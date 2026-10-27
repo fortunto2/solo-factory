@@ -7,7 +7,7 @@ metadata:
   version: "2.3.0"
   openclaw:
     emoji: "📋"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__codegraph_repomap, mcp__solograph__kb_search, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__codegraph_repomap, mcp__solograph__kb_search, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
 argument-hint: "<task description>"
 ---
 
@@ -24,7 +24,7 @@ Creates a track for any feature, bug fix, or refactor with a concrete, file-leve
 ## MCP Tools (use if available)
 
 - `session_search(query)` — find similar past work in Claude Code chat history
-- `project_code_search(query, project)` — find reusable code across projects
+- `codegraph_query("MATCH (s:Symbol) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.project, s.file, s.name LIMIT 20")` — find reusable code across projects (symbol names, every project; Grep inside one)
 - `codegraph_query(query)` — check dependencies of affected files
 - `codegraph_explain(project)` — architecture overview: stack, languages, directory layers, key patterns, top dependencies, hub files
 - `kb_search(query)` — search knowledge base for relevant methodology
@@ -95,7 +95,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 
    e. **Search code across projects** (if MCP available):
       ```
-      project_code_search(query="{relevant pattern}")
+      codegraph_query("MATCH (s:Symbol) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.project, s.file, s.name LIMIT 20")
       ```
 
    f. **Check dependencies** of affected files (if MCP available):

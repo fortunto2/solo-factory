@@ -68,7 +68,7 @@ uvx solograph-cli index-youtube -c <handle> -n 10
 
 **Verification via MCP:**
 - `source_list` — check that youtube source appears
-- `source_search("startup idea", source="youtube")` — test semantic search
+- `source_search("startup idea", source="youtube")` — test search
 - `source_tags` — see auto-detected topics from transcripts
 - `source_related(video_id)` — find related videos by tags
 

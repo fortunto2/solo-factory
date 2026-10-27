@@ -7,7 +7,7 @@ metadata:
   version: "1.8.0"
   openclaw:
     emoji: "🔍"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__kb_search, mcp__searxng__web_search, mcp__searxng__web_extract, mcp__solograph__session_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_search, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_close
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, WebSearch, WebFetch, AskUserQuestion, mcp__solograph__kb_search, mcp__searxng__web_search, mcp__searxng__web_extract, mcp__solograph__session_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_close
 argument-hint: "[idea name or description]"
 ---
 
@@ -29,7 +29,7 @@ If MCP tools are available, prefer them over CLI:
 - `project_info(name)` — check project details and stacks
 - `codegraph_explain(project)` — architecture overview of an existing project (stack, patterns, deps)
 - `codegraph_query(query)` — raw Cypher queries against code graph (find shared packages, dependencies)
-- `project_code_search(query, project)` — semantic search over project source code
+- `codegraph_query("MATCH (s:Symbol) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.project, s.file, s.name LIMIT 20")` — find code by symbol name across every project (Grep inside one)
 
 MCP `web_search` supports engine override: `engines="reddit"`, `engines="youtube"`, etc.
 For reading one page in full, prefer `web_extract` over `include_raw_content`: it runs
@@ -124,7 +124,7 @@ Use WebSearch/WebFetch as primary. If MCP `web_search` tool is available, use it
 
 4. **Check existing portfolio** (if MCP codegraph tools available):
    - `codegraph_explain(project="<similar project>")` — architecture overview of related projects in the portfolio
-   - `project_code_search(query="<relevant pattern>", project="<sibling>")` — find reusable code, patterns, infrastructure
+   - `codegraph_query("MATCH (s:Symbol) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.project, s.file, s.name LIMIT 20")` — find reusable code by symbol name across every project
    - `codegraph_query("MATCH (p:Project)-[:DEPENDS_ON]->(pkg:Package) WHERE pkg.name CONTAINS '<relevant tech>' RETURN p.name, pkg.name")` — find projects using similar tech
    - This helps assess: feasibility, reusable code, stack decisions, and time estimates
    - If no MCP tools available, skip this step.

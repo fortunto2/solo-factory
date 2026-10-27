@@ -7,7 +7,7 @@ metadata:
   version: "1.6.0"
   openclaw:
     emoji: "🐝"
-allowed-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Write, mcp__searxng__web_search, mcp__searxng__web_extract, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_search, mcp__solograph__session_search
+allowed-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Write, mcp__searxng__web_search, mcp__searxng__web_extract, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__session_search
 argument-hint: "[idea name or description]"
 ---
 
@@ -43,7 +43,7 @@ Focus: feasibility, tech stack, existing solutions, implementation complexity.
 - If MCP `project_info` available: check existing projects for reusable code
 - If MCP `codegraph_explain` available: get architecture overview of similar existing projects
 - If MCP `codegraph_query` available: find shared packages across projects
-- If MCP `project_code_search` available: search for reusable patterns, services, infrastructure across existing projects
+- If MCP `codegraph_query` available: look up symbol names across existing projects for reusable patterns, services, infrastructure
 - Assess implementation complexity and timeline
 
 ## Search Backends

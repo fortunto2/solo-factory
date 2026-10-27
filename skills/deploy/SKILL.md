@@ -7,7 +7,7 @@ metadata:
   version: "1.2.2"
   openclaw:
     emoji: "🚀"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, mcp__solograph__session_search, mcp__solograph__codegraph_query
 argument-hint: "[platform]"
 ---
 
@@ -37,7 +37,7 @@ Pipeline: `/build` → **`/deploy`** → `/review`
 ## MCP Tools (use if available)
 
 - `session_search(query)` — find how similar projects were deployed before
-- `project_code_search(query, project)` — find deployment patterns across projects
+- `codegraph_query("MATCH (s:Symbol) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.project, s.file, s.name LIMIT 20")` — find deployment patterns across projects (symbol names, every project; Grep inside one)
 - `codegraph_query(query)` — check project dependencies and stack
 
 If MCP tools are not available, fall back to Glob + Grep + Read.

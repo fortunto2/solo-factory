@@ -27,10 +27,10 @@ One-command setup for the entire Solo Factory startup toolkit.
 | Utilities | init, audit, retro, pipeline, humanize, index-youtube, you2idea-extract |
 
 **MCP server** (optional) — [solograph](https://github.com/fortunto2/solograph) provides 15 tools:
-- `kb_search` — semantic search over knowledge base
+- `kb_search` — full-text (BM25) search over the knowledge base
 - `session_search` — search past Claude Code sessions
 - `codegraph_query` / `codegraph_explain` / `codegraph_stats` / `codegraph_shared` — code intelligence
-- `project_info` / `project_code_search` / `project_code_reindex` — project registry
+- `project_info` — project registry
 - `source_search` / `source_list` / `source_tags` / `source_related` — source management
 - `web_search` — web search
 

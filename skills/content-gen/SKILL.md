@@ -7,7 +7,7 @@ metadata:
   version: "1.2.0"
   openclaw:
     emoji: "📝"
-allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__project_code_search
+allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__codegraph_query
 argument-hint: "<project-name or path>"
 ---
 
@@ -19,7 +19,7 @@ Generate a promotion content pack from a project's PRD or README. Produces 3 rea
 
 - `kb_search(query)` — find related methodology and principles
 - `project_info(name)` — get project details, stack, description
-- `project_code_search(query, project)` — find key features in codebase
+- `codegraph_query("MATCH (s:Symbol) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.project, s.file, s.name LIMIT 20")` — find key features in codebase (symbol names, every project; Grep inside one)
 
 If MCP tools are not available, fall back to Glob + Grep + Read.
 

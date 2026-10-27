@@ -23,7 +23,7 @@ Check which tools are available:
 
 ## MCP Tools (if available)
 
-- `source_search(query, source="youtube")` — semantic search over indexed videos
+- `source_search(query, source="youtube")` — full-text search over indexed video transcripts
 - `source_list()` — check indexed video counts
 - `source_tags()` — auto-detected topics with confidence scores
 - `source_related(video_url)` — find related videos by shared tags

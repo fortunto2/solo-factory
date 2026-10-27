@@ -7,7 +7,7 @@ metadata:
   version: "1.5.1"
   openclaw:
     emoji: "🏗️"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain, mcp__solograph__project_code_reindex
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__codegraph_query, mcp__solograph__codegraph_explain
 argument-hint: "[project-name] [stack-name]"
 ---
 
@@ -50,7 +50,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    b. **Architecture overview** — `codegraph_explain(project="<sibling>")` for each sibling.
       Gives: directory layers, key patterns (base classes, protocols, CRUD), top dependencies, hub files.
 
-   c. **Search for reusable patterns** — `project_code_search(query="<pattern>", project="<sibling>")`:
+   c. **Search for reusable patterns** in the sibling — Grep/Glob under its path (from `project_info`), or symbol names across projects with `codegraph_query("MATCH (s:Symbol) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.project, s.file, s.name LIMIT 20")`:
       - Search for stack-specific patterns: "MVVM ViewModel", "SwiftData model", "AVFoundation recording"
       - Search for shared infrastructure: "Makefile", "project.yml", ".swiftlint.yml"
       - Search for services: "Service protocol", "actor service"
@@ -161,7 +161,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - **Don't section** (project-specific negative constraints)
    - **Drift section** (anti-patterns: scheduling vs doing, bullets vs code)
    - **MCP Integration section** (optional, if MCP tools available):
-     Lists available MCP tools: `project_code_search`, `kb_search`, `session_search`, `codegraph_query`, `project_info`, `web_search`
+     Lists available MCP tools: `kb_search`, `session_search`, `codegraph_query`, `codegraph_explain`, `project_info`
 
 11. **Generate README.md** — project name, description, prerequisites, setup, run/test/deploy.
 
@@ -184,11 +184,11 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
     gh repo create <name> --private --source=. --push
     ```
 
-16. **Register project + index code** (optional, if MCP tools available):
-    - If `project_code_reindex` MCP tool is available, index the new project for code search:
+16. **Register project + add it to the code graph** (optional, if solograph is installed):
       ```
-      mcp__solograph__project_code_reindex(project="<name>")
+      solograph-cli registry && solograph-cli scan --project <name> --deep
       ```
+    The nightly refresh keeps it current after that.
 
 17. **Output summary:**
     ```

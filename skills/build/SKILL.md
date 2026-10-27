@@ -7,7 +7,7 @@ metadata:
   version: "2.3.0"
   openclaw:
     emoji: "🔨"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__project_code_search, mcp__solograph__codegraph_query, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__codegraph_query, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
 argument-hint: "[track-id] [--task X.Y] [--phase N]"
 ---
 
@@ -31,7 +31,7 @@ Pipeline: `/plan` → **`/build`** → `/deploy` → `/review`
 ## MCP Tools (use if available)
 
 - `session_search(query)` — find how similar problems were solved before
-- `project_code_search(query, project)` — find reusable code across projects
+- `codegraph_query("MATCH (s:Symbol) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.project, s.file, s.name LIMIT 20")` — find reusable code across projects (symbol names, every project; Grep inside one)
 - `codegraph_query(query)` — check file dependencies, imports, callers
 
 If MCP tools are not available, fall back to Glob + Grep + Read.
@@ -156,7 +156,7 @@ Parse plan.md for first line matching `- [ ] Task X.Y:` (or `- [~] Task X.Y:` if
 **Do NOT grep the entire project or read all source files.** Load only what this specific task needs.
 
 **If MCP available (preferred):**
-1. `project_code_search(query="{task keywords}", project="{name}")` — find relevant code in the project. Read only the top 2-3 results.
+1. Grep the project for the task keywords — exact names beat any index. If the name is uncertain: `codegraph_query("MATCH (s:Symbol {project: '{name}'}) WHERE toLower(s.name) CONTAINS '<term>' RETURN s.file, s.name, s.line LIMIT 20")`. Read only the top 2-3 files.
 2. `session_search("{task keywords}")` — check if you solved this before.
 3. `codegraph_query("MATCH (f:File {project: '{name}'})-[:IMPORTS]->(dep) WHERE f.path CONTAINS '{module}' RETURN dep.path")` — check imports/dependencies of files you'll modify.
 
