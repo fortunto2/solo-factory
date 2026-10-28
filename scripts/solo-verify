@@ -1199,8 +1199,8 @@ def check_pytest(root: Path, timeout: int) -> Result:
             promise="the repo's test suite runs and passes",
             findings=[
                 (
-                    "collected 0 tests. Exit code alone would read as green; it is "
-                    "not. Possible causes: test paths, renamed files, a broken "
+                    "collected 0 tests. Exit codes disagree on an empty suite (pytest 5, "
+                    "cargo test and go test 0), so the count decides. Possible causes: test paths, renamed files, a broken "
                     "conftest — but pytest's own words are below and beat the guess."
                 ),
                 # Measured on a conftest that raises: pytest printed the file, the

@@ -5,7 +5,7 @@ The contract (placements, published promises, verdicts, exit codes, bypasses) li
 and the measurements behind it; it is **not** loaded, so read it when a rule there needs
 its why. Defects with evidence go to `docs/harness-case-log.md`.
 
-Most of this factory is **feedforward**: 39 skills, rules, stack templates, a
+Most of this factory is **feedforward**: 57 skills, rules, stack templates, a
 CLAUDE.md. All of it steers the agent *before* it acts. This file covers the
 other half — the **sensors** that observe *after* it acts, so mistakes
 self-correct before they reach you.
@@ -22,8 +22,9 @@ was skipped and *what it refused to look at* is indistinguishable from never
 having looked. Every run prints `ran` / `skipped` / `UNCHECKED`.
 
 **2. Zero scope is never a pass.** Nothing checked returns `UNKNOWN` and exit 2,
-not exit 0. A test runner that collects 0 tests exits 0; that is a false green,
-so `pytest` fails on `collected == 0`.
+not exit 0. Runners disagree on an empty suite (measured 2026-10-27: `cargo test` and
+`go test` exit 0, pytest exits 5, and 2 on a collection error), so the count decides,
+not the code: `pytest` fails on `collected == 0`.
 
 **3a. An incomplete run is not a result.** Exit `124` (timed out), `126` (not
 executable) and `127` (command not found) mean the check never observed the
