@@ -4,7 +4,7 @@ description: Use when "set up workflow", "configure TDD", "wire up dev workflow"
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.1.1"
+  version: "2.2.0"
   openclaw:
     emoji: "⚙️"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__project_info, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared, mcp__solograph__kb_search
@@ -68,11 +68,16 @@ If MCP tools are not available, fall back to reading local files only.
    # Workflow — {ProjectName}
 
    ## TDD Policy
-   **Moderate** — Tests encouraged but not blocking. Write tests for:
+   **Moderate** — design first (data model, edge cases, contracts), then code and tests
+   together at agreed seams. No agent-run red-green ritual. Write tests for:
    - Business logic and validation
    - API route handlers
    - Complex algorithms
    Tests optional for: UI components, one-off scripts, prototypes.
+   Regression check: the stack's mutation tool (mutmut / Stryker / cargo-mutants) on changed
+   business logic at the end of a phase, where installed.
+   Switch to **Strict** only if a human writes or reviews each failing test before the
+   implementation.
 
    ## Test Framework
    {from package manifest devDeps: vitest/jest/pytest/xctest}

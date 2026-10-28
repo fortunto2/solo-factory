@@ -56,7 +56,9 @@ Every piece of knowledge should have a single, unambiguous representation in the
 - One-off scripts
 - Early-stage prototypes (tests after validation)
 
-**Cycle:** Red -> Green -> Refactor
+**Who owns the test decides the cycle.**
+- *A human or a spec owns it* (you wrote it, reviewed the failing test, or it comes from acceptance examples or a contract written before the code): Red -> Green -> Refactor. The red step proves something because someone checked why it failed.
+- *The agent owns it*: no red-green ritual. Design first (data model, edge cases, contracts), then code and tests together at the agreed seams, then measure the suite with mutation testing. In Böckeler's eval ([TDD inside the agent loop](https://martinfowler.com/articles/exploring-gen-ai/tdd-in-the-agent-loop.html), martinfowler.com, Aug 2026) agent-run TDD cost 2.96x to 8.5x the tokens, mutation scores were no better, the no-TDD solutions ranked higher on design, and agents skipped or faked the red step.
 
 **Agree the seam before the first test.** A seam is the public interface the test observes. Name the seams under test and confirm them — no test at an unconfirmed seam. You can't test everything; agreeing seams up front is how effort lands on critical paths instead of every edge case.
 
@@ -576,7 +578,7 @@ At system boundaries (UI, API) — show user-friendly messages. Inside — let i
 
 # 3. Development (per feature)
 /solo:plan "Feature X"              # Explore code -> spec + plan (0 questions)
-/solo:build                         # TDD execution
+/solo:build                         # plan execution, tests at seams
 
 # 4. Parallel work (when needed)
 /agent-teams:team-feature           # 2-4 agents on different parts
@@ -609,7 +611,7 @@ docs/plan/{name}_{date}/
 **Daily cycle:**
 ```
 /solo:plan "Add user auth"    # Explore code -> spec + plan (0 questions)
-/solo:build                   # TDD: task -> test -> code -> verify -> commit
+/solo:build                   # task -> design -> code + tests at seams -> verify -> commit
 /solo:build                   # Continue — auto-resume current track
 ```
 
@@ -646,7 +648,7 @@ Multiple agents work simultaneously with file ownership separation.
 
 ### Implementation Principles
 
-- TDD: test first -> then code -> verify
+- Tests: design first -> code + tests at agreed seams -> verify; test-first when a human owns the test
 - Each task = separate git commit
 - Phase checkpoints: tests + linter between phases
 - Auto-update `plan.md` progress markers

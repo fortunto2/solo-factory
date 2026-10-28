@@ -96,7 +96,7 @@ claude plugin list            # Claude Code plugin
 | `/solo:scaffold <name> <stack>` | PRD → running project with configs, CLAUDE.md, git repo, GitHub push |
 | `/solo:setup` | Wire dev workflow (TDD, linting, CI) — zero questions asked |
 | `/solo:plan <feature>` | Explore codebase, write spec + phased plan with file-level tasks |
-| `/solo:build [track-id]` | Execute plan with TDD, auto-commit, and phase gates |
+| `/solo:build [track-id]` | Execute plan with tests at agreed seams, auto-commit, and phase gates |
 | `/solo:deploy [platform]` | Deploy — detect CLI tools, set up DB, push, verify live |
 | `/solo:review [focus]` | Final quality gate — tests, coverage, security, acceptance criteria |
 | `/solo:diagnose <bug>` | Hard-bug loop — build a red-capable feedback loop first, hypothesise second |
@@ -111,7 +111,7 @@ claude plugin list            # Claude Code plugin
 → 3-phase plan: schema → API routes → checkout UI, 12 tasks total
 
 /solo:build
-→ TDD loop: write test → implement → green → commit, phase by phase
+→ build loop: design → code + tests at agreed seams → verify → commit, phase by phase
 ```
 
 ### Mobile & Apple (7 skills)
@@ -371,7 +371,7 @@ solo-factory/
 │   ├── scaffold/            # PRD → project
 │   ├── setup/               # Wire dev workflow
 │   ├── plan/                # Code research → battle plan
-│   ├── build/               # TDD execution
+│   ├── build/               # plan execution, tests at seams
 │   ├── deploy/              # Deploy to hosting
 │   ├── review/              # Final quality gate
 │   ├── swarm/               # 3 parallel research agents

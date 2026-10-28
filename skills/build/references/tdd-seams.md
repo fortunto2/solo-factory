@@ -22,7 +22,7 @@ Work in **vertical slices**: one test → one implementation → repeat. Each te
 
 ## Rules of the loop
 
-- **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
+- **Red before green, when the test has an owner.** If the user wrote or confirmed the failing test (strict policy), write it first, watch it fail for the right reason, then write only enough code to pass it. When you write both the test and the code yourself, a red you watched proves only that you ran it: design first, write code and test together, and check the suite by mutation instead (build SKILL §4). Agents running the full loop alone spent 2.96x to 8.5x the tokens for no better tests ([Böckeler, Aug 2026](https://martinfowler.com/articles/exploring-gen-ai/tdd-in-the-agent-loop.html)).
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
 - **Refactoring is not part of the loop.** It belongs to the review stage (`/review`), not the red → green cycle.
 

@@ -89,8 +89,8 @@ Question 1: "Your TDD approach?"
 Header: "Testing"
 multiSelect: false
 Options:
-- "TDD moderate (Recommended)" — "Test business logic & APIs. Skip tests for UI layout and prototypes"
-- "TDD strict" — "Test everything. Red-Green-Refactor for every feature"
+- "TDD moderate (Recommended)" — "Design first, test business logic & APIs alongside the code, mutation check per phase. Skip UI layout and prototypes"
+- "TDD strict" — "You write or approve each failing test before the agent implements it. Red-Green-Refactor"
 - "Tests after" — "Write code first, add tests for critical paths later"
 - "Minimal" — "Only test what breaks. Integration tests over unit tests"
 

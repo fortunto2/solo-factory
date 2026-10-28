@@ -4,7 +4,7 @@ description: Use when "set up solo factory", "initialize profile", "configure de
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.1.1"
+  version: "2.2.0"
   openclaw:
     emoji: "🎬"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion

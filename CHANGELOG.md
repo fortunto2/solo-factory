@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.90.0 — 2026-10-27
+
+- `build` 2.4.0, `setup` 2.2.0, `init` 2.2.0, `dev-principles`: who owns the test decides the cycle. Red-green-refactor stays for tests a human wrote or approved, or that come from a contract or acceptance examples. When the agent owns the test, the default is design first (data model, edge cases, contracts), then code and tests together at agreed seams, then a mutation check on changed business logic per phase (mutmut, Stryker, cargo-mutants; one hand-broken line when none is installed). Böckeler's eval (martinfowler.com, Aug 2026) found agent-run TDD cost 2.96x to 8.5x the tokens with no better mutation scores or design, and agents skipped or faked the red step. "A test that has never been red proves nothing" is gone: a red the agent watched proves only that it ran the test.
+
 ## 1.89.0 — 2026-10-27
 
 - `content-gen` 1.3.0: a mode for posts from a published write-up. Each channel is rewritten from its own contract (voice, audience, limits, link placement, mechanics), every number comes from the source post, one UTM-tagged link per channel, and a project's gated contract tool (brief → draft until the gates pass, skip only with a reason) is used when it exists. Triggers: "posts from this article", "repurpose this post", "посты из статьи".

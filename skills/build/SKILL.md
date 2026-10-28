@@ -4,7 +4,7 @@ description: Use when "build it", "start building", "execute plan", "implement t
 license: MIT
 metadata:
   author: fortunto2
-  version: "2.3.0"
+  version: "2.4.0"
   openclaw:
     emoji: "🔨"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
@@ -13,9 +13,9 @@ argument-hint: "[track-id] [--task X.Y] [--phase N]"
 
 # /build
 
-This skill is self-contained — follow the task loop, TDD rules, and completion flow below instead of delegating to external build/execution skills (superpowers, etc.).
+This skill is self-contained — follow the task loop, test rules, and completion flow below instead of delegating to external build/execution skills (superpowers, etc.).
 
-Execute tasks from an implementation plan. Finds `plan.md` (in `docs/plan/`), picks the next unchecked task, implements it with TDD workflow, commits, and updates progress.
+Execute tasks from an implementation plan. Finds `plan.md` (in `docs/plan/`), picks the next unchecked task, implements it with tests at agreed seams, commits, and updates progress.
 
 ## Live Context
 - Branch: !`git branch --show-current 2>/dev/null`
@@ -175,31 +175,26 @@ Read `references/quality-tools.md` for full commands per stack. Quick reference:
 
 Run after each task implementation, before `git commit`. If any fail, fix before proceeding.
 
-### 4. TDD Workflow (if TDD enabled in workflow.md)
+### 4. Tests (policy from workflow.md)
+
+Who owns the expectation decides the workflow. A red test proves something only when someone checked *why* it went red; when you write the test, run it and watch it fail, all it proves is that you ran it.
 
 **Agree the seam first:** name the public interface this task's tests will observe, and confirm it with the user before writing a test. No test at an unconfirmed seam.
 
-**Red — write failing test:**
-- Create/update test file for the task functionality.
-- Run tests to confirm they fail. A test that has never been red proves nothing.
+**Design before code.** Write down the data model, edge cases and contracts for the task before any code or test. In Böckeler's eval ([TDD inside the agent loop](https://martinfowler.com/articles/exploring-gen-ai/tdd-in-the-agent-loop.html), martinfowler.com, Aug 2026) this up-front design is what moved quality; a test-by-test loop let the first test fix the shape, and behaviour nobody wrote a test for was never built.
 
-**Green — implement:**
-- Write minimum code to make the test pass.
-- Run tests to confirm pass.
+**Strict — the user owns the test.** Write the failing test at the agreed seam, show it to the user, and implement only after they confirm it tests the wanted behaviour. Then green, then refactor while tests stay green. Use this when the user asked for it in `docs/workflow.md`, or when the expectation comes from acceptance examples or a contract written before the code.
 
-**Refactor:**
-- Clean up while tests stay green.
-- Run tests one final time.
+**Moderate (default) — you own the test.** No red-green ritual: implement and test together at the agreed seams, one behaviour at a time. The same eval found agent-run TDD cost 2.96x to 8.5x the tokens with no better mutation scores or design, and agents skipped or faked the red step. Test business logic and API routes; skip UI layout and config. Check the suite instead of the ritual: at the end of a phase, run the stack's mutation tool on the changed business logic if it is installed (mutmut, Stryker, cargo-mutants) and kill the surviving mutants that matter. With no mutation tool, break one line of the new logic by hand and confirm a test goes red, then restore it.
 
-One test → one implementation → repeat (**vertical slices**). Writing all tests first then all implementation verifies imagined behaviour, not real.
+One behaviour → code + test → next (**vertical slices**). Writing all tests first then all implementation verifies imagined behaviour, not real.
 
 Read `references/tdd-seams.md` before the first test of a feature — it covers where seams go, vertical vs horizontal slicing, and the four ways a test lies (implementation-coupled, side-channel, tautological, insensitive).
 
-### 5. Non-TDD Workflow (if TDD is "none" or "moderate" and task is simple)
+### 5. No new tests (policy "none", or a trivial task)
 
 - Implement the task directly.
 - Run existing tests to check nothing broke.
-- For "moderate": write tests for business logic and API routes, skip for UI/config.
 
 ### 5.5. Integration Testing (CLI-First)
 
