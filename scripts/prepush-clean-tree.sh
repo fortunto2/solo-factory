@@ -17,6 +17,9 @@
 #                                  symlinked from the main tree into the worktree.
 # SOLO_PREPUSH_DIR=<path>          keep one worktree there instead of a fresh temp dir per
 #                                  push, so path-keyed build caches (cargo) are reused.
+#                                  Keep it at the repo's own depth when manifests reach
+#                                  sibling repos by relative path (`../../other-repo`).
+#                                  The default temp dir has the same limit.
 # A push that only deletes remote refs runs nothing: there is no new code to check.
 
 set -uo pipefail
