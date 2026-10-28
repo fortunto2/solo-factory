@@ -98,3 +98,9 @@ post() {  # tool_response JSON -> hook output
   grep -q "$OAI" "$d/live.jsonl"
   python3 -c 'import json,sys; json.loads(open(sys.argv[1]).readline())' "$d/old.jsonl"   # still valid JSON
 }
+
+@test "a URL assigned to a TOKEN-named variable is an endpoint, not a secret" {
+  # solograph's producthunt.py: OAUTH_TOKEN_URL = the token endpoint (28 Oct 2026).
+  out=$(post '{"stdout":"OAUTH_TOKEN_URL = \"https://api.producthunt.com/v2/oauth/token\"","stderr":"","interrupted":false}')
+  [ -z "$out" ]
+}

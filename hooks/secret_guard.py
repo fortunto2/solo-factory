@@ -87,8 +87,10 @@ NAMES = {
 
 
 def _looks_secret(v: str) -> bool:
-    """An assigned value counts when it is not a placeholder and mixes character classes."""
-    if PLACEHOLDER.search(v) or "EXAMPLE" in v:
+    """An assigned value counts when it is not a placeholder and mixes character classes.
+    A URL is an endpoint (OAUTH_TOKEN_URL), not a secret; credentials inside one are
+    DSN_RULE's."""
+    if PLACEHOLDER.search(v) or "EXAMPLE" in v or "://" in v:
         return False
     classes = sum(bool(re.search(p, v)) for p in (r"[a-z]", r"[A-Z]", r"\d"))
     return classes >= 2
