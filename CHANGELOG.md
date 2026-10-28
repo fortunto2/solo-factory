@@ -4,6 +4,13 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.91.0 — 2026-10-28
+
+- New `hooks/irreversible_guard.py` (PreToolUse on Bash): force-push, remote branch deletes, recursive `rm` outside tmp/scratchpad/build dirs, `gh repo|release delete`, and regex lines from `.claude/irreversible-commands.txt` need a human. `ask` where a prompt is guaranteed, `deny` with a reason in `bypassPermissions`/`dontAsk`; override only from the session environment (`SOLO_ALLOW_DESTRUCTIVE=1`); every match logged to `~/.claude/solo/irreversible-guard.log`.
+- `solo-verify` limits: a change over 1500 lines added+deleted (`SOLO_MAX_CHANGE_LINES`) prints SPLIT ADVISED; never fails.
+- `build` 2.5.0: every acceptance criterion is mapped to the test that proves it, unproven ones listed by name; three rounds on one review finding, then a human. `review` 1.4.0: the same three-round rule.
+- `video-edit` 1.0.5: verify media pipelines on at least one real captured file, not only synthetic sources.
+
 ## 1.90.1 — 2026-10-27
 
 - `solo-verify`: the empty-suite message no longer claims the exit code would read green. Measured: pytest exits 5 on an empty suite and 2 on a collection error, `cargo test` and `go test` exit 0, so the receipt says the count decides, not the code. `docs/harness-sensors.md` corrected the same way, and its skill count is 57.

@@ -4,7 +4,7 @@ description: Edit real footage into a film with the agent as the editor — read
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.4"
+  version: "1.0.5"
   openclaw:
     emoji: "🎬"
 ---
@@ -90,6 +90,10 @@ archive rules: `references/delivery.md`.
   file per chapter cached by its inputs, so a critic note re-renders one chapter, not an hour.
 - Put the real shooting date in every description; a week in, nobody can tell the days apart.
 - Archive sources to cloud storage **after** the films are out, never mid-edit, with the sidecars.
+- **Verify on at least one real captured file, not only synthetic ones.** A pipeline green on
+  `lavfi` test sources can still break on camera files: a 48 kHz silent card joined to a 96 kHz
+  recording passed every synthetic test and drifted the audio clock 1.39 s at the seam. Keep one
+  short real clip per camera/phone in the verification set, and check the delivered file itself.
 
 ## Don't
 

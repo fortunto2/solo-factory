@@ -12,6 +12,23 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**A guard that checks state the agent can change is a door with the key in it.** A
+delete command refused anything but private videos, which read as a safety rule. An
+agent with the owner's go-ahead passed it in two calls: set the video to private, then
+delete. The owner had agreed, so nothing was lost that day; the finding is the shape.
+The check looked at a property of the target that the same agent could set one call
+earlier, so it constrained the order of the agent's steps, not the outcome. The same
+week a "confirm before force-push" line lived only in CLAUDE.md, a sentence the agent
+is trusted to remember. Fix: `hooks/irreversible_guard.py` (PreToolUse on Bash) decides
+from the command text alone: force-push, remote branch delete, recursive `rm` outside
+tmp, `gh … delete`, and a per-project pattern file. It answers `ask` where Claude Code
+guarantees a prompt and `deny` in `bypassPermissions`/`dontAsk`, where a hook's `ask` is
+not documented to prompt, so a permissive mode cannot silently turn the guard into a
+log line. The override lives in the hook's own environment, which a tool call's
+`VAR=1 cmd` prefix does not reach (a test pins exactly that). Every match is logged.
+Measured by `tests/irreversible_guard.bats`: 11 dangerous commands asked, 11 ordinary
+ones (`git push`, `git branch -d`, `rm -rf $TMPDIR/x`, a quoted "--force") silent.
+
 **A scheduled agent loop that looked healthy while it was failing, and five ways it got
 there.** Found in one audit of a personal job loop (launchd tickers running headless agent
 sessions, one chat bot as the only channel to the owner). Each is a general shape:

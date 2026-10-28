@@ -371,6 +371,31 @@ p.write_text('\n'.join(f'x{i} = {i}' for i in range(1100)))
   [[ "$output" == *"Not your debt"* ]]
 }
 
+@test "limits advises splitting a change over the size limit and does not fail on it" {
+  python3 -c "
+import pathlib
+for n in ('a', 'b'):
+    pathlib.Path('$REPO/' + n + '.py').write_text(''.join(f'x{i} = {i}\\n' for i in range(800)))
+"
+  run "$VERIFY" --root "$REPO"
+  [[ "$output" == *"SPLIT ADVISED"* ]]
+  [[ "$output" == *"1602 lines added+deleted"* ]]
+  [[ "$output" != *"long-module"* ]]
+  [[ "$output" == *"limits"*"pass"* || "$output" == *"limits=pass"* ]]
+}
+
+@test "the change-size threshold is a known answer: 100 lines trip a 50-line limit and not the default" {
+  python3 -c "
+import pathlib
+pathlib.Path('$REPO/c.py').write_text(''.join(f'y{i} = {i}\\n' for i in range(100)))
+"
+  run "$VERIFY" --root "$REPO"
+  [[ "$output" != *"SPLIT ADVISED"* ]]
+  SOLO_MAX_CHANGE_LINES=50 run "$VERIFY" --root "$REPO"
+  [[ "$output" == *"SPLIT ADVISED"* ]]
+  [[ "$output" == *"102 lines added+deleted (> 50)"* ]]
+}
+
 # --- an absent tool must not turn red into green ----------------------------
 # Measured by @nirmata on an outside seat where ruff was not on PATH, named by
 # @calorik-hygiene: "PASS with ruff skipped is not 'clean', it is 'lint never ran'".
@@ -1539,7 +1564,7 @@ import json, sys, hashlib
 rec = json.loads(sys.argv[1])
 def strip(o):
     if isinstance(o, dict):
-        return {k: strip(v) for k, v in sorted(o.items()) if k not in ('elapsed','seconds')}
+        return {k: (bool(v) if k == 'split_advised' else strip(v)) for k, v in sorted(o.items()) if k not in ('elapsed','seconds','change_lines')}
     if isinstance(o, list): return [strip(v) for v in o]
     return o
 r = dict(rec); r.pop('verdict_digest')

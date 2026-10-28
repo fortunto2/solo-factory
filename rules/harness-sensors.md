@@ -31,7 +31,7 @@ never let it happen quietly.
 | Sensor | Promise | Mechanics | Pinned by |
 |---|---|---|---|
 | `syntax` | Every changed `.py`/`.js`/`.swift` file parses — syntax only, never types | `ast.parse` / `node --check` / `swiftc -parse`, per file (~0.15s for Swift) | broken syntax fails |
-| `limits` | No function >150 lines, no module >1000 lines, **unless the file declares an exemption with a reason**. About THIS change: a file already over the limit is inherited debt — reported, never failed | AST walk; thresholds from CLAUDE.md | an over-long function trips the 150-line threshold |
+| `limits` | No function >150 lines, no module >1000 lines, **unless the file declares an exemption with a reason**. About THIS change: a file already over the limit is inherited debt — reported, never failed. A change over 1500 lines added+deleted (`SOLO_MAX_CHANGE_LINES`) prints **SPLIT ADVISED** and never fails: the Stop gate would block a turn whose only exit is discarding finished work | AST walk; `git diff --numstat HEAD`; thresholds from CLAUDE.md | an over-long function trips the 150-line threshold |
 | `ruff` | The repo's configured ruff rule set | `ruff check --output-format=concise` on changed files | a repo with no ruff config is labelled ruff-defaults, and says so |
 | `ty` | No type errors in changed Python | `uv run --with ty` where the project declares dependencies, `uvx ty check` otherwise (full mode) | none — nothing exercises this sensor. Found by writing check-promises: `ty` matched 29 test names as a substring of "safety" and "empty", and zero as a subject |
 | `pytest` | The suite runs **and collects >0 tests** — when the change has a Python file or manifest; otherwise not-applicable | `uv run --with pytest` where the project declares dependencies, `uvx pytest -q` otherwise; counters parsed | pytest keeps its own words when it collects nothing |
@@ -42,6 +42,14 @@ never let it happen quietly.
 | `shellcheck` | Clean at severity **>= warning**, and the receipt says the threshold is ours | Info level is excluded on purpose — see "On noise" in `docs/harness-sensors.md` | the shellcheck promise states whose threshold it is |
 ---|
 Tooling never crosses languages: Python sensors never touch a `.ts` file.
+
+**Before an irreversible command** (`hooks/irreversible_guard.py`, PreToolUse on Bash):
+force-push, `git push --delete`/`:branch`, recursive `rm` outside tmp/scratchpad/build
+dirs, `gh repo|release delete`, and regex lines in `.claude/irreversible-commands.txt`
+(project) or `~/.claude/irreversible-commands.txt` (user). The decision is read from
+the command, never from state the agent can change: `ask` where a prompt is guaranteed,
+`deny` with a reason in `bypassPermissions`/`dontAsk` (the human runs it with
+`! <command>`). Every match goes to `${CLAUDE_CONFIG_DIR:-~/.claude}/solo/irreversible-guard.log`.
 
 ## Rules the receipt obeys
 
@@ -88,6 +96,7 @@ else's machine should not fail their build, so the honesty is in the word.
 | Editing a lint config or test | Changes what counts as a pass | Genuinely wrong rule — reported as `HARNESS TOUCHED`, not blocked |
 | Running the tool outside a git repo | Empty scope | Nothing to verify; returns UNKNOWN, not PASS |
 | A tool missing from the hook's PATH | That sensor cannot run | Reported as a skip naming PATH, never as a pass |
+| `SOLO_ALLOW_DESTRUCTIVE=1` in the session environment | `irreversible_guard` lets force-push, remote branch deletes, recursive `rm` outside tmp, `gh … delete` and project patterns through (still logged) | The human set it at launch for a session that does exactly that. A `VAR=1 cmd` prefix inside a tool call does not reach the hook |
 
 ## The case log lives in `docs/harness-case-log.md`
 

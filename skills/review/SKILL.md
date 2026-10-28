@@ -4,7 +4,7 @@ description: Use when "review code", "quality check", "is it ready to ship", "fi
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.0"
+  version: "1.4.0"
   openclaw:
     emoji: "🔎"
 allowed-tools: Read, Grep, Bash, Glob, Write, Edit, mcp__solograph__session_search, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared, mcp__solograph__codegraph_explain, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
@@ -200,6 +200,11 @@ Acceptance Criteria:
 ```
 
 After updating checkboxes, commit: `git add docs/plan/*/spec.md && git commit -m "docs: update spec checkboxes (verified by review)"`
+
+**Three rounds, then a human.** When the author pushes back on a finding and the
+same finding comes back a third time, do not open a fourth round: put it in the
+report under **Needs a human decision** with both positions and the one fact that
+would settle it, and leave the verdict at FIX FIRST for that item only.
 
 ### 6. Code Quality Spot Check
 

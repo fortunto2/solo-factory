@@ -65,6 +65,10 @@ FULL_TIMEOUT = 300
 # rule nobody measures is a rule the agent forgets after compaction.
 MAX_FUNCTION_LINES = 150
 MAX_MODULE_LINES = 1000
+# A change bigger than this is reported as "split it", never failed: the Stop gate
+# would otherwise block a turn whose only way out is discarding finished work. The
+# remedy is a commit boundary, which is the committer's call (see check_change_size).
+MAX_CHANGE_LINES = int(os.environ.get("SOLO_MAX_CHANGE_LINES", "1500") or 1500)
 
 SOURCE_SUFFIXES = {
     ".py",
@@ -159,6 +163,9 @@ class Result:
     # pass` — the sensor silently narrowing its own scope, leaving a difference
     # between `scope: 2 covered` and `parsed: 1` as the only trace.
     unreadable: list[str] = field(default_factory=list)
+    # Advice that is about the change as a whole, not a defect in a file: printed
+    # every run, never turns the verdict red.
+    advisories: list[str] = field(default_factory=list)
     seconds: float = 0.0
 
 
@@ -818,6 +825,34 @@ def declared_exemptions(text: str, python: bool = False) -> dict[str, str]:
     return {m.group("rule"): m.group("why").strip() for m in EXEMPT_RE.finditer(head)}
 
 
+def change_size(root: Path, files: list[Path]) -> int:
+    """Lines added + deleted against HEAD across the files in scope (new files count
+    whole). Binary files and files git cannot diff contribute nothing."""
+    rels = [rel(root, f) for f in files]
+    if not rels:
+        return 0
+    total = 0
+    code, out = run(["git", "diff", "--numstat", "HEAD", "--", *rels], root, 20)
+    seen = set()
+    if code == 0:
+        for line in out.splitlines():
+            parts = line.split("\t")
+            if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
+                total += int(parts[0]) + int(parts[1])
+                seen.add(parts[2])
+    for f, r in zip(files, rels):  # noqa: B905 — same length by construction; strict= needs 3.10 and this file runs on older Pythons
+        if r in seen:
+            continue
+        c, _ = run(["git", "cat-file", "-e", f"HEAD:{r}"], root, 10)
+        if c == 0:
+            continue  # tracked, unchanged or binary
+        try:
+            total += f.read_text(encoding="utf-8").count("\n")
+        except (OSError, UnicodeDecodeError):
+            pass
+    return total
+
+
 def check_limits(root: Path, files: list[Path]) -> Result:
     findings, covered, exempt, undeclared = [], [], [], []
     unreadable: list[str] = []
@@ -905,20 +940,30 @@ def check_limits(root: Path, files: list[Path]) -> Result:
             reason="no source files in scope",
             skip_kind=NOT_APPLICABLE,
         )
+    size = change_size(root, files)
+    advisories = []
+    if size > MAX_CHANGE_LINES:
+        advisories.append(
+            f"this change is {size} lines added+deleted (> {MAX_CHANGE_LINES}): split it "
+            f"into commits a reviewer can hold, one purpose each"
+        )
     return Result(
         "limits",
         "fail" if findings else "pass",
         promise=(
             f"no function >{MAX_FUNCTION_LINES} lines, no module >{MAX_MODULE_LINES} "
             f"lines — about THIS change: a file already over the limit is inherited "
-            f"debt, reported but not failed"
+            f"debt, reported but not failed; a change over {MAX_CHANGE_LINES} lines "
+            f"is advised to split, never failed"
         ),
+        advisories=advisories,
         findings=findings,
         covered=covered,
         counters={
             "files": len(covered),
             **({"exempt": len(exempt)} if exempt else {}),
             **({"over_undeclared": len(undeclared)} if undeclared else {}),
+            "change_lines": size,
         },
         exemptions=exempt,
         undeclared=undeclared,
@@ -2001,6 +2046,7 @@ def build_receipt(
         "unavailable": [r.name for r in unavailable],
         "exemptions": [e for r in results for e in r.exemptions],
         "over_undeclared": [u for r in results for u in r.undeclared],
+        "split_advised": [a for r in results for a in r.advisories],
         # Attributed to the sensor that hit it. Deduping across sensors made the
         # syntax sensor's branch unverifiable: removing it killed 0 tests, because
         # limits reported the same file and the receipt read identically.
@@ -2033,6 +2079,9 @@ def build_receipt(
 
 
 TIMING_FIELDS = ("elapsed", "seconds")
+# Size of the change, not a finding about it: a line that changes no finding must
+# leave the digest alone. The split advice counts by presence, not by its number.
+SIZE_FIELDS = ("change_lines",)
 
 
 def verdict_digest(rec: dict) -> str:
@@ -2054,7 +2103,11 @@ def verdict_digest(rec: dict) -> str:
 
     def strip(o):
         if isinstance(o, dict):
-            return {k: strip(v) for k, v in sorted(o.items()) if k not in TIMING_FIELDS}
+            return {
+                k: (bool(v) if k == "split_advised" else strip(v))
+                for k, v in sorted(o.items())
+                if k not in TIMING_FIELDS and k not in SIZE_FIELDS
+            }
         if isinstance(o, list):
             return [strip(v) for v in o]
         return o
@@ -2124,6 +2177,10 @@ def render(rec: dict) -> str:
             "    Nothing here says why it is allowed. Declare it with a reason or "
             "split it; this run does not fail on it."
         )
+    if rec.get("split_advised"):
+        out.append("  SPLIT ADVISED — about the change as a whole, does not fail:")
+        for a in rec["split_advised"]:
+            out.append(f"    {a}")
     if rec.get("not_checked_version"):
         out.append("  NOT CHECKED — this interpreter is older than the project:")
         for line in rec["not_checked_version"]:
