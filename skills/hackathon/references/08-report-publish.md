@@ -78,6 +78,36 @@ Rules for the scorecard:
 - A judge never publishes scores, pairwise votes or what was said in deliberation. "These are mine,
   not the panel's scores" when you judged.
 
+## Explain it simply, and draw it
+
+A report is read by people outside the room and outside the field. Complexity is the material, not
+the style:
+
+- **Plain words first.** Every term of art gets one plain sentence the first time it appears; with
+  more than three of them, put a short glossary near the top. Every abstract claim gets an example
+  or a number next to it.
+- **A screen that scans.** Open with "the short version" or a who-said-what table. Parallel items
+  (definitions, teams, talks) follow one mini-pattern, e.g. claim → in plain words → why it matters
+  to the reader's own work, with the wording varied so it does not read as a template.
+- **2-5 diagrams in a long post**, where structure is easier seen than read:
+
+  | Content | Diagram |
+  |---|---|
+  | a pipeline, an architecture, a cause and effect | flowchart |
+  | a taxonomy, a list of definitions | mindmap |
+  | layers that coexist, a stack | stacked flowchart (top to bottom) |
+  | two options, before and after, two kinds of ending | two subgraphs side by side |
+  | a schedule, an evolution over time | timeline |
+
+  Use Mermaid when the site renders fenced ```mermaid blocks, otherwise a small inline SVG. One idea
+  per diagram, labels of six words or fewer, and a sentence before it saying what to look at. A
+  diagram that restates a three-item list is decoration; cut it.
+- **Check that it renders.** Build the site and count the rendered diagrams on the built page. A
+  headless render can show blanks when diagram ids collide under a frozen clock; confirm in a real
+  browser before calling it broken.
+- Then run `/humanize` on the whole post. Quotes, names, numbers, links and diagram code stay as
+  they are.
+
 ## Talks, panels and festivals around the event
 
 A keynote, an investor panel or a festival evening you filmed gets the same one-home treatment,

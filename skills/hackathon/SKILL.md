@@ -4,7 +4,7 @@ description: Work a hackathon research-first and write it up. Event rules and ju
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.4.0"
+  version: "1.5.0"
   openclaw:
     emoji: "🏁"
 argument-hint: "[event URL | Devpost URL | scout <theme or URL>]"
@@ -55,7 +55,7 @@ Load only the reference for the stage you are in. Each one opens with When / Inp
 | 05 | GitHub hunt | repos created since the day before, keyed on stack and domain words; confirm from the README | `references/05-github-hunt.md` |
 | 06 | Gallery survey | every project page read → all-projects table, copy-into, left-out, pattern counts | `references/06-gallery-survey.md` |
 | 07 | Pitch | deck, demo video, Q&A cheat sheet via `/supervox` pitch coach | `references/07-pitch.md` |
-| 08 | Report and publish | photos, video, deck and links in one post on the user's site, linked both ways with repo and video; hook and scorecard first, team table, talks and panels as their own posts, hub with backlinks, privacy pass | `references/08-report-publish.md` |
+| 08 | Report and publish | photos, video, deck and links in one post on the user's site, linked both ways with repo and video; hook and scorecard first, team table, hard things in plain words with 2-5 diagrams (Mermaid), talks and panels as their own posts, hub with backlinks, privacy pass | `references/08-report-publish.md` |
 | 09 | Network follow-up | people log the same evening; contacts graph → who else to write; drafts within 48 h; second touch a week later | `references/09-network-followup.md` |
 
 Research (01, 02, 05, 06) is where this skill does most of its work. Typical order on the day:
