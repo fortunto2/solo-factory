@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.92.1 — 2026-10-28
+
+- `prepush-clean-tree.sh`: `SOLO_PREPUSH_DIR=<path>` keeps one worktree at a stable path and moves it to each pushed sha (`checkout` + `clean -ffd`), so path-keyed build caches such as cargo's are reused instead of rebuilding the workspace on every push.
+
 ## 1.92.0 — 2026-10-28
 
 - Stop gate scope: `sensor-edit.sh` records every Edit/Write/MultiEdit/NotebookEdit per session, and `sensor-stop.sh` verifies only the files this session wrote that are still changed. A parallel session's uncommitted files no longer block the turn; the receipt counts them. Shell-only writes are not attributed; a session with no recorded writes keeps the whole-tree behaviour.

@@ -54,3 +54,17 @@ refs() {  # what git hands a pre-push hook for pushing HEAD
   [ "$status" -eq 0 ]
   [ "$(git -C "$R" worktree list | wc -l | tr -d ' ')" -eq 1 ]
 }
+
+@test "SOLO_PREPUSH_DIR keeps one worktree at a stable path and moves it to each pushed commit" {
+  # A fresh random path per push makes path-keyed build caches (cargo) rebuild the
+  # whole workspace every time; a kept worktree only rewrites the files that changed.
+  W="$BATS_TEST_TMPDIR/kept"
+  run bash -c "cd '$R' && refs() { $(declare -f refs | tail -n +2); }; refs | SOLO_PREPUSH_DIR='$W' bash '$S' -- grep -q 'x = 1' a.py"
+  [ "$status" -eq 0 ]
+  [ -d "$W" ]
+  printf 'stray\n' > "$W/left-over.txt"        # last run's junk must not leak into the next
+  ( cd "$R" && printf 'x = 2\n' > a.py && git commit -qam two )
+  run bash -c "cd '$R' && refs() { $(declare -f refs | tail -n +2); }; refs | SOLO_PREPUSH_DIR='$W' bash '$S' -- sh -c \"grep -q 'x = 2' a.py && test ! -e left-over.txt\""
+  [ "$status" -eq 0 ]
+  [ "$(git -C "$R" worktree list | wc -l | tr -d ' ')" -eq 2 ]   # the kept one, not one per push
+}
