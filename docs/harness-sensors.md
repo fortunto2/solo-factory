@@ -217,6 +217,24 @@ None of these are locked down, because a gate the author cannot open is a gate
 the author routes around permanently. They are listed so that using one is a
 decision rather than an accident.
 
+## Pushing from a shared checkout
+
+A pre-push hook that runs the suite in the working tree judges whatever lies there,
+including a parallel session's uncommitted files: it fails clean commits and can pass a
+broken one. `scripts/prepush-clean-tree.sh` reads the refs git hands the hook, checks out
+each pushed sha into a detached worktree, runs the given command there, and removes the
+worktree. A push that only deletes remote refs runs nothing.
+
+```sh
+# .git/hooks/pre-push
+#!/bin/sh
+exec /path/to/solo-factory/scripts/prepush-clean-tree.sh -- make test
+```
+
+Checks that read untracked data (an `eval/` corpus, downloaded models) see nothing in a
+fresh worktree. Name those directories in `SOLO_PREPUSH_LINK="eval models"` and they are
+symlinked in from the main tree.
+
 ## `scripts/mutate` — the ritual, as a command
 
 Every cycle this week ended the same way by hand: break one line so the behaviour

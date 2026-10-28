@@ -108,3 +108,39 @@ print(json.loads(raw)['hookSpecificOutput']['additionalContext'])
   out=$(printf '%s' "$in" | bash "$H" 2>/dev/null | ctx)
   [[ "$out" == *"verification is red"* ]]
 }
+
+edit_as() {  # record a write by session $1 of file $2 the way the PostToolUse hook does
+  printf '{"session_id":"%s","tool_input":{"file_path":"%s"}}' "$1" "$2" \
+    | bash "${BATS_TEST_DIRNAME}/../hooks/sensor-edit.sh" >/dev/null
+}
+
+@test "a session is judged on its own edits, not on a parallel session's red file" {
+  # Measured: the gate blocked three turns in a row on another session's uncommitted
+  # files in the same tree, whose hashes kept changing as that session worked.
+  # a.py (red: unused import) belongs to someone else; this session writes b.py.
+  in='{"session_id":"s-mine","cwd":"'"$R"'"}'
+  printf '%s' "$in" | bash "${BATS_TEST_DIRNAME}/../hooks/sensor-baseline.sh"
+  sleep 1; printf 'y = 2\n' > "$R/b.py"; edit_as s-mine "$R/b.py"
+  out=$(printf '%s' "$in" | bash "$H" 2>/dev/null | ctx)
+  [ -z "$out" ]
+}
+
+@test "the session's own red edit still blocks, and names the files it left alone" {
+  in='{"session_id":"s-red","cwd":"'"$R"'"}'
+  printf '%s' "$in" | bash "${BATS_TEST_DIRNAME}/../hooks/sensor-baseline.sh"
+  sleep 1; printf 'import sys\ny = 2\n' > "$R/c.py"; edit_as s-red "$R/c.py"
+  out=$(printf '%s' "$in" | bash "$H" 2>/dev/null | ctx)
+  [[ "$out" == *"verification is red"* ]]
+  [[ "$out" == *"c.py"* ]]
+  [[ "$out" != *"a.py"* ]]
+  [[ "$out" == *"1 other changed file(s)"* ]]
+}
+
+@test "an edit the session already committed leaves nothing for it to answer for" {
+  in='{"session_id":"s-done","cwd":"'"$R"'"}'
+  printf '%s' "$in" | bash "${BATS_TEST_DIRNAME}/../hooks/sensor-baseline.sh"
+  sleep 1; printf 'y = 2\n' > "$R/d.py"; edit_as s-done "$R/d.py"
+  ( cd "$R" && git add d.py && git commit -q -m mine )
+  out=$(printf '%s' "$in" | bash "$H" 2>/dev/null | ctx)
+  [ -z "$out" ]
+}

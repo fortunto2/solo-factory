@@ -13,9 +13,22 @@
 set -uo pipefail
 
 INPUT=$(cat)
-FILE=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+FILE=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null)
 
 [[ -z "$FILE" || ! -f "$FILE" ]] && exit 0
+
+# Remember that THIS session wrote the file, so the Stop gate judges the session's own
+# work and not a parallel session's half-finished files in the same tree (measured: three
+# turns blocked in a row on another session's uncommitted files). One line per write,
+# in the repository's git dir, keyed by session id; sensor-stop.sh reads it.
+SID=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+if [[ -n "$SID" ]]; then
+  GD=$(git -C "$(dirname "$FILE")" rev-parse --absolute-git-dir 2>/dev/null) && {
+    mkdir -p "$GD/solo-sensor-touched" 2>/dev/null &&
+      printf '%s\n' "$(cd "$(dirname "$FILE")" && pwd -P)/$(basename "$FILE")" \
+        >> "$GD/solo-sensor-touched/${SID//[^A-Za-z0-9_-]/}" 2>/dev/null
+  }
+fi
 
 emit() {
   jq -n --arg ctx "$1" \

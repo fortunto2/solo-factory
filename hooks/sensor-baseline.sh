@@ -23,5 +23,6 @@ GITDIR=$(git -C "$ROOT" rev-parse --absolute-git-dir 2>/dev/null) || exit 0
 mkdir -p "$GITDIR/solo-sensor-baseline" 2>/dev/null || exit 0
 # Sessions are few per repo, but they never end cleanly: drop prints older than 7 days.
 find "$GITDIR/solo-sensor-baseline" -type f -mtime +7 -delete 2>/dev/null
+find "$GITDIR/solo-sensor-touched" -type f -mtime +7 -delete 2>/dev/null
 tree_print "$ROOT" > "$GITDIR/solo-sensor-baseline/${SID//[^A-Za-z0-9_-]/}" 2>/dev/null
 exit 0

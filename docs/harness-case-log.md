@@ -12,6 +12,21 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**A gate that judges the whole working tree judges other people's work.** Two sessions
+shared one checkout. The end-of-turn gate blocked three turns in a row on the other
+session's uncommitted files, whose hashes changed between the blocks because that
+session was still writing them; the baseline from SessionStart could not help, since the
+first write of the blocked session put the whole dirty tree back in scope. The same
+week, a pre-push suite run in the working tree refused clean commits for the same
+reason, and two agents pushed with `--no-verify` to get past it. Fixes: `sensor-edit.sh`
+records each Edit/Write per session and the Stop gate verifies only those files that are
+still changed (`tests/stop_gate.bats`, three cases); `scripts/prepush-clean-tree.sh`
+runs the push check in a detached worktree of the pushed sha and skips pushes that only
+delete refs (`tests/prepush_clean_tree.bats`). Lesson: a sensor's scope is an
+attribution claim. "Changed in the tree" was a proxy for "changed by me" that held only
+while one writer existed. Known gap, stated in the promise: files written only through
+the shell are not attributed.
+
 **A guard that checks state the agent can change is a door with the key in it.** A
 delete command refused anything but private videos, which read as a safety rule. An
 agent with the owner's go-ahead passed it in two calls: set the video to private, then

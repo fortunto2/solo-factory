@@ -12,6 +12,7 @@ contract. The reasoning and measurements behind every line are in
 | **Every Edit/Write** (`sensor-edit.sh`) | Syntax only — parse the one file just written | <1s | A semantic check here floods the agent with errors from files it has not reached yet mid-refactor, and it reverts good work to silence them |
 | **End of turn** (`sensor-stop.sh`) | `solo-verify --full`: lint, types, tests | <120s | The step boundary. Cross-file meaning is only well-defined once the agent thinks it is done |
 | **Commit** (pre-commit) | Formatting, repo-specific gates | seconds | Already yours; unchanged |
+| **Push** (pre-push, optional) | The repo's suite on a clean worktree of the pushed sha (`scripts/prepush-clean-tree.sh -- <cmd>`) | the suite | The working tree may hold another session's files; the remote gets only the commit |
 
 The middle one blocks. If the receipt is red, the turn cannot end — so
 "I finished" stops being a claim the agent makes about itself.
@@ -19,7 +20,11 @@ An UNKNOWN blocks **once per input**: the same verdict on byte-identical files
 (names and contents) does not block the next turn again. FAIL always blocks.
 A session that changed nothing is never blocked: SessionStart records the dirty tree
 (`sensor-baseline.sh`), and while it is unchanged the gate stays silent, however red
-the inherited state is. The first write puts the whole dirty tree back in scope.
+the inherited state is. Once the session writes, the scope is **the files it wrote
+through Edit/Write that are still changed** (recorded per session by `sensor-edit.sh`);
+a parallel session's files are left to it, and the receipt counts them. Files written
+only through the shell are not attributed; a session with no recorded writes falls back
+to the whole dirty tree.
 
 ## Published promises
 

@@ -633,6 +633,13 @@ Multiple agents work simultaneously with file ownership separation.
 - **Dependency management** — tasks with explicit dependencies (`blockedBy`)
 - **Integration points** — coordination via messaging between agents
 - **Evidence-based debugging** — hypotheses with confidence levels and file:line citations
+- **One writer per repository at a time.** Two agents pushing to one repo race on the
+  ref (`cannot lock ref ... expected <sha>`). Give each repository one writing agent;
+  when that is not possible, `git fetch` and retry the push instead of forcing it.
+- **Resume, don't relaunch.** An agent that stopped on a transient API or network
+  error still holds its context and its half-done edits on disk. Send it a message to
+  continue from where it stopped; a fresh agent re-reads everything and may redo or
+  undo work already in the tree.
 
 **Commands:**
 

@@ -4,6 +4,12 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.92.0 — 2026-10-28
+
+- Stop gate scope: `sensor-edit.sh` records every Edit/Write/MultiEdit/NotebookEdit per session, and `sensor-stop.sh` verifies only the files this session wrote that are still changed. A parallel session's uncommitted files no longer block the turn; the receipt counts them. Shell-only writes are not attributed; a session with no recorded writes keeps the whole-tree behaviour.
+- New `scripts/prepush-clean-tree.sh -- <cmd>`: a pre-push check runs on a detached worktree of each pushed sha, not on the working tree; ref-only deletions run nothing; `SOLO_PREPUSH_LINK` links untracked data dirs in.
+- Principles: queue scripts call the project's gated tool instead of re-implementing its steps; one writing agent per repository (fetch and retry on a ref race); resume an agent stopped by a transient error instead of relaunching it.
+
 ## 1.91.0 — 2026-10-28
 
 - New `hooks/irreversible_guard.py` (PreToolUse on Bash): force-push, remote branch deletes, recursive `rm` outside tmp/scratchpad/build dirs, `gh repo|release delete`, and regex lines from `.claude/irreversible-commands.txt` need a human. `ask` where a prompt is guaranteed, `deny` with a reason in `bypassPermissions`/`dontAsk`; override only from the session environment (`SOLO_ALLOW_DESTRUCTIVE=1`); every match logged to `~/.claude/solo/irreversible-guard.log`.

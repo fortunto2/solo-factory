@@ -53,6 +53,30 @@ fi
 ARGS=(--root "$ROOT" --json)
 [[ "$MODE" == "full" ]] && ARGS+=(--full)
 
+# Scope: the files THIS session wrote, when sensor-edit.sh recorded any. Without it a
+# session was blocked on a parallel session's uncommitted, still-moving files (measured:
+# three turns in a row, the other session's file hashes changing between them). Files
+# the session wrote only through the shell are not attributed, so they are out of scope
+# here; the receipt says how many changed files were left to their own sessions.
+TOUCHED_LIST="$(git -C "$ROOT" rev-parse --absolute-git-dir 2>/dev/null)/solo-sensor-touched/${SID//[^A-Za-z0-9_-]/}"
+SCOPE_NOTE=""
+if [[ -n "$SID" && -f "$TOUCHED_LIST" ]]; then
+  REAL_ROOT=$(cd "$ROOT" && pwd -P)
+  MINE=()
+  while IFS= read -r f; do
+    [[ "$f" == "$REAL_ROOT/"* && -e "$f" ]] || continue
+    rel="${f#"$REAL_ROOT"/}"
+    # Only what is still changed: an edit the session already committed is the commit
+    # hook's business, and a file edited back to HEAD has nothing to verify.
+    [[ -n "$(git -C "$ROOT" status --porcelain=v1 -- "$rel" 2>/dev/null)" ]] && MINE+=("$rel")
+  done < <(sort -u "$TOUCHED_LIST")
+  [[ ${#MINE[@]} -eq 0 ]] && exit 0
+  ALL=$(git -C "$ROOT" status --porcelain=v1 --untracked-files=all 2>/dev/null | wc -l | tr -d ' ')
+  OTHERS=$(( ALL - ${#MINE[@]} ))
+  ARGS+=(--files "${MINE[@]}")
+  [[ "$OTHERS" -gt 0 ]] && SCOPE_NOTE="  scope: this session's ${#MINE[@]} edited file(s); ${OTHERS} other changed file(s) in the tree were left to the sessions that wrote them"
+fi
+
 # Bounded, and the bound is the one this repo publishes for this placement. A
 # 4000-file change took 163s in FAST mode, measured — so the gate could block a
 # turn for minutes with no output at all, and our own rule says a gate that costs
@@ -118,6 +142,8 @@ HUMAN=$(printf '%s' "$REC" | jq -r '
 # A budget that was not enforced must be visible next to the time it did not bound.
 [[ -n "${UNBOUNDED:-}" ]] && HUMAN="${HUMAN}
 ${UNBOUNDED}"
+[[ -n "$SCOPE_NOTE" ]] && HUMAN="${HUMAN}
+${SCOPE_NOTE}"
 
 block() {
   jq -n --arg ctx "$1" \

@@ -75,6 +75,11 @@ Hard boundaries + freedom inside:
 Agents replicate existing patterns, including bad ones. Without GC, code degrades.
 
 - **Golden principles** — opinionated rules living in the repository
+- **Queues call the gated tool.** A batch or queue script runs the project's own tool
+  for each step, never a re-implementation of its steps. A hand-rolled outro join in a
+  queue script made 48 kHz silence for a 96 kHz film and drifted the audio clock by
+  1.4 s; the project tool already took the sample rate from the film, and its checks
+  were what the copy skipped.
 - **Recurring cleanup agents** — background tasks scanning for deviations
 - **Doc-gardening agent** — finds stale documentation, opens fix-up PRs
 - **Quality grades** — each domain has a score tracked over time
