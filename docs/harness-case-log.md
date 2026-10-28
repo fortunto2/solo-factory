@@ -12,6 +12,40 @@ project, permanently, to record something a reader needs perhaps twice a month.
 
 Nothing was cut. `make rules-budget` prints what the loaded half costs.
 
+**A scheduled agent loop that looked healthy while it was failing, and five ways it got
+there.** Found in one audit of a personal job loop (launchd tickers running headless agent
+sessions, one chat bot as the only channel to the owner). Each is a general shape:
+
+- *Green by construction.* The runner ended every run with `exit 0`, including after logging
+  `FAILED`, so the scheduler's last-exit column was always 0. A browser-automation job failed 3 of
+  3 runs that day (a hung tab made a debugging-protocol connect time out) and showed healthy. A
+  health check for the daily digest tested that the file existed; the day it had no traffic
+  section and never reached the chat, the check passed. Fix: the run exits with its real code;
+  health is judged from evidence per job (a log pattern, the artefact's content, the delivery
+  line), and a ping fires when the set of failing jobs changes.
+- *Silent truncation at a transport boundary.* The bot relay kept the first 4,000 UTF-16 units of
+  a message and dropped the rest without an error; a 6,639-character note lost its last sections.
+  A second caller cut its own text at 3,500 characters "to be safe". Fix: split at paragraph,
+  line, then space, counting in the unit the transport counts (UTF-16, so an emoji is two), and
+  key each part of a living message so later edits land on the same messages.
+- *The lock was on the runner, not on the resource.* Eight scripts used one messaging-client
+  session file; the runner serialized three of its modes, while an inbox poller, an hourly
+  applier, a reminder and a nightly graph refresh could open or copy the same SQLite file at the
+  same moment. Fix: an exclusive file lock next to the resource, taken by every script before it
+  opens or copies it. Measured with two concurrent reads: 6.5 s, then the second ends at 15 s.
+- *Jobs that edit their own code.* Headless runs had patched the runner and the bot client, and
+  the personal skills the loop ran on were outside version control. Fix: the code goes into git;
+  a scheduled job reports a broken script in one line and never edits code.
+- *Two linters, two truths.* Pre-commit pinned an old linter release while the end-of-turn sensor
+  ran the latest, whose default rule set had grown; agents truthfully reported "clean" under one
+  while the other was red, and code was bent with suppressions to satisfy both. Fix: write the
+  rule set into the project config, so every version checks the same rules.
+
+One more, from the same day's publishing work: a site build that collects every page marked
+for publishing shipped a page a parallel agent was still writing, because someone else ran a
+publish at that moment. Drafts by parallel agents now start unpublished and are switched on after
+review.
+
 **Twice in one session, work started from a paraphrase of an external verdict
 instead of the verdict.** Same shape both times, and the second one happened
 *after* the first had been caught and written up.
