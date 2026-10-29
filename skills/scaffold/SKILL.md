@@ -7,7 +7,7 @@ metadata:
   version: "1.5.1"
   openclaw:
     emoji: "🏗️"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared, mcp__solograph__codegraph_explain
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__solograph__symbol_search
 argument-hint: "[project-name] [stack-name]"
 ---
 
@@ -47,7 +47,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    a. **Find sibling projects** — use `project_info()` to list active projects, filter by matching stack.
       Example: for `ios-swift`, find existing projects with matching stack.
 
-   b. **Architecture overview** — `codegraph_explain(project="<sibling>")` for each sibling.
+   b. **Architecture overview** — `project_info(name="<sibling>")` for each sibling.
       Gives: directory layers, key patterns (base classes, protocols, CRUD), top dependencies, files with the most definitions.
 
    c. **Search for reusable patterns** in the sibling — Grep/Glob under its path (from `project_info`), or symbol names across projects with `symbol_search("<words>")`:
@@ -55,7 +55,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
       - Search for shared infrastructure: "Makefile", "project.yml", ".swiftlint.yml"
       - Search for services: "Service protocol", "actor service"
 
-   d. **Check shared packages** — the `dependencies` in `codegraph_explain(project="<sibling>")`, and `codegraph_shared()` for what several projects already use.
+   d. **Check shared packages** — the `dependencies` in `project_info(name="<sibling>")`, and `project_info()` for what several projects already use.
       Collect package versions for reference (but verify with Context7 for latest).
 
    e. **Critically evaluate** what to adopt vs skip:
@@ -161,7 +161,7 @@ Scaffold a complete project from PRD + stack template. Creates directory structu
    - **Don't section** (project-specific negative constraints)
    - **Drift section** (anti-patterns: scheduling vs doing, bullets vs code)
    - **MCP Integration section** (optional, if MCP tools available):
-     Lists available MCP tools: `kb_search`, `session_search`, `symbol_search`, `codegraph_explain`, `project_info`
+     Lists available MCP tools: `kb_search`, `session_search`, `symbol_search`, `project_info`
 
 11. **Generate README.md** — project name, description, prerequisites, setup, run/test/deploy.
 

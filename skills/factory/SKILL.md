@@ -29,9 +29,9 @@ One-command setup for the entire Solo Factory startup toolkit.
 **MCP server** (optional) — [solograph](https://github.com/fortunto2/solograph) provides 15 tools:
 - `kb_search` — full-text (BM25) search over the knowledge base
 - `session_search` — search past Claude Code sessions
-- `symbol_search` / `codegraph_explain` / `codegraph_stats` / `codegraph_shared` — definitions and packages across every project
-- `project_info` — project registry
-- `source_search` / `source_list` / `source_tags` / `source_related` — source management
+- `symbol_search` — definitions across every project
+- `project_info` — the projects, one project's make-up, who uses a package
+- `source_search` — indexed sources; `related` for videos sharing topics, no query for the sources and topics
 - `web_search` — web search
 
 ## Steps

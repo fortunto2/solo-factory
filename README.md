@@ -307,12 +307,8 @@ Skills auto-detect and use [solograph](https://github.com/fortunto2/solograph) t
 | `kb_search` | Full-text search over the knowledge base (SQLite FTS5, BM25, RU+EN stemming) |
 | `session_search` | Every past Claude Code prompt and answer, including transcripts Claude Code has deleted ("how did I solve X?") |
 | `symbol_search` | Where a function or class is defined, across every project ("montage profile" finds `MontageProfile`) |
-| `codegraph_stats` | Index statistics (projects, files, symbols, packages) |
-| `codegraph_explain` | Architecture overview of any project |
-| `codegraph_shared` | Shared packages across projects |
-| `source_search` | Indexed YouTube transcripts, ProductHunt, TrustMRR, Telegram |
-| `project_info` | Project registry (stacks, status, last commit) |
-| `web_fetch` | Fetch a URL with browser-like headers, tags stripped |
+| `source_search` | Indexed YouTube transcripts, ProductHunt, TrustMRR, Telegram; related videos; the sources and topics |
+| `project_info` | The projects: all with stacks and counts, one project's stack and layers, or who uses a package |
 
 Web search lives on its own MCP server, `searxng`, so a broken import in one server
 cannot take the other's tools down:

@@ -7,7 +7,7 @@ metadata:
   version: "1.4.0"
   openclaw:
     emoji: "🔎"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, mcp__solograph__session_search, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared, mcp__solograph__codegraph_explain, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, mcp__solograph__session_search, mcp__solograph__symbol_search, mcp__solograph__project_info, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
 argument-hint: "[focus-area]"
 ---
 
@@ -33,7 +33,7 @@ Can also be used standalone: `/review` on any project to audit code quality.
 
 - `session_search(query)` — find past review patterns and common issues
 - `symbol_search("<words>")` — find similar code patterns across projects (symbol names, every project; Grep inside one)
-- `codegraph_explain(project)` — stack, layers, dependencies, files with the most definitions
+- `project_info(name)` — stack, layers, dependencies, files with the most definitions
 
 If MCP tools are not available, fall back to Glob + Grep + Read.
 
@@ -41,7 +41,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 
 ### 1. Architecture overview (if MCP available)
 ```
-codegraph_explain(project="{project name}")
+project_info(name="{project name}")
 ```
 Returns: stack, languages, directory layers, key patterns, top dependencies, files with the most definitions. Use this to detect stack and understand project structure.
 
@@ -54,7 +54,7 @@ Returns: stack, languages, directory layers, key patterns, top dependencies, fil
 **Do NOT read source code at this stage.** Only docs.
 
 ### 3. Detect stack
-Use stack from `codegraph_explain` response (or `CLAUDE.md` if no MCP) to choose tools:
+Use stack from the `project_info(name=...)` response (or `CLAUDE.md` if no MCP) to choose tools:
 - Next.js → `npm run build`, `npm test`, `npx next lint`
 - Python → `uv run pytest`, `uv run ruff check`
 - Swift → `swift test`, `swiftlint`
@@ -65,7 +65,7 @@ Use stack from `codegraph_explain` response (or `CLAUDE.md` if no MCP) to choose
 **Do NOT read random source files.** Find the most important code first:
 
 ```
-codegraph_explain(project="{name}")
+project_info(name="{name}")
 ```
 
 Its `largest_files` are the files with the most definitions; read only the top 3-5, plus the entry points. For security checks, use Grep with narrow patterns (`sk_live`, `password\s*=`) — not full file reads.

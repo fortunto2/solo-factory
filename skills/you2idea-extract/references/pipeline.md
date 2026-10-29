@@ -23,8 +23,8 @@ make deploy                             [Cloudflare Pages deploy]
 Since 26 Oct 2026 solograph keeps sources in SQLite, not FalkorDB: `~/.solo/sources/search.db`
 holds an FTS5 index of transcript chunks (documents keyed `youtube/<id>`), plus `videos`
 (id, title, channel, created, duration, chapters) and `video_tags` (video, tag, weight).
-Query it with the MCP tools — `source_search`, `source_tags`, `source_related`,
-`source_list` — or with `sqlite3` against those two tables.
+Query it with the MCP tool `source_search` (a query, `related=` a video, or nothing for
+the sources and topics) or with `sqlite3` against those two tables.
 
 **`export-data.py` and `export-vectors.py` in the you2idea repo read the old FalkorDB
 graph and have not been ported.** The graph and its embeddings are deleted; the export

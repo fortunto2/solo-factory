@@ -7,7 +7,7 @@ metadata:
   version: "2.2.0"
   openclaw:
     emoji: "🔮"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__codegraph_explain, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__project_info, mcp__solograph__symbol_search
 argument-hint: "[project-name]"
 ---
 
@@ -31,8 +31,7 @@ Can also be used standalone on any project — with or without pipeline logs.
 ## MCP Tools (use if available)
 
 - `session_search(query)` — find past pipeline runs and known issues
-- `codegraph_explain(project)` — understand project architecture context
-- `codegraph_explain(project)` — project stack, layers and dependencies
+- `project_info(name)` — project stack, layers and dependencies
 
 If MCP tools are not available, fall back to Glob + Grep + Read.
 

@@ -7,7 +7,7 @@ metadata:
   version: "1.1.1"
   openclaw:
     emoji: "🎥"
-allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared, mcp__solograph__project_info, mcp__solograph__kb_search
+allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, mcp__solograph__symbol_search, mcp__solograph__project_info, mcp__solograph__kb_search
 argument-hint: "<project-name>"
 ---
 

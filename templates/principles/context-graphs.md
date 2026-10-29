@@ -135,8 +135,7 @@ Context graphs don't require enterprise scale. Already working at small scale:
 
 2. **Portfolio index** (already implemented)
    - `symbol_search`: where something is defined, across every project
-   - `codegraph_explain`: architectural overview
-   - `codegraph_shared`: shared packages across projects
+   - `project_info`: one project's architecture, or which projects share a package
    - A structural graph (calls, imports) was tried and dropped in Oct 2026: agents asked it nothing structural in four months, and Grep answered the same questions
 
 3. **Knowledge Base** (already implemented)
@@ -145,7 +144,7 @@ Context graphs don't require enterprise scale. Already working at small scale:
 
 4. **Sources** (already implemented)
    - `source_search`: YouTube, ProductHunt, TrustMRR, Telegram
-   - `source_related`: related videos by tags
+   - `source_search(related=...)`: related videos by tags
    - External knowledge in the same FTS5 store, no graph database
 
 ### What to Strengthen

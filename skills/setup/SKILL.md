@@ -7,7 +7,7 @@ metadata:
   version: "2.2.0"
   openclaw:
     emoji: "⚙️"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__project_info, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared, mcp__solograph__kb_search
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__project_info, mcp__solograph__symbol_search, mcp__solograph__kb_search
 argument-hint: "[project-name]"
 ---
 
@@ -23,7 +23,7 @@ After `/scaffold` creates a project, before `/plan`. Creates `docs/workflow.md` 
 
 - `project_info(name)` — get project details, detected stack
 - `kb_search(query)` — search for dev principles, manifest, stack templates
-- `codegraph_explain(project)` — project stack and dependencies
+- `project_info(name)` — project stack and dependencies
 
 If MCP tools are not available, fall back to reading local files only.
 

@@ -7,7 +7,7 @@ metadata:
   version: "2.5.0"
   openclaw:
     emoji: "🔨"
-allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__symbol_search, mcp__solograph__codegraph_shared, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
+allowed-tools: Read, Grep, Bash, Glob, Write, Edit, AskUserQuestion, mcp__solograph__session_search, mcp__solograph__symbol_search, mcp__solograph__project_info, mcp__searxng__web_search, mcp__context7__resolve-library-id, mcp__context7__query-docs
 argument-hint: "[track-id] [--task X.Y] [--phase N]"
 ---
 
@@ -93,7 +93,7 @@ If MCP tools are not available, fall back to Glob + Grep + Read.
 
 ### Step 1 — Architecture overview (if MCP available)
 ```
-codegraph_explain(project="{project name}")
+project_info(name="{project name}")
 ```
 Returns: stack, languages, directory layers, key patterns, top dependencies, files with the most definitions.
 

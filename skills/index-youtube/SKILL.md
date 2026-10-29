@@ -7,7 +7,7 @@ metadata:
   version: "2.0.0"
   openclaw:
     emoji: "🎞️"
-allowed-tools: Bash, Read, Glob, Grep, Write, AskUserQuestion, mcp__solograph__source_search, mcp__solograph__source_list, mcp__solograph__source_tags, mcp__solograph__source_related
+allowed-tools: Bash, Read, Glob, Grep, Write, AskUserQuestion, mcp__solograph__source_search
 argument-hint: "[channel handles or 'all']"
 ---
 
@@ -36,7 +36,7 @@ Check which mode is available:
 
 ### Mode 1: With solograph MCP (recommended)
 
-If MCP tools `source_search`, `source_list`, `source_tags` are available, use solograph for indexing and search.
+If the MCP tool `source_search` is available, use solograph for indexing and search.
 
 **Setup (if not yet installed):**
 ```bash
@@ -67,10 +67,9 @@ uvx solograph-cli index-youtube -c <handle> -n 10
 ```
 
 **Verification via MCP:**
-- `source_list` — check that youtube source appears
+- `source_search()` — the sources with counts (youtube should appear) and the auto-detected topics
 - `source_search("startup idea", source="youtube")` — test search
-- `source_tags` — see auto-detected topics from transcripts
-- `source_related(video_id)` — find related videos by tags
+- `source_search(related=video_id)` — find related videos by tags
 
 ### Mode 2: Without MCP (standalone fallback)
 
