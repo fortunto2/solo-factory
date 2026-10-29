@@ -89,7 +89,7 @@ claude plugin list            # Claude Code plugin
 → Pricing: one-time $9.99 (no server costs), PRD with 14 acceptance criteria
 ```
 
-### Development (8 skills)
+### Development (9 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -100,6 +100,7 @@ claude plugin list            # Claude Code plugin
 | `/solo:deploy [platform]` | Deploy — detect CLI tools, set up DB, push, verify live |
 | `/solo:review [focus]` | Final quality gate — tests, coverage, security, acceptance criteria |
 | `/solo:diagnose <bug>` | Hard-bug loop — build a red-capable feedback loop first, hypothesise second |
+| `/solo:kaggle-gpu <dir> [accel]` | Free GPU/TPU on Kaggle from the terminal — push a folder as a private kernel, wait, pull the outputs |
 | `/solo:grill <plan>` | Relentless one-question-at-a-time interview to stress-test a plan before building |
 
 **Examples:**
