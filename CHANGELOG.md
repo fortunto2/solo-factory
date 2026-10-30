@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.93.1 — 2026-10-30
+
+- `kaggle-gpu`: TPU v5e-8 measured: the probe never left `QUEUED` in 17+ hours, so the skill no longer presents it as usable for anything time-bound. Notes that a poller on a phone hotspot can mistake an SSL error for a failed kernel.
+
 ## 1.93.0 — 2026-10-29
 
 - New skill `kaggle-gpu`: run a local folder on Kaggle's free 2x T4 / P100 / TPU v5e-8 as a private script kernel with one command (`scripts/kaggle-run.sh DIR ACCEL`), and get `/kaggle/working` back. Measured runtimes in the skill: the CPU runtime is 4 vCPU (about 1.6 Apple M5 cores), so it is for CUDA and training, not CPU jobs.

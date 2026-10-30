@@ -4,7 +4,7 @@ description: Run GPU or TPU work for free on Kaggle from the terminal — push a
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.0.1"
   openclaw:
     emoji: "🎮"
 ---
@@ -35,7 +35,7 @@ Measured with `scripts/kaggle-run.sh` on 2026-10-29 (`run.sh` probe: `nproc`, cg
 |---|---|---|---|---|
 | CPU (`none`) | 4 vCPU Xeon 2.2 GHz, quota 4.0 | 31 GB | none | 115M (M5: 70M per core) |
 | `NvidiaTeslaT4` | 4 vCPU Xeon 2.0 GHz | 31 GB | 2x Tesla T4, 15 GB each, CUDA 12.8 | 142M |
-| `TpuV5E8` | first request sat in QUEUED for 20+ min | | | |
+| `TpuV5E8` | never started: QUEUED for 17+ h (pushed 2026-10-29 ~13:00, still queued 2026-10-30 06:45) | | | |
 
 Reported, not measured here: ~30 GPU h/week (floats; the real number is on
 kaggle.com/settings), 12 h sessions for CPU/GPU and 9 h for TPU, 20 GB in `/kaggle/working`.
@@ -97,7 +97,8 @@ exercised by this skill yet: check `ls /kaggle/input` in the first chained run.)
 
 ## Gotchas
 
-- TPU v5e-8 can sit in `QUEUED` for a long time; GPU runs started within a minute here.
+- TPU v5e-8 is not a resource to plan on: the probe sat in `QUEUED` for 17+ hours and never ran. Use it only for work that can wait days; GPU runs start within a minute.
+- A status poller on a flaky network (phone hotspot) dies on an SSL error, and `*error*` in the case pattern reads it as a failed kernel. Re-check `kaggle kernels status` by hand before concluding.
 - `kaggle kernels status` prints `KernelWorkerStatus.QUEUED|RUNNING|COMPLETE|ERROR`; the script matches the last word.
 - Inlined files live in the kernel's source on Kaggle. Keep keys out; if a run truly needs one, use Kaggle Secrets (`kaggle_secrets.UserSecretsClient`), set in the web editor.
 - Mining or other ToS-banned work gets the account blocked; ordinary research and training is what the quota is for.
