@@ -1,7 +1,7 @@
 name: Astro Static Site
 platform: web
 language: typescript
-framework: astro@5
+framework: astro@6
 styling: tailwindcss@4.1
 package_manager: pnpm
 auth: "none (static site, auth via external service if needed)"
@@ -39,12 +39,24 @@ features:
   - content_collections
   - static_generation
   - islands_architecture
-agent_content:
-  markdown_for_agents: "Enable in Cloudflare dashboard → Quick Actions → Markdown for Agents"
-  llms_txt: "public/llms.txt — auto-generate from content collections (title + description + links)"
-  content_negotiation: "CF handles Accept: text/markdown automatically when enabled"
-  content_signal: "Content-Signal: ai-train=no, search=yes, ai-input=yes"
-  raw_markdown_api: "Expose /api/content/[slug].md endpoint for raw markdown access"
+agent_readiness:
+  # Proven on two production Astro sites on Cloudflare Pages (agent audit 9-11/12, SEO+GEO 30/30).
+  # Most of their traffic arrives from assistants citing them, so this is the distribution layer.
+  check: "seo agent-audit https://{domain} && seo audit https://{domain}/"
+  markdown_twins: "Build a Markdown twin per page from the same data as the HTML, at the page path + .md. functions/_middleware.ts serves it for Accept: text/markdown (exact type, not */*); the home page answers with llms.txt. X-Robots-Tag: noindex on /*.md so twins never compete with the pages they mirror. Cloudflare's dashboard Markdown for Agents is the zero-code fallback, with less control."
+  llms_txt: "llms.txt (title, URL and description per page, plus how to connect and how to ask) and llms-full.txt (every page in full), generated from content collections"
+  robots: "Name the AI bots (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, ...) and add Content-Signal: search=yes, ai-input=yes, ai-train=no"
+  link_headers: "public/_headers on /*: Link to llms.txt (rel=describedby), llms-full.txt, sitemap, /.well-known/api-catalog (rel=api-catalog), the agent-skills index and the MCP card (rel=service-desc)"
+  well_known: "/.well-known/api-catalog (RFC 9727, application/linkset+json), /.well-known/agent-skills/index.json (discovery v0.2.0, sha256 per skill) when there are skills, /.well-known/mcp/server-card.json when there is an MCP server; Access-Control-Allow-Origin: * on /.well-known/*"
+  mcp_server: "functions/mcp.ts on Pages: stateless Streamable HTTP, POST-only, answers application/json, no auth. Tools only over what the site already publishes (a build-time search index, the twins, its JSON). read refuses other hosts and treats an HTML response as not found. A tool never acts for a person: return a link they open and submit themselves."
+  webmcp: "Optional: toolname and tooldescription on a <form> (Chrome declarative WebMCP, spread as attributes since Astro's types lack them); no toolautosubmit on a form that carries personal data"
+  structured_data: "JSON-LD with dateModified from the real content or check date, never the build date; Article/BlogPosting on articles, Blog on a blog home, Product on anything with an Offer; potentialAction (e.g. AskAction with a urlTemplate) for what an agent can do on the page"
+  sitemap: "lastmod only from a real date (updated, created or checked), never the build date. /sitemap.xml must resolve: with @astrojs/sitemap add a 301 to /sitemap-index.xml in public/_redirects."
+  internal_links: "Use the trailing slash the pages are served at (canonical and sitemap). A slash-less href costs every click and crawl a 308, and audits count it as broken; add it in markdown rendering and wikilinks too."
+  og_images: "Per-page Open Graph PNGs generated at build (resvg); resvg mis-shapes Devanagari with every font tried, so fall back to Latin text there"
+  dates: "Format ISO dates with timeZone: 'UTC'; formatted in the build machine's zone they show the day before"
+  email: "Wrap mailto: links in <!--email_off--> markers (via set:html): Cloudflare Email Obfuscation turns them into a 404 for agents and crawlers"
+  deploy: "Run wrangler pages deploy from the directory that holds functions/; deployed from anywhere else, the Functions are silently dropped"
 notes: |
   - pnpm as package manager
   - ESLint flat config + eslint-plugin-astro for .astro files
@@ -55,5 +67,5 @@ notes: |
   - i18n via @astrojs/i18n or paraglide-js
   - English first, then localize
   - Content collections for structured content
-  - Agent-readable: enable CF Markdown for Agents + add public/llms.txt + expose raw .md via API
+  - Agent-readable from day one: see agent_readiness (twins, llms.txt, discovery files, MCP)
   - Content stored as markdown first, HTML generated from it (not reverse)

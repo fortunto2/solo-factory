@@ -147,3 +147,4 @@ notes: |
   - Next.js 16.3: dev memory −90%, faster build/typecheck/render, custom error boundaries, Instant Navigations, better AI-agent tooling (see framework_release)
   - Agent-readable (content/blog sites): add app/llms.txt/route.ts + MDX content as raw markdown API + Content-Signal header
   - If behind Cloudflare: enable Markdown for Agents in dashboard (auto content negotiation)
+  - Full agent-readiness checklist (twins with noindex, Link headers, /.well-known files, stateless MCP route, real dates): agent_readiness in astro-static.yaml applies as-is

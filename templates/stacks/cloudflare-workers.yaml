@@ -49,6 +49,7 @@ agent_content:
   markdown_for_agents: "Enable in Cloudflare dashboard → Quick Actions → Markdown for Agents (auto for all zones)"
   content_negotiation: "For custom Workers: check req.headers.get('Accept')?.includes('text/markdown'), return markdown variant"
   llms_txt: "Serve /llms.txt route with site map for AI agents"
+  checklist: "The full, framework-independent list is agent_readiness in astro-static.yaml: twins with noindex, Link headers, /.well-known files, a stateless MCP server, real dates in JSON-LD and sitemap, trailing-slash links. In a Worker each of those is a route."
 ecosystem:
   workerd: "github.com/cloudflare/workerd — open-source Workers runtime (C++/V8). Self-host Workers locally or on own infra. Escape vendor lock-in."
   emdash: "Serverless CMS on Workers (Astro 6.0 + D1 + R2). WordPress successor with v8 plugin sandboxing and x402 AI monetization."
