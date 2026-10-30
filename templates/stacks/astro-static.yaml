@@ -55,7 +55,9 @@ agent_readiness:
   internal_links: "Use the trailing slash the pages are served at (canonical and sitemap). A slash-less href costs every click and crawl a 308, and audits count it as broken; add it in markdown rendering and wikilinks too."
   og_images: "Per-page Open Graph PNGs generated at build (resvg); resvg mis-shapes Devanagari with every font tried, so fall back to Latin text there"
   dates: "Format ISO dates with timeZone: 'UTC'; formatted in the build machine's zone they show the day before"
-  email: "Wrap mailto: links in <!--email_off--> markers (via set:html): Cloudflare Email Obfuscation turns them into a 404 for agents and crawlers"
+  email: "Wrap mailto: links and plain-text addresses in <!--email_off--> markers (via set:html): Cloudflare Email Obfuscation turns both into a /cdn-cgi link that 404s for agents and crawlers"
+  contact: "If people should be able to reach you, let agents do it for them: the booking link and address in llms.txt, a ContactPoint (email, booking url, languages) on the site's Person in JSON-LD, and an MCP contact tool returning the booking link plus a ready mailto drafted from the topic, in the topic's language. It books and sends nothing; the person, or their own agent with their own calendar and mailbox, does."
+  leads: "For a site that collects requests, the same rule: agents get a link that opens the form or chat with the question typed in (?ask=...#form, tagged utm_medium=agent and a campaign per channel), never an endpoint that submits for someone. A request carries a contact and consent."
   deploy: "Run wrangler pages deploy from the directory that holds functions/; deployed from anywhere else, the Functions are silently dropped"
 notes: |
   - pnpm as package manager
