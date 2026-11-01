@@ -20,6 +20,10 @@ setup() {
   unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
         GIT_COMMON_DIR GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX \
         GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM
+  # The cache tests fake HOME; a profile's CLAUDE_CONFIG_DIR outranks HOME in the script
+  # (correctly), so inherited from the session it sent every lookup past the fake home and
+  # 5 tests went red in any session started under a second profile (2026-11-01).
+  unset CLAUDE_CONFIG_DIR
   R="$BATS_TEST_TMPDIR/repo"
   mkdir -p "$R/.claude-plugin" "$R/skills" "$R/scripts"
   cp "$C" "$R/scripts/check-shippable"
