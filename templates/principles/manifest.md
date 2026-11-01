@@ -7,7 +7,7 @@ tags: [manifesto, principles, privacy, antifragile, solo-founder]
 course_module: 1
 course_order: 1
 publish: true
-publish_as: post
+feed: true
 source_path: "0-principles/manifest.md"
 ---
 

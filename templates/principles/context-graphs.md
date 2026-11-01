@@ -7,7 +7,7 @@ tags: [context-graphs, agents, methodology, memory, decision-traces]
 course_module: 5
 course_order: 3
 publish: true
-publish_as: post
+feed: true
 source_path: "1-methodology/context-graphs.md"
 ---
 

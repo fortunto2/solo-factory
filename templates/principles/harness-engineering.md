@@ -8,7 +8,7 @@ tags: [harness, agents, methodology, context-engineering, ai]
 course_module: 4
 course_order: 1
 publish: true
-publish_as: post
+feed: true
 source_path: "1-methodology/harness-engineering.md"
 ---
 
