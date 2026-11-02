@@ -104,3 +104,13 @@ post() {  # tool_response JSON -> hook output
   out=$(post '{"stdout":"OAUTH_TOKEN_URL = \"https://api.producthunt.com/v2/oauth/token\"","stderr":"","interrupted":false}')
   [ -z "$out" ]
 }
+
+@test "a pasted Cloudflare token blocks the prompt and the reason says to rotate it" {
+  CFT="cfut_$(printf 'Kp4x%.0s' {1..10})"
+  out=$(python3 -c 'import json,sys; print(json.dumps({"prompt":"token "+sys.argv[1],"cwd":"/tmp/cfproj"}))' "$CFT" \
+    | python3 "$G" prompt)
+  [[ "$out" != *"$CFT"* ]]
+  [[ "$out" == *'"decision": "block"'* ]]
+  [[ "$out" == *"CLOUDFLARE_API_TOKEN"* ]]
+  [[ "$out" == *"rotate it"* ]]
+}

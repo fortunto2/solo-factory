@@ -53,6 +53,7 @@ TOKEN_RULES = [
     ("google-api-key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}")),
     ("huggingface-token", re.compile(r"\bhf_[A-Za-z0-9]{34,}")),
     ("telegram-bot-token", re.compile(r"\b\d{8,10}:AA[A-Za-z0-9_-]{33}\b")),
+    ("cloudflare-token", re.compile(r"\bcf(?:ut|at|k)_[A-Za-z0-9_-]{30,}")),
     (
         "jwt",
         re.compile(
@@ -81,6 +82,7 @@ NAMES = {
     "google-api-key": "GOOGLE_API_KEY",
     "huggingface-token": "HF_TOKEN",
     "telegram-bot-token": "TELEGRAM_BOT_TOKEN",
+    "cloudflare-token": "CLOUDFLARE_API_TOKEN",
     "jwt": "JWT",
     "private-key-block": "PRIVATE_KEY",
 }
@@ -225,7 +227,9 @@ def prompt(inp: dict) -> None:
         {
             "decision": "block",
             "reason": f"secret_guard: your message contained {len(hits)} secret(s); the prompt was NOT sent. Saved to {f} as "
-            f"{', '.join(saved)}. Resend without the value and refer to it by name; the agent can `set -a; source {f}`.",
+            f"{', '.join(saved)}. Resend without the value and refer to it by name; the agent can `set -a; source {f}`. "
+            "Claude Code still echoes the blocked prompt into the transcript on disk: treat the value as leaked, "
+            "rotate it, and keep the new one in the OS keystore (skill solo:secrets, `secret set <name>`).",
         }
     )
 

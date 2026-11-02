@@ -172,13 +172,14 @@ What is in the set, and the rules that most often hit real code:
 → Privacy policy (GDPR-ready), Terms of Service, App Store privacy labels
 ```
 
-### Utility (22 skills)
+### Utility (23 skills)
 
 | Command | What it does |
 |---------|-------------|
 | `/solo:pipeline research <idea>` | Automated research → validate loop |
 | `/solo:pipeline dev <name> <stack>` | Automated scaffold → setup → plan → build → deploy → review |
 | `/solo:stream <decision>` | STREAM 6-layer decision framework for high-stakes choices |
+| `/solo:secrets` | Credentials in the OS keystore, rotation dates, plaintext scan and migration |
 | `/solo:init` | One-time founder onboarding — manifest, calibration, stack selection |
 | `/solo:factory` | Install the full Solo Factory toolkit in one command |
 | `/solo:retro` | Post-pipeline retrospective — score process, find waste, suggest fixes |
@@ -407,6 +408,7 @@ solo-factory/
 │   ├── i18n/                # Localization, RTL, store listings
 │   ├── model-shrink/        # ONNX / int8 / Core ML on device
 │   ├── seo-cli/             # seo CLI: SEO+GEO + agent-audit
+│   ├── secrets/             # Keystore-backed secrets: scan, migrate, rotate
 │   ├── reddit/              # Reddit comments and karma
 │   ├── github-outreach/     # Competitor dependents scan
 │   ├── knowledge/           # Methodology base lookup
