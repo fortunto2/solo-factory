@@ -83,12 +83,14 @@ Saved calls: `~/.supervox/calls/<id>.json` has `transcript` as one string; analy
 
 ## A room that is not in English
 
-Parakeet is English-only: a Russian room comes out as confident English nonsense ("Pakistan" for
-Bashkortostan). Before `supervox live`, back up `~/.supervox/config.toml`, set
-`stt_backend = "whisper"` with `whisper_model = "small"` (ggml-small.bin, ~470 MB, fine on an
-M-series laptop), and restore the backup after the recording. Whisper was trained on subtitles, so
-in silence it "hears" credits ("Редактор субтитров …", "Подписывайтесь на канал"): drop those lines
-instead of summarising them. Measured on a 90-minute Russian living-room session, 31 Oct 2026.
+Parakeet v2 (`~/.supervox/models/parakeet-tdt`) is English-only: a Russian room comes out as
+confident English nonsense ("Pakistan" for Bashkortostan, 31 Oct 2026). Parakeet v3
+(`parakeet-tdt-0.6b-v3`, 25 languages, Russian among them) lives next to it in
+`~/.supervox/models/parakeet-tdt-v3`, and since supervox ea2a3a0 (4 Nov 2026) `stt_backend =
+"parakeet"` picks v3 on its own whenever `my_language` is not English and that folder exists.
+So for a Russian room: `my_language = "ru"`, keep `stt_backend = "parakeet"`, check the v3 folder is
+there. Whisper is the fallback only; trained on subtitles, it "hears" credits in silence ("Редактор
+субтитров …", "Подписывайтесь на канал"), so drop those lines instead of summarising them.
 
 ## Rules
 
