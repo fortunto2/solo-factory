@@ -81,6 +81,15 @@ already linked the stream and the panel into `~/.supervox/calls/<call_id>.*`), a
 files are.
 Saved calls: `~/.supervox/calls/<id>.json` has `transcript` as one string; analyse it directly.
 
+## A room that is not in English
+
+Parakeet is English-only: a Russian room comes out as confident English nonsense ("Pakistan" for
+Bashkortostan). Before `supervox live`, back up `~/.supervox/config.toml`, set
+`stt_backend = "whisper"` with `whisper_model = "small"` (ggml-small.bin, ~470 MB, fine on an
+M-series laptop), and restore the backup after the recording. Whisper was trained on subtitles, so
+in silence it "hears" credits ("Редактор субтитров …", "Подписывайтесь на канал"): drop those lines
+instead of summarising them. Measured on a 90-minute Russian living-room session, 31 Oct 2026.
+
 ## Rules
 
 - Room audio is other people's speech: do not paste long verbatim passages into anything that leaves the
