@@ -26,6 +26,46 @@ Golden rules:
 - **`asc validate` is the source of truth**, not your reading of the ASC web UI. Its ordered
   remediation plan *is* the task list — fix the first item, re-validate, repeat.
 - **Confirm flags with `--help` before running.** The CLI moves fast; don't trust memory.
+- **No App Review without an end-to-end walk on a physical iPhone running the newest iOS the code
+  branches on** — the largest `#available(iOS N` in the sources. Install the exact build being
+  submitted (TestFlight or a device install), walk the main flow to its result, leave the app once
+  mid-task, and keep a receipt. See [End-to-end gate](#end-to-end-gate--before-every-submission).
+
+---
+
+## End-to-end gate — before every submission
+
+A green suite and a working simulator do not mean the build works on the phones it ships to. The
+case that made this a rule: a background-task handler written as a closure inside a `@MainActor`
+type compiled with an executor check, and the system ran it off the main thread. It trapped
+seconds after the main button, **only on iOS 26**. The simulator never runs background tasks,
+the unit test that called the handler off-main stayed green with the defect planted, and the dev
+phone ran iOS 18, so the `#available(iOS 26` branch had never executed before the store. That
+version crashed about ten times as often as the one before it in its first week.
+
+What the walk must be, and what the receipt proves:
+
+| | rule | read from |
+|---|---|---|
+| device | physical, never a simulator | `xcrun devicectl list devices --json-output f` → `hardwareProperties.reality == "physical"` |
+| iOS | major ≥ the newest `#available(iOS N` in the sources | the same JSON, `deviceProperties.osVersionNumber` |
+| build | the one being submitted is the one installed | `devicectl device info apps --device ID --bundle-id B --include-all-apps` → `bundleVersion` |
+| walk | the main flow to its result, plus leaving the app mid-task | the walker's own words |
+
+Read the first three off the device, never from a flag or a memory, and write them to a receipt
+file per build, committed beside the release metadata.
+
+**Make it a gate, not a habit.** A habit fails on the night it matters. Put a `PreToolUse` hook on
+`Bash` that refuses `asc … review submit`, `submissions-submit`, `submit create` and
+`release run` / `publish appstore … --submit` unless a receipt exists for the build being
+submitted. Resolve a `--build-id` with `asc builds info --build-id ID` (→ `attributes.version`).
+Let a `--dry-run` and TestFlight's own `--submit` through. Parse the shell line with quotes
+respected, so a commit message that mentions the command is not mistaken for it. Check it against
+a known answer before trusting it: the dev phone on an older iOS must be refused, and a live
+`review submit` aimed at a fake `asc` on `PATH` must be stopped.
+
+When no phone on the newest iOS is at hand, the release waits, or goes to an external TestFlight
+group with such phones first. It never goes to App Review on the strength of the simulator.
 
 ---
 
@@ -129,7 +169,8 @@ asc release stage --app "APP_ID" --version "1.0" --build "BUILD_ID" \
 asc release stage --app "APP_ID" --version "1.0" --build "BUILD_ID" \
   --metadata-dir "./metadata" --confirm
 
-# 4. Submit — ONLY after the user says go. --build is REQUIRED even when already attached.
+# 4. Submit — ONLY after the user says go AND this build has an end-to-end receipt
+#    (see "End-to-end gate" above). --build is REQUIRED even when already attached.
 asc review submit --app "APP_ID" --version "1.0" --build "BUILD_ID" --dry-run --output table
 asc review submit --app "APP_ID" --version "1.0" --build "BUILD_ID" --confirm
 
