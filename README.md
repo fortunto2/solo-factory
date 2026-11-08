@@ -1,6 +1,6 @@
 [![GitHub stars](https://img.shields.io/github/stars/fortunto2/solo-factory?style=flat-square)](https://github.com/fortunto2/solo-factory/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Skills: 57](https://img.shields.io/badge/skills-57-blue?style=flat-square)](#skills)
+[![Skills: 60](https://img.shields.io/badge/skills-60-blue?style=flat-square)](#skills)
 [![Agents: 2](https://img.shields.io/badge/agents-2-green?style=flat-square)](#agents)
 [![MCP Tools: 11](https://img.shields.io/badge/MCP_tools-11-purple?style=flat-square)](#mcp-integration)
 [![Stacks: 12](https://img.shields.io/badge/stacks-12-orange?style=flat-square)](#available-stacks)
@@ -9,7 +9,7 @@
 
 **Your own path. Multiple stacks. Ship everything.**
 
-> From shower thought to deployed product — 57 skills, 2 agents, and an MCP server that searches every project you've ever built.
+> From shower thought to deployed product — 60 skills, 2 agents, and an MCP server that searches every project you've ever built.
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
@@ -140,7 +140,7 @@ make apple-skills          # export
 What is in the set, and the rules that most often hit real code:
 [`skills/swiftui-design-system/references/apple-xcode-skills.md`](skills/swiftui-design-system/references/apple-xcode-skills.md).
 
-### Promotion (15 skills)
+### Promotion (16 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -153,6 +153,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:video-promo` | Promo video plan — 30-45s script, storyboard, Remotion config |
 | `/solo:video-edit` | Real footage to a film with the agent as editor — cut as a script, cutaways that match the words, hook by eye, radio cleanup, masters per platform |
 | `/solo:creator-growth` | Short vertical video for a consumer app — founder-led first, paid UGC creators after a measured signal |
+| `/solo:gmail-cli` | Read one or several Gmail/Workspace mailboxes from the terminal with `gws` — OAuth setup, wrapper per mailbox, read-only login, the 7-day token fix |
 | `/solo:youtube-channel` | Publish and measure a YouTube channel from the CLI — upload, captions, Shorts↔long links, Analytics API |
 | `/solo:metrics-track` | superduper-analytics event funnel, KPI benchmarks, A/B test template, kill/iterate/scale |
 | `/solo:legal` | Privacy policy + terms of service — privacy-first, manifest-aligned |
@@ -385,6 +386,7 @@ solo-factory/
 │   ├── video-edit/          # Footage → film, ffmpeg recipes
 │   ├── transcribe/          # Local STT, GPU on Mac
 │   ├── stem-split/          # Demucs stems
+│   ├── gmail-cli/           # Gmail via gws, several mailboxes
 │   ├── youtube-channel/     # YouTube publish + analytics
 │   ├── metrics-track/       # Event funnel + KPIs
 │   ├── humanize/            # Strip AI patterns

@@ -40,6 +40,7 @@ over a month of daily uploads; every rule below cost a mistake first.
   rest to tomorrow instead of failing mid-batch.
 - **Testing-mode OAuth apps expire refresh tokens in 7 days** (`invalid_grant`).
   Re-run the browser auth, or move the app to production.
+  Publish app stays disabled until Branding has an app name with no Google trademark (no "Gmail"/"YouTube"), a home page, a privacy policy link and that domain in Authorised domains; upload no logo (forces verification), then re-run auth once.
 - **`relatedVideoId` ("Related video" on a Short) is accepted with 200 and not
   saved.** Set it by hand in Studio. A success code is not a write.
 - **A title over 100 characters is `invalidTitle`** and creates nothing.

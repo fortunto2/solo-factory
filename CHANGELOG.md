@@ -4,6 +4,11 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.94.0 — 2026-11-07
+
+- New skill `gmail-cli`: read one or several Gmail/Workspace mailboxes from a coding agent with the `gws` CLI. Cloud project and Desktop OAuth client, one config dir and wrapper per mailbox, read-only login, drafts-only rule, and the Testing-mode 7-day `invalid_grant` fix (Branding requirements for Publish app). Ships `scripts/mail.py`.
+- `youtube-channel`: the 7-day token bullet now lists the Branding requirements for Publish app.
+
 ## 1.93.1 — 2026-10-30
 
 - `kaggle-gpu`: TPU v5e-8 measured: the probe never left `QUEUED` in 17+ hours, so the skill no longer presents it as usable for anything time-bound. Notes that a poller on a phone hotspot can mistake an SSL error for a failed kernel.
