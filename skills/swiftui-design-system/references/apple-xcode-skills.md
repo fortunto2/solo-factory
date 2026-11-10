@@ -34,6 +34,17 @@ carries the Xcode build number, so after an Xcode update re-run the `ln` and
 `claude plugin update xcode-integration@xcode`. A hand copy of the `.packaged`
 files goes stale the same way and silently: one made in August had 9 of the 17.
 
+**Update, 10 Nov 2026: this is now an official plugin.** Apple Inc. is listed as author of
+`xcode` in Anthropic's `claude-plugins-official` marketplace (PR #6338, merged 6 Nov 2026).
+Its `source` is `{"source": "command", "command": "xcrun agent plugin path --plugin-format claude", "mode": "link"}`,
+i.e. the same directory the manual recipe above links, so `/plugin install xcode@claude-plugins-official`
+replaces the local marketplace. Marketplace description: build, run and test schemes,
+render SwiftUI previews, drive simulators and devices, read build logs and diagnostics,
+search Apple documentation. Apple published no announcement. Not verified: whether `link`
+follows an Xcode update without re-install (the manual recipe goes stale), and which Xcode
+first ships `xcrun agent plugin`. Don't enable both this and a hand-made `xcode-integration`
+at once; keep the per-project enable.
+
 ## Where they are
 
 ```bash
