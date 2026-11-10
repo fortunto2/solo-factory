@@ -42,7 +42,7 @@ TOKEN_RULES = [
         ),
     ),
     ("anthropic-key", re.compile(r"\bsk-ant-[A-Za-z0-9_-]{20,}")),
-    ("openai-key", re.compile(r"\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{32,}")),
+    ("openai-key", re.compile(r"\bsk-(?!ant-)(?:proj-|svcacct-)?[A-Za-z0-9_-]{32,}")),
     ("aws-access-key", re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")),
     (
         "github-token",
