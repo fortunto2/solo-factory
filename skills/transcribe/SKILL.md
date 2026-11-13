@@ -46,6 +46,14 @@ Long files (10+ min): run in the background and wait for `✅ done`.
   CPU path pass `--multilingual`.
 - **A chunk detected as a language not in `--languages`** (Russian read as Ukrainian, a laugh as
   Welsh) is re-run in the first non-English listed language instead of keeping the guess.
+- **Accented English is detected as the speaker's native language and comes back translated.** A
+  Russian speaker asking a question in English at a talk, with `--languages ru en`, returned a fluent
+  Russian sentence the speaker never said. For a recording known to be one language, force it
+  (`--languages en`) and keep the multi-language run only where the language really switches.
+- **A quiet distant voice can vanish under the VAD.** At a panel filmed from the audience, a speaker
+  ~9 dB below the person next to the camera (−31 vs −22.5 dB mean) lost two minutes of her answer:
+  the transcript jumps from 02:53 to 04:26 with no gap marker. Check long gaps in the timestamps; a
+  second recording (a laptop transcriber in the room) or a normalised re-run fills them.
 - **Crowd noise hallucinates.** 25 minutes of a bar came back as `lang=fr` with 454 invented
   sentences. Treat such a file as no speech; if one voice in it matters, re-run with the language
   forced.
