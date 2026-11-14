@@ -519,6 +519,7 @@ def release_rows(cfg: dict, start: date, end: date) -> dict:
         return {"known": False, "rows": []}
     return {
         "known": True,
+        "measured": date.today().isoformat(),
         "rows": [x for x in rows if start.isoformat() <= x["date"] <= end.isoformat()],
     }
 
