@@ -4,9 +4,17 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
-## 1.94.0 — 2026-11-07
+## 1.95.0 — 2026-11-14
 
 - New skill `kindle`: `convert` (md, txt, html, docx, fb2, epub, URL to Kindle-ready EPUB), `make` (chapter folder to book, e-ink images), `send` (Send-to-Kindle by e-mail through a gws-style wrapper or SMTP; approved-sender rule, dry-run, size/duplicate/daily-cap guards, audit log), `find` (Gutenberg, Standard Ebooks, Internet Archive public domain, Wikisource). Ships `scripts/kindle.py` and tests.
+- New skill `mirror`: a weekly reflection built on a deterministic collector. It compares stated focus with what the data shows, counts creative blocks, leak and open loops, keeps a work-hours band and a week template, and reports whether your tools help or load you. Read-only; private details stay in your own config.
+- New skill `music-reels-cut`: beat-synced vertical reels with 14 ffmpeg effects.
+- Three read-only saved workflows ship with the plugin: `verify-claims`, `dream`, `log-review`.
+- `transcribe`: two failure modes documented (accented English translated, a quiet voice dropped by VAD).
+- `secret_guard`: an `sk-ant-` key is reported as one secret, not also as an OpenAI key.
+
+## 1.94.0 — 2026-11-07
+
 - New skill `gmail-cli`: read one or several Gmail/Workspace mailboxes from a coding agent with the `gws` CLI. Cloud project and Desktop OAuth client, one config dir and wrapper per mailbox, read-only login, drafts-only rule, and the Testing-mode 7-day `invalid_grant` fix (Branding requirements for Publish app). Ships `scripts/mail.py`.
 - `youtube-channel`: the 7-day token bullet now lists the Branding requirements for Publish app.
 
