@@ -46,7 +46,7 @@ DEFAULTS = {
         "automation_regex": "",
     },
     "correction_regex": r"^(нет|не |стоп|stop|no[,. ]|don't|do not|я же|опять|снова|again)",
-    "focus": {"projects": [], "goals": []},
+    "focus": {"projects": [], "goals": [], "top": [], "defocus": []},
     "project_goal": {},
     "goal_priority": [],
     # items with these words carry a consequence (compliance, verification, legal, tax, penalty): never on the cut list
@@ -485,6 +485,33 @@ def first_commit_date(path: str) -> date | None:
     return date.fromisoformat(first[0]) if first else None
 
 
+def release_rows(cfg: dict, start: date, end: date) -> dict:
+    """Releases shipped in the window, from a command in the config that prints JSON: [{ref, title, version, date}].
+    The adapter reads whatever records store releases (notes, a digest); this script never calls a store API.
+    `known` is False when no command is configured or it failed, so a report says "no data" instead of "zero"."""
+    cmd = cfg.get("releases_cmd")
+    if not cmd:
+        return {"known": False, "rows": []}
+    try:
+        r = subprocess.run(
+            shlex.split(cmd),
+            capture_output=True,
+            text=True,
+            cwd=cfg["_root"],
+            check=False,
+            timeout=60,
+        )
+        rows = json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else None
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        rows = None
+    if rows is None:
+        return {"known": False, "rows": []}
+    return {
+        "known": True,
+        "rows": [x for x in rows if start.isoformat() <= x["date"] <= end.isoformat()],
+    }
+
+
 def draft_rows(cfg: dict) -> list[dict]:
     """Drafts come from a command in the config that prints JSON: [{ref, title, drafted_at, reschedule_dates[]}].
     Whatever holds the drafts (a post queue, a mail folder) is the caller's adapter, not this script's business."""
@@ -543,6 +570,29 @@ def shares(sessions: list[dict], commits: dict[str, list[date]], cfg: dict) -> d
         "focus_projects": sorted(fp),
         "share_focus_sessions": round(focus_s / tot_s, 3) if tot_s else 0.0,
         "share_focus_commits": round(focus_c / tot_c, 3) if tot_c else 0.0,
+        **portfolio_numbers(cfg, n_s, n_c, tot_s, tot_c, fp),
+    }
+
+
+def portfolio_numbers(cfg, n_s, n_c, tot_s, tot_c, fp) -> dict:
+    """Two numbers for a portfolio goal: the share of attention on the whole earning portfolio (`focus.projects`), the
+    concentration inside it (`focus.top` over the portfolio), and the plain share on things that are neither an
+    earning app nor the visa (`focus.defocus`). Sessions are the attention measure; commits are reported beside them."""
+    top = set(cfg["focus"].get("top") or [])
+    dfc = set(cfg["focus"].get("defocus") or [])
+
+    def share(num: int, den: int) -> float:
+        return round(num / den, 3) if den else 0.0
+
+    ps, pc = sum(n_s[x] for x in fp), sum(n_c[x] for x in fp)
+    ts, tc = sum(n_s[x] for x in top), sum(n_c[x] for x in top)
+    return {
+        "top_projects": sorted(top),
+        "concentration_sessions": share(ts, ps),
+        "concentration_commits": share(tc, pc),
+        "defocus_projects": sorted(dfc),
+        "share_defocus_sessions": share(sum(n_s[x] for x in dfc), tot_s),
+        "share_defocus_commits": share(sum(n_c[x] for x in dfc), tot_c),
     }
 
 
@@ -1037,6 +1087,7 @@ def collect(cfg: dict, end: date, days: int) -> dict:
         "cut_list": cut_list(todos, topics, cfg, end),
         "this_week_candidates": week_candidates(todos, topics, cfg, end),
         "protected_not_cut": protected_items(todos),
+        "releases": release_rows(cfg, start, end),
         "done_log": done,
         "noise_waiting_already_answered": stale_waits(topics, cfg["answered_regex"]),
         "goal_conflicts": goal_conflicts(cfg),

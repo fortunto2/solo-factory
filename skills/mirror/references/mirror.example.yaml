@@ -36,3 +36,5 @@ energy:
   timezones:              # first rule whose `until` has not passed wins; the last has none
     - {tz: Europe/Berlin, until: "2026-01-31"}
     - {tz: Europe/Istanbul}
+# focus: {projects: [app-a, app-b], top: [app-a], defocus: [internal-tools]}   # portfolio, its main product, and non-earning work
+# releases_cmd: python3 my_releases_adapter.py   # prints JSON [{ref,title,version,date}]

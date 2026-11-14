@@ -357,3 +357,26 @@ def test_effort_hours_parses_minutes_hours_and_unknown():
         and mc.effort_hours("") is None
         and mc.effort_hours("big") is None
     )
+
+
+def test_portfolio_numbers_concentration_and_defocus():
+    from collections import Counter
+
+    cfg = {"focus": {"top": ["a"], "defocus": ["h"]}}
+    n_s, n_c = Counter(a=2, b=2, h=4, v=2), Counter(a=10, b=10, h=70, v=10)
+    r = mc.portfolio_numbers(cfg, n_s, n_c, 10, 100, {"a", "b"})
+    assert r["concentration_sessions"] == 0.5 and r["share_defocus_sessions"] == 0.4
+    assert r["share_defocus_commits"] == 0.7 and r["concentration_commits"] == 0.5
+
+
+def test_release_rows_unknown_without_command_and_filtered_by_window(tmp_path):
+    from datetime import date
+
+    assert mc.release_rows(
+        {"_root": tmp_path}, date(2026, 11, 1), date(2026, 11, 7)
+    ) == {"known": False, "rows": []}
+    cmd = "python3 -c \"import json;print(json.dumps([{'ref':'a','title':'A','version':'1','date':'2026-11-03'},{'ref':'b','title':'B','version':'2','date':'2026-10-01'}]))\""
+    r = mc.release_rows(
+        {"_root": tmp_path, "releases_cmd": cmd}, date(2026, 11, 1), date(2026, 11, 7)
+    )
+    assert r["known"] and [x["ref"] for x in r["rows"]] == ["a"]
