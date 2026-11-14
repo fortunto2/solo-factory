@@ -1,6 +1,6 @@
 [![GitHub stars](https://img.shields.io/github/stars/fortunto2/solo-factory?style=flat-square)](https://github.com/fortunto2/solo-factory/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Skills: 61](https://img.shields.io/badge/skills-61-blue?style=flat-square)](#skills)
+[![Skills: 62](https://img.shields.io/badge/skills-62-blue?style=flat-square)](#skills)
 [![Agents: 2](https://img.shields.io/badge/agents-2-green?style=flat-square)](#agents)
 [![MCP Tools: 11](https://img.shields.io/badge/MCP_tools-11-purple?style=flat-square)](#mcp-integration)
 [![Stacks: 12](https://img.shields.io/badge/stacks-12-orange?style=flat-square)](#available-stacks)
@@ -9,7 +9,7 @@
 
 **Your own path. Multiple stacks. Ship everything.**
 
-> From shower thought to deployed product — 61 skills, 2 agents, and an MCP server that searches every project you've ever built.
+> From shower thought to deployed product — 62 skills, 2 agents, and an MCP server that searches every project you've ever built.
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
@@ -174,13 +174,14 @@ What is in the set, and the rules that most often hit real code:
 → Privacy policy (GDPR-ready), Terms of Service, App Store privacy labels
 ```
 
-### Utility (23 skills)
+### Utility (24 skills)
 
 | Command | What it does |
 |---------|-------------|
 | `/solo:pipeline research <idea>` | Automated research → validate loop |
 | `/solo:pipeline dev <name> <stack>` | Automated scaffold → setup → plan → build → deploy → review |
 | `/solo:stream <decision>` | STREAM 6-layer decision framework for high-stakes choices |
+| `/solo:mirror` | Weekly reflection: said vs did, repeats with counts, one experiment, cut list; read-only |
 | `/solo:secrets` | Credentials in the OS keystore, rotation dates, plaintext scan and migration |
 | `/solo:init` | One-time founder onboarding — manifest, calibration, stack selection |
 | `/solo:factory` | Install the full Solo Factory toolkit in one command |

@@ -1,0 +1,95 @@
+---
+name: solo-mirror
+description: Weekly reflection that compares what a person says they focus on with what the data shows they did, names at most three repeating patterns with counts and dates, sets one experiment, and shrinks the load (cut list, three items for this week). Read-only; returns a report and ledger entries, the caller applies them. Use when user says "weekly mirror", "reflect on my week", "what do I keep doing without noticing", "am I working on what I said", "lower my load", "зеркало", "разбор недели". Do NOT use for a pipeline retrospective (use /retro), for checking memory notes (use the dream workflow), or for anything personal that belongs in a private journal.
+license: MIT
+metadata:
+  author: fortunto2
+  version: "1.0.0"
+  openclaw:
+    emoji: "🪞"
+allowed-tools: Read, Bash, Glob, Grep
+argument-hint: "[--config path/to/mirror.yaml] [--days 14]"
+---
+
+# mirror: a weekly reflection with numbers
+
+Reads files, git and past prompts, returns a short report. It lowers mental load:
+every open item either has a reason, is on a cut list, or is explicitly "not this week".
+It never writes, sends or edits anything; the caller saves the report and runs
+`ledger-append`.
+
+## Inputs (all paths in one config file)
+
+| Input | Config key | What it is |
+|---|---|---|
+| Stated goals | `goals_files` | markdown the person wrote: the plan, the focus rule (for example one product plus one keystone goal). The model reads these; the script only lists them |
+| Task registry | `registry_dir` | `open/*.json` topics with `parents`, `updated`, `items` |
+| Todo lists | `todo_lists` | yaml lists with `status`, `due`, optional `purpose: "<goal slug or ?>: <reason>"`, dated `due_reason*` keys |
+| Projects | `projects_registry` | yaml `projects: [{name, path}]`; git logs are read per project |
+| Past prompts | `sessions.dir` | Claude Code transcripts; user turns only, never assistant text; `exclude_dir_substrings` are never opened; `automation_regex` drops headless jobs |
+| Drafts | `drafts_cmd` | optional command printing JSON `[{ref, title, drafted_at, reschedule_dates}]` |
+| Focus | `focus`, `project_goal`, `goal_priority` | which projects/goals are the declared focus, which goal each project serves |
+| Ledger | `ledger` | jsonl of patterns and experiments |
+
+Template: `references/mirror.example.yaml`.
+
+## Workflow
+
+1. Collect. This is the only step that touches data, and it is deterministic:
+   ```bash
+   uv run ${CLAUDE_PLUGIN_ROOT}/skills/mirror/scripts/mirror_collect.py collect --config <mirror.yaml> --days 14 --json
+   ```
+   (`--end YYYY-MM-DD` to reproduce a past week.) Read the stated goals files once, for the
+   words of the focus rule; do not search anywhere else.
+2. Write the report from the numbers, nothing else. Three questions, same every week:
+   - **Said vs did.** `said_vs_did`: share of sessions and commits per project and per goal against the stated focus. One sentence with the two numbers.
+   - **What repeats.** Only entries in `patterns` (the script already applied the rule: at least 3 dated occurrences and a number). At most 3, the largest `count` or longest `weeks_in_a_row` first. Each: what, the count, the dates, where the evidence is (`refs`). If `weeks_in_a_row` is 2 or more, say "N weeks in a row". If `patterns` is empty, write "повторов с тремя датами нет" and stop; do not invent one from `below_threshold`.
+   - **One experiment.** Verdict on last week's from `experiment_last_week.result` (met / missed / unknown, with the actual number), then one new experiment for next week: one behaviour, checkable from the same data, as `{metric, op, value}` using a key in `metrics` (for example `share_focus_sessions >= 0.4`).
+3. Load reduction, part of the report, not advice:
+   - **Cut list** from `cut_list`: open items with no goal behind them or silent for the configured days. One line each: ref, why, proposal (drop, park until a date, or delegate to an agent). Keep the script's proposal unless the title shows it is wrong.
+   - **This week only**: at most 3 items from `this_week_candidates`, each with its reason. Everything else is named in one line as "не на этой неделе".
+4. End with ONE question the person may take to a private journal or therapy context. A question about the pattern, not a diagnosis. This skill never reads such a place and never asks for it.
+5. Check the form: `mirror_collect.py lint <report.md>` (length, em dashes, at most 3 numbered observations).
+6. Return: the report, and a JSON list of ledger entries for the caller to append:
+   `{"type":"pattern","id","week","count","refs"}` per reported pattern and
+   `{"type":"experiment","week","text","metric","op","value"}` for the new experiment.
+   The caller runs `ledger-append`.
+
+## Report form (short, in the person's language)
+
+Total at most 1800 characters. Lead with the finding. Layout:
+
+```
+Зеркало <week>
+Сказал / сделал: <focus share of sessions> и <of commits> против плана. <one line>
+Повторы:
+1. <what>: <N> раз, <dates>. <where to look>
+Эксперимент прошлой недели: <met|missed|unknown>, <actual> при цели <target>.
+Эксперимент на эту неделю: <one behaviour>, проверим по <metric>.
+Срезать: <ref> (<proposal>), ...
+Только на этой неделе: 1) <item>, зачем: <reason>  2) ... 3) ...
+Не на этой неделе: все остальное.
+Вопрос для дневника: <one question>
+```
+
+## Hard limits
+
+- At most 3 observations; each has a count, dates and a place to verify.
+- No adjectives about the person, no diagnosis, no psychology, no motives. Behaviour and numbers only.
+- A pattern with fewer than 3 dated occurrences is not reported, however vivid.
+- Never print identifiers (passport, tax, account numbers), dates of birth or health data; the collector redacts long digit runs in prompt excerpts, but check anyway.
+- Never read paths the config does not list. Sessions from private areas are excluded by `exclude_dir_substrings`; do not work around it.
+- Read-only: no sends, no edits, no task changes. Proposals only.
+
+## Gotchas
+
+- Share of sessions counts sessions with a typed user turn in the window, so a long session and a one-line session weigh the same; commits are the corrective. Report both.
+- A project outside the projects registry shows as `(none)`; say so instead of guessing its goal.
+- Reschedules are read from dated `due_reason*` keys; an item moved without a dated note is invisible. Say "по датированным заметкам".
+- The first week has no ledger: `weeks_in_a_row` is 1 and there is no experiment verdict. Say that.
+
+## Don't
+
+- Don't turn the report into advice about how to live. The experiment is the only suggestion.
+- Don't add a fourth observation because the third was weak. Fewer is the right answer.
+- Don't count assistant-written commits as attention without saying that agents commit too.

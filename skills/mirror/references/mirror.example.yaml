@@ -1,0 +1,27 @@
+# mirror.yaml: every path the weekly mirror may read. Relative paths resolve against `root`
+# (itself relative to this file). Nothing outside this list is opened.
+root: ..
+goals_files: [docs/plan.md]            # stated goals; the model reads them, the script only lists them
+registry_dir: tasks                    # open/*.json topics (id, title, parents, updated, items)
+todo_lists: [lists/ops.yaml]           # items with status, due, purpose, dated due_reason* keys
+projects_registry: projects.yaml       # projects: [{name, path}]
+extra_projects: {}                     # name: path, for repos the registry lacks
+author_regex: ""                       # only count commits by this author, empty = all
+sessions:
+  dir: ~/.claude/projects
+  exclude_dir_substrings: [private]    # transcript directories never opened
+  automation_regex: ""                 # first prompt of a headless job, so it is not counted as attention
+focus:
+  projects: [main-product]             # the declared focus (the WIP limit)
+  goals: [keystone-goal]               # or: every project that serves these goals
+project_goal:                          # which goal each project serves
+  main-product: income
+goal_priority: [keystone-goal, income] # order for the "this week only" pool
+min_occurrences: 3                     # a pattern needs this many dated occurrences
+stale_draft_days: 7
+quiet_topic_days: 14
+silent_days: 14
+reschedule_prefixes: [due_reason]
+# drafts_cmd: python3 bin/list-drafts.py   # prints JSON [{ref, title, drafted_at, reschedule_dates}]
+ledger: mirror/ledger.jsonl
+reports_dir: mirror
