@@ -1269,7 +1269,12 @@ def main(argv: list[str]) -> int:
             "blocks_week",
             "blocks_week_capacity",
         )
-        print(json.dumps({k: o[k] for k in keys}))
+        line = (o.get("work_week") or {}).get("midweek_line")
+        print(
+            json.dumps(
+                {k: o[k] for k in keys} | {"midweek_line": line}, ensure_ascii=False
+            )
+        )
         return 0
     if args.cmd == "ledger-append":
         path = p(cfg, cfg.get("ledger", "mirror/ledger.jsonl"))

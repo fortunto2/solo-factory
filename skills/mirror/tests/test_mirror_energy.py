@@ -108,3 +108,79 @@ def test_history_marks_travel_days_and_places():
         "Turkey": 1
     }
     assert "2026-11-08" in me.travel_days(TZ) and "2026-09-17" in me.travel_days(TZ)
+
+
+def wdays(spec):
+    """spec: {date: work_h}"""
+    return {
+        d: {"work_h": h, "prompts": {"work": 1}, "own_h": 0} for d, h in spec.items()
+    }
+
+
+WW = {
+    "work_week": {
+        "target_h": 40,
+        "band_h": 5,
+        "midweek_template": "Work {h} of {target}, {days_left} left",
+    }
+}
+
+
+def test_work_week_states_gap_and_no_data():
+    days = wdays(
+        {
+            "2026-11-02": 20,
+            "2026-11-03": 4,
+            "2026-11-09": 22,
+            "2026-11-10": 20,
+            "2026-11-11": 5,
+            "2026-10-26": 2,
+            "2026-10-27": 2,
+            "2026-10-28": 20,
+            "2026-10-19": 0,
+        }
+    )
+    r = me.work_week(days, date(2026, 11, 13), WW)  # Friday of W46
+    by = {w["week"]: w for w in r["weeks"]}
+    assert (
+        by["2026-W45"]["state"] == "ниже"
+        and by["2026-W45"]["h"] == 24
+        and by["2026-W45"]["gap_h"] == 11
+    )  # 35 - 24
+    assert by["2026-W44"]["h"] == 24 and by["2026-W43"]["h"] == 0
+    assert (by["2026-W46"]["state"], by["2026-W46"]["h"], by["2026-W46"]["gap_h"]) == (
+        "выше",
+        47,
+        2,
+    )
+    assert (
+        me.work_week({}, date(2026, 11, 13), WW)["weeks"][0]["state"] == "нет данных"
+        and me.work_week({}, date(2026, 11, 13), WW)["weeks"][0]["h"] is None
+    )
+    assert me.work_week(days, date(2026, 11, 13), {}) is None
+
+
+def test_work_week_above_band_and_manual_extra():
+    days = wdays({"2026-11-09": 30, "2026-11-10": 20})
+    cur = me.work_week(days, date(2026, 11, 10), WW)["current"]
+    assert (cur["h"], cur["state"], cur["gap_h"]) == (50, "выше", 5)
+    cfg = {"work_week": {**WW["work_week"], "work_extra_h": {"2026-W46": 6}}}
+    cur = me.work_week(wdays({"2026-11-09": 30}), date(2026, 11, 10), cfg)["current"]
+    assert cur["h"] == 36 and cur["extra_h"] == 6 and cur["state"] == "в полосе"
+
+
+def test_midweek_signal_only_thu_fri_and_only_outside_the_band():
+    days = wdays(
+        {"2026-11-09": 4, "2026-11-10": 4, "2026-11-11": 4, "2026-11-12": 4}
+    )  # 16 by Thursday: 20 projected
+    thu = me.work_week(days, date(2026, 11, 12), WW)
+    assert (
+        thu["midweek_line"] == "Work 16 of 40, 2 left" and thu["projection_h"] == 20.0
+    )
+    assert (
+        me.work_week(days, date(2026, 11, 11), WW)["midweek_line"] is None
+    )  # Wednesday: silent
+    ok = wdays({"2026-11-09": 8, "2026-11-10": 8, "2026-11-11": 8, "2026-11-12": 8})
+    assert (
+        me.work_week(ok, date(2026, 11, 12), WW)["midweek_line"] is None
+    )  # in band: silent

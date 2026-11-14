@@ -287,6 +287,75 @@ def history(days: dict[str, dict], es: dict) -> list[dict]:
     ]
 
 
+def _iso(d: date) -> str:
+    y, w, _ = d.isocalendar()
+    return f"{y}-W{w:02d}"
+
+
+def work_week(days: dict[str, dict], today: date, cfg: dict) -> dict | None:
+    """Hours of the work profile per ISO week against a target band, by sessions only (a conditional measure: thinking,
+    calls and chat are work time that is not in the sessions). The last four weeks; a week with no work rows at all is
+    unknown (None), never zero. Midweek: on Thursday and Friday, a projection to Friday evening from the weekday rate;
+    `midweek_line` is set only when the projection leaves the band."""
+    wc = cfg.get("work_week")
+    if not wc:
+        return None
+    target, band = wc["target_h"], wc.get("band_h", 5)
+    extra = {str(k): v for k, v in (wc.get("work_extra_h") or {}).items()}
+    by_week: dict[str, float] = defaultdict(float)
+    seen: set[str] = set()
+    for day, v in days.items():
+        wk = _iso(date.fromisoformat(day))
+        by_week[wk] += v["work_h"]
+        if v["work_h"] or v.get("prompts", {}).get("work"):
+            seen.add(wk)
+
+    def state(h: float) -> str:
+        return (
+            "в полосе"
+            if target - band <= h <= target + band
+            else "ниже"
+            if h < target - band
+            else "выше"
+        )
+
+    def row(wk: str) -> dict:
+        h = round(by_week.get(wk, 0.0) + extra.get(wk, 0), 2) if wk in seen else None
+        st = state(h) if h is not None else "нет данных"
+        gap = (
+            round(target - band - h, 2)
+            if st == "ниже"
+            else round(h - target - band, 2)
+            if st == "выше"
+            else None
+        )
+        return {"week": wk, "h": h, "state": st, "gap_h": gap, "extra_h": extra.get(wk)}
+
+    weeks = [_iso(today - timedelta(days=7 * i)) for i in range(3, -1, -1)]
+    cur = row(_iso(today))
+    out = {
+        "target_h": target,
+        "band_h": band,
+        "uncounted": wc.get("uncounted", ""),
+        "weeks": [row(w) for w in weeks],
+        "current": cur,
+        "midweek_line": None,
+    }
+    if today.weekday() in (3, 4) and cur["h"] is not None:
+        elapsed = today.weekday() + 1  # Mon..today
+        projection = round(cur["h"] / elapsed * 5, 1)
+        out["projection_h"] = projection
+        if state(projection) != "в полосе":
+            tpl = wc.get(
+                "midweek_template",
+                "Work this week: {h} of {target}, {days_left} days left",
+            )
+            out["midweek_line"] = tpl.format(
+                h=round(cur["h"]), target=target, days_left=5 - today.weekday()
+            )
+    return out
+
+
 def compute(cfg: dict, rows: list[dict], today: date) -> dict:
     es = settings(cfg)
     days = per_day(rows, es)
@@ -301,6 +370,7 @@ def compute(cfg: dict, rows: list[dict], today: date) -> dict:
     }
     out["today"] = days.get(today.isoformat())
     before = today - timedelta(days=7)
+    out["work_week"] = work_week(days, today, cfg)
     out["previous"] = {
         "blocks_week": budget(days, before, es)["blocks_week"],
         "routine_pct_week": summary(days, before)["routine_pct_week"],
