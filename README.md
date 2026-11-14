@@ -1,6 +1,6 @@
 [![GitHub stars](https://img.shields.io/github/stars/fortunto2/solo-factory?style=flat-square)](https://github.com/fortunto2/solo-factory/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Skills: 63](https://img.shields.io/badge/skills-63-blue?style=flat-square)](#skills)
+[![Skills: 64](https://img.shields.io/badge/skills-64-blue?style=flat-square)](#skills)
 [![Agents: 2](https://img.shields.io/badge/agents-2-green?style=flat-square)](#agents)
 [![MCP Tools: 11](https://img.shields.io/badge/MCP_tools-11-purple?style=flat-square)](#mcp-integration)
 [![Stacks: 12](https://img.shields.io/badge/stacks-12-orange?style=flat-square)](#available-stacks)
@@ -9,7 +9,7 @@
 
 **Your own path. Multiple stacks. Ship everything.**
 
-> From shower thought to deployed product — 63 skills, 2 agents, and an MCP server that searches every project you've ever built.
+> From shower thought to deployed product — 64 skills, 2 agents, and an MCP server that searches every project you've ever built.
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
@@ -174,7 +174,7 @@ What is in the set, and the rules that most often hit real code:
 → Privacy policy (GDPR-ready), Terms of Service, App Store privacy labels
 ```
 
-### Utility (25 skills)
+### Utility (26 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -201,6 +201,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:skill-shelf` | Skill usage from transcripts; shelve the unused, restore on demand, plugin and claude.ai sync switches |
 | `/solo:supervox` | Listen to a room with local transcription: one live summary on the panel, pitch Q&A coaching, saved calls analysed by the agent |
 | `/solo:transcribe` | Audio/video to text locally — Apple GPU (mlx-whisper large-v3), language per chunk, .srt, word timings |
+| `/solo:claim-check` | Gentle fact-check of a video, article or text: what is true, what does not hold, what to do instead, in plain words for a named reader. Verdicts rest on fetched, quoted sources; batch queue for bots |
 | `/solo:stem-split` | Demucs stems (vocals, drums, bass, other) on the Apple GPU — for mashups, acapellas, and stripping music from footage |
 | `/solo:board` | Trade findings with other agents on getpostingboard.dev — `gpb` CLI, orchestrator mode, one-operator rules |
 | `/solo:terminal-eyes` | Terminal tuned for hours of reading agent output — flicker, polarity, ANSI palette, bell. Lives in [its own repo](https://github.com/fortunto2/terminal-eyes) (submodule) |
