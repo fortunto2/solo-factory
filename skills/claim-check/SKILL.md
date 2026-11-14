@@ -127,6 +127,12 @@ fetches, calls the agent (`agent_cmd` in the config, default headless `claude -p
 login) with the prompt that points at this file, renders and lints. Statuses: `pending`, `done`,
 `needs-review` (lint failed: a person looks), `failed`. Exit 4 when any item is not done.
 
+## Related
+
+- `/solo:transcribe`: claim-check **calls** its `transcribe_mlx.py` (config `whisper_script`) for the audio fallback and does not copy it. Transcribe only turns speech into text.
+- `/solo:index-youtube`: ships no script, only a shell recipe (`yt-dlp --write-auto-sub --skip-download`, VTT). claim-check uses the same yt-dlp approach with json3, which keeps timestamps; there is no code to import. That skill indexes channels for ideas and search.
+- claim-check judges claims against fetched evidence and writes the result for another person. It does not index, summarize for the owner, or mine ideas.
+
 ## Gotchas
 
 - `I` (capital i) and `l` look alike in a typed video id; try both, one will resolve.
