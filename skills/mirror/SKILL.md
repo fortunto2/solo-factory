@@ -55,6 +55,18 @@ Template: `references/mirror.example.yaml`.
    `{"type":"experiment","week","text","metric","op","value"}` for the new experiment.
    The caller runs `ledger-append`.
 
+## Rules the collector supports
+
+- **Goals disagree.** If `goal_conflicts` is non-empty (a goals file says a decision is pending) or two goals files contradict each other, the FIRST line of the report asks which goal is current. Do not measure against the older one.
+- **Protected items are never cut.** An item whose text matches `protected_regex` (compliance, verification, legal, tax, penalty) is in `protected_not_cut`, not in `cut_list`. It may be parked with a date or sized; the report never proposes dropping it.
+- **Effort is stated, never guessed.** Every "this week only" item and every parked protected item carries `effort` (the item's own `time` field, or minutes quoted from its notes). When it says "объём неизвестен", sizing the item is the first step.
+- **Noise.** `noise_waiting_already_answered` lists topics waiting on a person while one of their own items records that the person answered. Report them under one line "Шум: ждём ответа, который уже записан".
+- **Buckets.** A pattern may carry `bucket`: `finish` (a complete artefact that was not sent) or `middle` (work stopped partway). State the bucket the data puts it in; do not decide for the person.
+- **Done log.** `done_log` is what was closed, sent or published in the window. A `voice` block in the config may ask to open the report with it.
+- **Energy and attention modes** (`energy` in the collector output, `collect` writes `energy.json`, `energy` subcommand refreshes today in about 2 s without a daemon). Built only from timestamps and lengths of typed prompts: active hours per day (distinct 15-minute buckets with a typed prompt), a bucket takes its highest mode (`task` long prompt, `steer` medium, `kick` short; thresholds in config), `spent_h` weighs `kick` by half. `week_spent` against `week_budget`, `overload_days`, `debt` over the last 7 days, `suggested_today`, `capacity_h` for the rest of the week. Also `longest_block`, `switches_per_day`, `night_h`. Sessions in excluded directories and in other profiles are not counted, and the output says so; never present it as a health measure, never store or print prompt text.
+- **Fit to capacity.** Each "this week only" candidate has `cost_h` (from its stated effort) and an optional `kind` (`deep` or `light`). The listed items must fit `capacity_h`; an item that does not fit is named as not fitting instead of being listed. Unknown cost stays "volume unknown".
+- **Optional `voice` block** in the config: a list of extra rules the caller wants applied to the wording and layout (for example: done-log first, counts and dates only with no blame wording, finish-vs-middle question on one live item, a one-line definition of done and a first step for every this-week item, no "not now" state). The skill applies them literally and never invents them.
+
 ## Report form (short, in the person's language)
 
 Total at most 1800 characters. Lead with the finding. Layout:

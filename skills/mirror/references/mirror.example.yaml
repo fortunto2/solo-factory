@@ -25,3 +25,14 @@ reschedule_prefixes: [due_reason]
 # drafts_cmd: python3 bin/list-drafts.py   # prints JSON [{ref, title, drafted_at, reschedule_dates}]
 ledger: mirror/ledger.jsonl
 reports_dir: mirror
+
+# Energy and attention modes (optional). Timestamps and lengths of typed prompts only.
+energy:
+  output: mirror/energy.json
+  budget_hours_per_day: 4
+  weights: {task: 1.0, steer: 1.0, kick: 0.5}
+  task_min: 250
+  steer_min: 50
+  timezones:              # first rule whose `until` has not passed wins; the last has none
+    - {tz: Europe/Berlin, until: "2026-01-31"}
+    - {tz: Europe/Istanbul}

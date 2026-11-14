@@ -29,7 +29,7 @@ import subprocess
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import yaml
@@ -49,6 +49,10 @@ DEFAULTS = {
     "focus": {"projects": [], "goals": []},
     "project_goal": {},
     "goal_priority": [],
+    # items with these words carry a consequence (compliance, verification, legal, tax, penalty): never on the cut list
+    "protected_regex": r"(?i)compliance|verif|legal|\btax|visa|penalt|\bfine\b|\birs\b|kyc|налог|верифик|штраф|виза|юрид",
+    "pending_regex": r"(?i)decision pending|undecided|to be decided|is a decision for|решение не принято",
+    "answered_regex": r"(?i)\b(replied|answered|responded)\b|ответил",
 }
 
 _DDMM = re.compile(r"^\s*(\d{1,2})\.(\d{1,2})(?!\d)")
@@ -124,6 +128,12 @@ class Pattern:
     dates: list[date]
     number: str  # the count in words the report can quote, e.g. "5 переносов"
     refs: list[str] = field(default_factory=list)
+    bucket: str = ""  # "finish": a complete artefact not sent; "middle": work stopped partway; "": not decidable from the data
+
+    def __post_init__(self) -> None:
+        self.bucket = {"stale-drafts": "finish", "quiet-topics": "middle"}.get(
+            self.id, self.bucket
+        )
 
     @property
     def count(self) -> int:
@@ -136,6 +146,15 @@ def qualifies(pat: Pattern, minimum: int) -> bool:
 
 
 # ---------------------------------------------------------------- inputs
+
+
+def _latest_note(notes: list[tuple[str, str]], today: date) -> str:
+    """The note with the latest leading D.MM date (dict order is not time order); else the last one."""
+    dated = [(parse_ddmm(v, today), v) for _, v in notes]
+    dated = [x for x in dated if x[0]]
+    return (
+        max(dated, key=lambda x: x[0])[1] if dated else (notes[-1][1] if notes else "")
+    )[:200]
 
 
 def todo_items(cfg: dict, today: date) -> list[dict]:
@@ -157,11 +176,32 @@ def todo_items(cfg: dict, today: date) -> list[dict]:
                     "waiting",
                 ):
                     continue
+                notes = [
+                    (k, str(v))
+                    for k, v in it.items()
+                    if str(k).startswith(("note", "next", "waiting", "due_reason"))
+                ]
+                effort = str(it.get("time") or "")
+                if not effort:  # minutes only, quoted from the item's own notes; never an estimate of ours
+                    for _, v in notes:
+                        m = re.search(r"\b\d+\s?(?:min|мин)\b", v)
+                        if m:
+                            effort = m[0]
+                            break
                 slug, _, text = str(it.get("purpose") or "").partition(": ")
                 due = it.get("due")
                 out.append(
                     {
                         "ref": f"{lst}/{it.get('id', '?')}",
+                        "effort": effort or "объём неизвестен",
+                        "kind": str(it.get("kind") or ""),
+                        "last_note": _latest_note(notes, today),
+                        "protected": bool(
+                            re.search(
+                                cfg["protected_regex"],
+                                f"{it.get('task', '')} {it.get('purpose', '')} {it.get('id', '')}",
+                            )
+                        ),
                         "title": str(it.get("task", ""))[:120],
                         "status": it.get("status", "todo"),
                         "due": str(due)[:10] if due else "",
@@ -192,6 +232,7 @@ def registry_topics(cfg: dict, today: date) -> list[dict]:
                 "due": d.get("due", ""),
                 "updated": upd,
                 "created": cre,
+                "item_titles": [str(i.get("title", "")) for i in d.get("items", [])],
                 "items_open": sum(
                     1
                     for i in d.get("items", [])
@@ -222,6 +263,85 @@ def goal_roots(topics: list[dict]) -> dict[str, set[str]]:
         return out
 
     return {tid: roots(tid) for tid in by_id}
+
+
+def done_log(cfg: dict, start: date, end: date, drafts: list[dict]) -> list[dict]:
+    """What he closed, sent, published or pressed in the window: closed registry topics, todo items with done_on,
+    and drafts-adapter rows carrying sent_at. The unit is the act, never the response to it."""
+    out = []
+    for f in sorted(
+        (p(cfg, cfg.get("registry_dir", "tasks")) / "done").glob("*/*.json")
+    ):
+        d = json.loads(f.read_text())
+        c = (d.get("closed") or "")[:10]
+        if c and start <= date.fromisoformat(c) <= end and d.get("status") == "done":
+            out.append(
+                {
+                    "kind": "topic closed",
+                    "ref": d["id"],
+                    "title": d.get("title", "")[:100],
+                    "date": c,
+                }
+            )
+    for rel in cfg.get("todo_lists", []):
+        path = p(cfg, rel)
+        groups = (
+            (yaml.safe_load(path.read_text()) or {}).values() if path.exists() else []
+        )
+        for items in groups:
+            for it in items if isinstance(items, list) else []:
+                done = (
+                    it.get("done_on")
+                    if isinstance(it, dict) and it.get("status") == "done"
+                    else None
+                )
+                if done and start <= date.fromisoformat(str(done)[:10]) <= end:
+                    out.append(
+                        {
+                            "kind": "todo done",
+                            "ref": f"{path.parent.name}/{it['id']}",
+                            "title": str(it.get("task", ""))[:100],
+                            "date": str(done)[:10],
+                        }
+                    )
+    for dr in drafts:
+        sent = dr.get("sent_at", "")[:10]
+        if sent and start <= date.fromisoformat(sent) <= end:
+            out.append(
+                {
+                    "kind": "sent",
+                    "ref": dr["ref"],
+                    "title": dr.get("title", "")[:100],
+                    "date": sent,
+                }
+            )
+    return sorted(out, key=lambda x: x["date"])
+
+
+def stale_waits(topics: list[dict], answered_regex: str) -> list[dict]:
+    """Topics waiting on someone (ball elsewhere) while one of their own items records that this someone already answered."""
+    rx = re.compile(answered_regex)
+    out = []
+    for t in topics:
+        if t["ball"] not in ("me", ""):
+            hit = next((x for x in t["item_titles"] if rx.search(x)), None)
+            if hit:
+                out.append({"ref": t["ref"], "ball": t["ball"], "evidence": hit[:140]})
+    return out
+
+
+def goal_conflicts(cfg: dict) -> list[dict]:
+    """Lines in the goals files that say a decision is pending: the report asks which goal is current before measuring."""
+    rx = re.compile(cfg["pending_regex"])
+    out = []
+    for g in cfg.get("goals_files", []):
+        path = p(cfg, g)
+        for n, line in enumerate(
+            path.read_text().splitlines() if path.exists() else [], 1
+        ):
+            if rx.search(line):
+                out.append({"file": str(path), "line": n, "text": line.strip()[:160]})
+    return out
 
 
 def project_paths(cfg: dict) -> dict[str, str]:
@@ -654,6 +774,20 @@ def goal_slugs(todos: list[dict], topics: list[dict], cfg: dict) -> set[str]:
     )
 
 
+def protected_items(todos: list[dict]) -> list[dict]:
+    return [
+        {
+            "ref": t["ref"],
+            "title": t["title"],
+            "due": t["due"],
+            "effort": t["effort"],
+            "last_note": t["last_note"],
+        }
+        for t in todos
+        if t.get("protected")
+    ]
+
+
 def cut_list(
     todos: list[dict], topics: list[dict], cfg: dict, today: date
 ) -> list[dict]:
@@ -681,6 +815,8 @@ def cut_list(
                 }
             )
     for t in todos:
+        if t.get("protected"):
+            continue  # a compliance, verification, legal, tax or penalty consequence: parked with a date or sized, never cut
         no_goal = t["goal"] in ("", "?")
         overdue = (today - date.fromisoformat(t["due"])).days if t["due"] else 0
         silent = overdue >= cfg["silent_days"]
@@ -721,6 +857,15 @@ def _propose(no_goal: bool, silent: bool, due: str, today: date) -> str:
     return "park-until next review"
 
 
+def effort_hours(effort) -> float | None:
+    """Hours from an effort string such as '45 min', '2h', '1.5 ч'; None when no volume is stated."""
+    m = re.search(r"(\d+(?:[.,]\d+)?)\s*(min|мин|m\b|h|ч)", str(effort or ""), re.I)
+    if not m:
+        return None
+    n = float(m[1].replace(",", "."))
+    return round(n / 60 if m[2].lower().startswith(("m", "мин")) else n, 2)
+
+
 def week_candidates(
     todos: list[dict], topics: list[dict], cfg: dict, today: date, horizon: int = 7
 ) -> list[dict]:
@@ -741,6 +886,10 @@ def week_candidates(
                     "due": t["due"],
                     "goal": t["goal"],
                     "why": t["purpose"],
+                    "effort": t["effort"],
+                    "cost_h": effort_hours(t["effort"]),
+                    "kind": t.get("kind") or "",
+                    "last_note": t["last_note"],
                     "rank": prio.get(t["goal"], len(prio)),
                 }
             )
@@ -765,6 +914,37 @@ def week_candidates(
 
 
 # ---------------------------------------------------------------- collect
+
+
+def energy_block(cfg: dict, end: date) -> dict:
+    """Energy and attention modes (mirror_energy). Writes the table to energy.json when configured."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import mirror_energy as me
+
+    projects = project_paths(cfg)
+    out = me.compute(cfg, lambda cwd: project_of(cwd, projects), end)
+    target = (cfg.get("energy") or {}).get("output")
+    if target:
+        path = p(cfg, target)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(out, ensure_ascii=False, indent=1))
+    return out
+
+
+def energy_today(cfg: dict) -> dict:
+    """Fast path: only today's transcripts, earlier days from the last full run's energy.json."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import mirror_energy as me
+
+    target = p(cfg, (cfg.get("energy") or {}).get("output", "mirror/energy.json"))
+    prev = json.loads(target.read_text()) if target.exists() else {}
+    projects = project_paths(cfg)
+    out = me.today_fast(
+        cfg, lambda cwd: project_of(cwd, projects), datetime.now(timezone.utc), prev
+    )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(out, ensure_ascii=False, indent=1))
+    return out
 
 
 def collect(cfg: dict, end: date, days: int) -> dict:
@@ -806,6 +986,7 @@ def collect(cfg: dict, end: date, days: int) -> dict:
             "dates": [d.isoformat() for d in x.dates],
             "number": x.number,
             "refs": x.refs,
+            "bucket": x.bucket,
             "weeks_in_a_row": streak(ledger, x.id, week),
         }
         for x in pats
@@ -816,6 +997,7 @@ def collect(cfg: dict, end: date, days: int) -> dict:
         for x in pats
         if not qualifies(x, minimum)
     ]
+    done = done_log(cfg, start, end, drafts)
     metrics = {
         "share_focus_sessions": sh["share_focus_sessions"],
         "share_focus_commits": sh["share_focus_commits"],
@@ -832,6 +1014,7 @@ def collect(cfg: dict, end: date, days: int) -> dict:
             > cfg["stale_draft_days"]
         ),
         "new_projects": len(new_projects),
+        "sent": sum(1 for x in done if x["kind"] == "sent"),
     }
     last_exp = next(
         (
@@ -853,6 +1036,11 @@ def collect(cfg: dict, end: date, days: int) -> dict:
         "metrics": metrics,
         "cut_list": cut_list(todos, topics, cfg, end),
         "this_week_candidates": week_candidates(todos, topics, cfg, end),
+        "protected_not_cut": protected_items(todos),
+        "done_log": done,
+        "noise_waiting_already_answered": stale_waits(topics, cfg["answered_regex"]),
+        "goal_conflicts": goal_conflicts(cfg),
+        "energy": energy_block(cfg, end),
         "inputs": {
             "sessions": len(sessions),
             "todo_items": len(todos),
@@ -890,6 +1078,8 @@ def main(argv: list[str]) -> int:
     c.add_argument("--days", type=int, default=14)
     c.add_argument("--end", default="")
     c.add_argument("--json", action="store_true")
+    e = sub.add_parser("energy", help="fast: today's energy against the budget")
+    e.add_argument("--config", required=True)
     a = sub.add_parser("ledger-append")
     a.add_argument("--config", required=True)
     a.add_argument(
@@ -906,6 +1096,16 @@ def main(argv: list[str]) -> int:
         print("\n".join(probs) or "ok")
         return 1 if probs else 0
     cfg = load_config(Path(args.config))
+    if args.cmd == "energy":
+        o = energy_today(cfg)
+        keys = ("suggested_today", "remaining_today_h", "debt", "refreshed")
+        print(
+            json.dumps(
+                {k: o.get(k) for k in keys}
+                | {"spent_today_h": (o.get("today") or {}).get("spent_h", 0)}
+            )
+        )
+        return 0
     if args.cmd == "ledger-append":
         path = p(cfg, cfg.get("ledger", "mirror/ledger.jsonl"))
         path.parent.mkdir(parents=True, exist_ok=True)

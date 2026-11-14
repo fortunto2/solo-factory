@@ -234,3 +234,126 @@ def test_lint_counts_observations_not_the_this_week_list():
     assert mc.lint(ok, 1800) == []
     bad = "Повторы:\n1. a\n2. b\n3. c\n4. d\nЭксперимент: x\n"
     assert mc.lint(bad, 1800) == ["more than 3 numbered observations"]
+
+
+def test_protected_items_never_reach_the_cut_list():
+    todos = [
+        {
+            "ref": "t/a",
+            "title": "account verification",
+            "goal": "?",
+            "due": "",
+            "reschedules": [],
+            "purpose": "",
+            "protected": True,
+            "effort": "x",
+            "last_note": "",
+        },
+        {
+            "ref": "t/b",
+            "title": "x",
+            "goal": "?",
+            "due": "",
+            "reschedules": [],
+            "purpose": "",
+            "protected": False,
+        },
+    ]
+    assert [c["ref"] for c in mc.cut_list(todos, [], CFG, TODAY)] == ["t/b"]
+    assert [x["ref"] for x in mc.protected_items(todos)] == ["t/a"]
+
+
+def test_stale_waits_flags_a_wait_whose_item_records_the_answer():
+    topics = [
+        {
+            "ref": "j",
+            "ball": "paul",
+            "item_titles": ["Paul replied: will keep it in mind"],
+        },
+        {"ref": "k", "ball": "paul", "item_titles": ["Ask Paul"]},
+        {"ref": "m", "ball": "me", "item_titles": ["he replied"]},
+    ]
+    assert [
+        x["ref"] for x in mc.stale_waits(topics, mc.DEFAULTS["answered_regex"])
+    ] == ["j"]
+
+
+def test_goal_conflicts_finds_pending_decision_lines(tmp_path):
+    (tmp_path / "g.md").write_text("a\nThis is a decision for X, not a default\nb\n")
+    cfg = {**CFG, "goals_files": ["g.md"], "_root": tmp_path}
+    assert mc.goal_conflicts(cfg)[0]["line"] == 2
+
+
+def test_done_log_counts_closed_todos_and_sent_drafts(tmp_path):
+    (tmp_path / "tasks" / "done" / "2026-11").mkdir(parents=True)
+    (tmp_path / "tasks" / "done" / "2026-11" / "a.json").write_text(
+        json.dumps(
+            {"id": "a", "title": "A", "status": "done", "closed": "2026-11-10T10:00:00"}
+        )
+    )
+    (tmp_path / "todo.yaml").write_text(
+        "g:\n- id: x\n  task: T\n  status: done\n  done_on: 2026-11-12\n- id: y\n  task: U\n  status: done\n  done_on: 2026-10-01\n"
+    )
+    cfg = {
+        **CFG,
+        "_root": tmp_path,
+        "registry_dir": "tasks",
+        "todo_lists": ["todo.yaml"],
+    }
+    log = mc.done_log(
+        cfg,
+        date(2026, 11, 1),
+        TODAY,
+        [{"ref": "p/x", "sent_at": "2026-11-13T08:00:00"}],
+    )
+    assert [(x["kind"], x["date"]) for x in log] == [
+        ("topic closed", "2026-11-10"),
+        ("todo done", "2026-11-12"),
+        ("sent", "2026-11-13"),
+    ]
+
+
+def test_stale_draft_pattern_is_in_the_finish_bucket_and_quiet_topics_in_the_middle():
+    drafts = [{"ref": f"d{i}", "drafted_at": "2026-10-01"} for i in range(3)]
+    topics = [{"ref": "q", "quiet_days": 30, "items_open": 1, "updated": "2026-10-10"}]
+    pats = {
+        x.id: x
+        for x in mc.find_patterns(
+            CFG, TODAY, date(2026, 11, 1), [], topics, drafts, [], [], True
+        )
+    }
+    assert (
+        pats["stale-drafts"].bucket == "finish"
+        and pats["quiet-topics"].bucket == "middle"
+    )
+
+
+def test_effort_comes_from_time_field_or_quoted_minutes_never_guessed(tmp_path):
+    (tmp_path / "t.yaml").write_text(
+        "g:\n- id: a\n  task: T\n  time: 30m\n  note_1: '10.11 about 180 h from March'\n"
+        "- id: b\n  task: T\n  note_1: '10.11 his, 2 min: app then Activity'\n"
+        "- id: c\n  task: T\n  note_1: '10.11 took 11 h'\n  note_2: '12.11 newest'\n"
+    )
+    cfg = {
+        **CFG,
+        "_root": tmp_path,
+        "todo_lists": ["t.yaml"],
+        "reschedule_prefixes": ["due_reason"],
+    }
+    rows = {r["ref"]: r for r in mc.todo_items(cfg, TODAY)}
+    by = {r["ref"].split("/")[1]: r for r in rows.values()}
+    assert (
+        by["a"]["effort"] == "30m"
+        and by["b"]["effort"] == "2 min"
+        and by["c"]["effort"] == "объём неизвестен"
+    )
+    assert by["c"]["last_note"] == "12.11 newest"
+
+
+def test_effort_hours_parses_minutes_hours_and_unknown():
+    assert mc.effort_hours("45 min") == 0.75 and mc.effort_hours("1,5 ч") == 1.5
+    assert (
+        mc.effort_hours("2h") == 2.0
+        and mc.effort_hours("") is None
+        and mc.effort_hours("big") is None
+    )
