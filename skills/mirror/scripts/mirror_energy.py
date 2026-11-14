@@ -1,278 +1,303 @@
-"""Energy and attention modes from the timestamps of typed prompts. Read-only; no prompt text is stored or printed.
+"""Creative blocks, routine leak and open loops, from the journal of typed prompts (mirror_journal). Read-only.
 
-A typed prompt is a user turn in a Claude Code transcript that is left after stripping injected blocks (reminders,
-task notifications, teammate messages) and that is not the opening prompt of an automated job. Per local day:
+Hours stay in the data as the raw layer. The three derived numbers lead the report:
 
-  active_h   distinct 15-minute buckets holding a typed prompt, divided by 4
-  modes      a bucket takes the highest mode among its prompts: task (>= task_min chars, sets work), steer (>= steer_min,
-             corrects or directs), kick (shorter: a nudge, yes/no, "continue"); hours per mode and prompt counts
-  spent_h    task + steer hours at full weight plus kick hours at weight kick (default 0.5): the budgeted attention
-  projects, switches (project changes between consecutive prompts), longest_block_h (longest run of adjacent buckets on
-  one project), night_h (buckets 00:00-06:00), first and last active time
+  blocks   a creative block is a run of >= block_min_buckets (default 3, i.e. 45 min) 15-minute buckets on ONE own
+           project whose top label is in block_labels (task/think/steer) and that no bucket of another project, of
+           the work profile, or of a routine label interrupts. block_gap_buckets (default 1) silent buckets between
+           two such buckets are tolerated: an agent working for 15 minutes is not a break in thinking.
+           Budget = blocks_per_day (default 3, about 4 h). debt = sum over the 7 days before today of
+           max(0, blocks - capacity); suggested_today = capacity - min(capacity / 2, debt / 4), to 0.5.
+  leak     the share of own active buckets whose top label is routine (decide/kick/watch), and switches per active hour.
+  loops    open items whose ball is on the person and that have no dated next step (computed by the collector).
 
-Budget: budget_hours_per_day, week_budget = 7 x budget, overload_days = days with spent >= 2 x budget, debt = sum over the
-7 days before today of max(0, spent - budget), suggested_today = budget - min(budget / 2, debt / 4) rounded to 0.5.
+Per day also: own_h / work_h / overlap_h / total_h (buckets of 15 minutes; overlap counted once), hours per top label,
+spent_h (label weights, a bucket with work at full weight), projects, switches, longest_block_h, night_h, first/last.
+The journal holds no text; the work profile contributes time only.
 """
 
 from __future__ import annotations
 
-import json
-import os
-import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 BUCKET_MIN = 15
-INJECTED = re.compile(
-    r"<(system-reminder|command-name|command-message|command-args|local-command-stdout|local-command-stderr|"
-    r"task-notification|teammate-message|bash-input|bash-stdout|bash-stderr)\b.*?</\1>",
-    re.DOTALL,
-)
+LABELS = ("task", "think", "steer", "decide", "watch", "kick", "other")
 DEFAULTS = {
-    "budget_hours_per_day": 4.0,
-    "days_per_week": 7,
-    "weights": {"task": 1.0, "steer": 1.0, "kick": 0.5},
-    "task_min": 250,
-    "steer_min": 50,
-    # first rule whose `until` (UTC date, inclusive) has not passed wins; the last rule has no `until`
+    "blocks_per_day": 3,
+    "block_min_buckets": 3,
+    "block_gap_buckets": 1,
+    "block_labels": ["task", "think", "steer"],
+    "routine_labels": ["decide", "kick", "watch"],
+    "weights": {
+        "task": 1.0,
+        "think": 1.0,
+        "steer": 1.0,
+        "decide": 0.5,
+        "watch": 0.25,
+        "kick": 0.25,
+        "other": 0.25,
+    },
+    # rules apply from `from` (a UTC date or datetime) until the next rule; the first rule needs no `from`
     "timezones": [{"tz": "UTC"}],
-    "overload_factor": 2.0,
-    # user-role messages Claude Code itself or other sessions inject, not typed by the person
-    "not_typed_regex": r"^(Another Claude|This session is being continued|\[Request interrupted|<artifact-comment|\[SYSTEM NOTIFICATION)",
     "not_measured": [
-        "sessions in excluded directories (personal, client work) and in a separate work profile are not counted, so real load is higher",
+        "personal sessions and any directory in exclude_dir_substrings are not counted",
+        "a second profile (work) is counted as time only, from timestamps",
         "time spent without typing (reading, thinking, waiting for an agent) is invisible",
     ],
 }
 
 
 def settings(cfg: dict) -> dict:
-    return {**DEFAULTS, **(cfg.get("energy") or {})}
+    es = {**DEFAULTS, **(cfg.get("energy") or {})}
+    es["weights"] = {**DEFAULTS["weights"], **es["weights"]}
+    return es
+
+
+def _start(rule: dict) -> datetime:
+    f = rule.get("from")
+    if f is None:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if isinstance(f, datetime):
+        return f if f.tzinfo else f.replace(tzinfo=timezone.utc)
+    if isinstance(f, date):
+        return datetime(f.year, f.month, f.day, tzinfo=timezone.utc)
+    d = datetime.fromisoformat(str(f).replace("Z", "+00:00"))
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+
+def rule_at(ts_utc: datetime, rules: list[dict]) -> dict:
+    """The timeline rule in force at an instant: the last rule that has started."""
+    cur = rules[0]
+    for r in sorted(rules, key=_start):
+        if _start(r) <= ts_utc:
+            cur = r
+    return cur
 
 
 def tz_for(ts_utc: datetime, rules: list[dict]) -> ZoneInfo:
-    d = ts_utc.date()
-    for r in rules:
-        if "until" not in r or d <= date.fromisoformat(str(r["until"])):
-            return ZoneInfo(r["tz"])
-    return ZoneInfo(rules[-1]["tz"])
+    return ZoneInfo(rule_at(ts_utc, rules)["tz"])
 
 
-def mode_of(length: int, es: dict) -> str:
-    return (
-        "task"
-        if length >= es["task_min"]
-        else "steer"
-        if length >= es["steer_min"]
-        else "kick"
-    )
+def travel_days(rules: list[dict]) -> set[str]:
+    """The day of every zone change and the day after (jet lag). Marked, not judged."""
+    out = set()
+    for r in sorted(rules, key=_start):
+        if r.get("from") is not None:
+            d = _start(r).astimezone(ZoneInfo(r["tz"])).date()
+            out |= {d.isoformat(), (d + timedelta(days=1)).isoformat()}
+    return out
 
 
-_RANK = {"kick": 0, "steer": 1, "task": 2}
+def parse_ts(s: str) -> datetime:
+    return datetime.fromisoformat(s).astimezone(timezone.utc)
 
 
-def typed_length(text: str) -> int:
-    """Length of what he typed: the message with injected blocks removed."""
-    return len(INJECTED.sub("", text).strip())
-
-
-def read_typed(
-    cfg: dict, projects_of, since: datetime
-) -> list[tuple[datetime, str, int]]:
-    """(utc time, project, length) of every typed prompt at or after `since`. `projects_of(cwd)` maps a cwd to a project."""
-    sess = cfg["sessions"]
-    root = Path(os.path.expanduser(sess["dir"]))
-    excl = [s for s in sess["exclude_dir_substrings"] if s]
-    auto = re.compile(sess["automation_regex"]) if sess["automation_regex"] else None
-    not_typed = re.compile(settings(cfg)["not_typed_regex"])
-    out = []
-    for d in sorted(root.glob("*")) if root.exists() else []:
-        if not d.is_dir() or any(s in d.name for s in excl):
-            continue
-        for f in d.glob("*.jsonl"):
-            if datetime.fromtimestamp(f.stat().st_mtime, timezone.utc) < since:
+def _blocks(own: dict[int, dict], work: set[int], es: dict) -> list[int]:
+    """Lengths (in buckets, gaps included) of the qualifying creative blocks of one day."""
+    creative = {
+        i for i, b in own.items() if b["label"] in es["block_labels"] and i not in work
+    }
+    out, run = [], None  # run = [project, first, last]
+    for i in sorted(set(own) | work):
+        if i in creative:
+            proj = own[i]["owner"]
+            if run and run[0] == proj and i - run[2] - 1 <= es["block_gap_buckets"]:
+                run[2] = i
                 continue
-            rows, first, cwd, is_auto = [], True, "", False
-            for line in f.open(encoding="utf-8", errors="replace"):
-                if '"type":"user"' not in line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except ValueError:
-                    continue
-                if (
-                    rec.get("type") != "user"
-                    or rec.get("isSidechain")
-                    or rec.get("isMeta")
-                ):
-                    continue
-                c = rec.get("message", {}).get("content")
-                text = (
-                    c
-                    if isinstance(c, str)
-                    else " ".join(
-                        x.get("text", "")
-                        for x in c
-                        if isinstance(x, dict) and x.get("type") == "text"
-                    )
-                    if isinstance(c, list)
-                    else ""
-                )
-                text = INJECTED.sub("", text).strip()
-                if not text or not rec.get("timestamp") or not_typed.search(text):
-                    continue
-                cwd = cwd or rec.get("cwd", "")
-                if first:
-                    first = False
-                    is_auto = bool(auto and auto.search(text[:400]))
-                if is_auto:
-                    break
-                rows.append(
-                    (
-                        datetime.fromisoformat(rec["timestamp"].replace("Z", "+00:00")),
-                        len(text),
-                    )
-                )
-            proj = projects_of(cwd) or "(none)"
-            out += [(t, proj, n) for t, n in rows if t >= since]
-    return sorted(out)
+            if run:
+                out.append(run[2] - run[1] + 1)
+            run = [proj, i, i]
+        elif (
+            run
+        ):  # a non-creative bucket (routine, other project's, work) ends the block
+            out.append(run[2] - run[1] + 1)
+            run = None
+    if run:
+        out.append(run[2] - run[1] + 1)
+    return [n for n in out if n >= es["block_min_buckets"]]
 
 
-def per_day(prompts: list[tuple[datetime, str, int]], es: dict) -> dict[str, dict]:
-    """Day table from typed prompts. Local day and bucket come from the timezone rule valid at that instant."""
+def per_day(rows: list[dict], es: dict) -> dict[str, dict]:
+    """Day table from journal rows. Local day and bucket follow the timeline rule in force at that instant."""
     by_day: dict[str, list] = defaultdict(list)
-    for t, proj, n in prompts:
+    for r in rows:
+        t = parse_ts(r["ts"])
         loc = t.astimezone(tz_for(t, es["timezones"]))
-        by_day[loc.date().isoformat()].append((loc, proj, n))
-    w = es["weights"]
-    days = {}
-    for day, rows in sorted(by_day.items()):
-        rows.sort(key=lambda r: r[0])
-        buckets: dict[int, dict] = {}
-        counts = {"task": 0, "steer": 0, "kick": 0}
-        for loc, proj, n in rows:
-            m = mode_of(n, es)
-            counts[m] += 1
-            b = buckets.setdefault(
-                loc.hour * 4 + loc.minute // BUCKET_MIN,
-                {"mode": "kick", "projects": defaultdict(int)},
-            )
-            if _RANK[m] > _RANK[b["mode"]]:
-                b["mode"] = m
-            b["projects"][proj] += 1
-        hours = {
-            m: sum(1 for b in buckets.values() if b["mode"] == m) / 4 for m in counts
+        by_day[loc.date().isoformat()].append((loc, r))
+    w, days = es["weights"], {}
+    for day, items in sorted(by_day.items()):
+        items.sort(key=lambda x: x[0])
+        own: dict[int, dict] = {}
+        work: set[int] = set()
+        counts: Counter = Counter()
+        projs: list[str] = []
+        for loc, r in items:
+            idx = loc.hour * 4 + loc.minute // BUCKET_MIN
+            if r["mode"] == "work":
+                work.add(idx)
+                counts["work"] += 1
+                continue
+            counts[r["mode"]] += 1
+            b = own.setdefault(idx, {"label": "other", "projects": Counter()})
+            if _rank(r["mode"]) > _rank(b["label"]):
+                b["label"] = r["mode"]
+            b["projects"][r["project"]] += 1
+            projs.append(r["project"])
+        for b in own.values():
+            b["owner"] = b["projects"].most_common(1)[0][0]
+        label_h = {
+            m: sum(1 for b in own.values() if b["label"] == m) / 4 for m in LABELS
         }
-        owner = {
-            i: max(b["projects"].items(), key=lambda kv: kv[1])[0]
-            for i, b in buckets.items()
-        }
+        union = set(own) | work
+        spent = sum(1.0 if i in work else w[own[i]["label"]] for i in union)
+        blocks = _blocks(own, work, es)
+        own_h = len(own) / 4
+        switches = sum(1 for a, b in zip(projs, projs[1:], strict=False) if a != b)
+        routine = sum(1 for b in own.values() if b["label"] in es["routine_labels"])
         longest, run, prev = 0, 0, None
-        for i in sorted(buckets):
-            run = (
-                run + 1
-                if prev is not None and i == prev + 1 and owner[i] == owner[prev]
-                else 1
+        for i in sorted(own):
+            same = (
+                prev is not None
+                and i == prev + 1
+                and own[i]["owner"] == own[prev]["owner"]
             )
+            run = run + 1 if same else 1
             longest, prev = max(longest, run), i
-        projs = [p for _, p, _ in rows]
         days[day] = {
-            "active_h": len(buckets) / 4,
-            "mode_h": hours,
-            "prompts": counts,
-            "spent_h": round(sum(hours[m] * w[m] for m in hours), 3),
+            "own_h": own_h,
+            "work_h": len(work) / 4,
+            "overlap_h": len(set(own) & work) / 4,
+            "total_h": len(union) / 4,
+            "label_h": label_h,
+            "prompts": dict(counts),
+            "spent_h": round(spent / 4, 3),
+            "blocks": len(blocks),
+            "blocks_h": sum(blocks) / 4,
+            "longest_creative_h": max(blocks, default=0) / 4,
+            "routine_pct": round(100 * routine / len(own)) if own else 0,
             "projects": len(set(projs)),
-            "switches": sum(
-                1 for a, b in zip(projs, projs[1:], strict=False) if a != b
-            ),
+            "switches": switches,
+            "switches_per_active_hour": round(switches / own_h, 1) if own_h else 0,
             "longest_block_h": longest / 4,
-            "night_h": sum(1 for i in buckets if i < 24) / 4,
-            "first": rows[0][0].strftime("%H:%M"),
-            "last": rows[-1][0].strftime("%H:%M"),
+            "night_h": sum(1 for i in union if i < 24) / 4,
+            "first": items[0][0].strftime("%H:%M"),
+            "last": items[-1][0].strftime("%H:%M"),
         }
     return days
 
 
+def _rank(label: str) -> int:
+    return {
+        "task": 6,
+        "think": 5,
+        "steer": 4,
+        "decide": 3,
+        "watch": 2,
+        "kick": 1,
+        "other": 0,
+    }.get(label, 0)
+
+
+def _last(today: date, n: int = 7) -> list[str]:
+    return [(today - timedelta(days=i)).isoformat() for i in range(n - 1, -1, -1)]
+
+
 def budget(days: dict[str, dict], today: date, es: dict) -> dict:
-    b = es["budget_hours_per_day"]
+    cap = es["blocks_per_day"]
     prev7 = [(today - timedelta(days=i)).isoformat() for i in range(1, 8)]
-    debt = sum(max(0.0, days.get(d, {}).get("spent_h", 0.0) - b) for d in prev7)
-    suggested = max(b / 2, b - min(b / 2, debt / 4))
-    last7 = [(today - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
+    debt = sum(max(0, days.get(d, {}).get("blocks", 0) - cap) for d in prev7)
+    suggested = round(2 * (cap - min(cap / 2, debt / 4))) / 2
+    week = _last(today)
     return {
-        "budget_hours_per_day": b,
-        "week_budget": b * es["days_per_week"],
-        "week_spent": round(sum(days.get(d, {}).get("spent_h", 0.0) for d in last7), 2),
-        "overload_days": [
-            d
-            for d in last7
-            if days.get(d, {}).get("spent_h", 0.0) >= es["overload_factor"] * b
+        "blocks_per_day": cap,
+        "blocks_week": sum(days.get(d, {}).get("blocks", 0) for d in week),
+        "blocks_week_capacity": cap * 7,
+        "over_capacity_days": [
+            d for d in week if days.get(d, {}).get("blocks", 0) > cap
         ],
-        "debt": round(debt, 2),
-        "suggested_today": round(suggested * 2) / 2,
-        "capacity_h": round(max(0.0, b * es["days_per_week"] - debt), 2),
+        "debt_blocks": debt,
+        "suggested_blocks_today": suggested,
+        "blocks_today": days.get(today.isoformat(), {}).get("blocks", 0),
+        "week_spent_h": round(
+            sum(days.get(d, {}).get("spent_h", 0.0) for d in week), 2
+        ),
     }
 
 
-def summary(days: dict[str, dict], today: date, es: dict) -> dict:
-    last7 = [(today - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
-    rows = [days[d] | {"date": d} for d in last7 if d in days]
-    tot = {m: sum(r["mode_h"][m] for r in rows) for m in ("task", "steer", "kick")}
-    longest = max(rows, key=lambda r: r["longest_block_h"], default=None)
+def summary(days: dict[str, dict], today: date) -> dict:
+    wk = [days[d] | {"date": d} for d in _last(today) if d in days]
+    own_h = sum(r["own_h"] for r in wk)
+    routine = sum(r["routine_pct"] * r["own_h"] for r in wk)
+    sw = sum(r["switches"] for r in wk)
+    longest = max(wk, key=lambda r: r["longest_creative_h"], default=None)
     return {
-        "mode_hours_week": tot,
-        "longest_block": {"h": longest["longest_block_h"], "date": longest["date"]}
-        if longest
+        "hours_week": {
+            k: sum(r[k] for r in wk)
+            for k in ("own_h", "work_h", "overlap_h", "total_h")
+        },
+        "label_hours_week": {m: sum(r["label_h"][m] for r in wk) for m in LABELS},
+        "longest_creative_block": {
+            "h": longest["longest_creative_h"],
+            "date": longest["date"],
+        }
+        if longest and longest["longest_creative_h"]
         else None,
-        "switches_per_day": round(sum(r["switches"] for r in rows) / len(rows), 1)
-        if rows
-        else 0,
-        "days_over_50_switches": [r["date"] for r in rows if r["switches"] > 50],
+        "routine_pct_week": round(routine / own_h) if own_h else 0,
+        "switches_per_active_hour_week": round(sw / own_h, 1) if own_h else 0,
+        "switches_per_day": round(sw / len(wk), 1) if wk else 0,
+        "days_over_50_switches": [r["date"] for r in wk if r["switches"] > 50],
+        "parallel_days_over_2h": [r["date"] for r in wk if r["overlap_h"] > 2],
     }
 
 
-def compute(cfg: dict, projects_of, today: date, days_back: int = 16) -> dict:
+def history(days: dict[str, dict], es: dict) -> list[dict]:
+    """One row per ISO week since the first covered day: hours, hours per label, blocks, place. Travel days are marked."""
+    tdays = travel_days(es["timezones"])
+    weeks: dict[str, dict] = {}
+    for day, v in sorted(days.items()):
+        d = date.fromisoformat(day)
+        y, wn, _ = d.isocalendar()
+        w = weeks.setdefault(
+            f"{y}-W{wn:02d}",
+            {
+                "from": day,
+                "own_h": 0.0,
+                "work_h": 0.0,
+                "total_h": 0.0,
+                "label_h": Counter(),
+                "blocks": 0,
+                "places": Counter(),
+                "travel_days": [],
+            },
+        )
+        w["own_h"] += v["own_h"]
+        w["work_h"] += v["work_h"]
+        w["total_h"] += v["total_h"]
+        w["blocks"] += v["blocks"]
+        w["label_h"].update(v["label_h"])
+        noon = datetime(d.year, d.month, d.day, 12, tzinfo=timezone.utc)
+        w["places"][rule_at(noon, es["timezones"]).get("place", "?")] += 1
+        if day in tdays:
+            w["travel_days"].append(day)
+    return [
+        {"week": k, **v, "label_h": dict(v["label_h"]), "places": dict(v["places"])}
+        for k, v in weeks.items()
+    ]
+
+
+def compute(cfg: dict, rows: list[dict], today: date) -> dict:
     es = settings(cfg)
-    since = datetime.combine(
-        today - timedelta(days=days_back), datetime.min.time(), timezone.utc
-    )
-    days = per_day(read_typed(cfg, projects_of, since), es)
+    days = per_day(rows, es)
     out = {
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "weights": es["weights"],
-        "thresholds": {"task_min": es["task_min"], "steer_min": es["steer_min"]},
         "timezones": es["timezones"],
         **budget(days, today, es),
-        **summary(days, today, es),
+        **summary(days, today),
         "days": days,
+        "history": history(days, es),
         "not_measured": es["not_measured"],
     }
     out["today"] = days.get(today.isoformat())
-    return out
-
-
-def today_fast(cfg: dict, projects_of, now: datetime, previous: dict) -> dict:
-    """Only today's transcripts are read; earlier days come from the last full run's table. `previous` is energy.json."""
-    es = settings(cfg)
-    today = now.astimezone(tz_for(now, es["timezones"])).date()
-    since = datetime.combine(
-        today - timedelta(days=1), datetime.min.time(), timezone.utc
-    )  # local day may start the UTC day before
-    fresh = {
-        d: v
-        for d, v in per_day(read_typed(cfg, projects_of, since), es).items()
-        if d == today.isoformat()
-    }
-    days = {**previous.get("days", {}), **fresh}
-    out = {
-        **previous,
-        **budget(days, today, es),
-        "days": days,
-        "today": days.get(today.isoformat()),
-        "refreshed": now.isoformat(timespec="seconds"),
-    }
-    spent = (out["today"] or {}).get("spent_h", 0.0)
-    out["remaining_today_h"] = round(out["suggested_today"] - spent, 2)
     return out

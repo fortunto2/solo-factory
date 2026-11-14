@@ -1,9 +1,8 @@
-"""Energy seams: 15-minute buckets, the timezone switch, modes, the debt rule."""
+"""Energy seams: buckets, the timezone timeline, label rank, creative blocks, work overlap, the debt rule, travel days."""
 
 import importlib.util
-import json
 import sys
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location(
@@ -13,111 +12,99 @@ me = importlib.util.module_from_spec(spec)
 sys.modules["me"] = me
 spec.loader.exec_module(me)
 
-ES = {
-    **me.DEFAULTS,
-    "timezones": [
-        {"tz": "America/Chicago", "until": "2026-11-07"},
-        {"tz": "Europe/Istanbul"},
-    ],
-}
+TZ = [
+    {"tz": "Europe/Istanbul", "place": "Turkey"},
+    {"from": "2026-09-16T14:00:00Z", "tz": "America/Chicago", "place": "US"},
+    {"from": "2026-11-08T14:55:00Z", "tz": "Europe/Istanbul", "place": "Turkey"},
+]
+ES = {**me.DEFAULTS, "timezones": TZ}
 
 
-def utc(s):
-    return datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
+def r(ts, mode="task", project="a"):
+    return {"ts": ts + "+00:00", "mode": mode, "project": project}
 
 
-def test_active_hours_count_distinct_quarter_hour_buckets():
-    ps = [
-        (utc("2026-11-10T08:00:00"), "a", 10),
-        (utc("2026-11-10T08:14:59"), "a", 10),  # one bucket
-        (utc("2026-11-10T08:15:00"), "a", 10),
-        (utc("2026-11-10T09:40:00"), "a", 10),
+def q(h, m, **kw):  # a prompt at UTC h:m on 10 Nov
+    return r(f"2026-11-10T{h:02d}:{m:02d}:00", **kw)
+
+
+def test_timeline_picks_the_rule_in_force_and_moves_the_local_day():
+    # 23:30 UTC on 9.10: Istanbul (+3) is already 10.10 02:30; Chicago (-5) after 16.09 is 9.10 18:30
+    assert me.rule_at(me.parse_ts("2026-09-10T23:30:00+00:00"), TZ)["place"] == "Turkey"
+    d = me.per_day([r("2026-09-10T23:30:00"), r("2026-10-10T23:30:00")], ES)
+    assert sorted(d) == ["2026-09-11", "2026-10-10"] and d["2026-10-10"]["night_h"] == 0
+
+
+def test_buckets_label_rank_and_hours():
+    rows = [
+        q(8, 0, mode="kick"),
+        q(8, 14, mode="think"),
+        q(8, 15, mode="decide"),
+        q(9, 40, mode="watch"),
     ]
-    d = me.per_day(ps, ES)["2026-11-10"]
-    assert d["active_h"] == 0.75 and d["prompts"]["kick"] == 4
-
-
-def test_timezone_switch_moves_a_late_prompt_to_the_next_local_day():
-    ps = [(utc("2026-11-07T23:30:00"), "a", 10), (utc("2026-11-08T23:30:00"), "a", 10)]
-    days = me.per_day(ps, ES)
-    # 7.11 23:30 UTC is still Chicago (until inclusive) = 17:30 on 7.11; 8.11 23:30 UTC is Istanbul = 02:30 on 9.11
+    d = me.per_day(rows, ES)["2026-11-10"]  # Istanbul +3
     assert (
-        sorted(days) == ["2026-11-07", "2026-11-09"]
-        and days["2026-11-09"]["night_h"] == 0.25
+        d["own_h"] == 0.75
+        and d["label_h"]["think"] == 0.25
+        and d["label_h"]["decide"] == 0.25
+        and d["label_h"]["watch"] == 0.25
     )
+    assert d["routine_pct"] == 67
 
 
-def test_bucket_takes_highest_mode_and_spent_weights_kick_by_half():
-    ps = [
-        (utc("2026-11-10T08:00:00"), "a", 10),
-        (utc("2026-11-10T08:05:00"), "a", 300),  # task bucket
-        (utc("2026-11-10T09:00:00"), "a", 60),
-        (utc("2026-11-10T10:00:00"), "a", 5),
+def test_creative_block_needs_45_minutes_one_project_and_no_interrupt():
+    ok = [q(8, 0), q(8, 15, mode="think"), q(8, 30, mode="steer")]
+    assert me.per_day(ok, ES)["2026-11-10"]["blocks"] == 1
+    assert me.per_day(ok[:2], ES)["2026-11-10"]["blocks"] == 0  # 30 min only
+    other_project = [q(8, 0), q(8, 15), q(8, 30, project="b")]
+    assert me.per_day(other_project, ES)["2026-11-10"]["blocks"] == 0
+    routine_inside = [q(8, 0), q(8, 15, mode="kick"), q(8, 30)]
+    assert me.per_day(routine_inside, ES)["2026-11-10"]["blocks"] == 0
+    gap = [q(8, 0), q(8, 30), q(9, 0)]  # one silent bucket tolerated
+    assert me.per_day(gap, ES)["2026-11-10"]["blocks"] == 1
+    far = [q(8, 0), q(9, 0), q(10, 0)]
+    assert me.per_day(far, ES)["2026-11-10"]["blocks"] == 0
+    with_work = ok + [
+        {"ts": "2026-11-10T08:15:00+00:00", "mode": "work", "project": "work"}
+    ]  # work in the same bucket as the middle prompt
+    assert me.per_day(with_work, ES)["2026-11-10"]["blocks"] == 0
+
+
+def test_work_overlap_counts_once_and_work_bucket_is_full_weight():
+    rows = [
+        q(5, 0, mode="kick"),
+        {"ts": "2026-11-10T05:00:00+00:00", "mode": "work", "project": "work"},
+        {"ts": "2026-11-10T06:00:00+00:00", "mode": "work", "project": "work"},
     ]
-    d = me.per_day(ps, ES)["2026-11-10"]
+    d = me.per_day(rows, ES)["2026-11-10"]
+    assert (d["own_h"], d["work_h"], d["overlap_h"], d["total_h"]) == (
+        0.25,
+        0.5,
+        0.25,
+        0.5,
+    ) and d["spent_h"] == 0.5
+
+
+def test_debt_in_blocks_lowers_the_suggestion():
+    days = {f"2026-11-{x:02d}": {"blocks": 6, "spent_h": 0} for x in (8, 9, 10, 11)}
+    b = me.budget(days, date(2026, 11, 14), ES)
     assert (
-        d["mode_h"] == {"task": 0.25, "steer": 0.25, "kick": 0.25}
-        and d["spent_h"] == 0.25 + 0.25 + 0.125
-    )
+        b["debt_blocks"] == 12 and b["suggested_blocks_today"] == 1.5
+    )  # 3 - min(1.5, 3)
+    assert (
+        me.budget({"2026-11-13": {"blocks": 5}}, date(2026, 11, 14), ES)[
+            "suggested_blocks_today"
+        ]
+        == 2.5
+    )  # debt 2 -> 3 - 0.5
+    assert me.budget({}, date(2026, 11, 14), ES)["suggested_blocks_today"] == 3
 
 
-def test_switches_and_longest_block_on_one_project():
-    ps = [
-        (utc(f"2026-11-10T08:{m:02d}:00"), p, 10)
-        for m, p in ((0, "a"), (15, "a"), (30, "a"), (45, "b"))
-    ] + [(utc("2026-11-10T09:00:00"), "a", 10)]
-    d = me.per_day(ps, ES)["2026-11-10"]
-    assert d["switches"] == 2 and d["longest_block_h"] == 0.75 and d["projects"] == 2
-
-
-def test_injected_blocks_are_not_typed_text():
-    assert me.typed_length("<system-reminder>long long long</system-reminder>\nhi") == 2
-    assert me.typed_length("<teammate-message>x</teammate-message>") == 0
-
-
-def test_debt_and_suggestion_after_heavy_days():
-    days = {f"2026-11-{d:02d}": {"spent_h": 12.0} for d in (8, 9, 10, 11)} | {
-        "2026-11-12": {"spent_h": 3.0}
+def test_history_marks_travel_days_and_places():
+    es = {**ES}
+    days = me.per_day([r("2026-09-17T12:00:00"), r("2026-11-09T09:00:00")], es)
+    h = {w["week"]: w for w in me.history(days, es)}
+    assert h["2026-W38"]["places"] == {"US": 1} and h["2026-W46"]["places"] == {
+        "Turkey": 1
     }
-    b = me.budget(days, date(2026, 11, 14), me.DEFAULTS)
-    assert b["debt"] == 32.0 and b["suggested_today"] == 2.0  # floor at budget/2
-    assert b["overload_days"] == [
-        "2026-11-08",
-        "2026-11-09",
-        "2026-11-10",
-        "2026-11-11",
-    ]
-    calm = me.budget({"2026-11-13": {"spent_h": 8.0}}, date(2026, 11, 14), me.DEFAULTS)
-    assert calm["debt"] == 4.0 and calm["suggested_today"] == 3.0  # 4 - min(2, 1)
-    assert me.budget({}, date(2026, 11, 14), me.DEFAULTS)["suggested_today"] == 4.0
-
-
-def test_read_typed_skips_excluded_dirs_and_automation(tmp_path):
-    def sess(dirname, lines):
-        d = tmp_path / dirname
-        d.mkdir()
-        (d / "s.jsonl").write_text(
-            "\n".join(json.dumps(x, separators=(",", ":")) for x in lines)
-        )
-
-    def u(t, ts):
-        return {"type": "user", "timestamp": ts, "cwd": "/w", "message": {"content": t}}
-
-    sess("-w", [u("fix the thing please", "2026-11-10T08:00:00Z")])
-    sess("-personal", [u("private", "2026-11-10T08:00:00Z")])
-    sess(
-        "-job",
-        [
-            u("PERMISSIONS: this run", "2026-11-10T08:00:00Z"),
-            u("more", "2026-11-10T08:30:00Z"),
-        ],
-    )
-    cfg = {
-        "sessions": {
-            "dir": str(tmp_path),
-            "exclude_dir_substrings": ["personal"],
-            "automation_regex": "^PERMISSIONS",
-        }
-    }
-    got = me.read_typed(cfg, lambda cwd: "proj", utc("2026-11-01T00:00:00"))
-    assert [(p, n) for _, p, n in got] == [("proj", 20)]
+    assert "2026-11-08" in me.travel_days(TZ) and "2026-09-17" in me.travel_days(TZ)

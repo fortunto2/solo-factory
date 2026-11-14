@@ -26,15 +26,20 @@ reschedule_prefixes: [due_reason]
 ledger: mirror/ledger.jsonl
 reports_dir: mirror
 
-# Energy and attention modes (optional). Timestamps and lengths of typed prompts only.
+# Journal of typed prompts (no text) and an optional second profile counted as time only.
+journal: {path: mirror/prompts.jsonl, cursor: mirror/prompts.cursor.json}
+# work_profiles: [{name: work, dir: ~/.claude-work/projects}]
+
+# Blocks, leak, hours.
 energy:
   output: mirror/energy.json
-  budget_hours_per_day: 4
-  weights: {task: 1.0, steer: 1.0, kick: 0.5}
-  task_min: 250
-  steer_min: 50
-  timezones:              # first rule whose `until` has not passed wins; the last has none
-    - {tz: Europe/Berlin, until: "2026-01-31"}
-    - {tz: Europe/Istanbul}
+  blocks_per_day: 3          # about 4 h of creative work
+  block_min_buckets: 3       # 45 min
+  block_gap_buckets: 1
+  weights: {task: 1.0, think: 1.0, steer: 1.0, decide: 0.5, watch: 0.25, kick: 0.25, other: 0.25}
+  timezones:                 # dated timeline of where the person was; first rule has no `from`
+    - {tz: Europe/Istanbul, place: home}
+    - {from: "2026-03-01T10:00:00Z", tz: America/Chicago, place: away}
+    - {from: "2026-03-20T09:00:00Z", tz: Europe/Istanbul, place: home}
 # focus: {projects: [app-a, app-b], top: [app-a], defocus: [internal-tools]}   # portfolio, its main product, and non-earning work
 # releases_cmd: python3 my_releases_adapter.py   # prints JSON [{ref,title,version,date}]

@@ -47,6 +47,8 @@ DEFAULTS = {
     },
     "correction_regex": r"^(нет|не |стоп|stop|no[,. ]|don't|do not|я же|опять|снова|again)",
     "focus": {"projects": [], "goals": [], "top": [], "defocus": []},
+    "next_keys": ["plan", "steps", "next", "then", "first_step"],
+    "ball_names": ["rustam"],
     "project_goal": {},
     "goal_priority": [],
     # items with these words carry a consequence (compliance, verification, legal, tax, penalty): never on the cut list
@@ -205,6 +207,10 @@ def todo_items(cfg: dict, today: date) -> list[dict]:
                         "title": str(it.get("task", ""))[:120],
                         "status": it.get("status", "todo"),
                         "due": str(due)[:10] if due else "",
+                        "has_next": any(
+                            str(k).startswith(tuple(cfg["next_keys"])) and it[k]
+                            for k in it
+                        ),
                         "goal": slug if text else "",
                         "purpose": text or str(it.get("purpose") or ""),
                         "reschedules": reschedule_dates(
@@ -230,6 +236,11 @@ def registry_topics(cfg: dict, today: date) -> list[dict]:
                 "ball": d.get("ball", ""),
                 "parents": d.get("parents", []),
                 "due": d.get("due", ""),
+                "has_next": any(
+                    i.get("next")
+                    for i in d.get("items", [])
+                    if i.get("status") not in ("done", "dropped")
+                ),
                 "updated": upd,
                 "created": cre,
                 "item_titles": [str(i.get("title", "")) for i in d.get("items", [])],
@@ -966,13 +977,72 @@ def week_candidates(
 # ---------------------------------------------------------------- collect
 
 
-def energy_block(cfg: dict, end: date) -> dict:
-    """Energy and attention modes (mirror_energy). Writes the table to energy.json when configured."""
+def open_loops(todos: list[dict], topics: list[dict], cfg: dict) -> dict:
+    """What he carries in his head: open items whose ball is on him and that have no dated next step.
+    A plan closes a loop, not the completion: an item with a due date and a first step does not count."""
+    mine = set(cfg["ball_names"])
+    t_loops = [
+        t["ref"]
+        for t in todos
+        if t["status"] in ("todo", "doing") and not (t["due"] and t["has_next"])
+    ]
+    r_loops = [
+        t["ref"]
+        for t in topics
+        if t["ball"] in mine and not (t["due"] and t["has_next"])
+    ]
+    return {
+        "count": len(t_loops) + len(r_loops),
+        "todo": len(t_loops),
+        "topics": len(r_loops),
+    }
+
+
+def _journal_cfg(cfg: dict) -> dict:
+    jc = cfg.get("journal") or {}
+    return {
+        **cfg,
+        "journal": {
+            "path": str(p(cfg, jc.get("path", "mirror/prompts.jsonl"))),
+            "cursor": str(p(cfg, jc.get("cursor", "mirror/prompts.cursor.json"))),
+        },
+    }
+
+
+def journal_update(
+    cfg: dict, relabel: bool = False, limit_files: int | None = None
+) -> dict:
+    """Bring the prompt journal up to date: new bytes only, a model call only for new own prompts."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import mirror_energy as me
+    import mirror_journal as mj
 
+    jcfg = _journal_cfg(cfg)
+    if relabel:  # on demand only: keep the old files beside, rebuild
+        for k in ("path", "cursor"):
+            f = Path(jcfg["journal"][k])
+            if f.exists():
+                f.rename(f.with_name(f.name + f".v{mj.LABEL_VERSION}.prev"))
+    rules = me.settings(cfg)["timezones"]
     projects = project_paths(cfg)
-    out = me.compute(cfg, lambda cwd: project_of(cwd, projects), end)
+    return mj.update(
+        jcfg,
+        lambda cwd: project_of(cwd, projects) or Path(cwd or "/").name or "(none)",
+        lambda ts: me.tz_for(ts, rules),
+        limit_files=limit_files,
+    )
+
+
+def energy_block(cfg: dict, end: date, ingest: bool = True) -> dict:
+    """Blocks, leak and hours from the journal (after an incremental update). Writes energy.json when configured."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import mirror_energy as me
+    import mirror_journal as mj
+
+    stats = journal_update(cfg) if ingest else {}
+    rows = mj.read_journal(Path(_journal_cfg(cfg)["journal"]["path"]))
+    out = me.compute(cfg, rows, end)
+    out["journal"] = {"rows": len(rows), **stats}
     target = (cfg.get("energy") or {}).get("output")
     if target:
         path = p(cfg, target)
@@ -981,20 +1051,14 @@ def energy_block(cfg: dict, end: date) -> dict:
     return out
 
 
-def energy_today(cfg: dict) -> dict:
-    """Fast path: only today's transcripts, earlier days from the last full run's energy.json."""
+def energy_today(cfg: dict, ingest: bool = False) -> dict:
+    """Fast path: recompute from the journal (no transcript is read unless `ingest`)."""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import mirror_energy as me
 
-    target = p(cfg, (cfg.get("energy") or {}).get("output", "mirror/energy.json"))
-    prev = json.loads(target.read_text()) if target.exists() else {}
-    projects = project_paths(cfg)
-    out = me.today_fast(
-        cfg, lambda cwd: project_of(cwd, projects), datetime.now(timezone.utc), prev
-    )
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n")
-    return out
+    today = datetime.now(timezone.utc)
+    local = today.astimezone(me.tz_for(today, me.settings(cfg)["timezones"])).date()
+    return energy_block(cfg, local, ingest=ingest)
 
 
 def collect(cfg: dict, end: date, days: int) -> dict:
@@ -1092,6 +1156,18 @@ def collect(cfg: dict, end: date, days: int) -> dict:
         "noise_waiting_already_answered": stale_waits(topics, cfg["answered_regex"]),
         "goal_conflicts": goal_conflicts(cfg),
         "energy": energy_block(cfg, end),
+        "open_loops": {
+            **open_loops(todos, topics, cfg),
+            "previous": next(
+                (
+                    e.get("count")
+                    for e in reversed(ledger)
+                    if e.get("type") == "loops" and e.get("week") == prev_week(week)
+                ),
+                None,
+            ),
+            "ledger_entry": "append {type: loops, week, count} so next week can compare",
+        },
         "inputs": {
             "sessions": len(sessions),
             "todo_items": len(todos),
@@ -1129,8 +1205,23 @@ def main(argv: list[str]) -> int:
     c.add_argument("--days", type=int, default=14)
     c.add_argument("--end", default="")
     c.add_argument("--json", action="store_true")
-    e = sub.add_parser("energy", help="fast: today's energy against the budget")
+    e = sub.add_parser(
+        "energy", help="fast: blocks against capacity, recomputed from the journal"
+    )
     e.add_argument("--config", required=True)
+    e.add_argument(
+        "--ingest",
+        action="store_true",
+        help="also read new transcript bytes (may call the model)",
+    )
+    jn = sub.add_parser("journal", help="update the prompt journal incrementally")
+    jn.add_argument("--config", required=True)
+    jn.add_argument(
+        "--relabel",
+        action="store_true",
+        help="rebuild all labels (label set changed); keeps the old files as .prev",
+    )
+    jn.add_argument("--limit-files", type=int, default=0)
     a = sub.add_parser("ledger-append")
     a.add_argument("--config", required=True)
     a.add_argument(
@@ -1147,15 +1238,19 @@ def main(argv: list[str]) -> int:
         print("\n".join(probs) or "ok")
         return 1 if probs else 0
     cfg = load_config(Path(args.config))
+    if args.cmd == "journal":
+        print(json.dumps(journal_update(cfg, args.relabel, args.limit_files or None)))
+        return 0
     if args.cmd == "energy":
-        o = energy_today(cfg)
-        keys = ("suggested_today", "remaining_today_h", "debt", "refreshed")
-        print(
-            json.dumps(
-                {k: o.get(k) for k in keys}
-                | {"spent_today_h": (o.get("today") or {}).get("spent_h", 0)}
-            )
+        o = energy_today(cfg, args.ingest)
+        keys = (
+            "blocks_today",
+            "suggested_blocks_today",
+            "debt_blocks",
+            "blocks_week",
+            "blocks_week_capacity",
         )
+        print(json.dumps({k: o[k] for k in keys}))
         return 0
     if args.cmd == "ledger-append":
         path = p(cfg, cfg.get("ledger", "mirror/ledger.jsonl"))
