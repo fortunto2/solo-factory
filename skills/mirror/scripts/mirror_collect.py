@@ -977,7 +977,7 @@ def energy_block(cfg: dict, end: date) -> dict:
     if target:
         path = p(cfg, target)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(out, ensure_ascii=False, indent=1))
+        path.write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n")
     return out
 
 
@@ -993,7 +993,7 @@ def energy_today(cfg: dict) -> dict:
         cfg, lambda cwd: project_of(cwd, projects), datetime.now(timezone.utc), prev
     )
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(out, ensure_ascii=False, indent=1))
+    target.write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n")
     return out
 
 
