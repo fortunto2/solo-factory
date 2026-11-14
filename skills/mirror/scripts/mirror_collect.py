@@ -1041,6 +1041,19 @@ def energy_block(cfg: dict, end: date, ingest: bool = True) -> dict:
     import mirror_journal as mj
 
     stats = journal_update(cfg) if ingest else {}
+    audit = (
+        _tools_mod().run_json((cfg.get("tools") or {}).get("audit_cmd"), cfg["_root"])
+        or {}
+    )
+    cfg = {
+        **cfg,
+        "energy": {
+            **(cfg.get("energy") or {}),
+            "exempt_days": list(audit.get("protected_days", []))
+            + list(audit.get("rest_days_list", []))
+            + list((cfg.get("week_template") or {}).get("exempt_days", [])),
+        },
+    }
     rows = mj.read_journal(Path(_journal_cfg(cfg)["journal"]["path"]))
     out = me.compute(cfg, rows, end)
     out["journal"] = {"rows": len(rows), **stats}

@@ -44,3 +44,4 @@ energy:
 # focus: {projects: [app-a, app-b], top: [app-a], defocus: [internal-tools]}   # portfolio, its main product, and non-earning work
 # releases_cmd: python3 my_releases_adapter.py   # prints JSON [{ref,title,version,date}]
 # work_week: {target_h: 40, band_h: 5, uncounted: "thinking, calls, chat", midweek_template: "Work this week: {h} of {target}, {days_left} days left"}
+# week_template: {balance: "about equal", blocks_by_weekday: {sat: 3, sun: 0}, autopilot_weekdays: [mon, tue, wed, thu, fri], work_expected_h: {sat: 0}, sunday_flag_h: 2}

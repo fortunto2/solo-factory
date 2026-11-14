@@ -52,7 +52,23 @@ DEFAULTS = {
 def settings(cfg: dict) -> dict:
     es = {**DEFAULTS, **(cfg.get("energy") or {})}
     es["weights"] = {**DEFAULTS["weights"], **es["weights"]}
+    es["week_template"] = cfg.get("week_template") or {}
+    es["exempt_days"] = set(
+        es.get("exempt_days") or []
+    )  # protected days and rest mode: the template does not apply
     return es
+
+
+WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+
+def capacity_on(day: date, es: dict) -> int:
+    """Creative blocks expected on a day: the weekday table of the week template, else blocks_per_day."""
+    return (
+        es.get("week_template", {})
+        .get("blocks_by_weekday", {})
+        .get(WEEKDAYS[day.weekday()], es["blocks_per_day"])
+    )
 
 
 def _start(rule: dict) -> datetime:
@@ -155,7 +171,20 @@ def per_day(rows: list[dict], es: dict) -> dict[str, dict]:
         blocks = _blocks(own, work, es)
         own_h = len(own) / 4
         switches = sum(1 for a, b in zip(projs, projs[1:], strict=False) if a != b)
-        routine = sum(1 for b in own.values() if b["label"] in es["routine_labels"])
+        d0 = date.fromisoformat(day)
+        auto_days = es.get("week_template", {}).get("autopilot_weekdays", [])
+        autopilot = (
+            sum(1 for b in own.values() if b["label"] in ("kick", "watch"))
+            if WEEKDAYS[d0.weekday()] in auto_days
+            and day not in es.get("exempt_days", set())
+            else 0
+        )
+        # own kick/watch on a work-priority weekday is by design (plans set, an agent kicked), not leak
+        leak_den = len(own) - autopilot
+        routine = (
+            sum(1 for b in own.values() if b["label"] in es["routine_labels"])
+            - autopilot
+        )
         longest, run, prev = 0, 0, None
         for i in sorted(own):
             same = (
@@ -176,7 +205,11 @@ def per_day(rows: list[dict], es: dict) -> dict[str, dict]:
             "blocks": len(blocks),
             "blocks_h": sum(blocks) / 4,
             "longest_creative_h": max(blocks, default=0) / 4,
-            "routine_pct": round(100 * routine / len(own)) if own else 0,
+            "routine_pct": round(100 * routine / leak_den) if leak_den else 0,
+            "routine_h": routine / 4,
+            "leak_h": leak_den / 4,
+            "autopilot_h": autopilot / 4,
+            "capacity": capacity_on(d0, es),
             "projects": len(set(projs)),
             "switches": switches,
             "switches_per_active_hour": round(switches / own_h, 1) if own_h else 0,
@@ -205,17 +238,22 @@ def _last(today: date, n: int = 7) -> list[str]:
 
 
 def budget(days: dict[str, dict], today: date, es: dict) -> dict:
-    cap = es["blocks_per_day"]
+    cap = capacity_on(today, es)
     prev7 = [(today - timedelta(days=i)).isoformat() for i in range(1, 8)]
-    debt = sum(max(0, days.get(d, {}).get("blocks", 0) - cap) for d in prev7)
+
+    def cap_of(d: str) -> int:
+        return capacity_on(date.fromisoformat(d), es)
+
+    debt = sum(max(0, days.get(d, {}).get("blocks", 0) - cap_of(d)) for d in prev7)
     suggested = round(2 * (cap - min(cap / 2, debt / 4))) / 2
     week = _last(today)
     return {
-        "blocks_per_day": cap,
+        "blocks_per_day": es["blocks_per_day"],
+        "capacity_today": cap,
         "blocks_week": sum(days.get(d, {}).get("blocks", 0) for d in week),
-        "blocks_week_capacity": cap * 7,
+        "blocks_week_capacity": sum(cap_of(d) for d in week),
         "over_capacity_days": [
-            d for d in week if days.get(d, {}).get("blocks", 0) > cap
+            d for d in week if days.get(d, {}).get("blocks", 0) > cap_of(d)
         ],
         "debt_blocks": debt,
         "suggested_blocks_today": suggested,
@@ -229,7 +267,8 @@ def budget(days: dict[str, dict], today: date, es: dict) -> dict:
 def summary(days: dict[str, dict], today: date) -> dict:
     wk = [days[d] | {"date": d} for d in _last(today) if d in days]
     own_h = sum(r["own_h"] for r in wk)
-    routine = sum(r["routine_pct"] * r["own_h"] for r in wk)
+    routine = sum(r["routine_h"] for r in wk)
+    leak_h = sum(r["leak_h"] for r in wk)
     sw = sum(r["switches"] for r in wk)
     longest = max(wk, key=lambda r: r["longest_creative_h"], default=None)
     return {
@@ -244,7 +283,8 @@ def summary(days: dict[str, dict], today: date) -> dict:
         }
         if longest and longest["longest_creative_h"]
         else None,
-        "routine_pct_week": round(routine / own_h) if own_h else 0,
+        "routine_pct_week": round(100 * routine / leak_h) if leak_h else 0,
+        "autopilot_h_week": sum(r["autopilot_h"] for r in wk),
         "switches_per_active_hour_week": round(sw / own_h, 1) if own_h else 0,
         "switches_per_day": round(sw / len(wk), 1) if wk else 0,
         "days_over_50_switches": [r["date"] for r in wk if r["switches"] > 50],
@@ -356,6 +396,56 @@ def work_week(days: dict[str, dict], today: date, cfg: dict) -> dict | None:
     return out
 
 
+def rhythm(days: dict[str, dict], today: date, es: dict) -> dict | None:
+    """The owner's week template measured in counts: balance of work and own hours, Saturday work, Sunday own blocks and
+    kicks. A flag is raised only off a protected or rest day's exemption and never carries a judgement word."""
+    wt = es.get("week_template", {})
+    if not wt:
+        return None
+    wk = _last(today)
+    own_h = sum(days.get(d, {}).get("own_h", 0.0) for d in wk)
+    work_h = sum(days.get(d, {}).get("work_h", 0.0) for d in wk)
+    out: dict = {
+        "balance": {
+            "work_h": work_h,
+            "own_h": own_h,
+            "target": wt.get("balance", "about equal"),
+        }
+    }
+    for key, wd in (("saturday", 5), ("sunday", 6)):
+        day = next(
+            (d for d in reversed(wk) if date.fromisoformat(d).weekday() == wd), None
+        )
+        v = days.get(day, {}) if day else {}
+        if not day:
+            out[key] = None
+            continue
+        exempt = day in es.get("exempt_days", set()) or day in travel_days(
+            es.get("timezones", [])
+        )  # travel days are marked, not judged
+        if key == "saturday":
+            exp = wt.get("work_expected_h", {}).get("sat", 0)
+            out[key] = {
+                "date": day,
+                "work_h": v.get("work_h", 0.0),
+                "flag": (not exempt) and v.get("work_h", 0.0) > exp,
+                "exempt": exempt,
+            }
+        else:
+            tt = v.get("label_h", {}).get("task", 0) + v.get("label_h", {}).get(
+                "think", 0
+            )
+            out[key] = {
+                "date": day,
+                "own_blocks": v.get("blocks", 0),
+                "kicks": v.get("prompts", {}).get("kick", 0),
+                "task_think_h": tt,
+                "flag": (not exempt) and tt > wt.get("sunday_flag_h", 2),
+                "exempt": exempt,
+            }
+    return out
+
+
 def compute(cfg: dict, rows: list[dict], today: date) -> dict:
     es = settings(cfg)
     days = per_day(rows, es)
@@ -371,6 +461,7 @@ def compute(cfg: dict, rows: list[dict], today: date) -> dict:
     out["today"] = days.get(today.isoformat())
     before = today - timedelta(days=7)
     out["work_week"] = work_week(days, today, cfg)
+    out["rhythm"] = rhythm(days, today, es)
     out["previous"] = {
         "blocks_week": budget(days, before, es)["blocks_week"],
         "routine_pct_week": summary(days, before)["routine_pct_week"],

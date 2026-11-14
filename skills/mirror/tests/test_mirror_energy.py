@@ -184,3 +184,84 @@ def test_midweek_signal_only_thu_fri_and_only_outside_the_band():
     assert (
         me.work_week(ok, date(2026, 11, 12), WW)["midweek_line"] is None
     )  # in band: silent
+
+
+WT = {
+    "week_template": {
+        "blocks_by_weekday": {"sun": 0},
+        "autopilot_weekdays": ["mon", "tue", "wed", "thu", "fri"],
+        "work_expected_h": {"sat": 0},
+        "sunday_flag_h": 2,
+    }
+}
+
+
+def es_with(extra=None):
+    es = me.settings({**WT, "energy": {"timezones": [{"tz": "UTC"}], **(extra or {})}})
+    return es
+
+
+def test_autopilot_kicks_on_a_weekday_are_not_leak_but_decide_is():
+    rows = [
+        q(5, 0, mode="task"),
+        q(6, 0, mode="kick"),
+        q(7, 0, mode="watch"),
+        q(8, 0, mode="decide"),
+    ]  # Tue 10.11 UTC
+    d = me.per_day(rows, es_with())["2026-11-10"]
+    assert (
+        d["autopilot_h"] == 0.5 and d["routine_pct"] == 50 and d["leak_h"] == 0.5
+    )  # decide and task are counted, kick and watch are not
+    # Saturday 14.11: not an autopilot day, kick/watch are leak
+    sat = me.per_day(
+        [r("2026-11-14T06:00:00", mode="kick"), r("2026-11-14T07:00:00", mode="task")],
+        es_with(),
+    )["2026-11-14"]
+    assert sat["autopilot_h"] == 0 and sat["routine_pct"] == 50
+    # a protected day overrides the template
+    ex = me.per_day(rows, es_with({"exempt_days": ["2026-11-10"]}))["2026-11-10"]
+    assert ex["autopilot_h"] == 0
+
+
+def test_sunday_capacity_is_zero_and_its_blocks_are_debt():
+    es = es_with()
+    assert (
+        me.capacity_on(date(2026, 11, 15), es) == 0
+        and me.capacity_on(date(2026, 11, 14), es) == 3
+    )
+    days = {"2026-11-08": {"blocks": 2}}  # a Sunday
+    b = me.budget(days, date(2026, 11, 10), es)
+    assert b["debt_blocks"] == 2 and b["over_capacity_days"] == ["2026-11-08"]
+    assert me.budget({}, date(2026, 11, 15), es)["suggested_blocks_today"] == 0
+
+
+def test_rhythm_balance_saturday_and_sunday_flag_with_exemption():
+    days = {
+        "2026-11-14": {"own_h": 3.0, "work_h": 0.0},
+        "2026-11-08": {
+            "own_h": 5.0,
+            "work_h": 1.0,
+            "blocks": 2,
+            "prompts": {"kick": 7},
+            "label_h": {"task": 2.5, "think": 0.5},
+        },
+        "2026-11-10": {"own_h": 10.0, "work_h": 12.0},
+    }
+    r_ = me.rhythm(days, date(2026, 11, 14), es_with())
+    assert r_["balance"]["work_h"] == 13.0 and r_["balance"]["own_h"] == 18.0
+    assert r_["saturday"] == {
+        "date": "2026-11-14",
+        "work_h": 0.0,
+        "flag": False,
+        "exempt": False,
+    }
+    assert (
+        r_["sunday"]["flag"]
+        and r_["sunday"]["own_blocks"] == 2
+        and r_["sunday"]["kicks"] == 7
+    )
+    r2 = me.rhythm(days, date(2026, 11, 14), es_with({"exempt_days": ["2026-11-08"]}))
+    assert not r2["sunday"]["flag"] and r2["sunday"]["exempt"]
+    days["2026-11-14"]["work_h"] = 1.5
+    assert me.rhythm(days, date(2026, 11, 14), es_with())["saturday"]["flag"]
+    assert me.rhythm(days, date(2026, 11, 14), me.settings({})) is None
