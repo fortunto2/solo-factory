@@ -1,0 +1,20 @@
+# kindle config. Path: --config, $KINDLE_CONFIG, or ~/.config/kindle/config.yaml
+work_dir: ~/.cache/kindle        # where convert/make/find put files (or $KINDLE_WORK)
+
+sender:                          # default sender for recipients that name none
+  command: gws-xx                # a Gmail CLI wrapper on PATH ("gws-*"), or "smtp"
+  from: sender@example.com       # the account that mails; MUST be on each Kindle's Approved list
+
+limits:
+  max_mb: 50                     # Amazon's e-mail limit; the gws path is further capped at 18 MB
+  daily_cap: 10                  # sends per recipient per rolling 24 h
+
+recipients:
+  reader:
+    address: reader_ab12cd@kindle.com   # Send-to-Kindle address (Manage Your Content and Devices)
+    enabled: true
+    sender: gws-xx               # optional per-recipient override
+    from: sender@example.com     # optional override
+  paused:
+    address: FILL_ME
+    enabled: false

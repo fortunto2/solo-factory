@@ -6,6 +6,7 @@ refuses a `plugin.json` version with no entry.
 
 ## 1.94.0 — 2026-11-07
 
+- New skill `kindle`: `convert` (md, txt, html, docx, fb2, epub, URL to Kindle-ready EPUB), `make` (chapter folder to book, e-ink images), `send` (Send-to-Kindle by e-mail through a gws-style wrapper or SMTP; approved-sender rule, dry-run, size/duplicate/daily-cap guards, audit log), `find` (Gutenberg, Standard Ebooks, Internet Archive public domain, Wikisource). Ships `scripts/kindle.py` and tests.
 - New skill `gmail-cli`: read one or several Gmail/Workspace mailboxes from a coding agent with the `gws` CLI. Cloud project and Desktop OAuth client, one config dir and wrapper per mailbox, read-only login, drafts-only rule, and the Testing-mode 7-day `invalid_grant` fix (Branding requirements for Publish app). Ships `scripts/mail.py`.
 - `youtube-channel`: the 7-day token bullet now lists the Branding requirements for Publish app.
 

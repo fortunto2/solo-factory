@@ -1,6 +1,6 @@
 [![GitHub stars](https://img.shields.io/github/stars/fortunto2/solo-factory?style=flat-square)](https://github.com/fortunto2/solo-factory/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Skills: 62](https://img.shields.io/badge/skills-62-blue?style=flat-square)](#skills)
+[![Skills: 63](https://img.shields.io/badge/skills-63-blue?style=flat-square)](#skills)
 [![Agents: 2](https://img.shields.io/badge/agents-2-green?style=flat-square)](#agents)
 [![MCP Tools: 11](https://img.shields.io/badge/MCP_tools-11-purple?style=flat-square)](#mcp-integration)
 [![Stacks: 12](https://img.shields.io/badge/stacks-12-orange?style=flat-square)](#available-stacks)
@@ -9,7 +9,7 @@
 
 **Your own path. Multiple stacks. Ship everything.**
 
-> From shower thought to deployed product — 62 skills, 2 agents, and an MCP server that searches every project you've ever built.
+> From shower thought to deployed product — 63 skills, 2 agents, and an MCP server that searches every project you've ever built.
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
@@ -174,7 +174,7 @@ What is in the set, and the rules that most often hit real code:
 → Privacy policy (GDPR-ready), Terms of Service, App Store privacy labels
 ```
 
-### Utility (24 skills)
+### Utility (25 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -188,6 +188,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:retro` | Post-pipeline retrospective — score process, find waste, suggest fixes |
 | `/solo:audit` | KB health check — broken links, frontmatter, tag inconsistencies |
 | `/solo:pdf-print` | HTML → printable A4 PDF: page breaks, page numbers, Cyrillic, verify by eye |
+| `/solo:kindle` | Make, convert, find (legal catalogs) and e-mail books to a Kindle |
 | `/solo:memory-audit` | Claude Code memory hierarchy — loaded files, char counts, optimization hints |
 | `/solo:open-dataset` | Publish data with a DOI: a repo per dataset, CITATION.cff, CC BY 4.0, Zenodo per release, media on Hugging Face |
 | `/solo:paper` | Research result → arXiv preprint or conference paper in any field: venue choice, LaTeX + tectonic, references from databases, adversarial review, endorsement |
