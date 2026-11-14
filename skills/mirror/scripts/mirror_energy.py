@@ -300,4 +300,9 @@ def compute(cfg: dict, rows: list[dict], today: date) -> dict:
         "not_measured": es["not_measured"],
     }
     out["today"] = days.get(today.isoformat())
+    before = today - timedelta(days=7)
+    out["previous"] = {
+        "blocks_week": budget(days, before, es)["blocks_week"],
+        "routine_pct_week": summary(days, before)["routine_pct_week"],
+    }
     return out

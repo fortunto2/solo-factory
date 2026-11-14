@@ -1061,6 +1061,17 @@ def energy_today(cfg: dict, ingest: bool = False) -> dict:
     return energy_block(cfg, local, ingest=ingest)
 
 
+def _tools_mod():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import mirror_tools
+
+    return mirror_tools
+
+
+def tools_block(cfg: dict, end: date, root: Path) -> dict:
+    return _tools_mod().tools_block(cfg, end, root)
+
+
 def collect(cfg: dict, end: date, days: int) -> dict:
     start = end - timedelta(days=days - 1)
     week = iso_week(end)
@@ -1138,7 +1149,7 @@ def collect(cfg: dict, end: date, days: int) -> dict:
         ),
         None,
     )
-    return {
+    result = {
         "week": week,
         "window": {"start": start.isoformat(), "end": end.isoformat(), "days": days},
         "said_vs_did": {**sh, "stated_focus": cfg["focus"]},
@@ -1156,6 +1167,7 @@ def collect(cfg: dict, end: date, days: int) -> dict:
         "noise_waiting_already_answered": stale_waits(topics, cfg["answered_regex"]),
         "goal_conflicts": goal_conflicts(cfg),
         "energy": energy_block(cfg, end),
+        "tools": tools_block(cfg, end, cfg["_root"]),
         "open_loops": {
             **open_loops(todos, topics, cfg),
             "previous": next(
@@ -1177,6 +1189,10 @@ def collect(cfg: dict, end: date, days: int) -> dict:
         },
         "ledger": str(ledger_path),
     }
+    result["arrows"] = _tools_mod().arrows(
+        result["energy"], result["open_loops"], result["tools"]
+    )
+    return result
 
 
 # ---------------------------------------------------------------- lint
@@ -1189,7 +1205,9 @@ def lint(text: str, max_chars: int) -> list[str]:
     if "—" in text:
         problems.append(f"{text.count('—')} em dash(es)")
     # observations are the numbered lines between the repeats heading and the experiment; the "this week" list has its own limit
-    m = re.search(r"Повторы.*?(?=^Эксперимент|\Z)", text, re.DOTALL | re.MULTILINE)
+    m = re.search(
+        r"Повторы.*?(?=^Эксперимент|^\s*$|\Z)", text, re.DOTALL | re.MULTILINE
+    )
     if len(re.findall(r"^\s*\d+[.)]\s", m[0] if m else text, re.MULTILINE)) > 3:
         problems.append("more than 3 numbered observations")
     return problems
@@ -1231,7 +1249,7 @@ def main(argv: list[str]) -> int:
     )
     lt = sub.add_parser("lint")
     lt.add_argument("report")
-    lt.add_argument("--max-chars", type=int, default=1800)
+    lt.add_argument("--max-chars", type=int, default=2400)
     args = ap.parse_args(argv)
     if args.cmd == "lint":
         probs = lint(Path(args.report).read_text(), args.max_chars)
