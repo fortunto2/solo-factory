@@ -12,6 +12,9 @@ transcript in plain text. Measured on one machine (2026-10-25): 34 transcripts h
           redaction marker — writing it would replace the real secret with the marker.
   prompt  UserPromptSubmit: a pasted secret is moved to ~/.claude/secrets/<project>.env
           (0600) and the prompt is blocked, so the value never reaches the model.
+  filter  stdin text -> stdout with secrets replaced by markers. For tools that store or
+          forward text outside Claude (an orchestrator's notes, test output, notifications).
+          Never blocks and never fails open: unreadable input prints nothing, exit 1.
   audit   Report secrets already in transcripts: rule, id, length, sessions. No values.
   scrub   Rewrite transcripts in place, values -> markers. Skips files written in the last
           10 minutes (a live session appends to its file). Needed because a prompt blocked
@@ -330,6 +333,13 @@ def scrub(paths: list[Path], min_age_s: int = 600) -> None:
 
 def main() -> None:
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
+    if mode == "filter":  # not switched off by SECRET_GUARD=off: callers rely on it
+        try:
+            text = sys.stdin.buffer.read().decode("utf-8", errors="replace")
+        except OSError:
+            sys.exit(1)
+        sys.stdout.write(mask_text(text)[0])
+        return
     if mode == "audit":
         audit(
             Path(sys.argv[2])

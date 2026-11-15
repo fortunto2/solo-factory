@@ -114,3 +114,22 @@ post() {  # tool_response JSON -> hook output
   [[ "$out" == *"CLOUDFLARE_API_TOKEN"* ]]
   [[ "$out" == *"rotate it"* ]]
 }
+
+@test "filter: stdin text comes back with keys masked, the rest untouched" {
+  out=$(printf 'FAIL: got %s\nline two\n' "$OAI" | python3 "$G" filter)
+  [[ "$out" != *"$OAI"* ]]
+  [[ "$out" == *"[REDACTED:"* ]]
+  [[ "$out" == *"line two"* ]]
+}
+
+@test "filter: clean text passes through byte for byte" {
+  in=$'ok 12 tests\n--- PASS: TestOne (0.00s)\n'
+  out=$(printf '%s' "$in" | python3 "$G" filter)
+  [ "$out" == "$(printf '%s' "$in")" ]
+}
+
+@test "filter ignores SECRET_GUARD=off: a caller relies on it" {
+  out=$(printf 'k=%s' "$AWS" | SECRET_GUARD=off python3 "$G" filter)
+  [[ "$out" != *"$AWS"* ]]
+  [[ "$out" == "k=[REDACTED:aws-access-key"* ]]
+}
