@@ -115,7 +115,7 @@
 - [/sgr](/skills/sgr): Need to design a schema-guided reasoning pipeline for an agent or API
 - [/skill-audit](/skills/skill-audit): Evaluating skill against best practices
 - [/stream](/skills/stream): Facing a high-stakes founder choice
-- [/swarm](/skills/swarm): Want faster multi-angle alternative to /research
+- [/deep-research](/skills/deep-research): A decision rests on facts one quick search will not settle
 - [/validate](/skills/validate): Need idea scoring with PRD output
 - [/video-promo](/skills/video-promo): Need video marketing material
 - [/you2idea-extract](/skills/you2idea-extract): Mining video content for business opportunities

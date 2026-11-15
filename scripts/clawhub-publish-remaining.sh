@@ -9,7 +9,7 @@ echo "=== ClawHub batch publish started $(date) ===" | tee "$LOG"
 
 SKILLS=(
   metrics-track pipeline plan retro review
-  scaffold seo-audit setup stream swarm
+  scaffold seo-audit setup stream deep-research
   validate video-promo you2idea-extract
 )
 

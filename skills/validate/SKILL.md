@@ -232,7 +232,7 @@ If MCP tools are not available, fall back to Grep/Glob/WebSearch.
 ## When to use
 
 - Before building anything non-trivial
-- After `/research` or `/swarm` to score and generate PRD
+- After `/research` or `/deep-research` to score and generate PRD
 - When deciding between multiple ideas (run on each, compare realistic scores)
 - When friends ask for feedback on their startup (be honest, not nice)
 

@@ -74,7 +74,7 @@ claude plugin list            # Claude Code plugin
 | Command | What it does |
 |---------|-------------|
 | `/solo:research <idea>` | Scout the market — competitors, SEO keywords, domains, TAM/SAM/SOM |
-| `/solo:swarm <idea>` | 3 parallel research agents (market + users + tech) for faster deep dive |
+| `/solo:deep-research <question>` | 3 parallel researchers on separate angles, every claim sourced, contradictions checked |
 | `/solo:validate <idea>` | S.E.E.D. niche check + STREAM scoring + Devil's Advocate → PRD |
 | `/solo:domain <name>` | Is the name actually free — RDAP/whois, App Store, Google Play, GitHub, trademarks |
 | `/solo:hackathon <event>` | Hackathon research-first: rules and judges with confidence labels, team repos on GitHub, Devpost gallery survey, live notes, the write-up; scout mode analyses winners of events you did not attend |
@@ -236,10 +236,10 @@ What is in the set, and the rules that most often hit real code:
 /solo:validate "receipt scanning app"
 ```
 
-### Swarm mode (10-15 min, 3 parallel agents)
+### Deep research (10-15 min, 3 parallel researchers)
 
 ```
-/solo:swarm "AI-powered habit tracker"
+/solo:deep-research "AI-powered habit tracker"
 /solo:validate "AI-powered habit tracker"
 ```
 
@@ -376,7 +376,7 @@ solo-factory/
 │   ├── build/               # plan execution, tests at seams
 │   ├── deploy/              # Deploy to hosting
 │   ├── review/              # Final quality gate
-│   ├── swarm/               # 3 parallel research agents
+│   ├── deep-research/       # 3 parallel researchers, sourced claims
 │   ├── stream/              # Decision framework
 │   ├── pipeline/            # Automated multi-skill loop
 │   ├── seo-audit/           # SEO health check

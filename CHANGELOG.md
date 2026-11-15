@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.96.0 — 2026-11-15
+
+- `swarm` is now `deep-research` (`/solo:deep-research`). Any question, not only a startup idea: three researchers on angles picked for the question, plain subagents by default (agent teams optional), every claim with its source and date, and a check pass where the lead opens the sources the conclusion rests on and drops what they do not hold. The old name clashed with the swarm coding tool (github.com/fortunto2/swarm). Installed `solo-swarm` copies elsewhere (npx skills, ClawHub) stay until removed there.
+
 ## 1.95.1 — 2026-11-14
 
 - `secret_guard.py filter`: stdin to stdout with secrets masked, for tools that store or forward text outside Claude (an orchestrator's notes, test output fed into the next agent's prompt, notifications). Same rules as the hooks; not switched off by `SECRET_GUARD=off`, since a caller relies on it.

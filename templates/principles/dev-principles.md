@@ -626,7 +626,7 @@ Multiple agents work simultaneously with file ownership separation.
 | `team-feature` | 2-4 implementer | Parallel feature dev with file ownership |
 | `team-review` | 3-5 reviewer | Code review by dimension (security, perf, arch, testing, a11y) |
 | `team-debug` | 2-4 debugger | Parallel debugging with competing hypotheses |
-| `team-research` | 2-3 researcher | Parallel research (differs from `/swarm`) |
+| `team-research` | 2-3 researcher | Parallel research (differs from `/deep-research`) |
 
 **Key principles:**
 - **File ownership** — each agent owns its files, no conflicts

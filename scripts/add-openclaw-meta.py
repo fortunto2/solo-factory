@@ -28,7 +28,7 @@ EMOJIS = {
     "review": "🔎",
     "scaffold": "🏗️",
     "setup": "⚙️",
-    "swarm": "🐝",
+    "deep-research": "🔬",
     "pipeline": "🔄",
     "audit": "🩺",
     "init": "🎬",

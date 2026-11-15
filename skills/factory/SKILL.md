@@ -21,7 +21,7 @@ One-command setup for the entire Solo Factory startup toolkit.
 
 | Phase | Skills |
 |-------|--------|
-| Analysis | research, validate, stream, swarm |
+| Analysis | research, deep-research, validate, stream |
 | Development | scaffold, setup, plan, build, deploy, review |
 | Promotion | seo-audit, content-gen, community-outreach, video-promo, landing-gen, metrics-track |
 | Utilities | init, audit, retro, pipeline, humanize, index-youtube, you2idea-extract |
@@ -74,7 +74,7 @@ One-command setup for the entire Solo Factory startup toolkit.
      audit build community-outreach content-gen deploy \
      humanize index-youtube init landing-gen metrics-track \
      pipeline plan research retro review \
-     scaffold seo-audit setup stream swarm \
+     scaffold seo-audit setup stream deep-research \
      validate video-promo you2idea-extract; do
      echo -n "Installing solo-$skill... "
      clawhub install "solo-$skill" 2>&1 | tail -1
