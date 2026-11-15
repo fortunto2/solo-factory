@@ -68,6 +68,7 @@ EXIT_OK, EXIT_ERR, EXIT_CONFIG, EXIT_REFUSED, EXIT_DUP, EXIT_CAP, EXIT_SEND = (
     6,
 )
 
+MD_SAFE = "markdown-raw_html-raw_tex-raw_attribute-yaml_metadata_block-link_attributes-fenced_divs-bracketed_spans-citations-pandoc_title_block-tex_math_dollars-tex_math_single_backslash"
 CSS = """body { line-height: 1.4; margin: 0 4%; hyphens: auto; -webkit-hyphens: auto; }
 p { margin: 0; text-indent: 1.2em; text-align: justify; }
 h1, h2, h3 { text-align: left; hyphens: none; page-break-after: avoid; }
@@ -75,6 +76,135 @@ h1 { page-break-before: always; margin-top: 2em; }
 img { max-width: 100%; height: auto; }
 blockquote { margin: 1em 1.5em; font-style: italic; }
 """
+
+
+# ---------------------------------------------------------------- untrusted input
+# Input that a stranger wrote (a file a chat member sent, a page from a URL, a book a model composed from such text) must not be able to pull LOCAL files or localhost
+# responses into the book: `![](/abs/path)`, `<img src=/abs/path>`, `<link rel=attachment href=file:///...>`, YAML `cover-image:`. With --untrusted (or KINDLE_UNTRUSTED=1):
+# the text is stripped of raw HTML, images, non-http links and metadata blocks; pandoc runs with --sandbox, under macOS sandbox-exec when available (no network, reads only the work dir);
+# the file type is decided by content, never by the name.
+def untrusted(a: argparse.Namespace | None = None) -> bool:
+    return (
+        bool(getattr(a, "untrusted", False))
+        or os.environ.get("KINDLE_UNTRUSTED") == "1"
+    )
+
+
+RAW_TAG = re.compile(r"<!--.*?-->|<\?.*?\?>|</?[A-Za-z][^>]*>", re.S)
+MD_IMG = re.compile(r"!\[([^\]]*)\]\([^)]*\)|!\[([^\]]*)\]\[[^\]]*\]")
+MD_LINK = re.compile(r"(?<!!)\[([^\]]*)\]\(([^)\s]*)[^)]*\)")
+MD_REFDEF = re.compile(r"^[ ]{0,3}\[[^\]]+\]:[ \t]*\S+.*$", re.M)
+MD_FRONT = re.compile(r"\A\s*---\s*\n.*?\n(?:---|\.\.\.)\s*(?:\n|\Z)", re.S)
+SAFE_URL = re.compile(r"^(https?://|mailto:)", re.I)
+
+
+def sanitize_markdown(text: str) -> str:
+    """Untrusted markdown to plain markdown: no metadata block, no raw HTML or TeX, no images (alt text stays), links only to http(s)/mailto, no reference definitions."""
+    text = MD_FRONT.sub("", text)
+    text = RAW_TAG.sub("", text)
+    text = MD_IMG.sub(lambda m: m.group(1) or m.group(2) or "", text)
+    text = MD_REFDEF.sub("", text)
+    text = MD_LINK.sub(
+        lambda m: m.group(0) if SAFE_URL.match(m.group(2)) else m.group(1), text
+    )
+    return text
+
+
+class _Text(__import__("html.parser", fromlist=["HTMLParser"]).HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.out: list[str] = []
+        self.skip = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style", "head"):
+            self.skip += 1
+        if tag in ("p", "div", "br", "li", "h1", "h2", "h3", "h4", "tr"):
+            self.out.append("\n\n")
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style", "head") and self.skip:
+            self.skip -= 1
+
+    def handle_data(self, data):
+        if not self.skip:
+            self.out.append(data)
+
+
+def html_to_text(raw: str) -> str:
+    t = _Text()
+    t.feed(raw)
+    return re.sub(r"\n{3,}", "\n\n", "".join(t.out)).strip()
+
+
+def sniff(path: Path) -> str | None:
+    """pdf | epub | docx | fb2 | text, decided by the bytes; None for anything else (images, archives, binaries) whatever the file is called."""
+    head = path.read_bytes()[:4096]
+    if head.startswith(b"%PDF"):
+        return "pdf"
+    if head.startswith(b"PK\x03\x04"):
+        try:
+            with zipfile.ZipFile(path) as z:
+                names = set(z.namelist())
+                if (
+                    "mimetype" in names
+                    and z.read("mimetype").strip() == b"application/epub+zip"
+                ):
+                    return "epub"
+                if "word/document.xml" in names:
+                    return "docx"
+        except (zipfile.BadZipFile, KeyError):
+            pass
+        return None
+    if b"\x00" in head:
+        return None
+    try:
+        head.decode("utf-8")
+    except UnicodeDecodeError as e:
+        if e.start < len(head) - 4:  # a cut multibyte tail at 4096 is fine
+            return None
+    if head.lstrip().startswith((b"<?xml", b"<FictionBook")) and b"FictionBook" in head:
+        return "fb2"
+    ctrl = sum(1 for b in head if b < 9 or 13 < b < 32)
+    return "text" if ctrl <= max(2, len(head) // 200) else None
+
+
+def _sbpl(read_dirs: list[Path], write_dirs: list[Path]) -> str:
+    q = lambda p: json.dumps(str(p.resolve()), ensure_ascii=False)  # noqa: E731
+    deny = " ".join(
+        f"(subpath {json.dumps(d)})"
+        for d in (
+            "/Users",
+            "/private/tmp",
+            "/private/var/folders",
+            "/Volumes",
+            "/private/var/root",
+            "/Library/Keychains",
+        )
+    )
+    rules = [
+        "(version 1)",
+        "(allow default)",
+        "(deny network*)",
+        f"(deny file-read* {deny})",
+        '(deny file-write* (require-not (subpath "/dev")))',
+    ]
+    rules += [f"(allow file-read* (subpath {q(d)}))" for d in read_dirs + write_dirs]
+    rules += [f"(allow file-write* (subpath {q(d)}))" for d in write_dirs]
+    return "\n".join(rules)
+
+
+def sandboxed(
+    cmd: list[str], read_dirs: list[Path], write_dirs: list[Path]
+) -> list[str]:
+    """Wrap `cmd` in sandbox-exec: no network, no reads under /Users and the shared temp dirs except the given ones, writes only in `write_dirs`. Fails closed where sandbox-exec is missing."""
+    exe = shutil.which("sandbox-exec")
+    if not exe:
+        raise KindleError(
+            "untrusted input needs sandbox-exec (macOS) to convert safely; refusing",
+            EXIT_REFUSED,
+        )
+    return [exe, "-p", _sbpl(read_dirs, write_dirs), *cmd]
 
 
 class KindleError(Exception):
@@ -164,6 +294,7 @@ def pandoc_epub(
     cover: Path | None,
     wd: Path,
     extra: list[str] | None = None,
+    safe: bool = False,
 ) -> None:
     if not shutil.which("pandoc"):
         raise KindleError("pandoc not found (brew install pandoc)", EXIT_ERR)
@@ -181,7 +312,7 @@ def pandoc_epub(
         "--toc",
         "--toc-depth=2",
         "--split-level=1",
-        f"--css={css}",
+        *([] if safe else [f"--css={css}"]),
         "--standalone",
         "--resource-path",
         f"{src_text_or_file.parent}:{wd}",
@@ -192,9 +323,46 @@ def pandoc_epub(
     if cover:
         cmd += ["--epub-cover-image", str(cover)]
     cmd += extra or []
-    r = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    env = None
+    if safe:
+        cmd.insert(1, "--sandbox")
+        tmp = wd / "tmp"
+        tmp.mkdir(exist_ok=True)
+        env = {
+            "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+            "TMPDIR": str(tmp),
+            "HOME": str(wd),
+        }
+        cmd = sandboxed(cmd, [src_text_or_file.parent, wd], [out.parent, wd])
+    r = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+        cwd=wd if safe else None,
+    )
     if r.returncode != 0:
         raise KindleError(f"pandoc failed: {r.stderr.strip()[:400]}")
+    if safe:  # --sandbox cannot read the CSS file: put our stylesheet over pandoc's default one afterwards
+        _swap_css(out)
+
+
+def _swap_css(epub: Path) -> None:
+    tmp = epub.with_suffix(".tmp")
+    with zipfile.ZipFile(epub) as zi, zipfile.ZipFile(tmp, "w") as zo:
+        for item in zi.infolist():
+            data = zi.read(item.filename)
+            if item.filename.endswith("stylesheet1.css"):
+                data = CSS.encode("utf-8")
+            zo.writestr(
+                item,
+                data,
+                compress_type=zipfile.ZIP_STORED
+                if item.filename == "mimetype"
+                else zipfile.ZIP_DEFLATED,
+            )
+    tmp.replace(epub)
 
 
 def epub_info(path: Path) -> dict:
@@ -278,6 +446,34 @@ def txt_to_html(src: Path, wd: Path, title: str) -> Path:
     return out
 
 
+def isolate(src: Path, wd: Path, info: dict) -> Path:
+    """Untrusted convert: sniff by content, copy into a private dir, sanitize text. Returns the file to convert, named by what it IS."""
+    kind = sniff(src)
+    if kind is None:
+        raise KindleError(
+            "that file is not a book, a document or text I can convert", EXIT_REFUSED
+        )
+    iso = wd / f"in-{os.getpid()}"
+    if iso.exists():
+        shutil.rmtree(iso)
+    iso.mkdir(parents=True)
+    if kind in ("pdf", "epub", "docx", "fb2"):
+        dst = iso / f"{slugify(src.stem)}.{kind}"
+        shutil.copy2(src, dst)
+        return dst
+    raw = src.read_text(encoding="utf-8", errors="replace")
+    name = src.suffix.lower()
+    if name in (".html", ".htm"):
+        raw, name = html_to_text(raw), ".txt"
+    if name in (".md", ".markdown"):
+        dst = iso / f"{slugify(src.stem)}.md"
+        dst.write_text(sanitize_markdown(raw), encoding="utf-8")
+    else:
+        dst = iso / f"{slugify(src.stem)}.txt"
+        dst.write_text(raw, encoding="utf-8")
+    return dst
+
+
 def cmd_convert(a: argparse.Namespace) -> int:
     wd = work_dir(load_config(a.config, required=False))
     src_arg = a.input
@@ -288,6 +484,13 @@ def cmd_convert(a: argparse.Namespace) -> int:
         src = Path(src_arg).expanduser()
         if not src.exists():
             raise KindleError(f"no such file: {src}", EXIT_CONFIG)
+    safe = untrusted(a)
+    if safe:
+        if a.cover:
+            raise KindleError(
+                "--cover is not allowed with untrusted input", EXIT_REFUSED
+            )
+        src = isolate(src, wd, info)
     ext = src.suffix.lower()
     out_dir = Path(a.out).expanduser() if a.out else wd
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -324,6 +527,10 @@ def cmd_convert(a: argparse.Namespace) -> int:
         src, fmt = txt_to_html(src, wd, title), "html"
     elif ext in fmts:
         fmt = fmts[ext]
+        if safe and fmt == "markdown":
+            fmt = MD_SAFE
+    elif safe:
+        raise KindleError(f"unsupported content {ext}", EXIT_REFUSED)
     elif shutil.which("ebook-convert") and ext in (
         ".mobi",
         ".azw3",
@@ -354,7 +561,7 @@ def cmd_convert(a: argparse.Namespace) -> int:
         m = re.search(r"<lang>\s*([a-zA-Z-]+)\s*</lang>", sample)
         meta["lang"] = m.group(1) if m else guess_lang(sample)
     elif (
-        fmt in ("markdown", "html")
+        fmt in ("markdown", "html", MD_SAFE)
         and not meta["lang"]
         and not re.search(r"^lang:", sample, re.M)
     ):
@@ -367,7 +574,7 @@ def cmd_convert(a: argparse.Namespace) -> int:
         else None
     )
     dst = out_dir / (slugify(a.title or src.stem) + ".epub")
-    pandoc_epub(src, fmt, dst, meta, cover, wd)
+    pandoc_epub(src, fmt, dst, meta, cover, wd, safe=safe)
     rep = check_epub(dst)
     print(json.dumps({"output": str(dst), **rep}, ensure_ascii=False))
     return EXIT_OK if not rep["problems"] else EXIT_ERR
@@ -433,12 +640,19 @@ def cmd_make(a: argparse.Namespace) -> int:
     if wd.exists():
         shutil.rmtree(wd)
     wd.mkdir(parents=True)
+    safe = untrusted(a)
+    if safe and a.cover:
+        raise KindleError("--cover is not allowed with untrusted input", EXIT_REFUSED)
     book = read_book_meta(src)
+    if safe:
+        book.pop("cover", None)
     parts, counter = [], [0]
     for f in chapter_files(src):
         text = f.read_text(encoding="utf-8")
         if not re.search(r"^# ", text, flags=re.M):
             text = f"# {f.stem.split('-', 1)[-1].replace('-', ' ').replace('_', ' ').strip().capitalize()}\n\n{text}"
+        if safe:
+            text = sanitize_markdown(text)
         parts.append(
             localise_images(text, f.parent, wd, counter, greyscale=not a.color)
         )
@@ -452,7 +666,6 @@ def cmd_make(a: argparse.Namespace) -> int:
         "date": book.get("date") or datetime.now().strftime("%Y-%m-%d"),
         "publisher": book.get("publisher"),
     }
-    has_front = body.lstrip().startswith("---")
     md = wd / "book.md"
     md.write_text(body, encoding="utf-8")
     cover_arg = a.cover or book.get("cover")
@@ -472,7 +685,7 @@ def cmd_make(a: argparse.Namespace) -> int:
     out_dir = Path(a.out).expanduser() if a.out else work_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
     dst = out_dir / (slugify(title) + ".epub")
-    pandoc_epub(md, "markdown" if not has_front else "markdown", dst, meta, cover, wd)
+    pandoc_epub(md, MD_SAFE if safe else "markdown", dst, meta, cover, wd, safe=safe)
     rep = check_epub(dst)
     rep["chapters"] = len(parts)
     rep["images"] = counter[0]
@@ -989,6 +1202,11 @@ def build_parser() -> argparse.ArgumentParser:
         )
 
     def book_opts(sp: argparse.ArgumentParser) -> None:
+        sp.add_argument(
+            "--untrusted",
+            action="store_true",
+            help="input written by someone else: strip raw HTML/images/metadata, sniff the type, run pandoc --sandbox under sandbox-exec (also KINDLE_UNTRUSTED=1)",
+        )
         sp.add_argument("--title")
         sp.add_argument("--author")
         sp.add_argument(

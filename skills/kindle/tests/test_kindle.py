@@ -1,5 +1,6 @@
 import json
 import shutil
+import subprocess
 import sys
 import zipfile
 from pathlib import Path
@@ -276,3 +277,179 @@ def test_epub_check_rejects_non_epub(tmp_path):
         f.writestr("a.txt", "x")
     with pytest.raises(k.KindleError):
         k.epub_info(z)
+
+
+# ---- untrusted input (14.11.2026): a stranger's text must not pull local files or localhost into the book
+EVIL = (
+    '# Заметки\n\nПривет.\n\n![](SECRET)\n\n<img src="SECRET">\n\n<link rel="attachment" href="file://SECRET">\n\n'
+    "![x](http://127.0.0.1:9/x.png)\n\n[leak](file://SECRET)\n\n[ref]: SECRET\n\nКонец.\n"
+)
+
+
+def epub_text(path):
+    with zipfile.ZipFile(path) as z:
+        return b"".join(z.read(n) for n in z.namelist()), z.namelist()
+
+
+@pytest.fixture
+def secret(tmp_path):
+    f = tmp_path / "outside" / "secret.txt"
+    f.parent.mkdir()
+    f.write_text("SECRET-LOCAL-FILE-MARKER", encoding="utf-8")
+    return f
+
+
+def convert(tmp_path, src, *extra):
+    out = tmp_path / f"out{len(list(tmp_path.glob('out*')))}"
+    rc = k.main(
+        ["convert", str(src), "--out", str(out), "--lang", "ru", "--title", "T", *extra]
+    )
+    return rc, next(out.glob("*.epub"), None)
+
+
+@needs_pandoc
+def test_control_the_attack_works_without_the_flag(tmp_path, secret):
+    src = tmp_path / "evil.md"
+    src.write_text(EVIL.replace("SECRET", str(secret)), encoding="utf-8")
+    rc, epub = convert(tmp_path, src)
+    assert b"SECRET-LOCAL-FILE-MARKER" in epub_text(epub)[0], (
+        "the reviewer's attack must reproduce on trusted input, or the next test proves nothing"
+    )
+
+
+@needs_pandoc
+@pytest.mark.skipif(not shutil.which("sandbox-exec"), reason="macOS only")
+def test_untrusted_markdown_never_embeds_local_files_or_localhost(tmp_path, secret):
+    src = tmp_path / "evil.md"
+    src.write_text(EVIL.replace("SECRET", str(secret)), encoding="utf-8")
+    rc, epub = convert(tmp_path, src, "--untrusted")
+    data, names = epub_text(epub)
+    assert (
+        rc == 0
+        and b"SECRET-LOCAL-FILE-MARKER" not in data
+        and not [n for n in names if "media" in n.lower()]
+    )
+    assert (
+        b"127.0.0.1" not in data and b"file://" not in data and "Конец".encode() in data
+    )
+
+
+@needs_pandoc
+@pytest.mark.skipif(not shutil.which("sandbox-exec"), reason="macOS only")
+def test_the_os_sandbox_and_pandoc_sandbox_hold_even_when_the_text_filter_is_bypassed(
+    tmp_path, secret
+):
+    wd = tmp_path / "w"
+    wd.mkdir()
+    md = wd / "raw.md"
+    md.write_text(f"![]({secret})\n\n<img src='{secret}'>\n", encoding="utf-8")
+    out = wd / "o.epub"
+    # the filter is skipped on purpose: call pandoc_epub with the raw file and the permissive reader
+    try:
+        k.pandoc_epub(
+            md, "markdown", out, {"title": "T", "lang": "ru"}, None, wd, safe=True
+        )
+    except k.KindleError:
+        pass  # refusing is as good as stripping
+    if out.exists():
+        assert b"SECRET-LOCAL-FILE-MARKER" not in epub_text(out)[0]
+    direct = subprocess.run(
+        k.sandboxed(["cat", str(secret)], [wd], [wd]), capture_output=True, text=True
+    )
+    assert "SECRET-LOCAL-FILE-MARKER" not in direct.stdout and direct.returncode != 0, (
+        "sandbox-exec denies reads outside the work dir"
+    )
+
+
+@needs_pandoc
+def test_the_type_is_decided_by_content_not_by_the_name(tmp_path):
+    png = tmp_path / "x.md"
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
+    assert k.sniff(png) is None
+    assert (
+        k.main(["convert", str(png), "--untrusted", "--out", str(tmp_path / "o")])
+        == k.EXIT_REFUSED
+    )
+    pdf = tmp_path / "a.txt"
+    pdf.write_bytes(b"%PDF-1.4 test")
+    assert k.sniff(pdf) == "pdf"
+    z = tmp_path / "b.md"
+    with zipfile.ZipFile(z, "w") as zz:
+        zz.writestr("word/document.xml", "<x/>")
+    assert k.sniff(z) == "docx"
+    e = tmp_path / "c.txt"
+    with zipfile.ZipFile(e, "w") as zz:
+        zz.writestr("mimetype", "application/epub+zip")
+    assert k.sniff(e) == "epub"
+    assert (
+        k.sniff(tmp_path / "d.png") is None if (tmp_path / "d.png").exists() else True
+    )
+    t = tmp_path / "e.bin"
+    t.write_text("просто текст", encoding="utf-8")
+    assert k.sniff(t) == "text"
+    rar = tmp_path / "f.md"
+    rar.write_bytes(b"Rar!\x1a\x07\x00" + bytes(range(1, 9)) * 40)
+    assert k.sniff(rar) is None
+
+
+def test_sanitize_markdown_drops_html_images_metadata_and_non_http_links():
+    out = k.sanitize_markdown(
+        "---\ncover-image: /etc/hosts\n---\nТекст ![alt](/etc/hosts) <script>x</script> [a](https://ok.example) [b](/etc/hosts) [c](file:///etc/hosts)\n\n[r]: /etc/passwd\n"
+    )
+    assert (
+        "/etc" not in out
+        and "cover-image" not in out
+        and "<" not in out
+        and "alt" in out
+        and "(https://ok.example)" in out
+        and "[b]" not in out
+    )
+    assert (
+        "x" in k.html_to_text("<p>x</p><script>evil()</script><img src=/etc/hosts>")
+        and "evil" not in k.html_to_text("<script>evil()</script><p>x</p>")
+        and "/etc" not in k.html_to_text("<img src=/etc/hosts><p>x</p>")
+    )
+
+
+@needs_pandoc
+@pytest.mark.skipif(not shutil.which("sandbox-exec"), reason="macOS only")
+def test_untrusted_make_ignores_images_cover_and_front_matter(tmp_path, secret):
+    book = tmp_path / "book"
+    book.mkdir()
+    (book / "01.md").write_text(
+        f"---\ncover-image: {secret}\n---\n# Глава\n\n![]({secret})\n\nТекст книги.\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "mo"
+    assert (
+        k.main(
+            [
+                "make",
+                str(book),
+                "--untrusted",
+                "--out",
+                str(out),
+                "--lang",
+                "ru",
+                "--title",
+                "Книга",
+            ]
+        )
+        == 0
+    )
+    data, names = epub_text(next(out.glob("*.epub")))
+    assert b"SECRET-LOCAL-FILE-MARKER" not in data and "Текст книги".encode() in data
+    assert (
+        k.main(
+            [
+                "make",
+                str(book),
+                "--untrusted",
+                "--cover",
+                str(secret),
+                "--out",
+                str(out),
+            ]
+        )
+        == k.EXIT_REFUSED
+    )

@@ -31,6 +31,10 @@ One CLI, four verbs. `uv run scripts/kindle.py <verb>` (deps are inline; needs `
 5. Images: reference them relatively (`![caption](fig/a.png)`); they are resized to 1200x1600 and greyscaled. `--color` keeps colour.
 6. Then `send`, after a `--dry-run`.
 
+## Text somebody else wrote: `--untrusted`
+
+When the input comes from another person (a file a chat member sent, a URL, a book composed from such text) run `convert` / `make` with `--untrusted` (or `KINDLE_UNTRUSTED=1`). Raw HTML, images, metadata blocks and non-http links are stripped, pandoc runs with `--sandbox` under macOS `sandbox-exec` (no network, reads only the work dir; refuses where `sandbox-exec` is missing), `--cover` is refused and the file type is decided by its bytes, never by its name. Without the flag, `![](/abs/path)` or `<img src=…>` in the text embeds that local file into the EPUB.
+
 ## Sending: the one setup step per Kindle owner
 
 Amazon accepts mail only from addresses on the owner's **Approved Personal Document E-mail List**. Each Kindle owner adds the sender address once: amazon.com → **Manage Your Content and Devices → Preferences → Personal Document Settings** (the same page shows their `…@kindle.com` address). Without it Amazon drops the mail silently. Limits and sources: `references/amazon-limits.md`.

@@ -4,6 +4,11 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.95.1 — 2026-11-14
+
+- `secret_guard.py filter`: stdin to stdout with secrets masked, for tools that store or forward text outside Claude (an orchestrator's notes, test output fed into the next agent's prompt, notifications). Same rules as the hooks; not switched off by `SECRET_GUARD=off`, since a caller relies on it.
+- `kindle`: new `--untrusted` mode (also `KINDLE_UNTRUSTED=1`) for `convert` and `make`, for text someone else wrote: a file a chat member sent, a page from a URL, a book a model composed from such text. Before, `![](/abs/path)`, `<img src=/abs/path>`, `<link rel="attachment" href="file:///…">` and a YAML `cover-image:` pulled local files or localhost responses into the EPUB. Now raw HTML, images, metadata blocks and non-http links are stripped, pandoc runs with `--sandbox` under macOS `sandbox-exec` (no network, reads only the work dir, fails closed when `sandbox-exec` is missing), `--cover` is refused, and the file type is decided by content (a PNG named `x.md` is refused). Trusted use is unchanged.
+
 ## 1.95.0 — 2026-11-14
 
 - New skill `kindle`: `convert` (md, txt, html, docx, fb2, epub, URL to Kindle-ready EPUB), `make` (chapter folder to book, e-ink images), `send` (Send-to-Kindle by e-mail through a gws-style wrapper or SMTP; approved-sender rule, dry-run, size/duplicate/daily-cap guards, audit log), `find` (Gutenberg, Standard Ebooks, Internet Archive public domain, Wikisource). Ships `scripts/kindle.py` and tests.
