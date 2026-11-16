@@ -60,8 +60,11 @@ Long files (10+ min): run in the background and wait for `✅ done`.
 - **Unknown names become celebrities.** Keep a glossary per project (people, places, products) and
   fix the transcript once, before anything quotes it.
 - **Screen recordings on macOS often have no audio track.** `ffprobe` first.
-- **Parakeet and other English-only models** are fast but drop every non-English clip; check the
-  language mix before choosing them for a folder.
+- **Parakeet: check the version.** v2 (`parakeet-tdt-0.6b-v2`) is English-only and turns other
+  languages into confident English nonsense. v3 (`parakeet-tdt-0.6b-v3`) covers 25 European
+  languages, Russian among them, but not Bashkir or Tatar (keep Whisper for those). v3 runs wherever
+  ONNX Runtime does, CPU included: `onnx-asr` in Python (`onnx_asr.load_model("nemo-parakeet-tdt-0.6b-v3")`),
+  `parakeet-rs` in Rust (supervox). The scripts in this skill do not drive it yet.
 
 ## Finding recordings on a Mac
 
