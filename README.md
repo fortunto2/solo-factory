@@ -1,6 +1,6 @@
 [![GitHub stars](https://img.shields.io/github/stars/fortunto2/solo-factory?style=flat-square)](https://github.com/fortunto2/solo-factory/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Skills: 63](https://img.shields.io/badge/skills-63-blue?style=flat-square)](#skills)
+[![Skills: 64](https://img.shields.io/badge/skills-64-blue?style=flat-square)](#skills)
 [![Agents: 2](https://img.shields.io/badge/agents-2-green?style=flat-square)](#agents)
 [![MCP Tools: 11](https://img.shields.io/badge/MCP_tools-11-purple?style=flat-square)](#mcp-integration)
 [![Stacks: 12](https://img.shields.io/badge/stacks-12-orange?style=flat-square)](#available-stacks)
@@ -9,7 +9,7 @@
 
 **Your own path. Multiple stacks. Ship everything.**
 
-> From shower thought to deployed product — 63 skills, 2 agents, and an MCP server that searches every project you've ever built.
+> From shower thought to deployed product — 64 skills, 2 agents, and an MCP server that searches every project you've ever built.
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
@@ -115,12 +115,13 @@ claude plugin list            # Claude Code plugin
 → build loop: design → code + tests at agreed seams → verify → commit, phase by phase
 ```
 
-### Mobile & Apple (7 skills)
+### Mobile & Apple (8 skills)
 
 | Command | What it does |
 |---------|-------------|
 | `/solo:ios-dev` | Build the iPhone app — SwiftUI or KMP hybrid, Claude Code ↔ Xcode workflow, device builds |
 | `/solo:ios-release` | TestFlight and App Store via the `asc` CLI — upload, submit, attribution links |
+| `/solo:macos-release` | Mac app outside the App Store: Developer ID, DMG, notarytool, staple, Homebrew cask |
 | `/solo:android-release` | Play Console via CLI — internal/open testing, AAB upload, staged rollout |
 | `/solo:apple-app-icon` | iOS 26+ layered `.icon` generated from an SVG by script, every appearance checked |
 | `/solo:swiftui-design-system` | 12-column grid, spacing/type/motion scales, a codemod that migrates literals |
@@ -408,6 +409,7 @@ solo-factory/
 │   ├── domain/              # Name availability across registries + stores
 │   ├── ios-dev/             # SwiftUI / KMP iPhone development
 │   ├── ios-release/         # TestFlight + App Store via asc CLI
+│   ├── macos-release/       # Developer ID DMG + notarytool + Homebrew cask
 │   ├── android-release/     # Play Console releases
 │   ├── apple-app-icon/      # Layered .icon from SVG
 │   ├── swiftui-design-system/ # Grid, scales, codemod
