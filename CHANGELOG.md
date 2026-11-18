@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.101.0 — 2026-11-18
+
+- `talk` 1.2.0: attach mode for a session that is already open. A channel loads only at start, so `voice_channel.py --http 7799` runs the same loop as a local HTTP service: turns queue for `GET /next`, which `scripts/next.sh` long-polls as a Monitor source (re-arming every 30 minutes loses nothing), and the session answers with `POST /say`. Measured with a file as the mic: ready in 18 s, both turns delivered, 0.75 s lag. `talk.sh -c` brings back the current conversation with the channel when a restart is fine.
+
 ## 1.100.1 — 2026-11-18
 
 - `talk` 1.1.1: voice is the headline, the screen the rest. `say` speaks whole sentences up to `--max-say` (120 characters, ~8 s) and drops the rest, telling the session how much it cut; the channel instructions ask for one or two phrases aloud and the details in the text reply. The first live session read whole paragraphs out.

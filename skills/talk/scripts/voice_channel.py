@@ -106,7 +106,16 @@ def send(obj: dict) -> None:
         WIRE.flush()
 
 
+OUTBOX: "queue.Queue[str] | None" = None  # --http mode: turns wait here for GET /next
+
+
 def notify(text: str, **meta) -> None:
+    if OUTBOX is not None:
+        kind = str(meta.pop("kind", "turn")).upper()
+        tags = " ".join(f"{k}={v}" for k, v in meta.items())
+        OUTBOX.put(f"{kind} {tags}: {text}" if tags else f"{kind}: {text}")
+        print(f"-> {kind}: {text}", file=sys.stderr, flush=True)
+        return
     _wire_open.wait()
     send(
         {
@@ -201,8 +210,9 @@ class Voice:
         self.ready.set()
         notify(
             f"voice ready in {time.perf_counter() - t0:.0f} s: listening ({self.a.asr}), "
-            f"voice {self.mouth.ref}. Greet the person briefly with say.",
-            kind="status",
+            f"voice {self.mouth.ref}. Greet the person briefly with say."
+            + (f" Rules: {INSTRUCTIONS}" if OUTBOX is not None else ""),
+            kind="ready" if OUTBOX is not None else "status",
         )
 
     # --- audio in -------------------------------------------------------------------------
@@ -425,6 +435,89 @@ def serve(a: argparse.Namespace) -> None:
     os._exit(0)  # Claude Code closed the pipe: take the audio threads down with us
 
 
+ATTACH_RULES = (
+    "answer each TURN aloud: curl -s --data-binary 'text' 127.0.0.1:{port}/say ; "
+    "one or two short phrases, details on screen; re-arm the Monitor when it expires; "
+    "on «стоп» say goodbye, then curl -s -X POST 127.0.0.1:{port}/quit"
+)
+
+
+def serve_http(a: argparse.Namespace) -> None:
+    """Attach to a session that is already open: no MCP, no start flag. Turns queue up for
+    GET /next (a Monitor long-polls it, so nothing is lost when it is re-armed); the session
+    answers with POST /say (raw text body), /stop, /listen?on=0|1, /quit."""
+    global OUTBOX, INSTRUCTIONS
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from urllib.parse import parse_qs, urlparse
+
+    OUTBOX = queue.Queue()
+    voice = Voice(a)
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_args) -> None:
+            pass
+
+        def reply(self, code: int, text: str = "") -> None:
+            body = (text + "\n").encode() if text else b""
+            self.send_response(code)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self) -> None:
+            u = urlparse(self.path)
+            if u.path == "/next":
+                wait = min(float(parse_qs(u.query).get("timeout", ["25"])[0]), 55.0)
+                lines = []
+                try:
+                    lines.append(OUTBOX.get(timeout=wait))
+                    while True:
+                        lines.append(OUTBOX.get_nowait())
+                except queue.Empty:
+                    pass
+                return self.reply(200, "\n".join(lines)) if lines else self.reply(204)
+            if u.path == "/state":
+                return self.reply(
+                    200,
+                    json.dumps(
+                        {"ready": voice.ready.is_set(), "listening": voice.listening}
+                    ),
+                )
+            self.reply(404, "GET /next | /state")
+
+        def do_POST(self) -> None:
+            u = urlparse(self.path)
+            q = parse_qs(u.query, keep_blank_values=True)
+            body = self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode(
+                "utf-8", "replace"
+            )
+            name = u.path.strip("/")
+            if name == "quit":
+                self.reply(200, "bye")
+                voice.mouth.stop() if voice.ready.is_set() else None
+                os._exit(0)
+            args = {
+                "say": {"text": body, "interrupt": "interrupt" in q},
+                "listen": {"on": q.get("on", ["1"])[0] not in ("0", "off", "false")},
+                "stop": {},
+            }.get(name)
+            if args is None:
+                return self.reply(404, "POST /say /stop /listen?on=0|1 /quit")
+            try:
+                self.reply(200, voice.call(name, args))
+            except Exception as e:  # noqa: BLE001  the caller reads the reason
+                self.reply(500, f"{type(e).__name__}: {e}")
+
+    server = ThreadingHTTPServer(("127.0.0.1", a.http), Handler)
+    INSTRUCTIONS = ATTACH_RULES.format(port=a.http)  # the ready line carries the rules
+    print(
+        f"voice: http://127.0.0.1:{a.http} (attach mode)", file=sys.stderr, flush=True
+    )
+    threading.Thread(target=voice.start, daemon=True).start()
+    server.serve_forever()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(
         description=__doc__.split("\n\n")[1],
@@ -487,7 +580,14 @@ def main() -> None:
     ap.add_argument("--input", type=Path, help="a WAV instead of the mic (tests)")
     ap.add_argument("--sink", choices=["afplay", "none"], default="afplay")
     ap.add_argument("--min-free", type=int, default=15)
-    serve(ap.parse_args())
+    ap.add_argument(
+        "--http",
+        type=int,
+        metavar="PORT",
+        help="attach to an open session instead of MCP: GET /next for a Monitor, POST /say",
+    )
+    a = ap.parse_args()
+    serve_http(a) if a.http else serve(a)
 
 
 if __name__ == "__main__":

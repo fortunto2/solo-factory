@@ -1,10 +1,10 @@
 ---
 name: solo-talk
-description: Talk with the agent by voice, fully local — one process hears (Silero VAD, smart-turn end-of-turn, GigaAM or Parakeet ASR) and speaks (VoxCPM2, cloned or designed voice) and plugs into Claude Code as a channel, so this session is the brain and can use every tool mid-conversation. Use when user says "поговори со мной голосом", "давай голосом", "голосовой режим", "слушай меня и отвечай", "talk to me", "voice chat", "voice mode, local", or wants to work hands-free with the agent. Do NOT use for listening to a room and summarising it without replying (use /supervox) or for rendering a voice-over file (use /tts).
+description: Talk with the agent by voice, fully local — one process hears (Silero VAD, smart-turn end-of-turn, GigaAM or Parakeet ASR) and speaks (VoxCPM2, cloned or designed voice) and plugs into Claude Code as a channel at start, or attaches to an already open session through Monitor, so the session is the brain and can use every tool mid-conversation. Use when user says "поговори со мной голосом", "давай голосом", "включи голос", "голосовой режим", "слушай меня и отвечай", "talk to me", "voice chat", "voice mode, local", or wants to work hands-free with the agent. Do NOT use for listening to a room and summarising it without replying (use /supervox) or for rendering a voice-over file (use /tts).
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.1.1"
+  version: "1.2.0"
   openclaw:
     emoji: "🗣"
 ---
@@ -31,6 +31,29 @@ not on the research-preview allowlist, so Claude Code shows a confirmation scree
 the flag is ignored with `-p`, so it must be an interactive session. The channel loads its models
 in the background (8 s warm, ~50 s the first time while GigaAM and the voice download), then sends
 a `kind="status"` message and the session greets the person.
+
+A channel can only be loaded when the session starts. To give voice to a session that is
+already open with its context: `/exit`, then `talk.sh -c` in the same directory (or
+`talk.sh --resume <id>`): the same conversation comes back, now with the channel.
+
+## Already in a session: attach without a restart
+
+When the person asks for voice in a session that was started without the channel, run the same
+process in attach mode and listen through Monitor. Nothing to restart, no confirmation screen:
+
+1. Bash, `run_in_background: true`:
+   `uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/talk/scripts/voice_channel.py --http 7799` (add
+   `--ref voice.wav`, `--asr parakeet` as needed).
+2. Monitor, `timeout_ms: 1800000`, command `${CLAUDE_PLUGIN_ROOT}/skills/talk/scripts/next.sh 7799`.
+   Lines arrive as `READY: … Rules: …` and `TURN why=end p=0.97 secs=2.7 lag=0.75 asr_ms=499: text`.
+3. Answer each TURN with `curl -s --data-binary 'text' 127.0.0.1:7799/say` (`?interrupt` first
+   drops what is still queued); `POST /stop`, `POST /listen?on=0`, `POST /quit` to end.
+4. A Monitor lives at most 30 minutes: when it expires, arm it again. Turns wait in the voice
+   process meanwhile, so none are lost. A `VOICE DOWN` line means the process died.
+
+Same rules as the channel: one or two phrases aloud, the rest in the text reply. Measured with a
+file as the mic: ready in 18 s on a loaded machine, both turns delivered, 0.75 s lag on the
+finished one.
 
 How the session should behave is in the channel's MCP `instructions`, delivered automatically:
 answer every turn aloud with `say`, «ещё минуту» during long work, `listen on=false` on «стоп».
