@@ -100,18 +100,23 @@ def chunks(text: str, limit: int = 220) -> list[str]:
     return out
 
 
-def clean(audio, sr: int) -> tuple[np.ndarray, int]:
-    """Low-pass 13-15 kHz (cosine taper), resample to 48 kHz, DeepFilterNet 3 (loaded once)."""
-    from mlx_audio.resample import resample_audio_array
-    from mlx_audio.sts.models.deepfilternet import DeepFilterNetModel
-
+def lowpass(audio, sr: int) -> np.ndarray:
+    """13-15 kHz cosine-taper low-pass in one FFT: removes VoxCPM2's 16-20 kHz hiss, ~free."""
     x = np.asarray(audio, dtype=np.float32).reshape(-1)
     spec = np.fft.rfft(x)
     f = np.fft.rfftfreq(len(x), 1 / sr)
     spec *= 0.5 * (
         1 - np.cos(np.pi * np.clip((15000 - f) / 2000, 0, 1))
     )  # 1 below 13 kHz, 0 above 15
-    x = np.fft.irfft(spec, n=len(x)).astype(np.float32)
+    return np.fft.irfft(spec, n=len(x)).astype(np.float32)
+
+
+def clean(audio, sr: int) -> tuple[np.ndarray, int]:
+    """Low-pass, resample to 48 kHz, DeepFilterNet 3 (loaded once)."""
+    from mlx_audio.resample import resample_audio_array
+    from mlx_audio.sts.models.deepfilternet import DeepFilterNetModel
+
+    x = lowpass(audio, sr)
     if sr != 48000:
         x = np.asarray(resample_audio_array(x, sr, 48000), dtype=np.float32)
     if not _DFN:

@@ -4,7 +4,7 @@ description: Generate speech locally on the Apple GPU — clone a voice from a 1
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.1.0"
   openclaw:
     emoji: "🗣️"
 ---
@@ -36,11 +36,19 @@ uv run $S/tts_mlx.py --describe "calm, deep male voice" --text "No reference nee
 uv run $S/convert_shtorm_ru.py                                           # once, for shtorm-ru
 uv run $S/tts_mlx.py --model shtorm-ru --ref me.wav --text "Он откр+ыл зам+ок." -o ru.wav
 uv run $S/denoise.py ref.m4a                                             # clean a reference first
+uv run $S/speak_server.py --ref me.wav                                   # live: model stays loaded
+curl -s localhost:7788/say --data-binary "Привет. Я слушаю."             # speaks as each sentence is ready
 ```
 
 PEP 723 headers carry the dependencies, so `uv run` needs no venv. `--file` splits on sentences
 (blank line = new chunk), speaks every chunk with the same seed and reference, and joins them with
 0.3 s gaps. A built-in guard stops the process below 15% free memory (`--min-free`).
+
+`speak_server.py` is the live mouth for `/talk`: VoxCPM2 loaded once, the reference encoded once,
+text cut into pieces of at most 80 chars, each played while the next is generated. First audio
+1.0 s after the request (0.7 s with `--steps 6`). Only the low-pass runs by default (`--clean dfn`
+adds DeepFilterNet). It logs every played piece to `~/.supervox/live/speaking.jsonl` for echo
+cancellation.
 
 ## The reference clip decides the result
 
@@ -101,5 +109,6 @@ shared cloud GPU (Kaggle, Colab) to save time.
 ## Not covered yet
 
 mlx-audio 0.6.6 ships ~40 other TTS models (Kokoro, Qwen3-TTS, Chatterbox, Fish, Pocket TTS,
-OmniVoice, Higgs Audio…); `--model <repo id>` loads them, untested here. Real-time speech-to-speech
+OmniVoice, Higgs Audio…); `--model <repo id>` loads them, untested here. A conversation runs as `/talk` (supervox
+ears + this mouth + the agent as the brain). Real-time speech-to-speech
 (Haru-4B, Moshi) needs 10+ GB and froze a 32 GB laptop: run those on a cloud GPU.

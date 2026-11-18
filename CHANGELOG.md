@@ -4,6 +4,11 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.99.0 — 2026-11-18
+
+- `talk` (new): a voice conversation where the session is the brain. supervox transcribes, `scripts/turns.py` follows its stream and live WAV, drops the agent's own voice by word pairs against what was played, and asks smart-turn v3.2 (8 MB ONNX, ~40 ms) whether the person finished; the agent answers through `tts/scripts/speak_server.py`. smart-turn scored 11/12 on labelled real speech from pipecat's test set.
+- `tts` 1.1.0: `scripts/speak_server.py`, a live mouth on localhost (`/say`, `/stop`, `/state`): model and reference encoded once, pieces of at most 80 chars played while the next is generated, first audio 1.0 s after the request. `tts_mlx.lowpass()` split out of `clean()`.
+
 ## 1.98.1 — 2026-11-18
 
 - `reddit`: `scripts/search-posts.sh` reads the Arctic Shift mirror. Reddit's own JSON refuses anonymous clients since 2026 (403, a login redirect on old.reddit, 429 on RSS), so the script lists a subreddit's newest posts (up to 300, any window in hours) and matches the phrase locally; one retry on the mirror's 422 "slow down". Usage is now `<subreddit> [query] [hours]`.
