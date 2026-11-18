@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.102.1 — 2026-11-18
+
+- `talk` 1.3.1: the listening verdict on the local-vs-Cartesia clips (Cartesia sounded cleaner) next to the numbers.
+
 ## 1.102.0 — 2026-11-18
 
 - `tts` 1.2.0: `cartesia_tts.py`, Cartesia Sonic as a mouth for `speak_server.py --model cartesia --cartesia-voice <id>` (stdlib HTTPS, one kept-alive connection, key from `CARTESIA_API_KEY` or the Keychain, language per sentence). The speaker writes wavs with the stdlib, so the API mouth never loads MLX.

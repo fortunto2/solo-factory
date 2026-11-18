@@ -4,7 +4,7 @@ description: Talk with the agent by voice, fully local — one process hears (Si
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.3.0"
+  version: "1.3.1"
   openclaw:
     emoji: "🗣"
 ---
@@ -90,7 +90,8 @@ Same five lines, same cloned voice, M5 with a load average of 5-10:
 | leaves the Mac | nothing | the agent's text |
 | cost | none | Cartesia credits |
 
-Cartesia wins every number; local is for offline work and replies that should not reach a
+By ear (the same clips side by side) Cartesia also sounded cleaner, as if recorded at a higher
+quality. Cartesia wins every number; local is for offline work and replies that should not reach a
 third party. Check Cartesia's data-use setting before personal text goes through it.
 
 ## Measured (Apple M5, 32 GB, other jobs running)
