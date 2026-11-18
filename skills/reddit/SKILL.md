@@ -4,7 +4,7 @@ description: Use when "reddit comment", "engage reddit", "build karma", "post to
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.0.1"
   openclaw:
     emoji: "🤖"
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion, WebSearch, WebFetch, mcp__searxng__web_search, mcp__solograph__kb_search, mcp__solograph__project_info, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_click, mcp__playwright__browser_type, mcp__playwright__browser_wait_for, mcp__playwright__browser_tabs
@@ -53,7 +53,7 @@ If MCP tools not available, use WebSearch/WebFetch as fallback.
 
 ### Scripts (no MCP needed)
 - `scripts/check-karma.sh <username>` — check karma, account age, posting readiness
-- `scripts/search-posts.sh <subreddit> [query] [sort]` — find posts via Reddit JSON API
+- `scripts/search-posts.sh <subreddit> [query] [hours]` — recent posts, best first, via the Arctic Shift mirror (Reddit's own JSON refuses anonymous clients since 2026: 403, login redirect, RSS 429)
 - `scripts/check-post.sh <url>` — read post content + top comments
 
 Use scripts first (faster, no Playwright needed). Fall back to Playwright for posting.

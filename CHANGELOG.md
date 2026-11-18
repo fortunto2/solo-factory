@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.98.1 — 2026-11-18
+
+- `reddit`: `scripts/search-posts.sh` reads the Arctic Shift mirror. Reddit's own JSON refuses anonymous clients since 2026 (403, a login redirect on old.reddit, 429 on RSS), so the script lists a subreddit's newest posts (up to 300, any window in hours) and matches the phrase locally; one retry on the mirror's 422 "slow down". Usage is now `<subreddit> [query] [hours]`.
+
 ## 1.98.0 — 2026-11-18
 
 - New skill `tts` (`/solo:tts`): text to speech on the Apple GPU with voice cloning from a 10-60 s clip, the counterpart of `transcribe`. `scripts/tts_mlx.py` speaks a line, a whole voice-over script (by sentence, one file) or sample lines in several languages with VoxCPM2 4-bit (default), ZONOS3-Mini or a Russian stress-mark VoxCPM2; output is cleaned of model hiss (13-15 kHz low-pass + DeepFilterNet 3), joined in numpy and encoded once, with a free-memory guard. `scripts/denoise.py` cleans a reference clip; `scripts/convert_shtorm_ru.py` builds the Russian model for MLX (ranged resumable download with sha256, AudioVAE via a throwaway torch env, no remote tokenizer code). Gotchas measured: an ffmpeg `anullsrc` + `concat` join turns audio 8-bit, clones copy their reference's room and pauses.
