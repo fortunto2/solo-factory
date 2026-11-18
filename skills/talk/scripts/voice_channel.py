@@ -23,6 +23,7 @@ import collections
 import json
 import os
 import queue
+import re
 import sys
 import threading
 import time
@@ -49,11 +50,14 @@ Mac, transcribed on the device). Each finished spoken turn arrives as
 <channel source="voice" kind="turn" ...>what they said</channel>; kind="status" is a notice
 from the channel itself. They may not be looking at the screen: answer every turn out loud
 with the `say` tool, in the language they spoke.
-Spoken style: first sentence 3-8 words, the rest short; no markdown, lists, code, links or
-emoji; numbers, dates and units as words. Anything long (code, a table, a path) goes in your
-normal text reply, and you say «вывел на экран». For work: say in one sentence what you are
-about to do, do it with tools, then say the result in two or three sentences; if a step takes
-longer than ten seconds, say «ещё минуту». The text is ASR output: read through misheard
+Voice and screen have different jobs. VOICE is the headline: one or two short phrases, about
+fifteen words in all, the answer or the decision only; no preamble, no recap, no lists read
+out; numbers and dates as words; no markdown, code, links or emoji. SCREEN is everything else:
+put details, lists, numbers, code and paths in your normal text reply, as long as useful, and
+end the spoken part with «подробности на экране» when there are any. `say` speaks whole
+sentences up to a character cap and drops the rest, so a long text is cut, not read. For work:
+say in a few words what you will do, do it with tools, then say the result in one phrase; if a
+step takes longer than ten seconds, say «ещё минуту». The text is ASR output: read through misheard
 names; ask by voice only when a risky action is ambiguous. why="hold" means they paused
 mid-thought and went quiet, so the turn may be unfinished. Typed messages in the terminal
 get normal text answers. When they say «стоп», «хватит», «пока» or «конец», say a short
@@ -61,11 +65,14 @@ goodbye and call `listen` with on=false."""
 TOOLS = [
     {
         "name": "say",
-        "description": "Speak text aloud to the person, sentence by sentence; returns at once.",
+        "description": "Speak one or two short phrases aloud; returns at once. Details go on screen.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "text": {"type": "string", "description": "spoken text, plain words"},
+                "text": {
+                    "type": "string",
+                    "description": "plain spoken words, ~15 words; whole sentences past the cap are dropped",
+                },
                 "interrupt": {
                     "type": "boolean",
                     "description": "drop what is still queued first",
@@ -314,13 +321,39 @@ class Voice:
         )
 
     # --- tools ----------------------------------------------------------------------------
+    def headline(self, text: str) -> tuple[str, int]:
+        """Whole sentences up to --max-say characters, and how many characters were dropped."""
+        text = " ".join(text.split())
+        cap = self.a.max_say
+        if cap <= 0 or len(text) <= cap:
+            return text, 0
+        out = ""
+        for sent in re.split(r"(?<=[.!?…])\s+", text):
+            if out and len(out) + 1 + len(sent) > cap:
+                break
+            out = f"{out} {sent}".strip()
+        if (
+            len(out) > cap
+        ):  # one long first sentence: cut at the last comma, else a space
+            cut = out.rfind(", ", 0, cap)
+            cut = cut if cut > cap // 3 else out.rfind(" ", 0, cap)
+            out = out[: cut if cut > 0 else cap].rstrip(" ,;:—-") + "."
+        return out, len(text) - len(out)
+
     def call(self, name: str, args: dict) -> str:
         if not self.ready.is_set():
             return "voice is still loading; try again in a few seconds"
         if name == "say":
             if args.get("interrupt"):
                 self.mouth.stop()
-            return f"speaking ({self.mouth.say(str(args.get('text', '')))} pieces)"
+            spoken, dropped = self.headline(str(args.get("text", "")))
+            n = self.mouth.say(spoken)
+            if dropped:
+                return (
+                    f"spoke {len(spoken)} chars in {n} pieces; {dropped} chars were NOT spoken. "
+                    "Say one or two short phrases and put the rest in your text reply on screen."
+                )
+            return f"speaking ({n} pieces)"
         if name == "stop":
             self.mouth.stop()
             return "stopped"
@@ -419,6 +452,12 @@ def main() -> None:
     )
     ap.add_argument(
         "--ack", default="Угу.", help="said the moment a turn ends; '' for none"
+    )
+    ap.add_argument(
+        "--max-say",
+        type=int,
+        default=120,
+        help="characters spoken per say call, whole sentences; the rest is dropped (0: no cap)",
     )
     ap.add_argument(
         "--pause", type=float, default=0.25, help="silence before smart-turn is asked"

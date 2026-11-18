@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.100.1 — 2026-11-18
+
+- `talk` 1.1.1: voice is the headline, the screen the rest. `say` speaks whole sentences up to `--max-say` (120 characters, ~8 s) and drops the rest, telling the session how much it cut; the channel instructions ask for one or two phrases aloud and the details in the text reply. The first live session read whole paragraphs out.
+
 ## 1.100.0 — 2026-11-18
 
 - `talk` 1.1.0: one process, `scripts/voice_channel.py`, is now the whole voice loop and plugs into Claude Code as a channel (MCP `notifications/claude/channel` in, `say` / `stop` / `listen` tools out): mic, Silero VAD, smart-turn after a 0.25 s pause, GigaAM v3 (Russian) or Parakeet v3 through onnx-asr, VoxCPM2 speech. End of speech to the session in 0.50-0.54 s, against 1.2 s of supervox's pause alone before. `scripts/talk.sh` starts the session with it. Half duplex by default (the mic is deaf while the agent speaks), `--barge-in` with headphones. The supervox route (`turns.py` + Monitor) stays for rooms supervox is already recording.

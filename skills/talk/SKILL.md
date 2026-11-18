@@ -4,7 +4,7 @@ description: Talk with the agent by voice, fully local — one process hears (Si
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.1.0"
+  version: "1.1.1"
   openclaw:
     emoji: "🗣"
 ---
@@ -33,8 +33,12 @@ in the background (8 s warm, ~50 s the first time while GigaAM and the voice dow
 a `kind="status"` message and the session greets the person.
 
 How the session should behave is in the channel's MCP `instructions`, delivered automatically:
-answer every turn aloud with `say`, short spoken sentences, long material on screen, «ещё минуту»
-during long work, `listen on=false` on «стоп». Tools: `say(text, interrupt?)`, `stop()`,
+answer every turn aloud with `say`, «ещё минуту» during long work, `listen on=false` on «стоп».
+Voice is the headline, the screen holds the rest: one or two phrases (~15 words) spoken, and the
+details, lists and numbers in the normal text reply. The instructions alone did not hold this (the
+first live session read whole paragraphs out), so `say` also enforces it: whole sentences up to
+`--max-say` characters (120, about eight seconds) are spoken, the rest is dropped, and the tool
+result tells the session how much was cut. Tools: `say(text, interrupt?)`, `stop()`,
 `listen(on)`. A turn arrives as `<channel source="voice" kind="turn" why="end|hold|long" p=… secs=…
 lag=… asr_ms=…>text</channel>`; `why="hold"` means the person paused mid-thought and went quiet.
 
