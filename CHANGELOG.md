@@ -4,6 +4,14 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.98.0 — 2026-11-18
+
+- New skill `tts` (`/solo:tts`): text to speech on the Apple GPU with voice cloning from a 10-60 s clip, the counterpart of `transcribe`. `scripts/tts_mlx.py` speaks a line, a whole voice-over script (by sentence, one file) or sample lines in several languages with VoxCPM2 4-bit (default), ZONOS3-Mini or a Russian stress-mark VoxCPM2; output is cleaned of model hiss (13-15 kHz low-pass + DeepFilterNet 3), joined in numpy and encoded once, with a free-memory guard. `scripts/denoise.py` cleans a reference clip; `scripts/convert_shtorm_ru.py` builds the Russian model for MLX (ranged resumable download with sha256, AudioVAE via a throwaway torch env, no remote tokenizer code). Gotchas measured: an ffmpeg `anullsrc` + `concat` join turns audio 8-bit, clones copy their reference's room and pauses.
+
+## 1.97.0 — 2026-11-17
+
+- New skill `macos-release`: Mac app outside the App Store, Developer ID signing, DMG, notarytool, staple, verify, Homebrew cask; `scripts/release-dmg.sh` prints the publish commands instead of running them.
+
 ## 1.96.0 — 2026-11-15
 
 - `swarm` is now `deep-research` (`/solo:deep-research`). Any question, not only a startup idea: three researchers on angles picked for the question, plain subagents by default (agent teams optional), every claim with its source and date, and a check pass where the lead opens the sources the conclusion rests on and drops what they do not hold. The old name clashed with the swarm coding tool (github.com/fortunto2/swarm). Installed `solo-swarm` copies elsewhere (npx skills, ClawHub) stay until removed there.
