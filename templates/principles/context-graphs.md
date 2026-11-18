@@ -4,7 +4,7 @@ title: "Context Graphs — Agent Trajectories and Organizational Memory"
 description: "Infrastructure layer that turns AI agent decision traces into compounding assets through a capture-retrieve-apply loop."
 created: 2026-02-07
 tags: [context-graphs, agents, methodology, memory, decision-traces]
-course_module: 5
+course_module: 3
 course_order: 3
 publish: true
 feed: true

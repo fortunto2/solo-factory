@@ -5,8 +5,8 @@ description: "Design environments where AI agents do reliable work: context engi
 created: 2026-02-07
 updated: 2026-10-27
 tags: [harness, agents, methodology, context-engineering, ai]
-course_module: 4
-course_order: 1
+course_module: 2
+course_order: 3
 publish: true
 feed: true
 source_path: "1-methodology/harness-engineering.md"

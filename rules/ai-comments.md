@@ -7,4 +7,4 @@ Use special prefixes for AI agent memory and coordination:
 - `# AI-ASK:` — question needing human answer
 - `# AI-PATTERN:` — common pattern worth documenting
 
-Before modifying a file, search: `grep -r "# AI-" file`. Keep concise (one line). Remove AI-TODO after completing, convert AI-ASK to AI-NOTE after answered.
+Before modifying a file, search: `grep -rnE "AI-(NOTE|TODO|ASK|PATTERN):" file`. Keep concise (one line). Remove AI-TODO after completing, convert AI-ASK to AI-NOTE after answered.
