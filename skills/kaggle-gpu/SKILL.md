@@ -65,7 +65,7 @@ $S jobs/train NvidiaTeslaT4 --dry  # build the kernel, push nothing
 ```
 
 The script inlines every file of the folder (except `out/`) into one generated kernel
-(cap 5 MB, `KAGGLE_INLINE_MAX`), pushes it as **private**, polls the status every 30 s,
+(cap 800 KB, `KAGGLE_INLINE_MAX`), pushes it as **private**, polls the status every 30 s,
 downloads the output to `<folder>/out/<accel>/` with `run.log`, and exits non-zero if the
 run failed. Kernel slug: `<KAGGLE_PREFIX:-run>-<folder>-<accel>`; pushing again makes a new
 version of the same kernel.
@@ -96,6 +96,10 @@ exercised by this skill yet: check `ls /kaggle/input` in the first chained run.)
 - Status by hand: `kaggle kernels status <user>/<slug>`; logs and files: `kaggle kernels output <user>/<slug> -p dir`.
 
 ## Gotchas
+
+- Kernel source size: a push with 1.1 MB of inlined files (1.5 MB `kernel.py` after base64) got a bare
+  `400 Bad Request` from `SaveKernel`; 0.28 MB passed (2026-11-18). The boundary between is not measured,
+  hence the 800 KB default. Audio inputs: OGG Vorbis is ~4x smaller than FLAC; bigger data goes in a dataset.
 
 - TPU v5e-8 is not a resource to plan on: the probe sat in `QUEUED` for 17+ hours and never ran. Use it only for work that can wait days; GPU runs start within a minute.
 - A status poller on a flaky network (phone hotspot) dies on an SSL error, and `*error*` in the case pattern reads it as a failed kernel. Re-check `kaggle kernels status` by hand before concluding.

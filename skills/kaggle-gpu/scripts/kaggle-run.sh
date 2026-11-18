@@ -15,7 +15,8 @@
 #      KAGGLE_DATASETS=a/b,c/d    dataset_sources
 #      KAGGLE_KERNELS=me/prev     kernel_sources: resume from an earlier run's checkpoints
 #      KAGGLE_TIMEOUT=SECONDS     cap the run
-#      KAGGLE_INLINE_MAX=5000000  refuse to inline more bytes than this
+#      KAGGLE_INLINE_MAX=800000   refuse to inline more bytes than this (Kaggle answers a bare
+#                                 400 Bad Request to a kernel with 1.1 MB inlined; 0.28 MB passed)
 #      KAGGLE_BUILD=DIR           where the kernel is generated (default: DIR/out/.kernel)
 # Login once: uv tool install kaggle && kaggle auth login (browser).
 
@@ -44,7 +45,7 @@ src, build = pathlib.Path(src), pathlib.Path(build)
 paths = [p for p in sorted(src.rglob("*"))
          if p.is_file() and "out" not in p.relative_to(src).parts]
 size = sum(p.stat().st_size for p in paths)
-limit = int(os.environ.get("KAGGLE_INLINE_MAX", 5_000_000))
+limit = int(os.environ.get("KAGGLE_INLINE_MAX", 800_000))
 if size > limit:
     sys.exit(f"{size} bytes to inline > {limit}: put the data in a dataset (KAGGLE_DATASETS)")
 files = {str(p.relative_to(src)): base64.b64encode(p.read_bytes()).decode() for p in paths}
@@ -76,7 +77,7 @@ EOF
 push=(kaggle kernels push -p "$BUILD")
 [ "$ACCEL" = none ] || push+=(--accelerator "$ACCEL")
 [ -z "${KAGGLE_TIMEOUT:-}" ] || push+=(-t "$KAGGLE_TIMEOUT")
-"${push[@]}"
+"${push[@]}" || { echo "push failed: a bare 400 Bad Request usually means the kernel is too big (inlined $(wc -c < "$BUILD/kernel.py") bytes of source); move data to a dataset (KAGGLE_DATASETS)" >&2; exit 1; }
 
 rc=0
 while :; do
