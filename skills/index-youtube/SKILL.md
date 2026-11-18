@@ -39,11 +39,12 @@ Check which mode is available:
 If the MCP tool `source_search` is available, use solograph for indexing and search.
 
 **Setup (if not yet installed):**
+The MCP server is one Rust binary (https://github.com/fortunto2/solograph#install). The
+scrapers that write the sources index are a separate Python CLI:
+
 ```bash
-# Install solograph
-pip install solograph
-# or
-uvx solograph
+git clone https://github.com/fortunto2/solograph && cd solograph
+uv tool install --editable .     # gives solograph-cli
 ```
 
 **Indexing via solograph CLI:**
@@ -151,4 +152,4 @@ Report to the user:
 
 ### solograph-cli not found
 **Cause:** solograph not installed or not on PATH.
-**Fix:** Install with `pip install solograph` or `uvx solograph`. Check `which solograph-cli`.
+**Fix:** `uv tool install --editable .` in a solograph clone. Check `which solograph-cli`.

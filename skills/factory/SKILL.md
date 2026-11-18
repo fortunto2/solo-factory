@@ -26,13 +26,16 @@ One-command setup for the entire Solo Factory startup toolkit.
 | Promotion | seo-audit, content-gen, community-outreach, video-promo, landing-gen, metrics-track |
 | Utilities | init, audit, retro, pipeline, humanize, index-youtube, you2idea-extract |
 
-**MCP server** (optional) — [solograph](https://github.com/fortunto2/solograph) provides 15 tools:
+**MCP server** (optional) — [solograph](https://github.com/fortunto2/solograph), one binary, provides 5 read tools:
 - `kb_search` — full-text (BM25) search over the knowledge base
 - `session_search` — search past Claude Code sessions
 - `symbol_search` — definitions across every project
 - `project_info` — the projects, one project's make-up, who uses a package
 - `source_search` — indexed sources; `related` for videos sharing topics, no query for the sources and topics
-- `web_search` — web search
+
+When the knowledge base's `.solograph.yaml` has a `brain:` section it adds two: `brain_start`
+(an orient page: the map of the memory plus today's state) and `capture` (an agent writes one
+append-only note back: a decision, finding or handoff). Web search is a separate MCP server.
 
 ## Steps
 
@@ -97,17 +100,19 @@ One-command setup for the entire Solo Factory startup toolkit.
 
    Ask: "Set up solograph MCP for code intelligence and KB search?"
 
-   **4a. Check uv/uvx:**
+   **4a. Install the binary** (skip if `~/.solo/bin/solograph --version` works):
    ```bash
-   command -v uvx >/dev/null 2>&1 && echo "uvx: ok" || echo "uvx: missing"
+   curl -fL -o ~/.solo/bin/solograph --create-dirs \
+     https://github.com/fortunto2/solograph/releases/latest/download/solograph-macos-arm64   # or solograph-linux-x86_64
+   chmod +x ~/.solo/bin/solograph
    ```
-   If missing: "Install uv first: https://docs.astral.sh/uv/"
+   Or from source: `cargo install --git https://github.com/fortunto2/solograph solograph --root ~/.solo`.
 
    **4b. Configure MCP:**
 
    For OpenClaw (via mcporter):
    ```bash
-   mcporter config add solograph --stdio "uvx solograph"
+   mcporter config add solograph --stdio "$HOME/.solo/bin/solograph"
    ```
 
    For Claude Code (via .mcp.json):
@@ -115,8 +120,7 @@ One-command setup for the entire Solo Factory startup toolkit.
    {
      "mcpServers": {
        "solograph": {
-         "command": "uvx",
-         "args": ["solograph"]
+         "command": "/Users/<you>/.solo/bin/solograph"
        }
      }
    }
@@ -124,7 +128,8 @@ One-command setup for the entire Solo Factory startup toolkit.
 
    **4c. Verify:**
    ```bash
-   uvx solograph --help
+   ~/.solo/bin/solograph --version
+   ~/.solo/bin/solograph scan   # builds the project registry and the symbol index
    ```
 
 5. **Report results:**
@@ -163,8 +168,8 @@ One-command setup for the entire Solo Factory startup toolkit.
 **Cause:** Not all skills published to ClawHub yet.
 **Fix:** Use `npx skills add fortunto2/solo-factory --all` instead.
 
-### uvx: command not found (for MCP)
-**Fix:** `curl -LsSf https://astral.sh/uv/install.sh | sh`
+### solograph: command not found (for MCP)
+**Fix:** download the binary (step 4a) into `~/.solo/bin/`, or `cargo install` it from source.
 
 ### MCP tools not working
-**Fix:** Test with `uvx solograph --help`. Check `.mcp.json` or mcporter config.
+**Fix:** Test with `~/.solo/bin/solograph --version`. Check `.mcp.json` or mcporter config: the command must be the binary's absolute path.

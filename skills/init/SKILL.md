@@ -102,9 +102,9 @@ See `references/generation-rules.md` for:
 
 ### 10. Verify Solograph MCP (optional check)
 
-- Try running `uvx solograph --help` or check if MCP tools are available
-- If available: "Solograph detected — code graph ready"
-- If not: "Tip: install Solograph for code search across projects (`pip install solograph` or `uvx solograph`)"
+- Try `~/.solo/bin/solograph --version` (or `command -v solograph`), or check if MCP tools are available
+- If available: "Solograph detected: search over code, sessions and notes ready"
+- If not: "Tip: install Solograph for code search across projects (one binary: https://github.com/fortunto2/solograph#install)"
 
 ### 11. Summary
 
