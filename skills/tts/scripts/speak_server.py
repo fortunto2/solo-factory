@@ -109,6 +109,9 @@ class Speaker:
         self.proc: subprocess.Popen | None = None
         self.tmp = Path(tempfile.mkdtemp(prefix="speak-"))
         self.n = 0
+        self.playing = False
+        self.last_end = 0.0  # when the last piece stopped playing: a listener's echo tail starts here
+        self.ack_wav: Path | None = None
 
     # --- generation thread -------------------------------------------------------------
     def synth(self, model, text: str, ref: str | None, instruct: str | None = None):
@@ -164,6 +167,12 @@ class Speaker:
         self.synth(
             model, "Проверка." if self.a.design_lang == "ru" else "Check.", self.ref
         )  # warm-up
+        ack = getattr(self.a, "ack", None)
+        if ack:  # pre-rendered, so it plays the instant a turn ends
+            audio, sr = self.synth(model, ack, self.ref)
+            self.ack_wav = self.tmp / "keep-ack.wav"
+            write(str(self.ack_wav), audio, sr)
+            self.ack_dur = len(audio) / sr
         print(
             f"ready: {self.a.model} in {time.perf_counter() - t0:.1f} s, voice {self.ref or 'model default'}, "
             f"http://127.0.0.1:{self.a.port}",
@@ -211,13 +220,17 @@ class Speaker:
                         )
                         + "\n"
                     )
+                self.playing = True
                 if self.a.sink == "afplay":
                     self.proc = subprocess.Popen(["afplay", str(wav)])
                     self.proc.wait()
                     self.proc = None
                 else:  # "none": timing only, nothing is played
                     time.sleep(dur)
-            wav.unlink(missing_ok=True)
+                self.playing = False
+                self.last_end = time.time()
+            if not wav.name.startswith("keep-"):
+                wav.unlink(missing_ok=True)
 
     # --- API -----------------------------------------------------------------------------
     def say(self, text: str) -> int:
@@ -226,6 +239,17 @@ class Speaker:
         for i, p in enumerate(parts):
             self.gen_q.put((self.epoch, p, now, i == 0))
         return len(parts)
+
+    def ack(self) -> None:
+        """Play the pre-rendered acknowledgement (no-op without --ack)."""
+        if self.ack_wav:
+            self.play_q.put(
+                (self.epoch, self.ack_wav, self.ack_dur, self.a.ack, time.time(), False)
+            )
+
+    def busy(self, tail: float = 0.0) -> bool:
+        """Speaking, about to speak, or stopped less than `tail` seconds ago."""
+        return self.state()["speaking"] or time.time() - self.last_end < tail
 
     def stop(self) -> None:
         self.epoch += 1
@@ -241,7 +265,7 @@ class Speaker:
     def state(self) -> dict:
         busy = (
             self.generating
-            or self.proc is not None
+            or self.playing
             or not self.gen_q.empty()
             or not self.play_q.empty()
         )
@@ -319,6 +343,9 @@ def main() -> None:
     )
     ap.add_argument("--steps", type=int, default=10, help="voxcpm2 diffusion steps")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument(
+        "--ack", help="a short word pre-rendered at start (e.g. «Угу.»), for listeners"
+    )
     ap.add_argument("--port", type=int, default=7788)
     ap.add_argument(
         "--sink",

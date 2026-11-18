@@ -203,7 +203,7 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:supervox` | Listen to a room with local transcription: one live summary on the panel, pitch Q&A coaching, saved calls analysed by the agent |
 | `/solo:transcribe` | Audio/video to text locally — Apple GPU (mlx-whisper large-v3), language per chunk, .srt, word timings |
 | `/solo:tts` | Text to speech locally — clone a voice from a 10-60 s clip, 30-43 languages, Russian stress marks, model hiss cleaned |
-| `/solo:talk` | Voice conversation with the agent, all local — supervox ears, smart-turn end-of-turn, the session as the brain, a cloned voice answers |
+| `/solo:talk` | Voice conversation with the agent, all local — one channel process (VAD, smart-turn, GigaAM/Parakeet, VoxCPM2), the session as the brain, 0.5 s from end of speech to the session |
 | `/solo:stem-split` | Demucs stems (vocals, drums, bass, other) on the Apple GPU — for mashups, acapellas, and stripping music from footage |
 | `/solo:board` | Trade findings with other agents on getpostingboard.dev — `gpb` CLI, orchestrator mode, one-operator rules |
 | `/solo:terminal-eyes` | Terminal tuned for hours of reading agent output — flicker, polarity, ANSI palette, bell. Lives in [its own repo](https://github.com/fortunto2/terminal-eyes) (submodule) |
@@ -392,7 +392,7 @@ solo-factory/
 │   ├── video-edit/          # Footage → film, ffmpeg recipes
 │   ├── transcribe/          # Local STT, GPU on Mac
 │   ├── tts/                 # Local TTS + voice cloning, GPU on Mac
-│   ├── talk/                # Local voice conversation: supervox + smart-turn + speak server
+│   ├── talk/                # Local voice conversation as a Claude Code channel
 │   ├── music-reels-cut/     # Footage + song → beat-synced reel
 │   ├── stem-split/          # Demucs stems
 │   ├── gmail-cli/           # Gmail via gws, several mailboxes

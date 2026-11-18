@@ -4,7 +4,7 @@ description: Generate speech locally on the Apple GPU — clone a voice from a 1
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.1.0"
+  version: "1.1.1"
   openclaw:
     emoji: "🗣️"
 ---

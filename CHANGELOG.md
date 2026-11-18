@@ -4,6 +4,11 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.100.0 — 2026-11-18
+
+- `talk` 1.1.0: one process, `scripts/voice_channel.py`, is now the whole voice loop and plugs into Claude Code as a channel (MCP `notifications/claude/channel` in, `say` / `stop` / `listen` tools out): mic, Silero VAD, smart-turn after a 0.25 s pause, GigaAM v3 (Russian) or Parakeet v3 through onnx-asr, VoxCPM2 speech. End of speech to the session in 0.50-0.54 s, against 1.2 s of supervox's pause alone before. `scripts/talk.sh` starts the session with it. Half duplex by default (the mic is deaf while the agent speaks), `--barge-in` with headphones. The supervox route (`turns.py` + Monitor) stays for rooms supervox is already recording.
+- `tts` 1.1.1: the Speaker pre-renders an acknowledgement (`--ack`) and reports `busy(tail)`, so a listener in the same process can ignore its echo.
+
 ## 1.99.0 — 2026-11-18
 
 - `talk` (new): a voice conversation where the session is the brain. supervox transcribes, `scripts/turns.py` follows its stream and live WAV, drops the agent's own voice by word pairs against what was played, and asks smart-turn v3.2 (8 MB ONNX, ~40 ms) whether the person finished; the agent answers through `tts/scripts/speak_server.py`. smart-turn scored 11/12 on labelled real speech from pipecat's test set.
