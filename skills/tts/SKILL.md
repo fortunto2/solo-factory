@@ -4,7 +4,7 @@ description: Generate speech locally on the Apple GPU — clone a voice from a 1
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.1.1"
+  version: "1.2.0"
   openclaw:
     emoji: "🗣️"
 ---
@@ -23,7 +23,13 @@ is also how to check the result (read the clip back and compare with the script)
 | `zonos3`, mlx-community/ZONOS3-Mini | 1.4 GB, 2.6-3.8 GB | RTF 0.17-0.29 | Fast drafts, 43 languages, reference in the same language. Output is band-limited to ~8 kHz, and it copies the pauses of its reference |
 | `shtorm-ru`, Shtorm-VoxCPM2-RU (built once) | 2.3 GB, 5.5 GB | same as voxcpm2 | Russian where stress matters: `зам+ок` / `з+амок`, `м+ука` / `мук+и` |
 
-Apache-2.0 all three. RTF = seconds of compute per second of speech; with other ML jobs on the
+One API option sits next to them: `--model cartesia --cartesia-voice <id>` (Cartesia Sonic 3.6, a
+voice cloned or picked at play.cartesia.ai). Only the text goes out; the key comes from
+`CARTESIA_API_KEY` or the macOS Keychain item `cartesia-api-key` (`CARTESIA_KEYCHAIN_SERVICE` to
+rename it), and the language is guessed per sentence (`--lang` to pin it). Measured on a loaded M5:
+first bytes 0.29-0.79 s, a whole sentence 0.37-1.25 s, RTF 0.17-0.61, no model in memory.
+
+Apache-2.0 all three local ones. RTF = seconds of compute per second of speech; with other ML jobs on the
 machine it rose to 1.2-1.9 and once to 6 (swap). Under 32 GB, run one model at a time.
 
 ```bash
@@ -37,6 +43,7 @@ uv run $S/convert_shtorm_ru.py                                           # once,
 uv run $S/tts_mlx.py --model shtorm-ru --ref me.wav --text "Он откр+ыл зам+ок." -o ru.wav
 uv run $S/denoise.py ref.m4a                                             # clean a reference first
 uv run $S/speak_server.py --ref me.wav                                   # live: model stays loaded
+uv run $S/speak_server.py --model cartesia --cartesia-voice <id>         # live, Cartesia API as the mouth
 curl -s localhost:7788/say --data-binary "Привет. Я слушаю."             # speaks as each sentence is ready
 ```
 
@@ -109,6 +116,6 @@ shared cloud GPU (Kaggle, Colab) to save time.
 ## Not covered yet
 
 mlx-audio 0.6.6 ships ~40 other TTS models (Kokoro, Qwen3-TTS, Chatterbox, Fish, Pocket TTS,
-OmniVoice, Higgs Audio…); `--model <repo id>` loads them, untested here. A conversation runs as `/talk` (supervox
-ears + this mouth + the agent as the brain). Real-time speech-to-speech
+OmniVoice, Higgs Audio…); `--model <repo id>` loads them, untested here. A conversation runs as `/talk` (one
+channel process: ears, this mouth, the agent as the brain). Real-time speech-to-speech
 (Haru-4B, Moshi) needs 10+ GB and froze a 32 GB laptop: run those on a cloud GPU.

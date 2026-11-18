@@ -192,6 +192,8 @@ class Voice:
             sink=self.a.sink,
             ack=self.a.ack or None,
             port=0,
+            cartesia_voice=self.a.cartesia_voice,
+            cartesia_model=self.a.cartesia_model,
         )
         self.mouth = Speaker(sp_args)
         threading.Thread(target=self.mouth.gen_loop, daemon=True).start()
@@ -532,8 +534,12 @@ def main() -> None:
         "--quant", default="int8", help="ASR weights: int8 or '' for full precision"
     )
     ap.add_argument(
-        "--tts", default="voxcpm2", help="voxcpm2, shtorm-ru, zonos3 or a repo id"
+        "--tts",
+        default="voxcpm2",
+        help="voxcpm2, shtorm-ru, zonos3, a repo id, or cartesia (API: only the agent's text leaves the Mac)",
     )
+    ap.add_argument("--cartesia-voice", help="--tts cartesia: voice id")
+    ap.add_argument("--cartesia-model", default="sonic-3.6")
     ap.add_argument("--ref", type=Path, help="voice to clone, 10-60 s of one speaker")
     ap.add_argument(
         "--describe",

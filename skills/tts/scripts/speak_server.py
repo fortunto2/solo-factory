@@ -68,6 +68,18 @@ def pieces(text: str, first_max: int = 60, max_len: int = 80) -> list[str]:
     return out
 
 
+def write_wav(path: Path, audio, sr: int) -> None:
+    """16-bit mono wav with the stdlib, so the Cartesia mouth never imports MLX."""
+    import wave
+
+    x = np.clip(np.asarray(audio, np.float32).reshape(-1), -1.0, 1.0)
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(int(sr))
+        w.writeframes((x * 32767).astype("<i2").tobytes())
+
+
 def cache_reference(model) -> None:
     """VoxCPM2 VAE-encodes its reference clip on every call (~1 s); the clip never changes here."""
     enc = getattr(model, "_encode_wav", None)
@@ -151,12 +163,10 @@ class Speaker:
             print(f"designed voice saved: {path}", flush=True)
         return str(path)
 
-    def gen_loop(self) -> None:
-        from mlx_audio.audio_io import write
+    def _mlx_engine(self):
         from mlx_audio.tts import load
 
         self.repo = MODELS.get(self.a.model, self.a.model)
-        t0 = time.perf_counter()
         model = load(self.repo)
         cache_reference(model)
         self.ref = (
@@ -164,14 +174,32 @@ class Speaker:
             if self.a.ref
             else (self.design_ref(model) if self.a.describe else None)
         )
-        self.synth(
-            model, "Проверка." if self.a.design_lang == "ru" else "Check.", self.ref
-        )  # warm-up
+        return lambda text: self.synth(model, text, self.ref)
+
+    def _cartesia_engine(self):
+        from cartesia_tts import Cartesia
+
+        self.repo = "cartesia"
+        voice = getattr(self.a, "cartesia_voice", None)
+        eng = Cartesia(
+            voice, getattr(self.a, "cartesia_model", "sonic-3.6"), self.a.lang
+        )
+        self.ref = f"cartesia:{getattr(self.a, 'cartesia_model', 'sonic-3.6')}:{voice}"
+        return eng.synth
+
+    def gen_loop(self) -> None:
+        t0 = time.perf_counter()
+        engine = (
+            self._cartesia_engine()
+            if self.a.model == "cartesia"
+            else self._mlx_engine()
+        )
+        engine("Проверка." if self.a.design_lang == "ru" else "Check.")  # warm-up
         ack = getattr(self.a, "ack", None)
         if ack:  # pre-rendered, so it plays the instant a turn ends
-            audio, sr = self.synth(model, ack, self.ref)
+            audio, sr = engine(ack)
             self.ack_wav = self.tmp / "keep-ack.wav"
-            write(str(self.ack_wav), audio, sr)
+            write_wav(self.ack_wav, audio, sr)
             self.ack_dur = len(audio) / sr
         print(
             f"ready: {self.a.model} in {time.perf_counter() - t0:.1f} s, voice {self.ref or 'model default'}, "
@@ -185,14 +213,19 @@ class Speaker:
                 continue
             self.generating = True
             t1 = time.perf_counter()
-            audio, sr = self.synth(model, text, self.ref)
+            try:
+                audio, sr = engine(text)
+            except Exception as e:  # noqa: BLE001  an API error must not kill the mouth
+                print(f"  synth failed: {type(e).__name__}: {e}", flush=True)
+                self.generating = False
+                continue
             took = time.perf_counter() - t1
             self.generating = False
             if epoch != self.epoch:
                 continue
             self.n += 1
             wav = self.tmp / f"{self.n:05d}.wav"
-            write(str(wav), audio, sr)
+            write_wav(wav, audio, sr)
             dur = len(audio) / sr
             print(
                 f"  gen {len(text):3d} chars -> {dur:4.1f} s in {took:4.1f} s",
@@ -321,8 +354,12 @@ def main() -> None:
     ap.add_argument(
         "--model",
         default="voxcpm2",
-        help=f"{', '.join(MODELS)}, or a repo id / local path",
+        help=f"{', '.join(MODELS)}, cartesia (API, needs --cartesia-voice), or a repo id / local path",
     )
+    ap.add_argument(
+        "--cartesia-voice", help="cartesia: voice id (play.cartesia.ai/voices)"
+    )
+    ap.add_argument("--cartesia-model", default="sonic-3.6")
     ap.add_argument(
         "--ref", type=Path, help="voice to clone: 10-60 s of one clean speaker"
     )
@@ -334,7 +371,10 @@ def main() -> None:
         default="ru",
         help="language of the designed reference clip: ru or en",
     )
-    ap.add_argument("--lang", help="zonos3 only: language code (default en)")
+    ap.add_argument(
+        "--lang",
+        help="zonos3: language code (default en); cartesia: fixed language (default: per sentence)",
+    )
     ap.add_argument(
         "--clean",
         choices=["lowpass", "dfn", "none"],

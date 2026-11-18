@@ -4,6 +4,11 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.102.0 — 2026-11-18
+
+- `tts` 1.2.0: `cartesia_tts.py`, Cartesia Sonic as a mouth for `speak_server.py --model cartesia --cartesia-voice <id>` (stdlib HTTPS, one kept-alive connection, key from `CARTESIA_API_KEY` or the Keychain, language per sentence). The speaker writes wavs with the stdlib, so the API mouth never loads MLX.
+- `talk` 1.3.0: `--tts cartesia`. Measured against local VoxCPM2 on the same five lines and cloned voice, on a loaded M5: first audio 0.66 s against 1.0-1.6 s idle (RTF 2.0-2.6 under that load), ready in 6 s, 1.9 GB for the whole process, 4 of 4 lines read back verbatim against 2 of 4. ASR stays local.
+
 ## 1.101.0 — 2026-11-18
 
 - `talk` 1.2.0: attach mode for a session that is already open. A channel loads only at start, so `voice_channel.py --http 7799` runs the same loop as a local HTTP service: turns queue for `GET /next`, which `scripts/next.sh` long-polls as a Monitor source (re-arming every 30 minutes loses nothing), and the session answers with `POST /say`. Measured with a file as the mic: ready in 18 s, both turns delivered, 0.75 s lag. `talk.sh -c` brings back the current conversation with the channel when a restart is fine.
