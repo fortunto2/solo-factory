@@ -42,7 +42,17 @@ those and the folders, in time order.
 
 ## Live loop
 
-Run it in the **main session** with the Monitor tool on `tail -n +1 -F ~/.supervox/live/current.jsonl`
+**Preferred: the `supervox` channel.** A session started with
+`${CLAUDE_PLUGIN_ROOT}/skills/talk/scripts/talk.sh --supervox` (voice and transcript in one session;
+`--supervox` is the only new flag) gets every line as
+`<channel source="supervox" kind="transcript" speaker=S1 t=23>text</channel>`, plus `kind="start"` and
+`kind="stop"` events. No Monitor needed. `scripts/supervox_channel.py` follows `current.jsonl` like
+`tail -F` (a new recording is read from its first line; attaching mid-recording skips the past, add
+`--from-start` to replay), drops `AGENT` lines, heartbeats and summaries. A channel loads only at session
+start: to add it to a running session, `talk.sh --supervox --resume <id>`. Same summary rules as below;
+a `stop` event means say so at once. Test: `SUPERVOX_LIVE=/tmp/x.jsonl` or `--file`, pipe JSON-RPC in.
+
+**Fallback (session already running, no restart): Monitor.** Run it in the **main session** with the Monitor tool on `tail -n +1 -F ~/.supervox/live/current.jsonl`
 (`-F` reopens the link when the next recording swaps it),
 not in a subagent: a subagent's mailbox lags minutes behind the room, runs out of budget, and repeats
 its final report. Each batch of new lines:
