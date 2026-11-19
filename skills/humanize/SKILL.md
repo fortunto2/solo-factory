@@ -144,6 +144,29 @@ surprising or subtle. If the prose already shows it, delete the label.
 **Protect the specific fact.** Never smooth a detail into generic importance.
 "significantly improves productivity" → "cut review time from 30 minutes to 8."
 
+### 8. Plain technical English (docs, READMEs, SKILL.md files, step lists)
+
+Applies to instructional and technical text only, never to marketing copy or voice-driven prose.
+Short AI sentences still hide the actor and pack three ideas into one. Style follows ASD-STE100
+(Simplified Technical English), applied at about 80%: structure strict, vocabulary natural.
+
+| Rule | Before | After |
+|------|--------|-------|
+| One action per step, one idea per sentence | "Open the config, set the key, and restart, which reloads the cache." | "1. Open the config. 2. Set the key. 3. Restart the server. This reloads the cache." |
+| Length: steps 20 words max, descriptions 25 | A 40-word sentence with two clauses | Split at the clause. A unit, name or identifier counts as one word. |
+| Condition first, then the command | "Run `fsck` if the disk fails to mount." | "If the disk fails to mount, run `fsck`." |
+| Warning before the step it protects | "Delete the volume. This cannot be undone." | "This cannot be undone. Delete the volume." |
+| Name the actor, use the imperative | "The token should be rotated." | "Rotate the token." / "The gateway validates the token." |
+| Verb, not noun form | "make a decision", "perform validation" | "decide", "validate" |
+| Noun stacks: 3 words max | "session token expiry policy config" | "the config for the session token expiry policy" |
+| Keep articles and "that" | "Check config before start." | "Check the config before you start." |
+| No semicolons | "Build first; deploy after." | "Build first. Then deploy." |
+
+**Rule:** Do not chop reasoning into fragments. A few words over a limit is fine when a split
+would lose the meaning. Vary sentence length: a row of eight-word sentences is its own tell.
+Keep a modal ("may", "should") when it carries real uncertainty; never turn "might fail" into "fails".
+Adapted from the public ASD-STE100 rules and from [ste80-humanizer](https://github.com/Dodaios/ste80-humanizer) (MIT).
+
 ## Process
 
 1. **Read the input** — file path or pasted text.
