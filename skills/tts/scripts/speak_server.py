@@ -24,6 +24,7 @@ import argparse
 import hashlib
 import json
 import queue
+import random
 import re
 import subprocess
 import sys
@@ -123,7 +124,8 @@ class Speaker:
         self.n = 0
         self.playing = False
         self.last_end = 0.0  # when the last piece stopped playing: a listener's echo tail starts here
-        self.ack_wav: Path | None = None
+        self.acks: list[tuple[Path, float, str]] = []  # (wav, seconds, text)
+        self.last_ack = -1
 
     # --- generation thread -------------------------------------------------------------
     def synth(self, model, text: str, ref: str | None, instruct: str | None = None):
@@ -195,12 +197,13 @@ class Speaker:
             else self._mlx_engine()
         )
         engine("Проверка." if self.a.design_lang == "ru" else "Check.")  # warm-up
-        ack = getattr(self.a, "ack", None)
-        if ack:  # pre-rendered, so it plays the instant a turn ends
-            audio, sr = engine(ack)
-            self.ack_wav = self.tmp / "keep-ack.wav"
-            write_wav(self.ack_wav, audio, sr)
-            self.ack_dur = len(audio) / sr
+        ack = getattr(self.a, "ack", None) or ""
+        # pre-rendered, so one plays the instant a turn ends; "Угу.|Ага.|Так." = several, picked at random
+        for i, word in enumerate(w.strip() for w in ack.split("|") if w.strip()):
+            audio, sr = engine(word)
+            wav = self.tmp / f"keep-ack-{i}.wav"
+            write_wav(wav, audio, sr)
+            self.acks.append((wav, len(audio) / sr, word))
         print(
             f"ready: {self.a.model} in {time.perf_counter() - t0:.1f} s, voice {self.ref or 'model default'}, "
             f"http://127.0.0.1:{self.a.port}",
@@ -274,11 +277,13 @@ class Speaker:
         return len(parts)
 
     def ack(self) -> None:
-        """Play the pre-rendered acknowledgement (no-op without --ack)."""
-        if self.ack_wav:
-            self.play_q.put(
-                (self.epoch, self.ack_wav, self.ack_dur, self.a.ack, time.time(), False)
-            )
+        """Play a pre-rendered acknowledgement, never the same one twice in a row (no-op without --ack)."""
+        if not self.acks:
+            return
+        pick = [i for i in range(len(self.acks)) if i != self.last_ack] or [0]
+        self.last_ack = random.choice(pick)
+        wav, dur, word = self.acks[self.last_ack]
+        self.play_q.put((self.epoch, wav, dur, word, time.time(), False))
 
     def busy(self, tail: float = 0.0) -> bool:
         """Speaking, about to speak, or stopped less than `tail` seconds ago."""
@@ -384,7 +389,8 @@ def main() -> None:
     ap.add_argument("--steps", type=int, default=10, help="voxcpm2 diffusion steps")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument(
-        "--ack", help="a short word pre-rendered at start (e.g. «Угу.»), for listeners"
+        "--ack",
+        help="short words pre-rendered at start, '|'-separated (e.g. «Угу.|Ага.»); one plays at random, for listeners",
     )
     ap.add_argument("--port", type=int, default=7788)
     ap.add_argument(

@@ -550,7 +550,9 @@ def main() -> None:
         "--steps", type=int, default=10, help="VoxCPM2 diffusion steps (6: faster)"
     )
     ap.add_argument(
-        "--ack", default="Угу.", help="said the moment a turn ends; '' for none"
+        "--ack",
+        default="Угу.|Ага.|Так.|Хм.|Ясно.|Слышу.",
+        help="said the moment a turn ends, one of these '|'-separated at random, never twice in a row; '' for none",
     )
     ap.add_argument(
         "--max-say",

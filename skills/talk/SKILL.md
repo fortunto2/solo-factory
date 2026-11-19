@@ -104,8 +104,10 @@ third party. Check Cartesia's data-use setting before personal text goes through
 | `say` → first audio | 1.0-1.6 s (VoxCPM2, 10 steps; `--steps 6` ~0.3 s less) |
 | channel start | 0.2 s to `initialize`, 8 s to ready (warm) |
 
-The slow part is the session itself: its reply takes seconds. The pre-rendered «Угу.» (`--ack`)
-plays the instant a turn ends, so the silence does not feel dead.
+The slow part is the session itself: its reply takes seconds. A pre-rendered short word (`--ack`)
+plays the instant a turn ends, so the silence does not feel dead. The default is six of them
+(«Угу.|Ага.|Так.|Хм.|Ясно.|Слышу.»), picked at random and never the same twice in a row:
+one «Угу.» after every turn read as a machine within a minute.
 
 ## Echo and interruptions
 
