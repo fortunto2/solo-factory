@@ -28,6 +28,8 @@ git push origin +main|ask
 git -C repo push --delete origin old-branch|ask
 git push origin :old-branch|ask
 cd repo && git push origin --delete a b|ask
+cd 'app' && git push --force|ask
+cd 'app' && git push|none
 rm -rf /srv/data/project|ask
 rm -r src|ask
 gh repo delete owner/name --yes|ask
