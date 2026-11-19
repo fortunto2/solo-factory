@@ -4,6 +4,10 @@ What changed for the people who install this plugin. Docs describe the current s
 history lives here. One entry per version, newest first; `scripts/check-version`
 refuses a `plugin.json` version with no entry.
 
+## 1.103.0 — 2026-11-19
+
+- `humanize` 1.2.0: section 8, plain technical English for docs, READMEs, SKILL.md files and step lists (not marketing copy): one action per step, steps up to 20 words and descriptions up to 25, the condition before the command, the warning before the step it protects, a named actor and the imperative, verbs over noun forms, noun stacks of three words at most, no semicolons. Reasoning is not chopped into fragments and a real "might" stays. Adapted from ASD-STE100 and ste80-humanizer (MIT).
+
 ## 1.102.1 — 2026-11-18
 
 - `talk` 1.3.1: the listening verdict on the local-vs-Cartesia clips (Cartesia sounded cleaner) next to the numbers.

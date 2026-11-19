@@ -4,7 +4,7 @@ description: Use when "humanize this", "make it sound human", "strip AI patterns
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.1.0"
+  version: "1.2.0"
   openclaw:
     emoji: "✍️"
 allowed-tools: Read, Write, Edit, Glob, Grep
