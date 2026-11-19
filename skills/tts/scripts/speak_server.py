@@ -49,6 +49,32 @@ DESIGN_TEXT = {
 }
 
 
+AUDIO = {".wav", ".mp3", ".m4a", ".aiff", ".aif", ".caf"}  # what afplay plays
+
+
+def clip_seconds(path: Path) -> float:
+    """Duration from afinfo (the sink is afplay, so it is always there); 1 s if unreadable."""
+    out = subprocess.run(["afinfo", str(path)], capture_output=True, text=True).stdout
+    m = re.search(r"estimated duration:\s*([\d.]+)", out)
+    return float(m.group(1)) if m else 1.0
+
+
+def ack_clips(item: str) -> list[tuple[Path, str]] | None:
+    """An --ack item that is recorded audio, not a word to synthesize: a sound file, or an
+    openpeon/peon-ping pack folder (`DIR` = its task.acknowledge sounds, `DIR#category` = another)."""
+    path, _, cat = item.partition("#")
+    p = Path(path).expanduser()
+    if p.is_file() and p.suffix.lower() in AUDIO:
+        return [(p, p.stem)]
+    manifest = p / "openpeon.json"
+    if not manifest.is_file():
+        return None
+    sounds = json.loads(manifest.read_text())["categories"][cat or "task.acknowledge"][
+        "sounds"
+    ]
+    return [(p / s["file"], s.get("label") or Path(s["file"]).stem) for s in sounds]
+
+
 def pieces(text: str, first_max: int = 60, max_len: int = 80) -> list[str]:
     """Sentences, long ones cut at a comma. Short pieces keep speech gapless: at RTF ~1 (a busy
     machine) piece N+1 is generated while piece N plays, so no piece should outlast the one before."""
@@ -198,8 +224,15 @@ class Speaker:
         )
         engine("Проверка." if self.a.design_lang == "ru" else "Check.")  # warm-up
         ack = getattr(self.a, "ack", None) or ""
-        # pre-rendered, so one plays the instant a turn ends; "Угу.|Ага.|Так." = several, picked at random
+        # pre-rendered, so one plays the instant a turn ends; "Угу.|Ага.|Так." = several, picked at random.
+        # An item can also be recorded audio (a file, or a peon-ping pack folder): played as it is
         for i, word in enumerate(w.strip() for w in ack.split("|") if w.strip()):
+            clips = ack_clips(word)
+            if clips is not None:
+                self.acks += [
+                    (f, clip_seconds(f), label) for f, label in clips if f.is_file()
+                ]
+                continue
             audio, sr = engine(word)
             wav = self.tmp / f"keep-ack-{i}.wav"
             write_wav(wav, audio, sr)
@@ -265,7 +298,8 @@ class Speaker:
                     time.sleep(dur)
                 self.playing = False
                 self.last_end = time.time()
-            if not wav.name.startswith("keep-"):
+            # never a file that was not ours, e.g. a pack's clip
+            if wav.parent == self.tmp and not wav.name.startswith("keep-"):
                 wav.unlink(missing_ok=True)
 
     # --- API -----------------------------------------------------------------------------
@@ -390,7 +424,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument(
         "--ack",
-        help="short words pre-rendered at start, '|'-separated (e.g. «Угу.|Ага.»); one plays at random, for listeners",
+        help="short words pre-rendered at start, '|'-separated (e.g. «Угу.|Ага.»); one plays at random, for listeners. "
+        "An item may be a sound file or a peon-ping pack folder (DIR or DIR#category, default task.acknowledge)",
     )
     ap.add_argument("--port", type=int, default=7788)
     ap.add_argument(

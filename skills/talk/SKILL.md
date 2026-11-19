@@ -107,7 +107,10 @@ third party. Check Cartesia's data-use setting before personal text goes through
 The slow part is the session itself: its reply takes seconds. A pre-rendered short word (`--ack`)
 plays the instant a turn ends, so the silence does not feel dead. The default is six of them
 («Угу.|Ага.|Так.|Хм.|Ясно.|Слышу.»), picked at random and never the same twice in a row:
-one «Угу.» after every turn read as a machine within a minute.
+one «Угу.» after every turn read as a machine within a minute. An item can also be recorded audio,
+played as it is: a sound file, or a [peon-ping](https://peonping.com) pack folder (`DIR` = its
+`task.acknowledge` sounds, `DIR#task.complete` = another category), e.g.
+`--ack "Угу.|Ага.|~/packs/silicon_valley"`. Keep the clips under ~1.5 s: the mic is deaf while one plays.
 
 ## Echo and interruptions
 
