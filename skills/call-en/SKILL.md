@@ -28,6 +28,7 @@ Parakeet, local: v3 when installed (it is, and supervox picks it for every langu
    Unsure who a cluster is: note it, do not ask mid-call unless he invites it.
    Keep the rolling summary in `~/.supervox/live/summary.md` (the TUI panel) as in `/solo:supervox`.
 3. On `stop`: write the full summary, give the session folder, then one short numbered list he can answer in one line: (1) each leftover `S<n>` cluster with 1-2 sample lines, who is it (`supervox voices name <session> S<n> <name>` for each answer); (2) what to do with the outcome (tasks, follow-up message draft).
+   Then write `report.md` into the session folder (who, topic, decisions, tasks with owner and dates, open questions, insights, follow-up draft; only sections with content) and route it by context as in `/solo:supervox` "Call report": public call -> the owner's wiki, project/client call -> the project's tasks and notes plus a brain `capture`, personal call -> private notes area only. Ask only if the type is unclear, inside the same list.
 
 ## Channel mode (from a terminal)
 
