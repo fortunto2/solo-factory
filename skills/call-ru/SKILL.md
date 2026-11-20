@@ -23,6 +23,7 @@ Parakeet v3 (25 European languages, Russian included), local, no Whisper.
    Each event is one finished phrase (`speaker`, `text`, `t`). Answer every event in chat, short:
    Each line arrives as is (the user's own language): no translation. After every 2-4 lines give a one-line gist; when someone asks the user a question, suggest a short answer.
    Speaker labels: a name from `~/.supervox/voices` (the owner's voiceprint) is the user, `AGENT` is our own voice (skip it), `S<n>` are the others.
+   If context makes the speaker clear (the owner says his name, answers what was asked of him, continues his own thought) but the label is `S<n>`, merge `{"S<n>": "<name>"}` into the session's `speakers.json` (`~/.supervox/live/speakers.json`) at once and use the real name in chat and summary.
    Keep the rolling summary in `~/.supervox/live/summary.md` (the TUI panel) as in `/solo:supervox`.
 3. On `stop`: write the full summary, give the session folder.
 

@@ -23,6 +23,7 @@ Parakeet, local: v3 when installed (it is, and supervox picks it for every langu
    Each event is one finished phrase (`speaker`, `text`, `t`). Answer every event in chat, short:
    Every line: the Russian translation in one line (`EN → RU`), then, only when useful, a few words on what is going on (who wants what, a term, a number). When the other side asks a question or waits for an answer, suggest 1-2 short replies **in English** the user can say aloud, using what this chat and the repo already know.
    Speaker labels: a name from `~/.supervox/voices` (the owner's voiceprint) is the user, `AGENT` is our own voice (skip it), `S<n>` are the others.
+   If context makes the speaker clear (the owner says his name, answers what was asked of him, continues his own thought) but the label is `S<n>`, merge `{"S<n>": "<name>"}` into the session's `speakers.json` (`~/.supervox/live/speakers.json`) at once and use the real name in chat and summary.
    Keep the rolling summary in `~/.supervox/live/summary.md` (the TUI panel) as in `/solo:supervox`.
 3. On `stop`: write the full summary, give the session folder.
 
