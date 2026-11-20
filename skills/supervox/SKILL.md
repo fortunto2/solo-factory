@@ -48,6 +48,8 @@ as written; an invalid file is ignored.
 
 **Recurring voices.** Every segment's embedding is kept in the session folder (`embeddings.jsonl`); on stop, named clusters are copied to `~/.supervox/voices/dataset/<name>/<session>/` (local only). After a call, offer to name leftover `S<n>` clusters: `supervox voices name <session> S3 <name>`. `supervox voices list` shows people and segment counts; `supervox voices rebuild <name>` (needs 20+ segments, drops outliers) writes `<name>.emb2`, and from the next call that person is recognised automatically.
 
+**Coach roles.** For a call, the owner may pick `mediator`, `psych` or `negotiation` for one-line live hints: `../call-report/references/coach-roles.md`.
+
 **Call report.** After a call, run `/solo:call-report` on the session folder: it classifies the call, writes `report.md`, routes it and ends with one follow-up list.
 
 ## Live loop

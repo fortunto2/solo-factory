@@ -32,10 +32,14 @@ Signals, in this order: the answer to the start question; calendar title if a ca
 | `client` | `references/client.md` | sales, partner, vendor, consulting call |
 | `official` | `references/official.md` | government, immigration, grant, bank, tax, legal |
 | `interview` | `references/interview.md` | customer or user interview |
+| `discussion` | `references/discussion.md` | dispute or difficult talk, or the `mediator` / `psych` role was on |
+| `negotiation` | `references/negotiation.md` | pressure, boundaries, terms, or the `negotiation` role was on |
 | `personal` | `references/personal.md` | friends, family |
 | `interpreter` | `references/interpreter.md` | a MODE on top of any type: the owner needed live translation |
 
-Unclear or mixed: use `recap` and say so in the first line of the report ("type unclear, used recap"). Never guess `official` or `personal` from thin signals: they change routing.
+Roles are in `references/coach-roles.md`. `discussion` and `negotiation` on a personal call route like `personal`: private area only.
+
+Unclear or mixed: use `recap` and say so in the first line of the report ("type unclear, used recap"). Never guess `official`, `personal`, `discussion` or `negotiation` from thin signals: they change routing.
 
 ## 2. Core rules (all types)
 
