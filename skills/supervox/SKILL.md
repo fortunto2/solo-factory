@@ -50,10 +50,6 @@ as written; an invalid file is ignored.
 
 **Call report.** After a call, run `/solo:call-report` on the session folder: it classifies the call, writes `report.md`, routes it and ends with one follow-up list.
 
-**Recurring voices.** Every segment's embedding is kept in the session folder (`embeddings.jsonl`); on stop, named clusters are copied to `~/.supervox/voices/dataset/<name>/<session>/` (local only). After a call, offer to name leftover `S<n>` clusters: `supervox voices name <session> S3 <name>`. `supervox voices list` shows people and segment counts; `supervox voices rebuild <name>` (needs 20+ segments, drops outliers) writes `<name>.emb2`, and from the next call that person is recognised automatically.
-
-**Recurring voices.** Every segment's embedding is kept in the session folder (`embeddings.jsonl`); on stop, named clusters are copied to `~/.supervox/voices/dataset/<name>/<session>/` (local only). After a call, offer to name leftover `S<n>` clusters: `supervox voices name <session> S3 <name>`. `supervox voices list` shows people and segment counts; `supervox voices rebuild <name>` (needs 20+ segments, drops outliers) writes `<name>.emb2`, and from the next call that person is recognised automatically.
-
 ## Live loop
 
 **Preferred: the `supervox` channel.** A session started with
