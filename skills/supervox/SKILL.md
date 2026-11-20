@@ -93,14 +93,40 @@ Saved calls: `~/.supervox/calls/<id>.json` has `transcript` as one string; analy
 
 ## A room that is not in English
 
-Parakeet v2 (`~/.supervox/models/parakeet-tdt`) is English-only: a Russian room comes out as
-confident English nonsense ("Pakistan" for Bashkortostan, 31 Oct 2026). Parakeet v3
-(`parakeet-tdt-0.6b-v3`, 25 languages, Russian among them) lives next to it in
-`~/.supervox/models/parakeet-tdt-v3`, and since supervox ea2a3a0 (4 Nov 2026) `stt_backend =
-"parakeet"` picks v3 on its own whenever `my_language` is not English and that folder exists.
-So for a Russian room: `my_language = "ru"`, keep `stt_backend = "parakeet"`, check the v3 folder is
-there. Whisper is the fallback only; trained on subtitles, it "hears" credits in silence ("Редактор
-субтитров …", "Подписывайтесь на канал"), so drop those lines instead of summarising them.
+One command per language starts supervox with the right model and leaves `config.toml` alone
+(the run gets its own HOME with a generated config; models, calls and `live/` are symlinks, so
+the stream still lands in `~/.supervox/live/`). It stops a supervox already running, runs the
+TUI in tmux session `supervox-call` when there is no terminal, and prints the session folder:
+
+```bash
+~/.claude/plugins/cache/solo/solo/*/skills/supervox/scripts/supervox-call <tr|ru|en> [--pick] [--fg] [--dry-run]
+```
+
+Skills: `/solo:call-tr`, `/solo:call-ru`, `/solo:call-en` (each runs it, then follows the Live loop above).
+
+| Lang | Backend | Why |
+|---|---|---|
+| `ru` | Parakeet v3 (`~/.supervox/models/parakeet-tdt-v3`) | 25 European languages; v2 is English-only and turns Russian into confident English nonsense ("Pakistan" for Bashkortostan, 31 Oct 2026). Since supervox ea2a3a0, `stt_backend = "parakeet"` picks v3 on its own when `my_language` is not English |
+| `en` | Parakeet v2 | English-only, fastest |
+| `tr` | Whisper `large-v3-turbo-q5_0` | Parakeet v3 has no Turkish |
+
+**Turkish, measured 20 Nov 2026** (Apple M5 32 GB, Metal, 90 s of a quiet 17-min phone call,
+whisper.cpp CLI): `small` hears a third of the words and loops "thanks for watching" on silence;
+`medium-q5_0` (539 MB) misses whole sentences; `large-v3-turbo-q5_0` (574 MB, official
+ggerganov/whisper.cpp repo) matched a large-v3 reference nearly sentence for sentence. Cost: the
+encoder runs a fixed 30 s window, about 0.38 s per chunk, so 2 s live chunks run at real-time
+factor ~0.2 and a whole file at ~0.02. The decisive factor was **level**: raw phone audio at
+-23 dB mean made turbo loop "İzlediğiniz için teşekkür ederim" under beam search; the same audio
+normalised was clean. supervox's Whisper path had no gain control, no silence gate and no
+`no_speech` threshold, and whisper-rs was built without Metal (CPU). Fixed in
+`crates/voxkit/src/whisper_stt.rs` (Agc, peak gate, `no_speech_thold` 0.6, stock-phrase filter) and
+`whisper-rs = { features = ["metal"] }`; rebuild with `cargo install --path crates/supervox-tui`.
+Until the rebuilt binary is installed the filter above does not exist, so drop subtitle-credit lines
+("Редактор субтитров …", "izlediğiniz için teşekkürler", "Altyazı M.K.") yourself instead of
+summarising them.
+
+Whisper `whisper_model` accepts any `ggml-<name>.bin` in `~/.supervox/models/` (the config
+validator only warns for names outside tiny/base/small/medium).
 
 ## Rules
 

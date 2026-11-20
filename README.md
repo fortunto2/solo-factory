@@ -1,6 +1,6 @@
 [![GitHub stars](https://img.shields.io/github/stars/fortunto2/solo-factory?style=flat-square)](https://github.com/fortunto2/solo-factory/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Skills: 66](https://img.shields.io/badge/skills-66-blue?style=flat-square)](#skills)
+[![Skills: 69](https://img.shields.io/badge/skills-69-blue?style=flat-square)](#skills)
 [![Agents: 2](https://img.shields.io/badge/agents-2-green?style=flat-square)](#agents)
 [![MCP Tools: 11](https://img.shields.io/badge/MCP_tools-11-purple?style=flat-square)](#mcp-integration)
 [![Stacks: 12](https://img.shields.io/badge/stacks-12-orange?style=flat-square)](#available-stacks)
@@ -9,7 +9,7 @@
 
 **Your own path. Multiple stacks. Ship everything.**
 
-> From shower thought to deployed product — 66 skills, 2 agents, and an MCP server that searches every project you've ever built.
+> From shower thought to deployed product — 69 skills, 2 agents, and an MCP server that searches every project you've ever built.
 
 ```
 /solo:research → /solo:validate → /solo:scaffold → /solo:setup → /solo:plan → /solo:build → /solo:deploy → /solo:launch → /solo:review
@@ -175,7 +175,7 @@ What is in the set, and the rules that most often hit real code:
 → Privacy policy (GDPR-ready), Terms of Service, App Store privacy labels
 ```
 
-### Utility (27 skills)
+### Utility (30 skills)
 
 | Command | What it does |
 |---------|-------------|
@@ -201,6 +201,9 @@ What is in the set, and the rules that most often hit real code:
 | `/solo:skill-audit` | Score a skill against the best-practice checklist, 12 dimensions |
 | `/solo:skill-shelf` | Skill usage from transcripts; shelve the unused, restore on demand, plugin and claude.ai sync switches |
 | `/solo:supervox` | Listen to a room with local transcription: one live summary on the panel, pitch Q&A coaching, saved calls analysed by the agent |
+| `/solo:call-tr` | Phone call in Turkish: one command starts live transcription (Whisper large-v3-turbo) and the rolling summary, config untouched |
+| `/solo:call-ru` | Phone call in Russian: same, Parakeet v3 |
+| `/solo:call-en` | Phone call in English: same, Parakeet (v3 when installed) |
 | `/solo:transcribe` | Audio/video to text locally — Apple GPU (mlx-whisper large-v3), language per chunk, .srt, word timings |
 | `/solo:tts` | Text to speech locally — clone a voice from a 10-60 s clip, 30-43 languages, Russian stress marks, model hiss cleaned |
 | `/solo:talk` | Voice conversation with the agent, all local — one channel process (VAD, smart-turn, GigaAM/Parakeet, VoxCPM2), the session as the brain, 0.5 s from end of speech to the session |

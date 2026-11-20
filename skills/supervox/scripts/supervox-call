@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# supervox-call <tr|ru|en> [--pick] [--fg] [--model NAME] [--dry-run]
+#
+# Start supervox live for a call in one language, in seconds, without touching
+# ~/.supervox/config.toml. supervox has no --config flag, so the run gets its own
+# HOME: ~/.supervox/call-home/<lang>/.supervox/ holds a generated config.toml and
+# symlinks to the real models/, calls/, live/, voices/, bin/. Output still lands in
+# ~/.supervox/live (current.jsonl, summary.md) because live/ is a symlink.
+#
+# Presets (measured, see skills/supervox/SKILL.md "A room that is not in English"):
+#   ru  parakeet (picks the multilingual v3 model on its own)
+#   en  parakeet (v2, English)
+#   tr  whisper large-v3-turbo q5_0 (parakeet v3 has no Turkish)
+#
+# No TTY (called by an agent): runs in a detached tmux session `supervox-call`;
+# watch it with `tmux attach -t supervox-call`. With a TTY: runs in the foreground.
+set -euo pipefail
+
+SV="$HOME/.supervox"
+LANG_ARG="${1:-}"; shift || true
+PICK=0; FG=auto; DRY=0; MODEL=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --pick) PICK=1 ;;
+    --fg) FG=1 ;;
+    --detach) FG=0 ;;
+    --dry-run) DRY=1 ;;
+    --model) MODEL="${2:?--model needs a name}"; shift ;;
+    *) echo "unknown flag: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+case "$LANG_ARG" in
+  tr) BACKEND=whisper;  WMODEL="${MODEL:-large-v3-turbo-q5_0}" ;;
+  ru) BACKEND=parakeet; WMODEL="${MODEL:-base}" ;;
+  en) BACKEND=parakeet; WMODEL="${MODEL:-base}" ;;
+  *) echo "usage: supervox-call <tr|ru|en> [--pick] [--fg|--detach] [--model NAME] [--dry-run]" >&2; exit 2 ;;
+esac
+
+BIN="${SUPERVOX_BIN:-$(command -v supervox || true)}"
+[[ -x "$BIN" ]] || { echo "supervox binary not found (set SUPERVOX_BIN)" >&2; exit 1; }
+if [[ "$BACKEND" == whisper && ! -f "$SV/models/ggml-$WMODEL.bin" ]]; then
+  echo "missing model: $SV/models/ggml-$WMODEL.bin" >&2
+  echo "fetch: curl -L -o $SV/models/ggml-$WMODEL.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-$WMODEL.bin" >&2
+  exit 1
+fi
+
+# Per-run home with a generated config (the real one is read, never written).
+H="$SV/call-home/$LANG_ARG"
+mkdir -p "$H/.supervox"
+for d in models calls live voices bin; do
+  mkdir -p "$SV/$d"
+  ln -sfn "$SV/$d" "$H/.supervox/$d"
+done
+[[ -f "$SV/actions.json" ]] && ln -sfn "$SV/actions.json" "$H/.supervox/actions.json"
+LANG_ARG="$LANG_ARG" WMODEL="$WMODEL" BACKEND="$BACKEND" SRC="$SV/config.toml" DST="$H/.supervox/config.toml" \
+python3 -I - <<'PY'
+import os, tomllib
+src = os.environ["SRC"]
+cfg = tomllib.load(open(src, "rb")) if os.path.exists(src) else {}
+lang = os.environ["LANG_ARG"]
+cfg.update(my_language=lang, stt_backend=os.environ["BACKEND"], whisper_model=os.environ["WMODEL"],
+           languages=[lang] + (["en"] if lang != "en" else []), summary="external", auto_record=True)
+def val(v):
+    if isinstance(v, bool): return "true" if v else "false"
+    if isinstance(v, list): return "[" + ", ".join(val(x) for x in v) + "]"
+    if isinstance(v, str): return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    return repr(v)
+open(os.environ["DST"], "w").write("".join(f"{k} = {val(v)}\n" for k, v in cfg.items()))
+PY
+
+# Stop a supervox that is already running (graceful first: it saves the call on exit).
+stop_running() {
+  tmux kill-session -t supervox-call 2>/dev/null || true
+  if pgrep -x supervox >/dev/null; then
+    pkill -INT -x supervox || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -x supervox >/dev/null || return 0; sleep 0.5; done
+    pkill -TERM -x supervox || true; sleep 1
+  fi
+}
+
+ENVV=(HOME="$H" SUPERVOX_STT_BACKEND="$BACKEND")
+[[ $PICK -eq 0 ]] && ENVV+=(SUPERVOX_NO_PICKER=1)
+CMD=(env "${ENVV[@]}" "$BIN" live)
+
+if [[ $DRY -eq 1 ]]; then
+  echo "config: $H/.supervox/config.toml"; cat "$H/.supervox/config.toml"
+  echo "run: ${CMD[*]}"; exit 0
+fi
+
+stop_running
+BEFORE="$(readlink "$SV/live/current.jsonl" 2>/dev/null || true)"
+[[ "$FG" == auto ]] && { [[ -t 0 && -t 1 ]] && FG=1 || FG=0; }
+
+if [[ "$FG" == 1 ]]; then
+  echo "supervox-call $LANG_ARG: $BACKEND $([[ $BACKEND == whisper ]] && echo "ggml-$WMODEL")" >&2
+  exec "${CMD[@]}"
+fi
+
+command -v tmux >/dev/null || { echo "no tty and no tmux: run with --fg in a terminal" >&2; exit 1; }
+tmux new-session -d -s supervox-call -x 120 -y 40 "${CMD[*]}"
+# Wait for the new session folder (model load takes a few seconds).
+for _ in $(seq 1 40); do
+  NOW="$(readlink "$SV/live/current.jsonl" 2>/dev/null || true)"
+  if [[ -n "$NOW" && "$NOW" != "$BEFORE" ]]; then
+    echo "session: $SV/live/$(dirname "$NOW")"
+    echo "stream:  $SV/live/current.jsonl"
+    echo "panel:   $SV/live/summary.md"
+    echo "attach:  tmux attach -t supervox-call"
+    exit 0
+  fi
+  tmux has-session -t supervox-call 2>/dev/null || { echo "supervox exited at startup" >&2; exit 1; }
+  sleep 0.5
+done
+echo "started, but no new session folder after 20 s; check: tmux attach -t supervox-call" >&2
+exit 1
