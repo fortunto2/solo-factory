@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# supervox-chat <ru|en|tr> [claude options...]
+#
+# One command for a call in channel mode: starts supervox for the language (supervox-call,
+# detached in tmux), then opens Claude Code with the supervox channel loaded and the
+# /solo:call-<lang> skill as the first prompt. Every finished phrase arrives in the session
+# as <channel source="supervox" kind="transcript">, so no Monitor is needed; en/tr lines get
+# a Russian translation, context and suggested replies (see skills/call-<lang>).
+# Claude Code shows a confirmation screen for the development channel on every start.
+set -euo pipefail
+
+lang="${1:-}"; shift || true
+case "$lang" in ru|en|tr) ;; *) echo "usage: supervox-chat <ru|en|tr> [claude options]" >&2; exit 2 ;; esac
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+uv_bin="$(command -v uv)" || { echo "uv is not on PATH" >&2; exit 1; }
+
+"$here/supervox-call" "$lang" --detach
+
+cfg="${XDG_CACHE_HOME:-$HOME/.cache}/solo-tts/supervox-chat-mcp.json"
+mkdir -p "$(dirname "$cfg")"
+python3 -I - "$cfg" "$uv_bin" "$here/supervox_channel.py" <<'PY'
+import json, sys
+cfg, uv, script = sys.argv[1:]
+json.dump({"mcpServers": {"supervox": {"command": uv, "args": ["run", "--script", script]}}},
+          open(cfg, "w"), indent=2)
+PY
+
+prompt="/solo:call-$lang Channel mode: supervox is already running and every phrase arrives as a supervox channel event, so skip step 1 and the Monitor; handle each event as step 2 says."
+exec claude --mcp-config "$cfg" --dangerously-load-development-channels server:supervox "$@" "$prompt"

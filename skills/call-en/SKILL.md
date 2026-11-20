@@ -26,6 +26,10 @@ Parakeet, local: v3 when installed (it is, and supervox picks it for every langu
    Keep the rolling summary in `~/.supervox/live/summary.md` (the TUI panel) as in `/solo:supervox`.
 3. On `stop`: write the full summary, give the session folder.
 
+## Channel mode (from a terminal)
+
+`${CLAUDE_PLUGIN_ROOT}/skills/supervox/scripts/supervox-chat en` starts supervox and opens Claude Code with the supervox channel and this skill already loaded: phrases arrive as `<channel source="supervox" kind="transcript">` events instead of through Monitor. Handle each one as step 2 says.
+
 ## Gotchas
 
 - English only; for another language use `/solo:call-tr` or `/solo:call-ru`.
