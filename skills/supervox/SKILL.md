@@ -40,6 +40,12 @@ on stop, or kept as `<start>-empty/` if you put files in it. Older supervox vers
 (archived into its folder on the next start); a day with several recordings is the union of
 those and the folders, in time order.
 
+**Fixing speaker labels live.** When the voiceprint misses (the owner's phrases come out as `S2`/`S3`)
+and the context makes the speaker obvious, write `speakers.json` into the session folder (or
+`~/.supervox/live/speakers.json`): `{"S2": "Name", "S3": "Name"}`. supervox reloads it within a
+second of a change; later lines in `current.jsonl` and the panel carry the name. Earlier lines stay
+as written; an invalid file is ignored.
+
 ## Live loop
 
 **Preferred: the `supervox` channel.** A session started with
