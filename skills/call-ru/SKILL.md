@@ -4,7 +4,7 @@ description: Start live transcription and a rolling agent summary for a phone ca
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.1.0"
   openclaw:
     emoji: "🇷🇺"
 ---
@@ -18,9 +18,12 @@ Parakeet v3 (25 European languages, Russian included), local, no Whisper.
 1. Start it (one command, no config edits, stops a supervox already running):
    `${CLAUDE_PLUGIN_ROOT}/skills/supervox/scripts/supervox-call ru`
    It prints the session folder; a TUI runs in tmux session `supervox-call`.
-2. Follow the **Live loop** in `/solo:supervox`: Monitor on
-   `tail -n +1 -F ~/.supervox/live/current.jsonl` in the main session, summary panel at
-   `~/.supervox/live/summary.md`, delta to chat in 2-6 lines. Summary language: the user's.
+2. Push the call into this session as it happens: arm **Monitor** (`timeout_ms: 1800000`, re-arm when it expires) on
+   `tail -n 0 -F ~/.supervox/live/current.jsonl | grep --line-buffered '"transcript"'`.
+   Each event is one finished phrase (`speaker`, `text`, `t`). Answer every event in chat, short:
+   Each line arrives as is (the user's own language): no translation. After every 2-4 lines give a one-line gist; when someone asks the user a question, suggest a short answer.
+   Speaker labels: a name from `~/.supervox/voices` (the owner's voiceprint) is the user, `AGENT` is our own voice (skip it), `S<n>` are the others.
+   Keep the rolling summary in `~/.supervox/live/summary.md` (the TUI panel) as in `/solo:supervox`.
 3. On `stop`: write the full summary, give the session folder.
 
 ## Gotchas

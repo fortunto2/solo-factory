@@ -4,7 +4,7 @@ description: Start live transcription and a rolling agent summary for a phone ca
 license: MIT
 metadata:
   author: fortunto2
-  version: "1.0.0"
+  version: "1.1.0"
   openclaw:
     emoji: "🇹🇷"
 ---
@@ -18,10 +18,12 @@ Whisper large-v3-turbo (q5_0, Metal) via a per-run config; Parakeet v3 has no Tu
 1. Start it (one command, no config edits, stops a supervox already running):
    `${CLAUDE_PLUGIN_ROOT}/skills/supervox/scripts/supervox-call tr`
    It prints the session folder; a TUI runs in tmux session `supervox-call`.
-2. Follow the **Live loop** in `/solo:supervox`: Monitor on
-   `tail -n +1 -F ~/.supervox/live/current.jsonl` in the main session, summary panel at
-   `~/.supervox/live/summary.md`, delta to chat in 2-6 lines. Summary language: the user's.
-   Drop lines that are a stock subtitle phrase ("izlediğiniz için teşekkürler", "Altyazı M.K.") instead of summarising them. Numbers (amounts, dates, tax terms) are quoted with `t=`: Turkish phone ASR garbles digits first.
+2. Push the call into this session as it happens: arm **Monitor** (`timeout_ms: 1800000`, re-arm when it expires) on
+   `tail -n 0 -F ~/.supervox/live/current.jsonl | grep --line-buffered '"transcript"'`.
+   Each event is one finished phrase (`speaker`, `text`, `t`). Answer every event in chat, short:
+   Every line: the Russian translation in one line (`TR → RU`), then, only when useful, a few words on what is going on (who wants what, a term, an amount, a date). When the other side asks a question or waits for an answer, suggest 1-2 short replies **in Turkish** with a Russian gloss, simple enough to say aloud, using what this chat already knows.
+   Speaker labels: a name from `~/.supervox/voices` (the owner's voiceprint) is the user, `AGENT` is our own voice (skip it), `S<n>` are the others.
+   Keep the rolling summary in `~/.supervox/live/summary.md` (the TUI panel) as in `/solo:supervox`.
 3. On `stop`: write the full summary, give the session folder.
 
 ## Gotchas
