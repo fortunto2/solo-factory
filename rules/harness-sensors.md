@@ -23,8 +23,9 @@ A session that changed nothing is never blocked: SessionStart records the dirty 
 the inherited state is. Once the session writes, the scope is **the files it wrote
 through Edit/Write that are still changed** (recorded per session by `sensor-edit.sh`);
 a parallel session's files are left to it, and the receipt counts them. Files written
-only through the shell are not attributed; a session with no recorded writes falls back
-to the whole dirty tree.
+only through the shell are not attributed. A session with no recorded writes is not
+blocked when it has a SessionStart baseline (the tree's movement is a neighbour's); only
+without a baseline does it fall back to the whole dirty tree.
 
 ## Published promises
 

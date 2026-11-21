@@ -101,10 +101,19 @@ print(json.loads(raw)['hookSpecificOutput']['additionalContext'])
   [ -z "$out" ]
 }
 
-@test "once the session writes, the whole dirty tree is judged again" {
+@test "a tree that moved without this session's recorded writes is a neighbour's, not its" {
+  # Promise changed 21 Nov 2026 (was: "once the session writes, the whole dirty tree is
+  # judged again"). A shell write cannot be told apart from a parallel session's write;
+  # judging the whole tree blocked one session for 20 turns on files it never opened.
   in='{"session_id":"s-write","cwd":"'"$R"'"}'
   printf '%s' "$in" | bash "${BATS_TEST_DIRNAME}/../hooks/sensor-baseline.sh"
   sleep 1; printf 'y = 2\n' > "$R/b.py"
+  out=$(printf '%s' "$in" | bash "$H" 2>/dev/null | ctx)
+  [ -z "$out" ]
+}
+
+@test "without a SessionStart baseline, the whole dirty tree is still judged" {
+  in='{"session_id":"s-nobase","cwd":"'"$R"'"}'
   out=$(printf '%s' "$in" | bash "$H" 2>/dev/null | ctx)
   [[ "$out" == *"verification is red"* ]]
 }

@@ -3529,3 +3529,13 @@ The `solo` plugin was installed as a *copy* of solo-factory, so new skills didn'
 copied into `~/.claude/skills/` as a workaround. Two copies then drifted, and an agent updated the runtime
 copy while the git one stayed old. Fixed by symlinking the plugin cache to the repo — see
 [[harness-engineering]]: agent mistake → fix the harness, not the agent.
+
+### 2026-11-21 — Stop gate blamed a session for a neighbour's files, 20 turns running
+
+A session that wrote nothing in the repo through Edit/Write (its work was in other directories)
+had a SessionStart baseline; a parallel session then edited three files in the same checkout.
+The tree no longer matched the baseline, no touched-list existed, so the gate fell back to the
+whole dirty tree and blocked every turn on files this session never opened.
+**Fix:** a session with a baseline and no recorded writes is not blocked (its shell writes cannot
+be told apart from a neighbour's); without a baseline the whole-tree fallback stays.
+**Promise changed** in rules/harness-sensors.md; pinned by stop_gate.bats tests 8 and 9.

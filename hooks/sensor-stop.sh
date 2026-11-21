@@ -60,6 +60,13 @@ ARGS=(--root "$ROOT" --json)
 # here; the receipt says how many changed files were left to their own sessions.
 TOUCHED_LIST="$(git -C "$ROOT" rev-parse --absolute-git-dir 2>/dev/null)/solo-sensor-touched/${SID//[^A-Za-z0-9_-]/}"
 SCOPE_NOTE=""
+# A session that wrote nothing here through Edit/Write, while the tree moved since its
+# baseline: the movement is a parallel session's (measured 21 Nov 2026: one session blocked
+# for 20 turns on another's review_pack.py and outro tests, never having opened them). Its
+# own shell writes, if any, cannot be told apart from the neighbour's, so it is not blocked.
+if [[ -n "$SID" && -f "$BASE" && ! -f "$TOUCHED_LIST" ]]; then
+  exit 0
+fi
 if [[ -n "$SID" && -f "$TOUCHED_LIST" ]]; then
   REAL_ROOT=$(cd "$ROOT" && pwd -P)
   MINE=()
