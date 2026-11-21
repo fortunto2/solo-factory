@@ -153,3 +153,29 @@ edit_as() {  # record a write by session $1 of file $2 the way the PostToolUse h
   out=$(printf '%s' "$in" | bash "$H" 2>/dev/null | ctx)
   [ -z "$out" ]
 }
+
+shell_as() {  # run $2 as a Bash tool call of session $1, through the pre/post hooks
+  local in='{"session_id":"'"$1"'","cwd":"'"$R"'"}'
+  printf '%s' "$in" | bash "${BATS_TEST_DIRNAME}/../hooks/sensor-shell.sh" pre
+  (cd "$R" && eval "$2")
+  printf '%s' "$in" | bash "${BATS_TEST_DIRNAME}/../hooks/sensor-shell.sh" post
+}
+
+@test "a file the session wrote through the shell is its own, and is judged" {
+  in='{"session_id":"s-shell","cwd":"'"$R"'"}'
+  printf '%s' "$in" | bash "${BATS_TEST_DIRNAME}/../hooks/sensor-baseline.sh"
+  sleep 1; shell_as s-shell "printf 'import os\\n' > c.py"
+  out=$(printf '%s' "$in" | bash "$H" 2>/dev/null | ctx)
+  [[ "$out" == *"verification is red"* ]]
+  [[ "$out" == *"c.py"* ]]
+}
+
+@test "a neighbour's write between this session's shell commands stays the neighbour's" {
+  in='{"session_id":"s-quiet","cwd":"'"$R"'"}'
+  printf '%s' "$in" | bash "${BATS_TEST_DIRNAME}/../hooks/sensor-baseline.sh"
+  shell_as s-quiet "true"
+  sleep 1; printf 'import os\n' > "$R/d.py"   # the neighbour, outside any of our commands
+  shell_as s-quiet "true"
+  out=$(printf '%s' "$in" | bash "$H" 2>/dev/null | ctx)
+  [ -z "$out" ]
+}

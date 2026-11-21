@@ -21,10 +21,11 @@ An UNKNOWN blocks **once per input**: the same verdict on byte-identical files
 A session that changed nothing is never blocked: SessionStart records the dirty tree
 (`sensor-baseline.sh`), and while it is unchanged the gate stays silent, however red
 the inherited state is. Once the session writes, the scope is **the files it wrote
-through Edit/Write that are still changed** (recorded per session by `sensor-edit.sh`);
-a parallel session's files are left to it, and the receipt counts them. Files written
-only through the shell are not attributed. A session with no recorded writes is not
-blocked when it has a SessionStart baseline (the tree's movement is a neighbour's); only
+through Edit/Write that are still changed** (recorded per session by `sensor-edit.sh`, and for shell commands by `sensor-shell.sh`,
+which diffs the dirty files before and after each Bash call);
+a parallel session's files are left to it, and the receipt counts them. A neighbour writing
+during one of the session's commands is swept in (a file too many, never one too few). A
+session with no recorded writes is not blocked when it has a SessionStart baseline; only
 without a baseline does it fall back to the whole dirty tree.
 
 ## Published promises

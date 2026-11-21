@@ -59,6 +59,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/sensor-shell.sh post",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -79,6 +89,11 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/irreversible_guard.py",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/sensor-shell.sh pre",
+            "timeout": 10
           }
         ]
       }
