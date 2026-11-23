@@ -39,7 +39,7 @@ If MCP tools are not available, use WebSearch/WebFetch as fallback.
 3. **Search communities** (run searches in parallel):
 
    ### 3a. Reddit
-   For each keyword group, search via MCP `web_search(query)` or WebSearch:
+   For each keyword group, search via WebSearch (MCP `web_search(query)` as a secondary):
    - `"{problem} reddit"` — pain point threads
    - `"{solution category} recommendations reddit"` — recommendation requests
    - `"{competitor} alternative reddit"` — competitor frustration

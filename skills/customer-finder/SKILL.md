@@ -20,7 +20,7 @@ Difference from `/community-outreach`: that skill finds *threads* to reply in; t
 
 ## MCP Tools (use if available)
 
-- `web_search(query, engines, include_raw_content)` — SearXNG with engine routing (Reddit, HN, GitHub)
+- `web_search(query, engines, include_raw_content)` — SearXNG with engine routing (Reddit, HN, GitHub); secondary to the built-in WebSearch
 - `web_extract(url, size, page)` — one page as clean markdown, paginated for long docs
 - `kb_search(query)` — prior research in KB
 - `project_info(name)` — project details

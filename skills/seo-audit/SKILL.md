@@ -80,7 +80,7 @@ If MCP tools are not available, use Claude WebSearch/WebFetch as fallback.
 
 5. **SERP position check** — for 3-5 keywords:
    - Extract keywords from page title + meta description + H1.
-   - For each keyword, search via MCP `web_search(query="{keyword}")` or WebSearch.
+   - For each keyword, search via WebSearch (or MCP `web_search(query="{keyword}")` as a fallback).
    - Record: position of target URL in results (1-10, or "not found").
    - Record: top 3 competitors for each keyword.
 

@@ -35,7 +35,7 @@ MCP `web_search` supports engine override: `engines="reddit"`, `engines="youtube
 For reading one page in full, prefer `web_extract` over `include_raw_content`: it runs
 trafilatura, so navigation and footers are gone and tables survive. `size="s|m|l"` caps
 at 5k/10k/25k chars, `size="f"` paginates the whole document and `page=2` walks it.
-If MCP tools are not available, use WebSearch/WebFetch as primary. If MCP web_search tool is available, use it for better results.
+Use WebSearch/WebFetch as primary. If the MCP `web_search` tool is available, keep it as a secondary for engine routing (Reddit, YouTube) and when WebSearch is unavailable.
 
 ### Reddit Search Best Practices
 
@@ -100,7 +100,7 @@ Use **multiple** search backends together. Each has strengths:
 
 ### Search Availability
 
-Use WebSearch/WebFetch as primary. If MCP `web_search` tool is available, use it for better results (supports engine routing and raw content extraction).
+Use WebSearch/WebFetch as primary. If MCP `web_search` is available, use it as a secondary (engine routing and raw content extraction).
 
 ## Steps
 
@@ -140,7 +140,7 @@ Use WebSearch/WebFetch as primary. If MCP `web_search` tool is available, use it
    - `"site:trustmrr.com <idea>"` or WebFetch `trustmrr.com/startup/<slug>` — Stripe-verified MRR, growth %, tech stack, traffic (24h/7d/30d)
    - For each competitor extract: name, URL, pricing, key features, weaknesses, verified MRR (if on TrustMRR)
 
-6. **User pain points** — use MCP web_search / WebSearch + YouTube:
+6. **User pain points** — use WebSearch (primary) + MCP web_search + YouTube:
    - MCP `engines: reddit` or WebSearch: `"<problem>"` — Reddit discussions (**max 3 keywords!**)
    - If Reddit post found but content not available → open via MCP Playwright: `browser_navigate("https://old.reddit.com/r/...")` — old.reddit.com bypasses CAPTCHA
    - MCP `engines: youtube` or WebSearch: `"<problem> review"` — video reviews
@@ -240,7 +240,7 @@ See `references/research-template.md` (bundled with this skill) for the full out
 
 ### Reddit Deep Dive
 
-1. **MCP web_search or WebSearch** — use for discovery (max 3 keywords for Reddit), get post URLs
+1. **WebSearch (primary) or MCP web_search** — use for discovery (max 3 keywords for Reddit), get post URLs
 2. **MCP Playwright** — open `old.reddit.com` URLs to read full post + comments (bypasses CAPTCHA)
 3. **Extract quotes** — copy key phrases with attribution (u/username, subreddit, date)
 4. **Cross-post detection** — same post in multiple subreddits = higher signal

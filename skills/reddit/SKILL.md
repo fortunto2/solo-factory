@@ -43,7 +43,7 @@ Reddit engagement automation — from finding relevant posts to writing authenti
 - `browser_wait_for(state)` — wait for page load
 
 ### Web search (optional)
-- `mcp__searxng__web_search(query)` (a local SearXNG) or WebSearch: find Reddit threads
+- WebSearch (primary) or `mcp__searxng__web_search(query)` (a local SearXNG, secondary, supports `engines: reddit`): find Reddit threads
 
 ### SoloGraph (optional, for context)
 - `kb_search(query)` — find project context

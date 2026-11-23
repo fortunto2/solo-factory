@@ -48,8 +48,8 @@ subagents are enough: the researchers do not need to talk to each other, the lea
 - Not found is a finding: say what was searched and that it came back empty.
 - No source, no claim. A guess is labelled as a guess.
 
-**Search backends**, in this order where available: MCP `web_search` (engine routing,
-`site:` filters), WebSearch (built in), MCP `web_extract` or WebFetch to read a page in full.
+**Search backends**, in this order where available: WebSearch (built in), MCP `web_search`
+(secondary: engine routing, `site:` filters, fallback when WebSearch is unavailable), MCP `web_extract` or WebFetch to read a page in full.
 Targeted: `site:reddit.com`, `site:news.ycombinator.com`, `site:github.com`, official docs.
 
 ## 3. Check before concluding
