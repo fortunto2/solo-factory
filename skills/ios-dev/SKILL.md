@@ -308,7 +308,61 @@ defaults can be worse than none (`openai-oxide` defaults to 600s). Set
 mobile network takes to forget an idle connection, and let retry treat a timeout
 as transient. Measured: 120s of nothing → 40s with an answer.
 
-## Debugging a stall on a real device (no screenshots there)
+## Driving a real iPhone: `iph` (iOS 27+) — a required step
+
+**After every install on a real phone, walk the changed flow on it with `iph`**
+before calling the change done or handing the build to a person. The simulator
+has no Vision, no speech, no real compositor and lies about availability; the
+phone does not, and until `iph` nobody could see or touch it from the agent.
+
+[`iph`](https://github.com/HyunSeob/iphone-cli) is one Rust binary, CLI and
+stdio MCP server at once: it reads the phone's accessibility tree and taps,
+swipes, types, launches apps, takes screenshots, records the screen and
+captures the syslog — over USB or Wi-Fi, with **no Xcode signing, no
+WebDriverAgent and nothing installed on the phone**. Output is JSON (`--human`
+for people). Exit codes: 0 ok, 1 nothing was sent, 2 outcome unknown.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/HyunSeob/iphone-cli/main/install.sh -o /tmp/iph-install.sh
+less /tmp/iph-install.sh && sh /tmp/iph-install.sh   # release tarball + sha256 → ~/.local/bin/iph
+iph devices --human                 # UDID, transport, iOS, readiness
+iph --udid <UDID> doctor --human    # pairing, developer mode, DDI, unlocked, tree, touch
+claude mcp add iphone -s user -- iph mcp   # the same commands as MCP tools
+```
+
+- **Requires iOS 27 or later** (README; one device verified upstream). On an
+  older iOS fall back to an XCUITest walk on the cabled phone and the app's own
+  status endpoint (next section).
+- **Several phones connected → always `--udid`** (or `IPH_UDID`); the default
+  is "the only connected iPhone" and a second phone makes it ambiguous.
+- Pair once over the cable; after that it found the phone over Wi-Fi by
+  itself. Set Auto-Lock → Never for long sessions: a locked phone stops both
+  reading and input.
+- Selectors are **an exact label only** (`iph tap 'label="Make it"'` or just
+  `iph tap "Make it"`); anything else (`BEGINSWITH`, `~`, `button:`) is taken as
+  a literal label, matches nothing and prints no ✓ — not an error. A label that
+  is a whole sentence ("Reels, Vertical, every frame…") is easier to hit by a
+  point: `iph tap 215,799` from the `read` frames (points, not pixels). Read
+  every answer for `✓ … screen_changed=true`; its absence means nothing happened.
+- **A point tap is blind: `read` before every one.** An app that restores its
+  last screen on launch puts different controls under the same coordinates —
+  four chained point taps walked a restored draft into the paywall and the last
+  one landed on "Get Pro" (a sandbox sheet, nothing charged, but on a release
+  build it is a real one). Never chain point taps without a `read` between them,
+  and never tap a point near a purchase or delete control unchecked.
+- Measured (iOS 27.2, iPhone 14 Pro Max, Wi-Fi): `read` 1.2 s, `screenshot`
+  2.5 s, `launch` 4.9 s, a tap that changes the screen 1.2–5.5 s (it waits for
+  the screen to settle; `--no-wait` reads once right after).
+- **The tree is a test oracle too**: the first walk found an `adjustable`
+  whose accessibility value read `"NaN"` — invisible on screen, read aloud by
+  VoiceOver. Read the values, not only the labels.
+- The tree shows whatever is on screen, including other apps' secrets (a
+  hotspot password in Settings). Never paste a raw `read` of a screen you did
+  not open into a log, an issue or a report.
+- `iph batch` (JSON steps) and `iph script` (JavaScript: `read()`, `tap()`,
+  `scroll()`) make a walk repeatable; save the walk next to the feature.
+
+## Debugging a stall on a real device below iOS 27 (no screenshots there)
 
 `idevicescreenshot` needs the developer disk image, and on a modern iOS it
 often refuses to mount — the same reason `xcodebuild -destination 'id=…'`

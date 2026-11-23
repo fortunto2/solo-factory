@@ -139,6 +139,18 @@ visual_testing:
     - "Build and install on iOS Simulator"
     - "Take screenshot after launch, verify main screen renders"
     - "Check simulator logs for crashes or assertion failures"
+device_testing:
+  required: true
+  tool: "iph — github:HyunSeob/iphone-cli (CLI + MCP; accessibility tree, tap, swipe, type, screenshot, record, syslog; no WDA, no signing)"
+  requires: "iOS 27+ on the phone; pair once over USB, then Wi-Fi works"
+  install: "curl -fsSL https://raw.githubusercontent.com/HyunSeob/iphone-cli/main/install.sh | sh  # read it first"
+  mcp: "claude mcp add iphone -s user -- iph mcp"
+  ready: "iph --udid <UDID> doctor --human"
+  checks:
+    - "After every device install: launch, walk the changed flow with iph read/tap, screenshot each step"
+    - "Read accessibility values, not only labels (NaN / empty values are bugs)"
+    - "Several phones connected: always pass --udid"
+  fallback_below_ios27: "XCUITest walk on the cabled phone + the app's own GET /status endpoint"
 notes: |
   - Prefer SwiftUI over UIKit for new views
   - Use async/await (Swift 6 strict concurrency)
